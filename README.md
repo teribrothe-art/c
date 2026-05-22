@@ -13,8 +13,8 @@ npm start
 `.env` 파일을 만든 뒤 Supabase 값을 입력합니다.
 
 ```sh
-EXPO_PUBLIC_SUPABASE_URL=여기에_Project_URL_붙여넣기
-EXPO_PUBLIC_SUPABASE_ANON_KEY=여기에_anon_key_붙여넣기
+EXPO_PUBLIC_SUPABASE_URL=여기에_입력
+EXPO_PUBLIC_SUPABASE_ANON_KEY=여기에_입력
 ```
 
 ## 사용 가능한 스크립트
