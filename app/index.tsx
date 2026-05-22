@@ -1,6 +1,7 @@
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -10,9 +11,45 @@ import {
   View,
 } from 'react-native';
 
-export default function HomeScreen() {
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
+
+export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleLogin = async () => {
+    const trimmedEmail = email.trim();
+
+    if (!isSupabaseConfigured || !supabase) {
+      Alert.alert('설정 필요', '.env 파일에 Supabase URL과 anon key를 입력해주세요.');
+      return;
+    }
+
+    if (!trimmedEmail || !password) {
+      Alert.alert('입력 필요', '이메일과 비밀번호를 모두 입력해주세요.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const { error } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      router.replace('/home');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '로그인 중 문제가 발생했습니다.';
+      Alert.alert('로그인 실패', message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -25,6 +62,7 @@ export default function HomeScreen() {
           <TextInput
             autoCapitalize="none"
             autoComplete="email"
+            editable={!isLoading}
             keyboardType="email-address"
             onChangeText={setEmail}
             placeholder="이메일"
@@ -34,6 +72,7 @@ export default function HomeScreen() {
           />
           <TextInput
             autoCapitalize="none"
+            editable={!isLoading}
             onChangeText={setPassword}
             placeholder="비밀번호"
             placeholderTextColor="#A0A0A0"
@@ -42,13 +81,19 @@ export default function HomeScreen() {
             value={password}
           />
 
-          <Pressable style={styles.loginButton}>
-            <Text style={styles.loginButtonText}>로그인</Text>
+          <Pressable
+            disabled={isLoading}
+            onPress={handleLogin}
+            style={({ pressed }) => [
+              styles.loginButton,
+              (pressed || isLoading) && styles.loginButtonPressed,
+            ]}>
+            <Text style={styles.loginButtonText}>{isLoading ? '로그인 중...' : '로그인'}</Text>
           </Pressable>
         </View>
 
         <Link href="/signup" asChild>
-          <Pressable style={styles.signupLink}>
+          <Pressable disabled={isLoading} style={styles.signupLink}>
             <Text style={styles.signupLinkText}>회원가입</Text>
           </Pressable>
         </Link>
@@ -97,6 +142,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF5A5F',
     marginTop: 8,
     paddingVertical: 16,
+  },
+  loginButtonPressed: {
+    opacity: 0.75,
   },
   loginButtonText: {
     color: '#FFFFFF',
