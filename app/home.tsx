@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
@@ -9,27 +9,29 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
-  const loadUser = useCallback(async () => {
+  useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
       Alert.alert('설정 필요', '.env 파일에 Supabase URL과 anon key를 입력해주세요.');
       router.replace('/');
       return;
     }
 
-    const { data, error } = await supabase.auth.getUser();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) {
+        router.replace('/');
+        return;
+      }
 
-    if (error || !data.user) {
-      router.replace('/');
-      return;
-    }
+      setEmail(session.user.email ?? '이메일 정보 없음');
+      setIsLoading(false);
+    });
 
-    setEmail(data.user.email ?? '이메일 정보 없음');
-    setIsLoading(false);
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
-
-  useEffect(() => {
-    loadUser();
-  }, [loadUser]);
 
   const handleLogout = async () => {
     if (!supabase) {
