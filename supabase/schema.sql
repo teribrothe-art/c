@@ -43,6 +43,10 @@ create table if not exists public.treatments (
   products text[],
   damage_level integer check (damage_level between 1 and 10),
   notes text,
+  duration text,
+  designer_diagnosis text,
+  home_care text,
+  ai_insight text,
   created_at timestamptz default now()
 );
 
@@ -66,3 +70,11 @@ create policy "본인 시술 수정"
   for update
   using (auth.uid() = customer_id or auth.uid() = designer_id)
   with check (auth.uid() = customer_id or auth.uid() = designer_id);
+
+
+-- Day 5+ 시술 기록 상세 컬럼
+alter table public.treatments
+  add column if not exists duration text,
+  add column if not exists designer_diagnosis text,
+  add column if not exists home_care text,
+  add column if not exists ai_insight text;
