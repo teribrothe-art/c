@@ -34,9 +34,13 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 npx expo start --tunnel --clear
 ```
 
-회원가입 후 역할 정보를 저장하려면 Supabase SQL Editor에서 `supabase/schema.sql` 내용을 먼저 실행해 `profiles` 테이블과 RLS 정책을 만들어야 합니다.
+회원가입 후 역할 정보와 시술 타임라인을 저장하려면 Supabase SQL Editor에서 `supabase/schema.sql` 내용을 먼저 실행해 `profiles`, `treatments` 테이블과 RLS 정책을 만들어야 합니다.
 
 자동 로그인까지 바로 테스트하려면 Supabase Dashboard의 Authentication 설정에서 이메일 확인이 꺼져 있어야 합니다. 이메일 확인이 켜져 있으면 가입 후 이메일 인증을 먼저 해야 로그인할 수 있습니다.
+
+## 다이어리 타임라인
+
+홈 화면(`/home`)은 Supabase의 `treatments` 테이블에서 본인 시술 기록을 최신순으로 불러옵니다. Supabase 설정 전에는 데모 시술 카드가 표시됩니다.
 
 ## 사용 가능한 스크립트
 

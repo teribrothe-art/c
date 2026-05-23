@@ -183,6 +183,23 @@ export async function signInWithEmail({ email, password }: LoginInput) {
   return toAuthUser(user);
 }
 
+export async function getCurrentUser() {
+  if (!isDemoAuthMode && supabase) {
+    const { data, error } = await supabase.auth.getUser();
+
+    if (error || !data.user) {
+      return null;
+    }
+
+    return {
+      id: data.user.id,
+      email: data.user.email ?? '이메일 정보 없음',
+    };
+  }
+
+  return getDemoCurrentUser();
+}
+
 export async function signOut() {
   if (!isDemoAuthMode && supabase) {
     const { error } = await supabase.auth.signOut();
