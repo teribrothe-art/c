@@ -6,6 +6,7 @@ export type Treatment = {
   customer_id?: string;
   designer_id?: string | null;
   designer_name: string | null;
+  customer_name?: string | null;
   treatment_date: string;
   treatment_type: string;
   treatment_title: string;
@@ -16,16 +17,20 @@ export type Treatment = {
   designer_diagnosis?: string | null;
   home_care?: string | null;
   ai_insight?: string | null;
+  price?: number | null;
+  payment_status?: 'pending' | 'feedback_required' | 'completed' | null;
+  feedback_completed?: boolean | null;
   created_at?: string | null;
 };
 
 const treatmentSelectFields =
-  'id, customer_id, designer_id, designer_name, treatment_date, treatment_type, treatment_title, products, damage_level, notes, duration, designer_diagnosis, home_care, ai_insight, created_at';
+  'id, customer_id, designer_id, designer_name, customer_name, treatment_date, treatment_type, treatment_title, products, damage_level, notes, duration, designer_diagnosis, home_care, ai_insight, price, payment_status, feedback_completed, created_at';
 
 const demoTreatments: Treatment[] = [
   {
     id: 'demo-treatment-1',
     designer_name: '김미용 디자이너',
+    customer_name: '홍고객',
     treatment_date: '2026-04-18',
     treatment_type: '탈색',
     treatment_title: '탈색 + 애쉬블루 토닝',
@@ -35,10 +40,14 @@ const demoTreatments: Treatment[] = [
     designer_diagnosis: '손상도 7/10. 한 달간 매직스트레이트 금지. 산성 샴푸 권장.',
     home_care: '주 2회 헤어 마스크. 드라이 온도 낮게.',
     ai_insight: '다음 시술은 6주 후 권장. 모이스처 트리트먼트 우선.',
+    price: 180000,
+    payment_status: 'pending',
+    feedback_completed: false,
   },
   {
     id: 'demo-treatment-2',
     designer_name: '박정수 디자이너',
+    customer_name: '홍고객',
     treatment_date: '2026-03-05',
     treatment_type: '커트',
     treatment_title: '레이어드 컷 + 트리트먼트',
@@ -48,10 +57,14 @@ const demoTreatments: Treatment[] = [
     designer_diagnosis: '모발 상태 양호. 정기 관리 잘 되고 있음.',
     home_care: '평소 사용 샴푸 유지. 3개월 후 트리트먼트 권장.',
     ai_insight: '컷 주기 6-8주 유지 권장.',
+    price: 65000,
+    payment_status: 'completed',
+    feedback_completed: true,
   },
   {
     id: 'demo-treatment-3',
     designer_name: '김미용 디자이너',
+    customer_name: '홍고객',
     treatment_date: '2026-01-22',
     treatment_type: '컬러',
     treatment_title: '애쉬그레이 풀 컬러',
@@ -61,6 +74,9 @@ const demoTreatments: Treatment[] = [
     designer_diagnosis: '컬러 시술 후 큐티클 손상. 단백질 보충 필요.',
     home_care: '단백질 트리트먼트 주 1회. 열기구 사용 자제.',
     ai_insight: '컬러 유지 위해 4주 후 토닝 권장.',
+    price: 140000,
+    payment_status: 'feedback_required',
+    feedback_completed: false,
   },
 ];
 

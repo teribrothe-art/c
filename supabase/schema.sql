@@ -37,6 +37,7 @@ create table if not exists public.treatments (
   customer_id uuid not null references public.profiles(id) on delete cascade,
   designer_id uuid references public.profiles(id),
   designer_name text,
+  customer_name text,
   treatment_date date not null,
   treatment_type text not null,
   treatment_title text not null,
@@ -47,6 +48,9 @@ create table if not exists public.treatments (
   designer_diagnosis text,
   home_care text,
   ai_insight text,
+  price integer,
+  payment_status text default 'pending' check (payment_status in ('pending', 'feedback_required', 'completed')),
+  feedback_completed boolean default false,
   created_at timestamptz default now()
 );
 
@@ -78,3 +82,11 @@ alter table public.treatments
   add column if not exists designer_diagnosis text,
   add column if not exists home_care text,
   add column if not exists ai_insight text;
+
+
+-- 정산 관련 컬럼
+alter table public.treatments
+  add column if not exists customer_name text,
+  add column if not exists price integer,
+  add column if not exists payment_status text default 'pending' check (payment_status in ('pending', 'feedback_required', 'completed')),
+  add column if not exists feedback_completed boolean default false;
