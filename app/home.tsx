@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BottomTabBar } from '@/components/bottom-tab-bar';
+import { BottomTabBar } from '../src/components/bottom-tab-bar';
 import { getTreatments, Treatment } from '../lib/treatments';
 
 type FilterKey = '전체' | '컷' | '컬러' | '펌';

@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BottomTabBar } from '@/components/bottom-tab-bar';
+import { BottomTabBar } from '../src/components/bottom-tab-bar';
 
 export default function AnalysisScreen() {
   const insets = useSafeAreaInsets();
