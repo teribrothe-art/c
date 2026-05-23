@@ -1,4 +1,4 @@
-import { router, useRouter } from 'expo-router';
+import { Href, router, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -93,7 +93,7 @@ export default function DiaryHomeScreen() {
         }
 
         if (user.role === 'designer') {
-          router.replace('/designer/clients');
+          router.replace('/designer/clients' as Href);
           return;
         }
 
