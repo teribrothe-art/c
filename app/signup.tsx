@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 
-import { isDemoAuthMode, signUpWithEmail, UserRole } from '../lib/auth';
+import { signUpWithEmail, UserRole } from '../lib/auth';
 
 const roles: { label: string; value: UserRole }[] = [
   { label: '고객', value: 'customer' },
@@ -72,8 +72,6 @@ export default function SignupScreen() {
         showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>회원가입</Text>
         <Text style={styles.subtitle}>AI 헤어 다이어리를 시작해보세요.</Text>
-        {isDemoAuthMode && <Text style={styles.demoNotice}>Supabase 설정 전에는 데모 모드로 가입됩니다.</Text>}
-
         <View style={styles.form}>
           <TextInput
             autoCapitalize="none"
@@ -177,14 +175,8 @@ const styles = StyleSheet.create({
   subtitle: {
     color: '#777777',
     fontSize: 16,
+    marginBottom: 40,
     marginTop: 10,
-    textAlign: 'center',
-  },
-  demoNotice: {
-    color: '#999999',
-    fontSize: 13,
-    marginBottom: 28,
-    marginTop: 8,
     textAlign: 'center',
   },
   form: {

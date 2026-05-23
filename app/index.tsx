@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 
-import { isDemoAuthMode, signInWithEmail } from '../lib/auth';
+import { signInWithEmail } from '../lib/auth';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -44,8 +44,6 @@ export default function LoginScreen() {
       style={styles.container}>
       <View style={styles.content}>
         <Text style={styles.title}>AI 헤어 다이어리</Text>
-        {isDemoAuthMode && <Text style={styles.demoNotice}>데모 모드로 실행 중입니다.</Text>}
-
         <View style={styles.form}>
           <TextInput
             autoCapitalize="none"
@@ -105,13 +103,7 @@ const styles = StyleSheet.create({
     color: '#FF5A5F',
     fontSize: 36,
     fontWeight: 'bold',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  demoNotice: {
-    color: '#777777',
-    fontSize: 14,
-    marginBottom: 32,
+    marginBottom: 56,
     textAlign: 'center',
   },
   form: {

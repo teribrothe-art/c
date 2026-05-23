@@ -19,9 +19,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=여기에_입력
 
 ## Supabase 설정
 
-Supabase 값이 placeholder인 상태에서는 앱이 자동으로 로컬 데모 모드로 동작합니다. 스마트폰에서 회원가입/로그인 UI 흐름을 바로 확인할 수 있지만, 데이터는 기기 로컬 저장소에만 저장됩니다.
-
-실제 Supabase Auth와 profiles 테이블을 사용하려면 `.env`의 placeholder 값을 실제 Supabase 값으로 바꿔야 합니다.
+Supabase 값이 placeholder인 상태에서는 앱이 로컬 저장소를 사용해 회원가입/로그인 흐름을 바로 확인할 수 있습니다. 실제 Supabase Auth와 profiles 테이블을 사용하려면 `.env`의 placeholder 값을 실제 Supabase 값으로 바꿔야 합니다.
 
 ```sh
 EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
@@ -40,7 +38,7 @@ npx expo start --tunnel --clear
 
 ## 다이어리 타임라인
 
-홈 화면(`/home`)은 Supabase의 `treatments` 테이블에서 본인 시술 기록을 최신순으로 불러옵니다. Supabase 설정 전에는 데모 시술 카드가 표시됩니다.
+홈 화면(`/home`)은 Supabase의 `treatments` 테이블에서 본인 시술 기록을 최신순으로 불러옵니다. Supabase 설정 전에는 로컬 확인용 시술 카드가 표시됩니다.
 
 ## 사용 가능한 스크립트
 
