@@ -42,6 +42,7 @@ create table if not exists public.treatments (
   treatment_type text not null,
   treatment_title text not null,
   products text[],
+  technique text,
   damage_level integer check (damage_level between 1 and 10),
   notes text,
   duration text,
@@ -90,3 +91,8 @@ alter table public.treatments
   add column if not exists price integer,
   add column if not exists payment_status text default 'pending' check (payment_status in ('pending', 'feedback_required', 'completed')),
   add column if not exists feedback_completed boolean default false;
+
+
+-- 디자이너 시술 입력 컬럼
+alter table public.treatments
+  add column if not exists technique text;

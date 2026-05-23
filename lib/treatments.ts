@@ -11,6 +11,7 @@ export type Treatment = {
   treatment_type: string;
   treatment_title: string;
   products: string[] | null;
+  technique?: string | null;
   damage_level: number | null;
   notes?: string | null;
   duration?: string | null;
@@ -24,7 +25,7 @@ export type Treatment = {
 };
 
 const treatmentSelectFields =
-  'id, customer_id, designer_id, designer_name, customer_name, treatment_date, treatment_type, treatment_title, products, damage_level, notes, duration, designer_diagnosis, home_care, ai_insight, price, payment_status, feedback_completed, created_at';
+  'id, customer_id, designer_id, designer_name, customer_name, treatment_date, treatment_type, treatment_title, products, technique, damage_level, notes, duration, designer_diagnosis, home_care, ai_insight, price, payment_status, feedback_completed, created_at';
 
 const demoTreatments: Treatment[] = [
   {
@@ -189,4 +190,49 @@ export async function getDesignerTreatments() {
   }
 
   return { user, treatments: (data ?? []) as Treatment[] };
+}
+
+
+type TreatmentUpdateInput = Partial<
+  Pick<
+    Treatment,
+    'technique' | 'designer_diagnosis' | 'home_care' | 'feedback_completed' | 'payment_status'
+  >
+>;
+
+export async function updateTreatment(id: string, updates: TreatmentUpdateInput) {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    throw new Error('로그인이 필요합니다.');
+  }
+
+  if (isDemoAuthMode || !supabase) {
+    const index = demoTreatments.findIndex((treatment) => treatment.id === id);
+
+    if (index < 0) {
+      throw new Error('시술 기록을 찾을 수 없습니다.');
+    }
+
+    demoTreatments[index] = {
+      ...demoTreatments[index],
+      ...updates,
+    };
+
+    return demoTreatments[index];
+  }
+
+  const { data, error } = await supabase
+    .from('treatments')
+    .update(updates)
+    .eq('id', id)
+    .eq('designer_id', user.id)
+    .select(treatmentSelectFields)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as Treatment;
 }

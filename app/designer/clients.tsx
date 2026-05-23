@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -44,11 +44,11 @@ function getStatusMeta(status?: PaymentStatus | null) {
   return { label: '결제 대기', style: styles.pendingBadge, textStyle: styles.pendingBadgeText };
 }
 
-function ClientTreatmentCard({ treatment }: { treatment: Treatment }) {
+function ClientTreatmentCard({ onPress, treatment }: { onPress: () => void; treatment: Treatment }) {
   const status = getStatusMeta(treatment.payment_status);
 
   return (
-    <View style={styles.clientCard}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.clientCard, pressed && styles.clientCardPressed]}>
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>{getInitial(treatment.customer_name)}</Text>
       </View>
@@ -67,12 +67,13 @@ function ClientTreatmentCard({ treatment }: { treatment: Treatment }) {
           <Text style={styles.priceText}>{treatment.price.toLocaleString('ko-KR')}원</Text>
         )}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
 export default function DesignerClientsScreen() {
   const insets = useSafeAreaInsets();
+  const detailRouter = useRouter();
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -171,7 +172,11 @@ export default function DesignerClientsScreen() {
         ) : (
           <View style={styles.list}>
             {treatments.map((treatment) => (
-              <ClientTreatmentCard key={treatment.id} treatment={treatment} />
+              <ClientTreatmentCard
+                key={treatment.id}
+                onPress={() => detailRouter.push(`/designer/treatment/${treatment.id}`)}
+                treatment={treatment}
+              />
             ))}
           </View>
         )}
@@ -263,6 +268,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 18,
     elevation: 4,
+  },
+  clientCardPressed: {
+    opacity: 0.82,
   },
   avatar: {
     alignItems: 'center',
