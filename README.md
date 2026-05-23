@@ -17,6 +17,25 @@ EXPO_PUBLIC_SUPABASE_URL=여기에_입력
 EXPO_PUBLIC_SUPABASE_ANON_KEY=여기에_입력
 ```
 
+## Supabase 설정
+
+회원가입/로그인을 테스트하려면 `.env`의 placeholder 값을 실제 Supabase 값으로 바꿔야 합니다.
+
+```sh
+EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+```
+
+값을 바꾼 뒤 Expo 서버를 다시 시작합니다.
+
+```sh
+npx expo start --tunnel --clear
+```
+
+회원가입 후 역할 정보를 저장하려면 Supabase SQL Editor에서 `supabase/schema.sql` 내용을 먼저 실행해 `profiles` 테이블과 RLS 정책을 만들어야 합니다.
+
+자동 로그인까지 바로 테스트하려면 Supabase Dashboard의 Authentication 설정에서 이메일 확인이 꺼져 있어야 합니다. 이메일 확인이 켜져 있으면 가입 후 이메일 인증을 먼저 해야 로그인할 수 있습니다.
+
 ## 사용 가능한 스크립트
 
 - `npm start`: Expo 개발 서버 실행
