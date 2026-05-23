@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -42,9 +42,9 @@ function matchesFilter(treatmentType: string, selectedFilter: FilterKey) {
   return treatmentType.includes('펌') || treatmentType.includes('파마');
 }
 
-function TreatmentCard({ treatment }: { treatment: Treatment }) {
+function TreatmentCard({ onPress, treatment }: { onPress: () => void; treatment: Treatment }) {
   return (
-    <View style={styles.card}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
       <Text style={styles.cardMeta}>
         {formatDate(treatment.treatment_date)} {treatment.designer_name ?? '담당 디자이너'}
       </Text>
@@ -64,12 +64,13 @@ function TreatmentCard({ treatment }: { treatment: Treatment }) {
           </View>
         )}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
 export default function DiaryHomeScreen() {
   const insets = useSafeAreaInsets();
+  const detailRouter = useRouter();
   const [selectedFilter, setSelectedFilter] = useState<FilterKey>('전체');
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -169,7 +170,16 @@ export default function DiaryHomeScreen() {
         ) : (
           <View style={styles.timeline}>
             {filteredTreatments.map((treatment) => (
-              <TreatmentCard key={treatment.id} treatment={treatment} />
+              <TreatmentCard
+                key={treatment.id}
+                onPress={() =>
+                  detailRouter.push({
+                    pathname: '/treatment/[id]',
+                    params: { id: treatment.id },
+                  })
+                }
+                treatment={treatment}
+              />
             ))}
           </View>
         )}
@@ -246,6 +256,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 18,
     elevation: 4,
+  },
+  cardPressed: {
+    opacity: 0.82,
   },
   cardMeta: {
     color: '#6B6B7B',

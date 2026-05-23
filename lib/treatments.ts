@@ -19,6 +19,9 @@ export type Treatment = {
   created_at?: string | null;
 };
 
+const treatmentSelectFields =
+  'id, customer_id, designer_id, designer_name, treatment_date, treatment_type, treatment_title, products, damage_level, notes, duration, designer_diagnosis, home_care, ai_insight, created_at';
+
 const demoTreatments: Treatment[] = [
   {
     id: 'demo-treatment-1',
@@ -74,9 +77,7 @@ export async function getTreatments() {
 
   const { data, error } = await supabase
     .from('treatments')
-    .select(
-      'id, customer_id, designer_id, designer_name, treatment_date, treatment_type, treatment_title, products, damage_level, notes, duration, designer_diagnosis, home_care, ai_insight, created_at',
-    )
+    .select(treatmentSelectFields)
     .or(`customer_id.eq.${user.id},designer_id.eq.${user.id}`)
     .order('treatment_date', { ascending: false });
 
@@ -85,4 +86,32 @@ export async function getTreatments() {
   }
 
   return { user, treatments: (data ?? []) as Treatment[] };
+}
+
+
+export async function getTreatmentById(id: string) {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return { user: null, treatment: null as Treatment | null };
+  }
+
+  if (isDemoAuthMode || !supabase) {
+    return {
+      user,
+      treatment: demoTreatments.find((treatment) => treatment.id === id) ?? null,
+    };
+  }
+
+  const { data, error } = await supabase
+    .from('treatments')
+    .select(treatmentSelectFields)
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return { user, treatment: data as Treatment | null };
 }
