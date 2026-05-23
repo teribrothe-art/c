@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 
-import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { isDemoAuthMode, signInWithEmail } from '../lib/auth';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -21,11 +21,6 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     const trimmedEmail = email.trim();
 
-    if (!isSupabaseConfigured || !supabase) {
-      Alert.alert('설정 필요', '.env 파일에 Supabase URL과 anon key를 입력해주세요.');
-      return;
-    }
-
     if (!trimmedEmail || !password) {
       Alert.alert('입력 필요', '이메일과 비밀번호를 모두 입력해주세요.');
       return;
@@ -33,15 +28,7 @@ export default function LoginScreen() {
 
     try {
       setIsLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({
-        email: trimmedEmail,
-        password,
-      });
-
-      if (error) {
-        throw error;
-      }
-
+      await signInWithEmail({ email: trimmedEmail, password });
       router.replace('/home');
     } catch (error) {
       const message = error instanceof Error ? error.message : '로그인 중 문제가 발생했습니다.';
@@ -57,6 +44,7 @@ export default function LoginScreen() {
       style={styles.container}>
       <View style={styles.content}>
         <Text style={styles.title}>AI 헤어 다이어리</Text>
+        {isDemoAuthMode && <Text style={styles.demoNotice}>데모 모드로 실행 중입니다.</Text>}
 
         <View style={styles.form}>
           <TextInput
@@ -117,7 +105,13 @@ const styles = StyleSheet.create({
     color: '#FF5A5F',
     fontSize: 36,
     fontWeight: 'bold',
-    marginBottom: 56,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  demoNotice: {
+    color: '#777777',
+    fontSize: 14,
+    marginBottom: 32,
     textAlign: 'center',
   },
   form: {

@@ -12,11 +12,9 @@ import {
   View,
 } from 'react-native';
 
-import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { isDemoAuthMode, signUpWithEmail, UserRole } from '../lib/auth';
 
-type Role = 'customer' | 'designer';
-
-const roles: { label: string; value: Role }[] = [
+const roles: { label: string; value: UserRole }[] = [
   { label: '고객', value: 'customer' },
   { label: '디자이너', value: 'designer' },
 ];
@@ -26,17 +24,11 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<Role>('customer');
+  const [role, setRole] = useState<UserRole>('customer');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSignup = async () => {
     const trimmedEmail = email.trim();
-    const trimmedName = name.trim();
-
-    if (!isSupabaseConfigured || !supabase) {
-      Alert.alert('설정 필요', '.env 파일에 Supabase URL과 anon key를 입력해주세요.');
-      return;
-    }
 
     if (!trimmedEmail || !password || !passwordConfirm) {
       Alert.alert('입력 필요', '이메일, 비밀번호, 비밀번호 확인을 모두 입력해주세요.');
@@ -55,56 +47,12 @@ export default function SignupScreen() {
 
     try {
       setIsLoading(true);
-
-      const { data: signupData, error: signupError } = await supabase.auth.signUp({
+      await signUpWithEmail({
         email: trimmedEmail,
         password,
-        options: {
-          data: {
-            name: trimmedName || null,
-            role,
-          },
-        },
+        name,
+        role,
       });
-
-      if (signupError) {
-        throw signupError;
-      }
-
-      let user = signupData.user;
-
-      if (!signupData.session) {
-        const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
-          email: trimmedEmail,
-          password,
-        });
-
-        if (loginError) {
-          throw loginError;
-        }
-
-        user = loginData.user ?? user;
-      }
-
-      if (!user) {
-        throw new Error('가입한 사용자 정보를 확인할 수 없습니다.');
-      }
-
-      const { error: profileError } = await supabase.from('profiles').upsert(
-        {
-          id: user.id,
-          email: user.email ?? trimmedEmail,
-          name: trimmedName || null,
-          role,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'id' },
-      );
-
-      if (profileError) {
-        throw profileError;
-      }
-
       router.replace('/home');
     } catch (error) {
       const message = error instanceof Error ? error.message : '회원가입 중 문제가 발생했습니다.';
@@ -124,6 +72,7 @@ export default function SignupScreen() {
         showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>회원가입</Text>
         <Text style={styles.subtitle}>AI 헤어 다이어리를 시작해보세요.</Text>
+        {isDemoAuthMode && <Text style={styles.demoNotice}>Supabase 설정 전에는 데모 모드로 가입됩니다.</Text>}
 
         <View style={styles.form}>
           <TextInput
@@ -228,8 +177,14 @@ const styles = StyleSheet.create({
   subtitle: {
     color: '#777777',
     fontSize: 16,
-    marginBottom: 40,
     marginTop: 10,
+    textAlign: 'center',
+  },
+  demoNotice: {
+    color: '#999999',
+    fontSize: 13,
+    marginBottom: 28,
+    marginTop: 8,
     textAlign: 'center',
   },
   form: {

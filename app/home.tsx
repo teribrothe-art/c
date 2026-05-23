@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { isDemoAuthMode, signOut, subscribeToAuthState } from '../lib/auth';
 
 export default function HomeScreen() {
   const [email, setEmail] = useState('');
@@ -10,47 +10,22 @@ export default function HomeScreen() {
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) {
-      Alert.alert('설정 필요', '.env 파일에 Supabase URL과 anon key를 입력해주세요.');
-      router.replace('/');
-      return;
-    }
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session?.user) {
+    return subscribeToAuthState((user) => {
+      if (!user) {
         router.replace('/');
         return;
       }
 
-      setEmail(session.user.email ?? '이메일 정보 없음');
+      setEmail(user.email);
       setIsLoading(false);
     });
-
-    return () => {
-      subscription.unsubscribe();
-    };
   }, []);
 
   const handleLogout = async () => {
-    if (!supabase) {
-      router.replace('/');
-      return;
-    }
-
     try {
       setIsSigningOut(true);
-      const { error } = await supabase.auth.signOut();
-
-      if (error) {
-        throw error;
-      }
-
+      await signOut();
       router.replace('/');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '로그아웃 중 문제가 발생했습니다.';
-      Alert.alert('로그아웃 실패', message);
     } finally {
       setIsSigningOut(false);
     }
@@ -60,6 +35,7 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <View style={styles.card}>
         <Text style={styles.title}>환영합니다!</Text>
+        {isDemoAuthMode && <Text style={styles.demoNotice}>데모 모드 로그인입니다.</Text>}
         <Text style={styles.label}>로그인한 사용자</Text>
         <Text style={styles.email}>{isLoading ? '불러오는 중...' : email}</Text>
 
@@ -99,7 +75,12 @@ const styles = StyleSheet.create({
     color: '#FF5A5F',
     fontSize: 34,
     fontWeight: 'bold',
-    marginBottom: 24,
+    marginBottom: 10,
+  },
+  demoNotice: {
+    color: '#999999',
+    fontSize: 13,
+    marginBottom: 20,
   },
   label: {
     color: '#777777',
