@@ -92,6 +92,11 @@ export default function DiaryHomeScreen() {
           return;
         }
 
+        if (user.role === 'designer') {
+          router.replace('/designer/clients');
+          return;
+        }
+
         setTreatments(nextTreatments);
         setErrorMessage('');
       })

@@ -29,6 +29,8 @@ const treatmentSelectFields =
 const demoTreatments: Treatment[] = [
   {
     id: 'demo-treatment-1',
+    customer_id: 'demo-customer-kim-jiwon',
+    designer_id: 'demo-designer-local',
     designer_name: '김미용 디자이너',
     customer_name: '김지원',
     treatment_date: '2026-04-18',
@@ -46,6 +48,8 @@ const demoTreatments: Treatment[] = [
   },
   {
     id: 'demo-treatment-2',
+    customer_id: 'demo-customer-kim-jiwon',
+    designer_id: 'demo-designer-local',
     designer_name: '박정수 디자이너',
     customer_name: '김지원',
     treatment_date: '2026-03-05',
@@ -63,6 +67,8 @@ const demoTreatments: Treatment[] = [
   },
   {
     id: 'demo-treatment-3',
+    customer_id: 'demo-customer-kim-jiwon',
+    designer_id: 'demo-designer-local',
     designer_name: '김미용 디자이너',
     customer_name: '김지원',
     treatment_date: '2026-01-22',
@@ -80,6 +86,8 @@ const demoTreatments: Treatment[] = [
   },
   {
     id: 'demo-treatment-4',
+    customer_id: 'demo-customer-park-minji',
+    designer_id: 'demo-designer-local',
     designer_name: '디자이너',
     customer_name: '박민지',
     treatment_date: '2026-04-10',
@@ -147,4 +155,38 @@ export async function getTreatmentById(id: string) {
   }
 
   return { user, treatment: data as Treatment | null };
+}
+
+
+export async function getDesignerTreatments() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return { user: null, treatments: [] as Treatment[] };
+  }
+
+  if (user.role !== 'designer') {
+    return { user, treatments: [] as Treatment[] };
+  }
+
+  if (isDemoAuthMode || !supabase) {
+    return {
+      user,
+      treatments: demoTreatments
+        .map((treatment) => ({ ...treatment, designer_id: user.id }))
+        .sort((a, b) => b.treatment_date.localeCompare(a.treatment_date)),
+    };
+  }
+
+  const { data, error } = await supabase
+    .from('treatments')
+    .select(treatmentSelectFields)
+    .eq('designer_id', user.id)
+    .order('treatment_date', { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return { user, treatments: (data ?? []) as Treatment[] };
 }

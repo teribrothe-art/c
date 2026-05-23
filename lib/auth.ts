@@ -7,6 +7,7 @@ export type UserRole = 'customer' | 'designer';
 export type AuthUser = {
   id: string;
   email: string;
+  role?: UserRole | null;
 };
 
 type DemoUser = AuthUser & {
@@ -42,6 +43,7 @@ function toAuthUser(user: DemoUser): AuthUser {
   return {
     id: user.id,
     email: user.email,
+    role: user.role,
   };
 }
 
@@ -125,6 +127,7 @@ export async function signUpWithEmail({ email, password, name, role }: SignupInp
     return {
       id: user.id,
       email: user.email ?? normalizedEmail,
+      role,
     };
   }
 
@@ -178,9 +181,16 @@ export async function signInWithEmail({ email, password }: LoginInput) {
       throw new Error('로그인한 사용자 정보를 확인할 수 없습니다.');
     }
 
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', data.user.id)
+      .maybeSingle();
+
     return {
       id: data.user.id,
       email: data.user.email ?? normalizedEmail,
+      role: profile?.role as UserRole | null | undefined,
     };
   }
 
@@ -203,9 +213,16 @@ export async function getCurrentUser() {
       return null;
     }
 
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', data.user.id)
+      .maybeSingle();
+
     return {
       id: data.user.id,
       email: data.user.email ?? '이메일 정보 없음',
+      role: profile?.role as UserRole | null | undefined,
     };
   }
 
@@ -257,4 +274,10 @@ export function subscribeToAuthState(listener: AuthStateListener) {
   return () => {
     isSubscribed = false;
   };
+}
+
+
+export async function getCurrentUserRole() {
+  const user = await getCurrentUser();
+  return user?.role ?? null;
 }
