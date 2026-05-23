@@ -1,7 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { ReactNode } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
