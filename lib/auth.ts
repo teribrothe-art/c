@@ -129,10 +129,22 @@ export async function signUpWithEmail({ email, password, name, role }: SignupInp
   }
 
   const users = await getDemoUsers();
-  const existingUser = users.find((item) => item.email === normalizedEmail);
+  const existingUserIndex = users.findIndex((item) => item.email === normalizedEmail);
 
-  if (existingUser) {
-    throw new Error('이미 가입된 이메일입니다.');
+  if (existingUserIndex >= 0) {
+    const updatedUser: DemoUser = {
+      ...users[existingUserIndex],
+      name: trimmedName,
+      password,
+      role,
+    };
+    const nextUsers = [...users];
+    nextUsers[existingUserIndex] = updatedUser;
+
+    await saveDemoUsers(nextUsers);
+    await AsyncStorage.setItem(DEMO_SESSION_KEY, updatedUser.id);
+
+    return toAuthUser(updatedUser);
   }
 
   const newUser: DemoUser = {
