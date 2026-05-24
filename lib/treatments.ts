@@ -21,11 +21,13 @@ export type Treatment = {
   price?: number | null;
   payment_status?: 'pending' | 'feedback_required' | 'completed' | null;
   feedback_completed?: boolean | null;
+  before_photo_url?: string | null;
+  after_photo_url?: string | null;
   created_at?: string | null;
 };
 
 const treatmentSelectFields =
-  'id, customer_id, designer_id, designer_name, customer_name, treatment_date, treatment_type, treatment_title, products, technique, damage_level, notes, duration, designer_diagnosis, home_care, ai_insight, price, payment_status, feedback_completed, created_at';
+  'id, customer_id, designer_id, designer_name, customer_name, treatment_date, treatment_type, treatment_title, products, technique, damage_level, notes, duration, designer_diagnosis, home_care, ai_insight, price, payment_status, feedback_completed, before_photo_url, after_photo_url, created_at';
 
 const demoTreatments: Treatment[] = [
   {
