@@ -139,16 +139,10 @@ export default function TreatmentDetailScreen() {
               <InfoRow label="시간" value={treatment.duration} />
             </SectionCard>
 
-            <SectionCard title="사용 약품">
-              {(treatment.products ?? []).length > 0 ? (
-                treatment.products?.map((product) => (
-                  <Text key={product} style={styles.bulletText}>
-                    • {product}
-                  </Text>
-                ))
-              ) : (
-                <Text style={styles.bodyText}>사용 약품 정보가 없습니다.</Text>
-              )}
+            <SectionCard title="내가 받은 시술">
+              <InfoRow label="시술 종류" value={treatment.treatment_type} />
+              <InfoRow label="시술 소요 시간" value={treatment.duration} />
+              <InfoRow label="디자이너 이름" value={treatment.designer_name} />
             </SectionCard>
 
             <SectionCard title="디자이너 진단" variant="purple">
@@ -162,6 +156,10 @@ export default function TreatmentDetailScreen() {
             <SectionCard title="AI 인사이트" variant="mint">
               <Text style={styles.bodyText}>{treatment.ai_insight || 'AI 인사이트가 없습니다.'}</Text>
             </SectionCard>
+
+            <Text style={styles.footerNotice}>
+              * 사용 약품 등 시술 세부사항은 디자이너의 전문 정보입니다.
+            </Text>
           </>
         )}
       </ScrollView>
@@ -263,12 +261,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 23,
   },
-  bulletText: {
-    color: '#1A1A2E',
-    fontSize: 16,
-    fontWeight: '600',
-    lineHeight: 26,
-  },
   bodyText: {
     color: '#1A1A2E',
     fontSize: 15,
@@ -306,6 +298,15 @@ const styles = StyleSheet.create({
     color: '#6B6B7B',
     fontSize: 14,
     lineHeight: 20,
+    textAlign: 'center',
+  },
+  footerNotice: {
+    color: '#9B9BA7',
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 18,
+    marginTop: 4,
+    paddingHorizontal: 4,
     textAlign: 'center',
   },
 });
