@@ -139,9 +139,9 @@ export default function DiaryHomeScreen() {
         {pendingPayments.length > 0 ? (
           <Pressable
             style={styles.paymentBanner}
-            onPress={() => router.push(`/payment/${pendingPayments[0].id}`)}
+            onPress={() => router.push(`/payment/${pendingPayments[0].id}` as const)}
           >
-            <Text style={styles.paymentBannerTitle}>결제 요청이 도착했어요</Text>
+            <Text style={styles.paymentBannerTitle}>결제 필요</Text>
             <Text style={styles.paymentBannerSub}>
               {pendingPayments[0].designer_name} · {(pendingPayments[0].price ?? 0).toLocaleString()}원 · 결제하기
             </Text>

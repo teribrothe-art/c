@@ -3,21 +3,23 @@ import { toAppError } from './errors';
 import {
   calculatePaymentFees,
   ensurePaymentRecordForTreatment,
+  getPaymentByTreatmentId,
   markPaymentCompleted,
-  markPaymentInEscrow,
+  markPaymentFailed,
+  markPaymentPaid,
+  PaymentRecord,
   PLATFORM_FEE_RATE,
+  updatePaymentOrderId,
   upsertDemoPaymentOnRequest,
 } from './payment-record';
 import { normalizePaymentStatus } from './payment-status';
 import { supabase } from './supabase';
+import { createTossOrderId, isTossConfigured as isTossKeyConfigured } from './toss';
 import { getTreatmentById, Treatment, updateTreatment } from './treatments';
 
 export { PLATFORM_FEE_RATE };
-
-export const isTossConfigured = Boolean(
-  process.env.EXPO_PUBLIC_TOSS_CLIENT_KEY &&
-    process.env.EXPO_PUBLIC_TOSS_CLIENT_KEY !== '여기에_입력',
-);
+export { ensurePaymentRecordForTreatment, getPaymentByTreatmentId } from './payment-record';
+export { isTossConfigured } from './toss';
 
 export function calculatePayout(amount: number) {
   const { feeAmount, designerPayout } = calculatePaymentFees(amount);
@@ -26,10 +28,6 @@ export function calculatePayout(amount: number) {
     platformFee: feeAmount,
     designerPayout,
   };
-}
-
-export function createTossOrderId(treatmentId: string) {
-  return `hair-${treatmentId}-${Date.now()}`;
 }
 
 function assertDesignerOwnership(treatment: Treatment, designerId: string) {
@@ -87,7 +85,29 @@ export async function requestCustomerPayment(treatmentId: string) {
   return updatedTreatment;
 }
 
-export async function completeCustomerPayment(treatmentId: string, tossPaymentKey?: string) {
+/** 결제 버튼: pending 레코드 + toss_order_id */
+export async function preparePaymentSession(treatmentId: string) {
+  const { treatment } = await getTreatmentById(treatmentId);
+
+  if (!treatment) {
+    throw new Error('시술 기록을 찾을 수 없습니다.');
+  }
+
+  const orderId = createTossOrderId(treatmentId);
+  await ensurePaymentRecordForTreatment(treatmentId);
+  await updatePaymentOrderId(treatmentId, orderId);
+
+  await updateTreatment(treatmentId, {
+    toss_order_id: orderId,
+  });
+
+  return { treatment, orderId };
+}
+
+export async function handleTossPaymentSuccess(
+  treatmentId: string,
+  input: { paymentKey: string; orderId: string },
+) {
   const user = await getCurrentUser();
 
   if (!user) {
@@ -102,39 +122,39 @@ export async function completeCustomerPayment(treatmentId: string, tossPaymentKe
 
   assertCustomerOwnership(treatment, user.id);
 
-  const status = normalizePaymentStatus(treatment.payment_status);
-
-  if (status !== 'payment_requested') {
-    throw new Error('결제 요청된 시술만 결제할 수 있습니다.');
-  }
-
   const amount = treatment.price ?? 0;
-
-  if (amount <= 0) {
-    throw new Error('결제 금액이 올바르지 않습니다.');
-  }
-
-  const paymentKey = tossPaymentKey ?? `demo-payment-${Date.now()}`;
   const { platformFee, designerPayout } = calculatePayout(amount);
   const now = new Date().toISOString();
 
-  if (!isDemoAuthMode && supabase && isTossConfigured && tossPaymentKey) {
-    // 실제 연동: Supabase Edge Function에서 paymentKey로 토스 승인 API 호출
+  if (!isDemoAuthMode && supabase && isTossKeyConfigured()) {
+    // TODO: Supabase Edge Function에서 paymentKey 승인 API 호출
   }
 
-  await ensurePaymentRecordForTreatment(treatmentId);
-  await markPaymentInEscrow(treatmentId, {
-    tossPaymentKey: paymentKey,
-    tossOrderId: treatment.toss_order_id,
+  await markPaymentPaid(treatmentId, {
+    tossPaymentKey: input.paymentKey,
+    tossOrderId: input.orderId,
   });
 
   return updateTreatment(treatmentId, {
     payment_status: 'escrow',
     paid_at: now,
-    toss_payment_key: paymentKey,
+    toss_payment_key: input.paymentKey,
+    toss_order_id: input.orderId,
     platform_fee: platformFee,
     designer_payout_amount: designerPayout,
     feedback_completed: false,
+  });
+}
+
+export async function handleTossPaymentFailure(treatmentId: string) {
+  await markPaymentFailed(treatmentId);
+}
+
+export async function completeCustomerPayment(treatmentId: string, tossPaymentKey?: string) {
+  const orderId = createTossOrderId(treatmentId);
+  return handleTossPaymentSuccess(treatmentId, {
+    paymentKey: tossPaymentKey ?? `demo-payment-${Date.now()}`,
+    orderId,
   });
 }
 
@@ -153,10 +173,10 @@ export async function settleDesignerPayout(treatmentId: string) {
 
   assertDesignerOwnership(treatment, user.id);
 
-  const status = normalizePaymentStatus(treatment.payment_status);
+  const payment = await getPaymentByTreatmentId(treatmentId);
 
-  if (status !== 'escrow') {
-    throw new Error('고객 결제(에스크로) 완료 후에만 정산할 수 있습니다.');
+  if (!payment || payment.status !== 'paid') {
+    throw new Error('고객 결제 완료 후에만 정산할 수 있습니다.');
   }
 
   if (!treatment.feedback_completed) {
@@ -171,6 +191,11 @@ export async function settleDesignerPayout(treatmentId: string) {
     payment_status: 'completed',
     settled_at: now,
   });
+}
+
+export async function isTreatmentPaymentPaid(treatmentId: string) {
+  const payment = await getPaymentByTreatmentId(treatmentId);
+  return payment?.status === 'paid' || payment?.status === 'in_escrow' || payment?.status === 'completed';
 }
 
 export async function getCustomerPendingPayments() {
@@ -210,4 +235,4 @@ export async function getCustomerPendingPayments() {
   return (data ?? []) as Treatment[];
 }
 
-export { ensurePaymentRecordForTreatment, getPaymentByTreatmentId } from './payment-record';
+export type { PaymentRecord };

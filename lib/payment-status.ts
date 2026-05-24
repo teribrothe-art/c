@@ -1,9 +1,16 @@
+import type { PaymentRecordStatus } from './payment-record';
+
 export type PaymentStatus =
   | 'pending'
   | 'payment_requested'
   | 'escrow'
   | 'completed'
   | 'feedback_required';
+
+export type CustomerPaymentBadge = {
+  label: string;
+  variant: 'pending' | 'settlement' | 'done';
+};
 
 export function normalizePaymentStatus(status?: string | null): PaymentStatus {
   if (status === 'feedback_required') {
@@ -29,10 +36,31 @@ export function getPaymentStatusLabel(status?: string | null) {
     case 'payment_requested':
       return '결제 요청됨';
     case 'escrow':
-      return '에스크로 보관';
+      return '정산 대기';
     case 'completed':
-      return '정산 완료';
+      return '완료';
     default:
       return '결제 대기';
   }
+}
+
+export function getCustomerPaymentBadge(
+  treatmentStatus?: string | null,
+  paymentStatus?: PaymentRecordStatus | null,
+): CustomerPaymentBadge {
+  const treatment = normalizePaymentStatus(treatmentStatus);
+
+  if (treatment === 'completed' || paymentStatus === 'completed') {
+    return { label: '완료', variant: 'done' };
+  }
+
+  if (
+    paymentStatus === 'paid' ||
+    paymentStatus === 'in_escrow' ||
+    treatment === 'escrow'
+  ) {
+    return { label: '정산 대기', variant: 'settlement' };
+  }
+
+  return { label: '결제 대기', variant: 'pending' };
 }

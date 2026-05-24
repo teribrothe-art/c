@@ -28,8 +28,13 @@ import {
   validateTreatmentNote,
 } from '../../../lib/validation';
 import { LoadingState } from '../../../src/components/loading-state';
-import { requestCustomerPayment, settleDesignerPayout } from '../../../lib/payments';
+import {
+  getPaymentByTreatmentId,
+  requestCustomerPayment,
+  settleDesignerPayout,
+} from '../../../lib/payments';
 import { normalizePaymentStatus } from '../../../lib/payment-status';
+import type { PaymentRecord } from '../../../lib/payment-record';
 import { getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
 
 type EditableField = 'technique' | 'designer_diagnosis' | 'home_care';
@@ -92,6 +97,7 @@ export default function DesignerTreatmentInputScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const [treatment, setTreatment] = useState<Treatment | null>(null);
+  const [paymentRecord, setPaymentRecord] = useState<PaymentRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -137,6 +143,8 @@ export default function DesignerTreatmentInputScreen() {
         }
 
         setTreatment(nextTreatment);
+        const payment = await getPaymentByTreatmentId(id);
+        setPaymentRecord(payment);
         const [beforePreview, afterPreview] = await Promise.all([
           getTreatmentPhotoSignedUrl(nextTreatment.before_photo_url),
           getTreatmentPhotoSignedUrl(nextTreatment.after_photo_url),
@@ -227,7 +235,11 @@ export default function DesignerTreatmentInputScreen() {
   const progress = completedCount / TOTAL_ITEMS;
   const paymentStatus = normalizePaymentStatus(treatment?.payment_status);
   const canRequestPayment = paymentStatus === 'pending' && Boolean(treatment?.price);
-  const canSettle = paymentStatus === 'escrow' && requiredCount === 0;
+  const isPaymentPaid =
+    paymentRecord?.status === 'paid' ||
+    paymentRecord?.status === 'in_escrow' ||
+    paymentStatus === 'escrow';
+  const canSettle = isPaymentPaid && requiredCount === 0;
 
   const openEditor = (field: EditableField) => {
     setActiveField(field);
@@ -290,6 +302,7 @@ export default function DesignerTreatmentInputScreen() {
     try {
       setIsSaving(true);
       await settleDesignerPayout(treatment.id);
+      setPaymentRecord(await getPaymentByTreatmentId(treatment.id));
       showSuccessAlert('정산이 완료되었습니다 ✓', () => router.back());
     } catch (error) {
       showErrorAlert(getErrorMessage(error, '정산 요청 중 문제가 발생했습니다.'), '정산 실패');
@@ -505,14 +518,14 @@ export default function DesignerTreatmentInputScreen() {
               </View>
             ) : null}
 
-            {paymentStatus === 'escrow' ? (
+            {isPaymentPaid ? (
               <View style={styles.escrowInfoBox}>
-                <Text style={styles.escrowInfoText}>고객 결제 완료 · 에스크로 보관 중</Text>
+                <Text style={styles.escrowInfoText}>고객 결제 완료 · 피드백 후 정산</Text>
               </View>
             ) : null}
 
             <Pressable
-              disabled={!canSettle || isSaving || paymentStatus !== 'escrow'}
+              disabled={!canSettle || isSaving || !isPaymentPaid}
               onPress={handleRequestSettlement}
               style={[styles.settlementButton, canSettle ? styles.settlementButtonActive : styles.settlementButtonDisabled]}>
               <Text
@@ -520,10 +533,10 @@ export default function DesignerTreatmentInputScreen() {
                   styles.settlementButtonText,
                   canSettle && styles.settlementButtonTextActive,
                 ]}>
-                {paymentStatus !== 'escrow'
+                {!isPaymentPaid
                   ? '고객 결제 후 정산 가능'
                   : canSettle
-                    ? '디자이너 정산하기'
+                    ? '정산 요청'
                     : `필수 항목 ${requiredCount}개 입력 후 정산 가능`}
               </Text>
             </Pressable>

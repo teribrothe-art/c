@@ -11,6 +11,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TreatmentPhotoCarousel } from '../../src/components/treatment-photo-carousel';
 import { getErrorMessage } from '../../lib/errors';
+import { getCustomerPaymentBadge, type CustomerPaymentBadge } from '../../lib/payment-status';
+import { getPaymentByTreatmentId } from '../../lib/payments';
 import { getTreatmentById, Treatment } from '../../lib/treatments';
 import { LoadingState } from '../../src/components/loading-state';
 
@@ -57,6 +59,7 @@ export default function TreatmentDetailScreen() {
   const [treatment, setTreatment] = useState<Treatment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [paymentBadge, setPaymentBadge] = useState<CustomerPaymentBadge>({ label: '결제 대기', variant: 'pending' });
 
   useEffect(() => {
     let isMounted = true;
@@ -84,6 +87,8 @@ export default function TreatmentDetailScreen() {
         }
 
         setTreatment(nextTreatment);
+        const payment = await getPaymentByTreatmentId(id);
+        setPaymentBadge(getCustomerPaymentBadge(nextTreatment.payment_status, payment?.status ?? null));
         setErrorMessage('');
       })
       .catch((error) => {
@@ -111,7 +116,20 @@ export default function TreatmentDetailScreen() {
         <Pressable onPress={() => router.back()} style={styles.headerButton}>
           <Text style={styles.headerIcon}>‹</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>시술 기록</Text>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>시술 기록</Text>
+          <View style={[
+            styles.payBadge,
+            paymentBadge.variant === 'settlement' && styles.payBadgeSettlement,
+            paymentBadge.variant === 'done' && styles.payBadgeDone,
+          ]}>
+            <Text style={[
+              styles.payBadgeText,
+              paymentBadge.variant === 'settlement' && styles.payBadgeTextSettlement,
+              paymentBadge.variant === 'done' && styles.payBadgeTextDone,
+            ]}>{paymentBadge.label}</Text>
+          </View>
+        </View>
         <Pressable style={styles.headerButton}>
           <Text style={styles.shareIcon}>↗</Text>
         </Pressable>
@@ -195,6 +213,13 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
   },
+  headerCenter: { alignItems: 'center', flex: 1 },
+  payBadge: { backgroundColor: '#FFF0F0', borderRadius: 999, marginTop: 4, paddingHorizontal: 10, paddingVertical: 3 },
+  payBadgeSettlement: { backgroundColor: '#E8FAF7' },
+  payBadgeDone: { backgroundColor: '#EEEEF4' },
+  payBadgeText: { color: '#FF5A5F', fontSize: 11, fontWeight: '800' },
+  payBadgeTextSettlement: { color: '#00C2A8' },
+  payBadgeTextDone: { color: '#6B6B7B' },
   headerTitle: {
     color: '#1A1A2E',
     fontSize: 18,

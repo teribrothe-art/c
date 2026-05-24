@@ -11,7 +11,8 @@ export type PaymentRecordStatus =
   | 'paid'
   | 'in_escrow'
   | 'completed'
-  | 'refunded';
+  | 'refunded'
+  | 'failed';
 
 export type PaymentRecord = {
   id: string;
@@ -183,29 +184,48 @@ export async function upsertDemoPaymentOnRequest(treatment: Treatment, tossOrder
   }
 }
 
-export async function markPaymentInEscrow(
+
+export async function updatePaymentOrderId(treatmentId: string, tossOrderId: string) {
+  if (isDemoAuthMode || !supabase) {
+    const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
+    if (index >= 0) {
+      demoPayments[index] = { ...demoPayments[index], toss_order_id: tossOrderId, status: 'pending' };
+      return demoPayments[index];
+    }
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('payments')
+    .update({ toss_order_id: tossOrderId, status: 'pending' })
+    .eq('treatment_id', treatmentId)
+    .select(paymentSelectFields)
+    .single();
+
+  if (error) {
+    throw toAppError(error);
+  }
+
+  return data as PaymentRecord;
+}
+
+export async function markPaymentPaid(
   treatmentId: string,
-  input: {
-    tossPaymentKey: string;
-    tossOrderId?: string | null;
-  },
+  input: { tossPaymentKey: string; tossOrderId?: string | null },
 ) {
-  const { feeRate, feeAmount, designerPayout } = calculatePaymentFees(
-    (await getTreatmentById(treatmentId)).treatment?.price ?? 0,
-  );
+  const amount = (await getTreatmentById(treatmentId)).treatment?.price ?? 0;
+  const { feeRate, feeAmount, designerPayout } = calculatePaymentFees(amount);
   const now = new Date().toISOString();
 
   if (isDemoAuthMode || !supabase) {
     const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
-
     if (index < 0) {
       await ensurePaymentRecordForTreatment(treatmentId);
-      return markPaymentInEscrow(treatmentId, input);
+      return markPaymentPaid(treatmentId, input);
     }
-
     demoPayments[index] = {
       ...demoPayments[index],
-      status: 'in_escrow',
+      status: 'paid',
       fee_rate: feeRate,
       fee_amount: feeAmount,
       designer_payout: designerPayout,
@@ -213,14 +233,13 @@ export async function markPaymentInEscrow(
       toss_order_id: input.tossOrderId ?? demoPayments[index].toss_order_id,
       paid_at: now,
     };
-
     return demoPayments[index];
   }
 
   const { data, error } = await supabase
     .from('payments')
     .update({
-      status: 'in_escrow',
+      status: 'paid',
       fee_rate: feeRate,
       fee_amount: feeAmount,
       designer_payout: designerPayout,
@@ -237,6 +256,37 @@ export async function markPaymentInEscrow(
   }
 
   return data as PaymentRecord;
+}
+
+export async function markPaymentFailed(treatmentId: string) {
+  if (isDemoAuthMode || !supabase) {
+    const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
+    if (index < 0) {
+      return null;
+    }
+    demoPayments[index] = { ...demoPayments[index], status: 'failed' };
+    return demoPayments[index];
+  }
+
+  const { data, error } = await supabase
+    .from('payments')
+    .update({ status: 'failed' })
+    .eq('treatment_id', treatmentId)
+    .select(paymentSelectFields)
+    .single();
+
+  if (error) {
+    throw toAppError(error);
+  }
+
+  return data as PaymentRecord;
+}
+
+export async function markPaymentInEscrow(
+  treatmentId: string,
+  input: { tossPaymentKey: string; tossOrderId?: string | null },
+) {
+  return markPaymentPaid(treatmentId, input);
 }
 
 export async function markPaymentCompleted(treatmentId: string) {
