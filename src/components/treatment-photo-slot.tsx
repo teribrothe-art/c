@@ -1,10 +1,14 @@
 import { Image } from 'expo-image';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { colors } from '../../lib/theme';
+
+type UploadStatus = 'idle' | 'uploading' | 'success';
+
 type TreatmentPhotoSlotProps = {
   label: string;
   previewUrl?: string | null;
-  isUploading?: boolean;
+  uploadStatus?: UploadStatus;
   onPress: () => void;
   onRemove: () => void;
 };
@@ -12,11 +16,13 @@ type TreatmentPhotoSlotProps = {
 export function TreatmentPhotoSlot({
   label,
   previewUrl,
-  isUploading = false,
+  uploadStatus = 'idle',
   onPress,
   onRemove,
 }: TreatmentPhotoSlotProps) {
   const hasPhoto = Boolean(previewUrl);
+  const isUploading = uploadStatus === 'uploading';
+  const isSuccess = uploadStatus === 'success';
 
   return (
     <View style={styles.wrapper}>
@@ -24,16 +30,26 @@ export function TreatmentPhotoSlot({
       <Pressable
         disabled={isUploading}
         onPress={onPress}
-        style={[styles.box, !hasPhoto && styles.emptyBox]}>
+        style={[styles.box, !hasPhoto && !isUploading && styles.emptyBox]}>
         {isUploading ? (
-          <ActivityIndicator color="#FF5A5F" />
+          <View style={styles.centerContent}>
+            <ActivityIndicator color={colors.coral} />
+            <Text style={styles.uploadingText}>업로드 중...</Text>
+          </View>
+        ) : isSuccess && hasPhoto ? (
+          <>
+            <Image contentFit="cover" source={{ uri: previewUrl! }} style={styles.image} />
+            <View style={styles.successBadge}>
+              <Text style={styles.successText}>✓</Text>
+            </View>
+          </>
         ) : hasPhoto ? (
           <>
             <Image contentFit="cover" source={{ uri: previewUrl! }} style={styles.image} />
             <Pressable
               hitSlop={8}
               onPress={(event) => {
-                event.stopPropagation();
+                event.stopPropagation?.();
                 onRemove();
               }}
               style={styles.removeButton}>
@@ -41,7 +57,7 @@ export function TreatmentPhotoSlot({
             </Pressable>
           </>
         ) : (
-          <View style={styles.placeholder}>
+          <View style={styles.centerContent}>
             <Text style={styles.cameraIcon}>📷</Text>
             <Text style={styles.placeholderText}>사진 추가</Text>
           </View>
@@ -56,7 +72,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   label: {
-    color: '#6B6B7B',
+    color: colors.muted,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -78,7 +94,7 @@ const styles = StyleSheet.create({
     height: '100%',
     width: '100%',
   },
-  placeholder: {
+  centerContent: {
     alignItems: 'center',
     gap: 8,
   },
@@ -86,8 +102,13 @@ const styles = StyleSheet.create({
     fontSize: 28,
   },
   placeholderText: {
-    color: '#6B6B7B',
+    color: colors.muted,
     fontSize: 14,
+    fontWeight: '700',
+  },
+  uploadingText: {
+    color: colors.muted,
+    fontSize: 13,
     fontWeight: '700',
   },
   removeButton: {
@@ -106,5 +127,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     lineHeight: 20,
+  },
+  successBadge: {
+    alignItems: 'center',
+    backgroundColor: colors.mint,
+    borderRadius: 999,
+    height: 36,
+    justifyContent: 'center',
+    position: 'absolute',
+    width: 36,
+  },
+  successText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '900',
   },
 });

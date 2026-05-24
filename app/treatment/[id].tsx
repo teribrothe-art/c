@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { ReactNode, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,7 +10,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TreatmentPhotoCarousel } from '../../src/components/treatment-photo-carousel';
+import { getErrorMessage } from '../../lib/errors';
 import { getTreatmentById, Treatment } from '../../lib/treatments';
+import { LoadingState } from '../../src/components/loading-state';
 
 function formatDate(date?: string) {
   return date ? date.replaceAll('-', '.') : '-';
@@ -90,7 +91,7 @@ export default function TreatmentDetailScreen() {
           return;
         }
 
-        const message = error instanceof Error ? error.message : '시술 기록을 불러오지 못했습니다.';
+        const message = getErrorMessage(error, '시술 기록을 불러오지 못했습니다.');
         setErrorMessage(message);
       })
       .finally(() => {
@@ -118,10 +119,7 @@ export default function TreatmentDetailScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {isLoading ? (
-          <View style={styles.stateBox}>
-            <ActivityIndicator color="#FF5A5F" />
-            <Text style={styles.stateText}>시술 기록을 불러오는 중...</Text>
-          </View>
+          <LoadingState message="불러오는 중..." />
         ) : errorMessage || !treatment ? (
           <View style={styles.stateBox}>
             <Text style={styles.stateTitle}>기록을 볼 수 없어요</Text>

@@ -1,8 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -22,6 +20,14 @@ import {
   uploadTreatmentPhoto,
 } from '../../../lib/treatment-photos';
 
+import { showConfirmAlert, showErrorAlert, showSuccessAlert, showWarningAlert } from '../../../lib/alerts';
+import { getErrorMessage } from '../../../lib/errors';
+import { colors, disabledButtonStyle } from '../../../lib/theme';
+import {
+  MAX_TREATMENT_NOTE_LENGTH,
+  validateTreatmentNote,
+} from '../../../lib/validation';
+import { LoadingState } from '../../../src/components/loading-state';
 import { getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
 
 type EditableField = 'technique' | 'designer_diagnosis' | 'home_care';
@@ -93,7 +99,10 @@ export default function DesignerTreatmentInputScreen() {
     before: null,
     after: null,
   });
-  const [uploadingPhoto, setUploadingPhoto] = useState<TreatmentPhotoKind | null>(null);
+  const [photoUploadStatus, setPhotoUploadStatus] = useState<{
+    before: 'idle' | 'uploading' | 'success';
+    after: 'idle' | 'uploading' | 'success';
+  }>({ before: 'idle', after: 'idle' });
 
   useEffect(() => {
     let isMounted = true;
@@ -138,7 +147,7 @@ export default function DesignerTreatmentInputScreen() {
           return;
         }
 
-        const message = error instanceof Error ? error.message : '시술 정보를 불러오지 못했습니다.';
+        const message = getErrorMessage(error, '시술 정보를 불러오지 못했습니다.');
         setErrorMessage(message);
       })
       .finally(() => {
@@ -233,8 +242,10 @@ export default function DesignerTreatmentInputScreen() {
 
     const trimmedValue = inputValue.trim();
 
-    if (!trimmedValue) {
-      Alert.alert('입력 필요', '필수 항목을 입력해주세요.');
+    const validationError = validateTreatmentNote(inputValue);
+
+    if (validationError) {
+      showWarningAlert(validationError);
       return;
     }
 
@@ -246,15 +257,14 @@ export default function DesignerTreatmentInputScreen() {
       setTreatment(updatedTreatment);
       closeEditor();
     } catch (error) {
-      const message = error instanceof Error ? error.message : '저장 중 문제가 발생했습니다.';
-      Alert.alert('저장 실패', message);
+      showErrorAlert(getErrorMessage(error, '저장 중 문제가 발생했습니다.'), '저장 실패');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleRequestSettlement = async () => {
-    if (!treatment || !canRequestSettlement) {
+  const processSettlement = async () => {
+    if (!treatment) {
       return;
     }
 
@@ -264,18 +274,27 @@ export default function DesignerTreatmentInputScreen() {
         feedback_completed: true,
         payment_status: 'completed',
       });
-      Alert.alert('정산 완료', '정산이 완료되었습니다 ✓', [
-        {
-          text: '확인',
-          onPress: () => router.back(),
-        },
-      ]);
+      showSuccessAlert('정산이 완료되었습니다 ✓', () => router.back());
     } catch (error) {
-      const message = error instanceof Error ? error.message : '정산 요청 중 문제가 발생했습니다.';
-      Alert.alert('정산 실패', message);
+      showErrorAlert(getErrorMessage(error, '정산 요청 중 문제가 발생했습니다.'), '정산 실패');
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleRequestSettlement = () => {
+    if (!treatment || !canRequestSettlement) {
+      return;
+    }
+
+    showConfirmAlert({
+      title: '정산 요청',
+      message: `고객 ${treatment.customer_name || '고객'}님의 시술을 정산 요청하시겠어요?`,
+      confirmLabel: '정산 요청',
+      onConfirm: () => {
+        void processSettlement();
+      },
+    });
   };
 
 
@@ -287,8 +306,15 @@ export default function DesignerTreatmentInputScreen() {
     setPhotoPreviews({ before, after });
   };
 
+  const flashPhotoSuccess = (kind: TreatmentPhotoKind) => {
+    setPhotoUploadStatus((current) => ({ ...current, [kind]: 'success' }));
+    setTimeout(() => {
+      setPhotoUploadStatus((current) => ({ ...current, [kind]: 'idle' }));
+    }, 1200);
+  };
+
   const handlePickPhoto = async (kind: TreatmentPhotoKind) => {
-    if (!treatment || uploadingPhoto) {
+    if (!treatment || photoUploadStatus[kind] === 'uploading') {
       return;
     }
 
@@ -299,15 +325,21 @@ export default function DesignerTreatmentInputScreen() {
         return;
       }
 
-      setUploadingPhoto(kind);
+      setPhotoUploadStatus((current) => ({ ...current, [kind]: 'uploading' }));
       const updatedTreatment = await uploadTreatmentPhoto(treatment.id, kind, localUri);
       setTreatment(updatedTreatment);
       await refreshPhotoPreview(updatedTreatment);
+      flashPhotoSuccess(kind);
     } catch (error) {
-      const message = error instanceof Error ? error.message : '사진 업로드에 실패했습니다.';
-      Alert.alert('업로드 실패', message);
-    } finally {
-      setUploadingPhoto(null);
+      const message = error instanceof Error ? error.message : '';
+
+      if (message === 'PHOTO_TOO_LARGE') {
+        showWarningAlert('사진 용량은 5MB 이하만 업로드할 수 있습니다. 다른 사진을 선택해주세요.', '용량 초과');
+      } else {
+        showErrorAlert('사진을 다시 업로드해주세요', '업로드 실패');
+      }
+
+      setPhotoUploadStatus((current) => ({ ...current, [kind]: 'idle' }));
     }
   };
 
@@ -322,29 +354,27 @@ export default function DesignerTreatmentInputScreen() {
       return;
     }
 
-    Alert.alert('사진 삭제', '등록된 사진을 삭제할까요?', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: () => {
-          Promise.resolve()
-            .then(async () => {
-              setUploadingPhoto(kind);
-              const updatedTreatment = await removeTreatmentPhoto(treatment.id, kind, storagePath);
-              setTreatment(updatedTreatment);
-              await refreshPhotoPreview(updatedTreatment);
-            })
-            .catch((error) => {
-              const message = error instanceof Error ? error.message : '사진 삭제에 실패했습니다.';
-              Alert.alert('삭제 실패', message);
-            })
-            .finally(() => {
-              setUploadingPhoto(null);
-            });
-        },
+    showConfirmAlert({
+      title: '사진 삭제',
+      message: '등록된 사진을 삭제할까요?',
+      confirmLabel: '삭제',
+      destructive: true,
+      onConfirm: () => {
+        Promise.resolve()
+          .then(async () => {
+            setPhotoUploadStatus((current) => ({ ...current, [kind]: 'uploading' }));
+            const updatedTreatment = await removeTreatmentPhoto(treatment.id, kind, storagePath);
+            setTreatment(updatedTreatment);
+            await refreshPhotoPreview(updatedTreatment);
+          })
+          .catch((error) => {
+            showErrorAlert(getErrorMessage(error, '사진 삭제에 실패했습니다.'), '삭제 실패');
+          })
+          .finally(() => {
+            setPhotoUploadStatus((current) => ({ ...current, [kind]: 'idle' }));
+          });
       },
-    ]);
+    });
   };
 
   const activeFieldLabel = sections
@@ -365,10 +395,7 @@ export default function DesignerTreatmentInputScreen() {
         </View>
 
         {isLoading ? (
-          <View style={styles.stateBox}>
-            <ActivityIndicator color="#FF5A5F" />
-            <Text style={styles.stateText}>시술 정보를 불러오는 중...</Text>
-          </View>
+          <LoadingState message="불러오는 중..." />
         ) : errorMessage || !treatment ? (
           <View style={styles.stateBox}>
             <Text style={styles.stateTitle}>시술 입력을 열 수 없어요</Text>
@@ -390,14 +417,14 @@ export default function DesignerTreatmentInputScreen() {
             <View style={styles.photoSection}>
               <Text style={styles.photoSectionTitle}>시술 사진</Text>
               <TreatmentPhotoSlot
-                isUploading={uploadingPhoto === 'before'}
+                uploadStatus={photoUploadStatus.before}
                 label="Before (전)"
                 onPress={() => handlePickPhoto('before')}
                 onRemove={() => handleRemovePhoto('before')}
                 previewUrl={photoPreviews.before}
               />
               <TreatmentPhotoSlot
-                isUploading={uploadingPhoto === 'after'}
+                uploadStatus={photoUploadStatus.after}
                 label="After (후)"
                 onPress={() => handlePickPhoto('after')}
                 onRemove={() => handleRemovePhoto('after')}
@@ -423,7 +450,7 @@ export default function DesignerTreatmentInputScreen() {
             <Pressable
               disabled={!canRequestSettlement || isSaving}
               onPress={handleRequestSettlement}
-              style={[styles.settlementButton, canRequestSettlement && styles.settlementButtonActive]}>
+              style={[styles.settlementButton, canRequestSettlement ? styles.settlementButtonActive : styles.settlementButtonDisabled]}>
               <Text
                 style={[
                   styles.settlementButtonText,
@@ -444,6 +471,7 @@ export default function DesignerTreatmentInputScreen() {
             <Text style={styles.modalTitle}>{activeFieldLabel}</Text>
             <TextInput
               multiline
+              maxLength={MAX_TREATMENT_NOTE_LENGTH}
               onChangeText={setInputValue}
               placeholder="내용을 입력하세요"
               placeholderTextColor="#9B9BA7"
@@ -451,6 +479,9 @@ export default function DesignerTreatmentInputScreen() {
               textAlignVertical="top"
               value={inputValue}
             />
+            <Text style={styles.counterText}>
+              {inputValue.length}/{MAX_TREATMENT_NOTE_LENGTH}
+            </Text>
             <View style={styles.modalActions}>
               <Pressable disabled={isSaving} onPress={closeEditor} style={styles.modalCancelButton}>
                 <Text style={styles.modalCancelText}>취소</Text>
@@ -626,6 +657,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
     paddingVertical: 17,
   },
+  settlementButtonDisabled: {
+    ...disabledButtonStyle,
+  },
   settlementButtonActive: {
     backgroundColor: '#00C2A8',
   },
@@ -670,6 +704,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingTop: 24,
     paddingBottom: 30,
+  },
+  counterText: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 8,
+    textAlign: 'right',
   },
   modalTitle: {
     color: '#1A1A2E',

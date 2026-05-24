@@ -1,8 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +10,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { signOut } from '../lib/auth';
+import { showConfirmAlert, showErrorAlert, showWarningAlert } from '../lib/alerts';
+import { getErrorMessage } from '../lib/errors';
+import { LoadingState } from '../src/components/loading-state';
 import { getProfileScreenData, ProfileData, ProfileStats } from '../lib/profile';
 import { BottomTabBar } from '../src/components/bottom-tab-bar';
 import { DesignerBottomTabBar } from '../src/components/designer-bottom-tab-bar';
@@ -107,7 +108,7 @@ export default function ProfileScreen() {
         setErrorMessage('');
       })
       .catch((error) => {
-        const message = error instanceof Error ? error.message : '프로필을 불러오지 못했습니다.';
+        const message = getErrorMessage(error, '프로필을 불러오지 못했습니다.');
         setErrorMessage(message);
       })
       .finally(() => {
@@ -122,26 +123,24 @@ export default function ProfileScreen() {
   );
 
   const handleSettingPress = (label: string) => {
-    Alert.alert(label, '곧 제공될 예정입니다.');
+    showWarningAlert('곧 제공될 예정입니다.', label);
   };
 
   const handleLogout = () => {
-    Alert.alert('로그아웃', '정말 로그아웃 하시겠어요?', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '로그아웃',
-        style: 'destructive',
-        onPress: () => {
-          Promise.resolve()
-            .then(() => signOut())
-            .then(() => router.replace('/'))
-            .catch((error) => {
-              const message = error instanceof Error ? error.message : '로그아웃에 실패했습니다.';
-              Alert.alert('로그아웃 실패', message);
-            });
-        },
+    showConfirmAlert({
+      title: '로그아웃',
+      message: '정말 로그아웃 하시겠어요?',
+      confirmLabel: '로그아웃',
+      destructive: true,
+      onConfirm: () => {
+        Promise.resolve()
+          .then(() => signOut())
+          .then(() => router.replace('/'))
+          .catch((error) => {
+            showErrorAlert(getErrorMessage(error, '로그아웃에 실패했습니다.'), '로그아웃 실패');
+          });
       },
-    ]);
+    });
   };
 
   const isDesigner = profile?.role === 'designer';
@@ -157,10 +156,7 @@ export default function ProfileScreen() {
         ]}
         showsVerticalScrollIndicator={false}>
         {isLoading ? (
-          <View style={styles.stateBox}>
-            <ActivityIndicator color="#FF5A5F" />
-            <Text style={styles.stateText}>프로필을 불러오는 중...</Text>
-          </View>
+          <LoadingState message="불러오는 중..." />
         ) : errorMessage || !profile || !stats ? (
           <View style={styles.stateBox}>
             <Text style={styles.stateTitle}>프로필을 불러올 수 없어요</Text>

@@ -1,7 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,7 +9,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { buildCustomerAnalysis, CustomerAnalysis, DamageTrendItem } from '../lib/customer-analysis';
+import { getErrorMessage } from '../lib/errors';
 import { getTreatments } from '../lib/treatments';
+import { EmptyState } from '../src/components/empty-state';
+import { LoadingState } from '../src/components/loading-state';
 import { BottomTabBar } from '../src/components/bottom-tab-bar';
 
 function formatDate(date: string) {
@@ -32,6 +34,7 @@ function TrendArrow({ change }: { change: DamageTrendItem['change'] }) {
 export default function AnalysisScreen() {
   const insets = useSafeAreaInsets();
   const [analysis, setAnalysis] = useState<CustomerAnalysis | null>(null);
+  const [treatmentCount, setTreatmentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -40,11 +43,12 @@ export default function AnalysisScreen() {
 
     getTreatments()
       .then(({ treatments }) => {
+        setTreatmentCount(treatments.length);
         setAnalysis(buildCustomerAnalysis(treatments));
         setErrorMessage('');
       })
       .catch((error) => {
-        const message = error instanceof Error ? error.message : '분석 데이터를 불러오지 못했습니다.';
+        const message = getErrorMessage(error, '분석 데이터를 불러오지 못했습니다.');
         setErrorMessage(message);
       })
       .finally(() => {
@@ -69,19 +73,23 @@ export default function AnalysisScreen() {
         <Text style={styles.pageTitle}>내 모발 분석</Text>
 
         {isLoading ? (
-          <View style={styles.stateBox}>
-            <ActivityIndicator color="#FF5A5F" />
-            <Text style={styles.stateText}>분석 데이터를 불러오는 중...</Text>
-          </View>
+          <LoadingState message="불러오는 중..." />
         ) : errorMessage ? (
           <View style={styles.stateBox}>
             <Text style={styles.stateText}>{errorMessage}</Text>
           </View>
         ) : !analysis?.hasData ? (
-          <View style={styles.stateBox}>
-            <Text style={styles.stateTitle}>아직 분석할 데이터가 없어요</Text>
-            <Text style={styles.stateText}>시술 기록이 쌓이면 손상도와 AI 인사이트를 보여드릴게요.</Text>
-          </View>
+          <EmptyState
+            icon="📊"
+            subtitle="시술 기록이 쌓이면 손상도와 AI 인사이트를 보여드릴게요"
+            title="아직 분석할 데이터가 없어요"
+          />
+        ) : treatmentCount < 3 ? (
+          <EmptyState
+            icon="📊"
+            subtitle="시술 기록이 3건 이상 쌓이면 추세 분석을 확인할 수 있어요"
+            title="분석에는 최소 3건의 시술이 필요해요"
+          />
         ) : (
           <>
             <View style={styles.card}>

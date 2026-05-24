@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getErrorMessage, toAppError } from './errors';
 
 import { getCurrentUser, isDemoAuthMode, UserRole } from './auth';
 import { supabase } from './supabase';
@@ -96,7 +97,7 @@ async function fetchProfileDetails(userId: string, email: string, role: UserRole
     .maybeSingle();
 
   if (error) {
-    throw error;
+    throw toAppError(error);
   }
 
   if (!data) {

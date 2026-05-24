@@ -1,7 +1,6 @@
 import { router, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,7 +10,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
+import { getErrorMessage } from '../../lib/errors';
 import { getDesignerTreatments, Treatment } from '../../lib/treatments';
+import { EmptyState } from '../../src/components/empty-state';
+import { LoadingState } from '../../src/components/loading-state';
 
 type PaymentStatus = NonNullable<Treatment['payment_status']>;
 
@@ -107,7 +109,7 @@ export default function DesignerClientsScreen() {
           return;
         }
 
-        const message = error instanceof Error ? error.message : '고객 시술을 불러오지 못했습니다.';
+        const message = getErrorMessage(error, '고객 시술을 불러오지 못했습니다.');
         setErrorMessage(message);
       })
       .finally(() => {
@@ -155,20 +157,20 @@ export default function DesignerClientsScreen() {
         </View>
 
         {isLoading ? (
-          <View style={styles.stateBox}>
-            <ActivityIndicator color="#FF5A5F" />
-            <Text style={styles.stateText}>고객 시술을 불러오는 중...</Text>
-          </View>
+          <LoadingState message="불러오는 중..." />
         ) : errorMessage ? (
           <View style={styles.stateBox}>
             <Text style={styles.stateTitle}>고객 목록을 불러오지 못했어요</Text>
             <Text style={styles.stateText}>{errorMessage}</Text>
           </View>
         ) : treatments.length === 0 ? (
-          <View style={styles.stateBox}>
-            <Text style={styles.stateTitle}>아직 고객 시술이 없어요</Text>
-            <Text style={styles.stateText}>시술 기록이 생기면 이곳에 표시됩니다.</Text>
-          </View>
+          <EmptyState
+            actionLabel="첫 시술을 추가해보세요"
+            icon="✂️"
+            onAction={() => router.push('/designer/input')}
+            subtitle="새 시술을 입력하면 고객 목록이 채워집니다"
+            title="아직 시술한 고객이 없어요"
+          />
         ) : (
           <View style={styles.list}>
             {treatments.map((treatment) => (

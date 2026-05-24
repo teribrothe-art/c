@@ -1,7 +1,6 @@
 import { Link, router } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,31 +11,55 @@ import {
 } from 'react-native';
 
 import { signInWithEmail } from '../lib/auth';
+import { showLoginFailureAlert } from '../lib/alerts';
+import { colors, disabledButtonStyle } from '../lib/theme';
+import { validateEmail } from '../lib/validation';
+import { InlineFieldError } from '../src/components/inline-field-error';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  const isSubmitDisabled = isLoading;
+
+  const validateForm = () => {
+    const nextEmailError = validateEmail(email);
+    const nextPasswordError = !password ? '비밀번호를 입력해주세요.' : null;
+
+    setEmailError(nextEmailError);
+    setPasswordError(nextPasswordError);
+
+    return !nextEmailError && !nextPasswordError;
+  };
 
   const handleLogin = async () => {
-    const trimmedEmail = email.trim();
-
-    if (!trimmedEmail || !password) {
-      Alert.alert('입력 필요', '이메일과 비밀번호를 모두 입력해주세요.');
+    if (!validateForm()) {
       return;
     }
+
+    const trimmedEmail = email.trim();
 
     try {
       setIsLoading(true);
       await signInWithEmail({ email: trimmedEmail, password });
       router.replace('/home');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '로그인 중 문제가 발생했습니다.';
-      Alert.alert('로그인 실패', message);
+    } catch {
+      showLoginFailureAlert();
     } finally {
       setIsLoading(false);
     }
   };
+
+  const inputBorder = useMemo(
+    () => ({
+      email: emailError ? styles.inputError : null,
+      password: passwordError ? styles.inputError : null,
+    }),
+    [emailError, passwordError],
+  );
 
   return (
     <KeyboardAvoidingView
@@ -45,34 +68,52 @@ export default function LoginScreen() {
       <View style={styles.content}>
         <Text style={styles.title}>AI 헤어 다이어리</Text>
         <View style={styles.form}>
-          <TextInput
-            autoCapitalize="none"
-            autoComplete="email"
-            editable={!isLoading}
-            keyboardType="email-address"
-            onChangeText={setEmail}
-            placeholder="이메일"
-            placeholderTextColor="#A0A0A0"
-            style={styles.input}
-            value={email}
-          />
-          <TextInput
-            autoCapitalize="none"
-            editable={!isLoading}
-            onChangeText={setPassword}
-            placeholder="비밀번호"
-            placeholderTextColor="#A0A0A0"
-            secureTextEntry
-            style={styles.input}
-            value={password}
-          />
+          <View>
+            <TextInput
+              autoCapitalize="none"
+              autoComplete="email"
+              editable={!isLoading}
+              keyboardType="email-address"
+              onChangeText={(value) => {
+                setEmail(value);
+                if (emailError) {
+                  setEmailError(null);
+                }
+              }}
+              placeholder="이메일"
+              placeholderTextColor="#A0A0A0"
+              style={[styles.input, inputBorder.email]}
+              value={email}
+            />
+            <InlineFieldError message={emailError} />
+          </View>
+
+          <View>
+            <TextInput
+              autoCapitalize="none"
+              editable={!isLoading}
+              onChangeText={(value) => {
+                setPassword(value);
+                if (passwordError) {
+                  setPasswordError(null);
+                }
+              }}
+              placeholder="비밀번호"
+              placeholderTextColor="#A0A0A0"
+              secureTextEntry
+              style={[styles.input, inputBorder.password]}
+              value={password}
+            />
+            <InlineFieldError message={passwordError} />
+          </View>
 
           <Pressable
-            disabled={isLoading}
+            disabled={isSubmitDisabled}
             onPress={handleLogin}
             style={({ pressed }) => [
               styles.loginButton,
-              (pressed || isLoading) && styles.loginButtonPressed,
+              isSubmitDisabled && styles.loginButtonDisabled,
+              pressed && !isSubmitDisabled && styles.loginButtonPressed,
             ]}>
             <Text style={styles.loginButtonText}>{isLoading ? '로그인 중...' : '로그인'}</Text>
           </Pressable>
@@ -100,7 +141,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
   },
   title: {
-    color: '#FF5A5F',
+    color: colors.coral,
     fontSize: 36,
     fontWeight: 'bold',
     marginBottom: 56,
@@ -121,16 +162,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 16,
   },
+  inputError: {
+    borderColor: colors.error,
+  },
   loginButton: {
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
-    backgroundColor: '#FF5A5F',
+    backgroundColor: colors.coral,
     marginTop: 8,
     paddingVertical: 16,
   },
+  loginButtonDisabled: {
+    ...disabledButtonStyle,
+  },
   loginButtonPressed: {
-    opacity: 0.75,
+    opacity: 0.85,
   },
   loginButtonText: {
     color: '#FFFFFF',
@@ -142,7 +189,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   signupLinkText: {
-    color: '#FF5A5F',
+    color: colors.coral,
     fontSize: 16,
     fontWeight: '600',
   },

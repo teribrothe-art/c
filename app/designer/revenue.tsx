@@ -1,7 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,7 +9,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { buildDesignerRevenue, RevenueSummary } from '../../lib/designer-revenue';
+import { getErrorMessage } from '../../lib/errors';
 import { getDesignerTreatments } from '../../lib/treatments';
+import { EmptyState } from '../../src/components/empty-state';
+import { LoadingState } from '../../src/components/loading-state';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
 
 function formatDate(date: string) {
@@ -56,7 +58,7 @@ export default function DesignerRevenueScreen() {
         setErrorMessage('');
       })
       .catch((error) => {
-        const message = error instanceof Error ? error.message : '매출 데이터를 불러오지 못했습니다.';
+        const message = getErrorMessage(error, '매출 데이터를 불러오지 못했습니다.');
         setErrorMessage(message);
       })
       .finally(() => {
@@ -81,14 +83,17 @@ export default function DesignerRevenueScreen() {
         <Text style={styles.pageTitle}>매출 분석</Text>
 
         {isLoading ? (
-          <View style={styles.stateBox}>
-            <ActivityIndicator color="#FF5A5F" />
-            <Text style={styles.stateText}>매출 데이터를 불러오는 중...</Text>
-          </View>
+          <LoadingState message="불러오는 중..." />
         ) : errorMessage || !summary ? (
           <View style={styles.stateBox}>
             <Text style={styles.stateText}>{errorMessage || '데이터를 불러올 수 없습니다.'}</Text>
           </View>
+        ) : summary.monthTreatmentCount === 0 ? (
+          <EmptyState
+            icon="💰"
+            subtitle="이번 달 시술이 등록되면 매출 분석이 표시됩니다"
+            title="이번 달 시술 기록이 없어요"
+          />
         ) : (
           <>
             <View style={styles.heroCard}>

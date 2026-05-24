@@ -1,7 +1,6 @@
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -13,6 +12,15 @@ import {
 } from 'react-native';
 
 import { signUpWithEmail, UserRole } from '../lib/auth';
+import { showErrorAlert } from '../lib/alerts';
+import { getErrorMessage } from '../lib/errors';
+import { colors, disabledButtonStyle } from '../lib/theme';
+import {
+  validateEmail,
+  validatePassword,
+  validatePasswordConfirm,
+} from '../lib/validation';
+import { InlineFieldError } from '../src/components/inline-field-error';
 
 const roles: { label: string; value: UserRole }[] = [
   { label: '고객', value: 'customer' },
@@ -24,26 +32,33 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<UserRole>('customer');
+  const [role, setRole] = useState<UserRole | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordConfirmError, setPasswordConfirmError] = useState<string | null>(null);
+  const [roleError, setRoleError] = useState<string | null>(null);
+
+  const validateForm = () => {
+    const nextEmailError = validateEmail(email);
+    const nextPasswordError = validatePassword(password);
+    const nextPasswordConfirmError = validatePasswordConfirm(password, passwordConfirm);
+    const nextRoleError = !role ? '역할을 선택해주세요.' : null;
+
+    setEmailError(nextEmailError);
+    setPasswordError(nextPasswordError);
+    setPasswordConfirmError(nextPasswordConfirmError);
+    setRoleError(nextRoleError);
+
+    return !nextEmailError && !nextPasswordError && !nextPasswordConfirmError && !nextRoleError;
+  };
 
   const handleSignup = async () => {
+    if (!validateForm() || !role) {
+      return;
+    }
+
     const trimmedEmail = email.trim();
-
-    if (!trimmedEmail || !password || !passwordConfirm) {
-      Alert.alert('입력 필요', '이메일, 비밀번호, 비밀번호 확인을 모두 입력해주세요.');
-      return;
-    }
-
-    if (password !== passwordConfirm) {
-      Alert.alert('비밀번호 확인', '비밀번호와 비밀번호 확인이 일치하지 않습니다.');
-      return;
-    }
-
-    if (password.length < 6) {
-      Alert.alert('비밀번호 확인', '비밀번호는 6자 이상이어야 합니다.');
-      return;
-    }
 
     try {
       setIsLoading(true);
@@ -55,8 +70,7 @@ export default function SignupScreen() {
       });
       router.replace('/home');
     } catch (error) {
-      const message = error instanceof Error ? error.message : '회원가입 중 문제가 발생했습니다.';
-      Alert.alert('회원가입 실패', message);
+      showErrorAlert(getErrorMessage(error), '회원가입 실패');
     } finally {
       setIsLoading(false);
     }
@@ -73,37 +87,64 @@ export default function SignupScreen() {
         <Text style={styles.title}>회원가입</Text>
         <Text style={styles.subtitle}>AI 헤어 다이어리를 시작해보세요.</Text>
         <View style={styles.form}>
-          <TextInput
-            autoCapitalize="none"
-            autoComplete="email"
-            editable={!isLoading}
-            keyboardType="email-address"
-            onChangeText={setEmail}
-            placeholder="이메일"
-            placeholderTextColor="#A0A0A0"
-            style={styles.input}
-            value={email}
-          />
-          <TextInput
-            autoCapitalize="none"
-            editable={!isLoading}
-            onChangeText={setPassword}
-            placeholder="비밀번호"
-            placeholderTextColor="#A0A0A0"
-            secureTextEntry
-            style={styles.input}
-            value={password}
-          />
-          <TextInput
-            autoCapitalize="none"
-            editable={!isLoading}
-            onChangeText={setPasswordConfirm}
-            placeholder="비밀번호 확인"
-            placeholderTextColor="#A0A0A0"
-            secureTextEntry
-            style={styles.input}
-            value={passwordConfirm}
-          />
+          <View>
+            <TextInput
+              autoCapitalize="none"
+              autoComplete="email"
+              editable={!isLoading}
+              keyboardType="email-address"
+              onChangeText={(value) => {
+                setEmail(value);
+                if (emailError) {
+                  setEmailError(null);
+                }
+              }}
+              placeholder="이메일"
+              placeholderTextColor="#A0A0A0"
+              style={[styles.input, emailError && styles.inputError]}
+              value={email}
+            />
+            <InlineFieldError message={emailError} />
+          </View>
+
+          <View>
+            <TextInput
+              autoCapitalize="none"
+              editable={!isLoading}
+              onChangeText={(value) => {
+                setPassword(value);
+                if (passwordError) {
+                  setPasswordError(null);
+                }
+              }}
+              placeholder="비밀번호"
+              placeholderTextColor="#A0A0A0"
+              secureTextEntry
+              style={[styles.input, passwordError && styles.inputError]}
+              value={password}
+            />
+            <InlineFieldError message={passwordError} />
+          </View>
+
+          <View>
+            <TextInput
+              autoCapitalize="none"
+              editable={!isLoading}
+              onChangeText={(value) => {
+                setPasswordConfirm(value);
+                if (passwordConfirmError) {
+                  setPasswordConfirmError(null);
+                }
+              }}
+              placeholder="비밀번호 확인"
+              placeholderTextColor="#A0A0A0"
+              secureTextEntry
+              style={[styles.input, passwordConfirmError && styles.inputError]}
+              value={passwordConfirm}
+            />
+            <InlineFieldError message={passwordConfirmError} />
+          </View>
+
           <TextInput
             editable={!isLoading}
             onChangeText={setName}
@@ -121,9 +162,14 @@ export default function SignupScreen() {
 
                 return (
                   <Pressable
-                    disabled={isLoading}
                     key={item.value}
-                    onPress={() => setRole(item.value)}
+                    disabled={isLoading}
+                    onPress={() => {
+                      setRole(item.value);
+                      if (roleError) {
+                        setRoleError(null);
+                      }
+                    }}
                     style={[styles.roleToggle, selected && styles.roleToggleSelected]}>
                     <Text style={[styles.roleToggleText, selected && styles.roleToggleTextSelected]}>
                       {item.label}
@@ -132,6 +178,7 @@ export default function SignupScreen() {
                 );
               })}
             </View>
+            <InlineFieldError message={roleError} />
           </View>
 
           <Pressable
@@ -139,7 +186,8 @@ export default function SignupScreen() {
             onPress={handleSignup}
             style={({ pressed }) => [
               styles.signupButton,
-              (pressed || isLoading) && styles.signupButtonPressed,
+              isLoading && styles.signupButtonDisabled,
+              pressed && !isLoading && styles.signupButtonPressed,
             ]}>
             <Text style={styles.signupButtonText}>{isLoading ? '가입 중...' : '가입하기'}</Text>
           </Pressable>
@@ -147,7 +195,7 @@ export default function SignupScreen() {
 
         <Link href="/" asChild>
           <Pressable disabled={isLoading} style={styles.loginLink}>
-            <Text style={styles.loginLinkText}>이미 계정이 있나요? 로그인</Text>
+            <Text style={styles.loginLinkText}>이미 계정이 있으신가요? 로그인</Text>
           </Pressable>
         </Link>
       </ScrollView>
@@ -167,7 +215,7 @@ const styles = StyleSheet.create({
     paddingVertical: 44,
   },
   title: {
-    color: '#FF5A5F',
+    color: colors.coral,
     fontSize: 34,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -193,6 +241,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 16,
   },
+  inputError: {
+    borderColor: colors.error,
+  },
   roleSection: {
     marginTop: 8,
   },
@@ -217,10 +268,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   roleToggleSelected: {
-    backgroundColor: '#FF5A5F',
+    backgroundColor: colors.coral,
   },
   roleToggleText: {
-    color: '#FF5A5F',
+    color: colors.coral,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -231,12 +282,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
-    backgroundColor: '#FF5A5F',
+    backgroundColor: colors.coral,
     marginTop: 10,
     paddingVertical: 16,
   },
+  signupButtonDisabled: {
+    ...disabledButtonStyle,
+  },
   signupButtonPressed: {
-    opacity: 0.75,
+    opacity: 0.85,
   },
   signupButtonText: {
     color: '#FFFFFF',
@@ -249,7 +303,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   loginLinkText: {
-    color: '#FF5A5F',
+    color: colors.coral,
     fontSize: 15,
     fontWeight: '600',
   },

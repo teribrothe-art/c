@@ -1,6 +1,7 @@
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { showWarningAlert } from '../../lib/alerts';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
 
 const quickInputs = [
@@ -16,7 +17,7 @@ export default function DesignerInputScreen() {
   const insets = useSafeAreaInsets();
 
   const handleQuickInput = (label: string) => {
-    Alert.alert('준비 중', `${label} 시술 입력 기능은 곧 제공될 예정입니다.`);
+    showWarningAlert(`${label} 시술 입력 기능은 곧 제공될 예정입니다.`, '준비 중');
   };
 
   return (

@@ -1,4 +1,5 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
+import { toAppError } from './errors';
 import { supabase } from './supabase';
 
 export type Treatment = {
@@ -126,7 +127,7 @@ export async function getTreatments() {
     .order('treatment_date', { ascending: false });
 
   if (error) {
-    throw error;
+    throw toAppError(error);
   }
 
   return { user, treatments: (data ?? []) as Treatment[] };
@@ -154,7 +155,7 @@ export async function getTreatmentById(id: string) {
     .maybeSingle();
 
   if (error) {
-    throw error;
+    throw toAppError(error);
   }
 
   return { user, treatment: data as Treatment | null };
@@ -188,7 +189,7 @@ export async function getDesignerTreatments() {
     .order('treatment_date', { ascending: false });
 
   if (error) {
-    throw error;
+    throw toAppError(error);
   }
 
   return { user, treatments: (data ?? []) as Treatment[] };
@@ -239,7 +240,7 @@ export async function updateTreatment(id: string, updates: TreatmentUpdateInput)
     .single();
 
   if (error) {
-    throw error;
+    throw toAppError(error);
   }
 
   return data as Treatment;

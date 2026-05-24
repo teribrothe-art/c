@@ -1,7 +1,6 @@
 import { Href, router, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,7 +10,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomTabBar } from '../src/components/bottom-tab-bar';
+import { getErrorMessage } from '../lib/errors';
 import { getTreatments, Treatment } from '../lib/treatments';
+import { EmptyState } from '../src/components/empty-state';
+import { LoadingState } from '../src/components/loading-state';
 
 type FilterKey = '전체' | '컷' | '컬러' | '펌';
 
@@ -105,7 +107,7 @@ export default function DiaryHomeScreen() {
           return;
         }
 
-        const message = error instanceof Error ? error.message : '시술 기록을 불러오지 못했습니다.';
+        const message = getErrorMessage(error, '시술 기록을 불러오지 못했습니다.');
         setErrorMessage(message);
       })
       .finally(() => {
@@ -158,19 +160,22 @@ export default function DiaryHomeScreen() {
         </ScrollView>
 
         {isLoading ? (
-          <View style={styles.stateBox}>
-            <ActivityIndicator color="#FF5A5F" />
-            <Text style={styles.stateText}>시술 기록을 불러오는 중...</Text>
-          </View>
+          <LoadingState message="불러오는 중..." />
         ) : errorMessage ? (
           <View style={styles.stateBox}>
             <Text style={styles.stateTitle}>기록을 불러오지 못했어요</Text>
             <Text style={styles.stateText}>{errorMessage}</Text>
           </View>
+        ) : treatments.length === 0 ? (
+          <EmptyState
+            icon="📖"
+            subtitle="디자이너가 시술을 입력하면 여기에 자동으로 나타나요"
+            title="아직 시술 기록이 없어요"
+          />
         ) : filteredTreatments.length === 0 ? (
           <View style={styles.stateBox}>
-            <Text style={styles.stateTitle}>아직 시술 기록이 없어요</Text>
-            <Text style={styles.stateText}>시술 기록이 생기면 이곳에 시간순으로 쌓여요.</Text>
+            <Text style={styles.stateTitle}>선택한 필터에 맞는 기록이 없어요</Text>
+            <Text style={styles.stateText}>다른 필터를 선택해보세요.</Text>
           </View>
         ) : (
           <View style={styles.timeline}>

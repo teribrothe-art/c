@@ -1,4 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
+import { getErrorMessage, toAppError } from './errors';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { supabase } from './supabase';
@@ -50,11 +51,13 @@ export async function getTreatmentPhotoSignedUrl(
     .createSignedUrl(storagePath, SIGNED_URL_EXPIRY_SECONDS);
 
   if (error) {
-    throw new Error(error.message);
+    throw toAppError(error);
   }
 
   return data.signedUrl;
 }
+
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
 export async function pickTreatmentPhotoFromLibrary() {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -73,7 +76,13 @@ export async function pickTreatmentPhotoFromLibrary() {
     return null;
   }
 
-  return result.assets[0].uri;
+  const asset = result.assets[0];
+
+  if (asset.fileSize && asset.fileSize > MAX_PHOTO_BYTES) {
+    throw new Error('PHOTO_TOO_LARGE');
+  }
+
+  return asset.uri;
 }
 
 export async function uploadTreatmentPhoto(
@@ -103,7 +112,7 @@ export async function uploadTreatmentPhoto(
   });
 
   if (uploadError) {
-    throw new Error(uploadError.message);
+    throw toAppError(uploadError);
   }
 
   return updateTreatment(treatmentId, { [column]: storagePath });
@@ -120,7 +129,7 @@ export async function removeTreatmentPhoto(
     const { error } = await supabase.storage.from(BUCKET).remove([storagePath]);
 
     if (error) {
-      throw new Error(error.message);
+      throw toAppError(error);
     }
   }
 
