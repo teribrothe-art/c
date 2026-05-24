@@ -22,6 +22,7 @@ export type TossPaymentFailure = {
   orderId?: string;
 };
 
+/** 앱용 클라이언트 키 (`test_ck_` / `live_ck_`). 시크릿 키(`test_sk_`)는 사용하지 않습니다. */
 export function getTossClientKey() {
   return process.env.EXPO_PUBLIC_TOSS_CLIENT_KEY?.trim() ?? '';
 }
