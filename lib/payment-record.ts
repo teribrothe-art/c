@@ -11,8 +11,7 @@ export type PaymentRecordStatus =
   | 'paid'
   | 'in_escrow'
   | 'completed'
-  | 'refunded'
-  | 'failed';
+  | 'refunded';
 
 export type PaymentRecord = {
   id: string;
@@ -258,19 +257,25 @@ export async function markPaymentPaid(
   return data as PaymentRecord;
 }
 
+/** 결제 실패 시 pending으로 되돌립니다 (스키마에 failed 없음) */
 export async function markPaymentFailed(treatmentId: string) {
   if (isDemoAuthMode || !supabase) {
     const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
     if (index < 0) {
       return null;
     }
-    demoPayments[index] = { ...demoPayments[index], status: 'failed' };
+    demoPayments[index] = {
+      ...demoPayments[index],
+      status: 'pending',
+      toss_payment_key: null,
+      paid_at: null,
+    };
     return demoPayments[index];
   }
 
   const { data, error } = await supabase
     .from('payments')
-    .update({ status: 'failed' })
+    .update({ status: 'pending', toss_payment_key: null, paid_at: null })
     .eq('treatment_id', treatmentId)
     .select(paymentSelectFields)
     .single();

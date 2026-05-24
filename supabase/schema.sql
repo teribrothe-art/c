@@ -96,7 +96,7 @@ create policy "본인 시술 수정"
 -- 결제 내역 테이블
 create table if not exists public.payments (
   id uuid primary key default gen_random_uuid(),
-  treatment_id uuid not null references public.treatments(id) on delete cascade,
+  treatment_id uuid not null references public.treatments(id),
   customer_id uuid not null references public.profiles(id),
   designer_id uuid not null references public.profiles(id),
   amount integer not null,
