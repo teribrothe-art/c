@@ -1,4 +1,4 @@
-import { Href, router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -29,8 +29,7 @@ type InputSection = {
   items: InputItem[];
 };
 
-const SYSTEM_COMPLETED_ITEMS = 4;
-const TOTAL_ITEMS = 10;
+const TOTAL_ITEMS = 6;
 
 function joinProducts(products: string[] | null) {
   return products?.length ? products.join(' · ') : '';
@@ -39,10 +38,6 @@ function joinProducts(products: string[] | null) {
 function getDraftValue(treatment: Treatment | null, field: EditableField) {
   if (!treatment) {
     return '';
-  }
-
-  if (field === 'designer_diagnosis' || field === 'home_care') {
-    return treatment.feedback_completed ? treatment[field] ?? '' : '';
   }
 
   return treatment[field] ?? '';
@@ -170,7 +165,7 @@ export default function DesignerTreatmentInputScreen() {
           },
           {
             label: '기법·세팅',
-            value: technique || '선택 안 됨',
+            value: technique,
             complete: Boolean(technique),
             editable: 'technique',
           },
@@ -181,13 +176,13 @@ export default function DesignerTreatmentInputScreen() {
         items: [
           {
             label: '모발 상태 평가',
-            value: diagnosis || '필수',
+            value: diagnosis,
             complete: Boolean(diagnosis),
             editable: 'designer_diagnosis',
           },
           {
             label: '홈케어 가이드',
-            value: homeCare || '필수',
+            value: homeCare,
             complete: Boolean(homeCare),
             editable: 'home_care',
           },
@@ -196,14 +191,9 @@ export default function DesignerTreatmentInputScreen() {
     ];
   }, [treatment]);
 
-  const visibleCompletedCount = sections.reduce(
-    (sum, section) => sum + section.items.filter((item) => item.complete).length,
-    0,
-  );
-  const completedCount = Math.min(TOTAL_ITEMS, SYSTEM_COMPLETED_ITEMS + visibleCompletedCount);
-  const requiredItems = sections
-    .flatMap((section) => section.items)
-    .filter((item) => item.editable && !item.complete);
+  const allItems = sections.flatMap((section) => section.items);
+  const completedCount = allItems.filter((item) => item.complete).length;
+  const requiredItems = allItems.filter((item) => item.editable && !item.complete);
   const requiredCount = requiredItems.length;
   const progress = completedCount / TOTAL_ITEMS;
   const canRequestSettlement = requiredCount === 0 && Boolean(treatment);
@@ -256,10 +246,10 @@ export default function DesignerTreatmentInputScreen() {
         feedback_completed: true,
         payment_status: 'completed',
       });
-      Alert.alert('정산 완료', '정산이 완료되었습니다', [
+      Alert.alert('정산 완료', '정산이 완료되었습니다 ✓', [
         {
           text: '확인',
-          onPress: () => router.replace('/designer/clients' as Href),
+          onPress: () => router.back(),
         },
       ]);
     } catch (error) {
@@ -426,7 +416,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   progressTrack: {
-    height: 12,
+    height: 4,
     overflow: 'hidden',
     borderRadius: 999,
     backgroundColor: '#E6E6EE',
@@ -440,10 +430,10 @@ const styles = StyleSheet.create({
     marginBottom: 26,
   },
   sectionTitle: {
-    color: '#1A1A2E',
-    fontSize: 18,
-    fontWeight: '900',
-    marginBottom: 12,
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 10,
   },
   cardList: {
     gap: 12,
@@ -470,7 +460,7 @@ const styles = StyleSheet.create({
     borderColor: '#FFD4D5',
   },
   leftBar: {
-    width: 6,
+    width: 3,
   },
   completeBar: {
     backgroundColor: '#00C2A8',
@@ -516,7 +506,7 @@ const styles = StyleSheet.create({
   settlementButton: {
     alignItems: 'center',
     borderRadius: 16,
-    backgroundColor: '#E1E1E8',
+    backgroundColor: '#CCCCCC',
     marginTop: 4,
     paddingVertical: 17,
   },
