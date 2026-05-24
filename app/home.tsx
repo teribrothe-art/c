@@ -131,7 +131,7 @@ export default function DiaryHomeScreen() {
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>내 다이어리</Text>
-          <Pressable style={styles.notificationButton}>
+          <Pressable onPress={() => router.push('/notifications')} style={styles.notificationButton}>
             <Text style={styles.notificationIcon}>🔔</Text>
           </Pressable>
         </View>

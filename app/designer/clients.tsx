@@ -137,7 +137,7 @@ export default function DesignerClientsScreen() {
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>내 고객들</Text>
-          <Pressable style={styles.notificationButton}>
+          <Pressable onPress={() => router.push('/notifications')} style={styles.notificationButton}>
             <Text style={styles.notificationIcon}>🔔</Text>
           </Pressable>
         </View>
