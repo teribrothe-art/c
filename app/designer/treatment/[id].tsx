@@ -13,6 +13,15 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { TreatmentPhotoSlot } from '../../../src/components/treatment-photo-slot';
+import {
+  getTreatmentPhotoSignedUrl,
+  pickTreatmentPhotoFromLibrary,
+  removeTreatmentPhoto,
+  TreatmentPhotoKind,
+  uploadTreatmentPhoto,
+} from '../../../lib/treatment-photos';
+
 import { getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
 
 type EditableField = 'technique' | 'designer_diagnosis' | 'home_care';
@@ -80,6 +89,11 @@ export default function DesignerTreatmentInputScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [activeField, setActiveField] = useState<EditableField | null>(null);
   const [inputValue, setInputValue] = useState('');
+  const [photoPreviews, setPhotoPreviews] = useState<{ before: string | null; after: string | null }>({
+    before: null,
+    after: null,
+  });
+  const [uploadingPhoto, setUploadingPhoto] = useState<TreatmentPhotoKind | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -112,6 +126,11 @@ export default function DesignerTreatmentInputScreen() {
         }
 
         setTreatment(nextTreatment);
+        const [beforePreview, afterPreview] = await Promise.all([
+          getTreatmentPhotoSignedUrl(nextTreatment.before_photo_url),
+          getTreatmentPhotoSignedUrl(nextTreatment.after_photo_url),
+        ]);
+        setPhotoPreviews({ before: beforePreview, after: afterPreview });
         setErrorMessage('');
       })
       .catch((error) => {
@@ -132,7 +151,6 @@ export default function DesignerTreatmentInputScreen() {
       isMounted = false;
     };
   }, [id]);
-
   const sections = useMemo<InputSection[]>(() => {
     const technique = getDraftValue(treatment, 'technique');
     const diagnosis = getDraftValue(treatment, 'designer_diagnosis');
@@ -260,6 +278,75 @@ export default function DesignerTreatmentInputScreen() {
     }
   };
 
+
+  const refreshPhotoPreview = async (nextTreatment: Treatment) => {
+    const [before, after] = await Promise.all([
+      getTreatmentPhotoSignedUrl(nextTreatment.before_photo_url),
+      getTreatmentPhotoSignedUrl(nextTreatment.after_photo_url),
+    ]);
+    setPhotoPreviews({ before, after });
+  };
+
+  const handlePickPhoto = async (kind: TreatmentPhotoKind) => {
+    if (!treatment || uploadingPhoto) {
+      return;
+    }
+
+    try {
+      const localUri = await pickTreatmentPhotoFromLibrary();
+
+      if (!localUri) {
+        return;
+      }
+
+      setUploadingPhoto(kind);
+      const updatedTreatment = await uploadTreatmentPhoto(treatment.id, kind, localUri);
+      setTreatment(updatedTreatment);
+      await refreshPhotoPreview(updatedTreatment);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '사진 업로드에 실패했습니다.';
+      Alert.alert('업로드 실패', message);
+    } finally {
+      setUploadingPhoto(null);
+    }
+  };
+
+  const handleRemovePhoto = (kind: TreatmentPhotoKind) => {
+    if (!treatment) {
+      return;
+    }
+
+    const storagePath = kind === 'before' ? treatment.before_photo_url : treatment.after_photo_url;
+
+    if (!storagePath) {
+      return;
+    }
+
+    Alert.alert('사진 삭제', '등록된 사진을 삭제할까요?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: () => {
+          Promise.resolve()
+            .then(async () => {
+              setUploadingPhoto(kind);
+              const updatedTreatment = await removeTreatmentPhoto(treatment.id, kind, storagePath);
+              setTreatment(updatedTreatment);
+              await refreshPhotoPreview(updatedTreatment);
+            })
+            .catch((error) => {
+              const message = error instanceof Error ? error.message : '사진 삭제에 실패했습니다.';
+              Alert.alert('삭제 실패', message);
+            })
+            .finally(() => {
+              setUploadingPhoto(null);
+            });
+        },
+      },
+    ]);
+  };
+
   const activeFieldLabel = sections
     .flatMap((section) => section.items)
     .find((item) => item.editable === activeField)?.label;
@@ -289,6 +376,7 @@ export default function DesignerTreatmentInputScreen() {
           </View>
         ) : (
           <>
+
             <View style={styles.progressBlock}>
               <View style={styles.progressTopRow}>
                 <Text style={styles.progressText}>완료 {completedCount}/{TOTAL_ITEMS} 항목</Text>
@@ -297,6 +385,24 @@ export default function DesignerTreatmentInputScreen() {
               <View style={styles.progressTrack}>
                 <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
               </View>
+            </View>
+
+            <View style={styles.photoSection}>
+              <Text style={styles.photoSectionTitle}>시술 사진</Text>
+              <TreatmentPhotoSlot
+                isUploading={uploadingPhoto === 'before'}
+                label="Before (전)"
+                onPress={() => handlePickPhoto('before')}
+                onRemove={() => handleRemovePhoto('before')}
+                previewUrl={photoPreviews.before}
+              />
+              <TreatmentPhotoSlot
+                isUploading={uploadingPhoto === 'after'}
+                label="After (후)"
+                onPress={() => handlePickPhoto('after')}
+                onRemove={() => handleRemovePhoto('after')}
+                previewUrl={photoPreviews.after}
+              />
             </View>
 
             {sections.map((section) => (
@@ -395,6 +501,16 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 42,
+  },
+  photoSection: {
+    gap: 8,
+    marginBottom: 24,
+  },
+  photoSectionTitle: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 4,
   },
   progressBlock: {
     marginBottom: 28,

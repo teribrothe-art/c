@@ -1,4 +1,3 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ReactNode, useEffect, useState } from 'react';
 import {
@@ -11,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { TreatmentPhotoCarousel } from '../../src/components/treatment-photo-carousel';
 import { getTreatmentById, Treatment } from '../../lib/treatments';
 
 function formatDate(date?: string) {
@@ -129,9 +129,10 @@ export default function TreatmentDetailScreen() {
           </View>
         ) : (
           <>
-            <LinearGradient colors={['#FFD4D5', '#E0D7FA']} style={styles.photoArea}>
-              <Text style={styles.photoText}>전후 사진</Text>
-            </LinearGradient>
+            <TreatmentPhotoCarousel
+              afterPhotoPath={treatment.after_photo_url}
+              beforePhotoPath={treatment.before_photo_url}
+            />
 
             <SectionCard title="기본 정보">
               <InfoRow label="시술" value={treatment.treatment_title} />
@@ -205,18 +206,6 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingBottom: 36,
     paddingHorizontal: 22,
-  },
-  photoArea: {
-    alignItems: 'center',
-    borderRadius: 24,
-    height: 130,
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  photoText: {
-    color: '#1A1A2E',
-    fontSize: 18,
-    fontWeight: '800',
   },
   card: {
     borderRadius: 22,

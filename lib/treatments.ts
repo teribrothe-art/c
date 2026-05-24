@@ -198,7 +198,13 @@ export async function getDesignerTreatments() {
 type TreatmentUpdateInput = Partial<
   Pick<
     Treatment,
-    'technique' | 'designer_diagnosis' | 'home_care' | 'feedback_completed' | 'payment_status'
+    | 'technique'
+    | 'designer_diagnosis'
+    | 'home_care'
+    | 'feedback_completed'
+    | 'payment_status'
+    | 'before_photo_url'
+    | 'after_photo_url'
   >
 >;
 
