@@ -35,6 +35,21 @@ export function isTossTestKey() {
   return getTossClientKey().startsWith('test_');
 }
 
+/** 토스페이먼츠 샌드박스(test_ck) 전용 테스트 카드 — 실제 결제되지 않습니다 */
+export const TOSS_TEST_CARD = {
+  cardNumber: '4330-1234-1234-1234',
+  expiry: '12/30',
+  cvc: '123',
+  passwordPrefix: '00',
+  birthDate: '940101',
+} as const;
+
+export function shouldShowTossTestCardGuide() {
+  return isTossTestKey() || !isTossConfigured();
+}
+
+
+
 export function createTossOrderId(treatmentId: string) {
   return `hair-${treatmentId}-${Date.now()}`;
 }

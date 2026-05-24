@@ -26,7 +26,10 @@ import {
   buildTossPaymentWebViewHtml,
   getTossClientKey,
   isTossConfigured,
+  isTossTestKey,
   requestTossPaymentOnWeb,
+  shouldShowTossTestCardGuide,
+  TOSS_TEST_CARD,
   shouldUsePaymentWebView,
 } from '../../lib/toss';
 import { colors, disabledButtonStyle } from '../../lib/theme';
@@ -314,11 +317,38 @@ export default function CustomerPaymentScreen() {
           <Text style={styles.noticeSub}>에스크로 방식으로 안전하게 보관됩니다</Text>
         </View>
 
-        {!isTossConfigured() ? (
-          <Text style={styles.demoHint}>
-            테스트 모드: 토스 결제창 대신 데모 결제가 실행됩니다.{' '}
-            {Platform.OS === 'web' ? '(웹)' : '(WebView)'}
-          </Text>
+        {shouldShowTossTestCardGuide() ? (
+          <View style={styles.testCardBox}>
+            <Text style={styles.testCardTitle}>토스 테스트 카드 (샌드박스)</Text>
+            {!isTossConfigured() ? (
+              <Text style={styles.demoHint}>
+                클라이언트 키 없음: 아래 버튼은 데모 결제로 진행됩니다. test_ck 키를 설정하면 실제
+                결제창에서 아래 카드로 테스트할 수 있습니다.
+              </Text>
+            ) : isTossTestKey() ? (
+              <Text style={styles.demoHint}>test_ck 키 · WebView 결제창에서 아래 정보를 입력하세요.</Text>
+            ) : null}
+            <View style={styles.testCardRow}>
+              <Text style={styles.testCardLabel}>카드번호</Text>
+              <Text style={styles.testCardValue}>{TOSS_TEST_CARD.cardNumber}</Text>
+            </View>
+            <View style={styles.testCardRow}>
+              <Text style={styles.testCardLabel}>유효기간</Text>
+              <Text style={styles.testCardValue}>{TOSS_TEST_CARD.expiry}</Text>
+            </View>
+            <View style={styles.testCardRow}>
+              <Text style={styles.testCardLabel}>CVC</Text>
+              <Text style={styles.testCardValue}>{TOSS_TEST_CARD.cvc}</Text>
+            </View>
+            <View style={styles.testCardRow}>
+              <Text style={styles.testCardLabel}>비밀번호 앞 2자리</Text>
+              <Text style={styles.testCardValue}>{TOSS_TEST_CARD.passwordPrefix}</Text>
+            </View>
+            <View style={styles.testCardRow}>
+              <Text style={styles.testCardLabel}>생년월일</Text>
+              <Text style={styles.testCardValue}>{TOSS_TEST_CARD.birthDate}</Text>
+            </View>
+          </View>
         ) : null}
       </ScrollView>
 
@@ -535,12 +565,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
+  testCardBox: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 8,
+    marginTop: 8,
+    padding: 14,
+  },
+  testCardTitle: {
+    color: '#7B5EE6',
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  testCardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  testCardLabel: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  testCardValue: {
+    color: '#1A1A2E',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   demoHint: {
     color: '#9CA3AF',
     fontSize: 12,
     lineHeight: 18,
-    marginTop: 8,
-    textAlign: 'center',
+    marginBottom: 4,
+    textAlign: 'left',
   },
   footer: {
     backgroundColor: '#FAFAFC',
