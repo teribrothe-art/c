@@ -57,11 +57,20 @@ create table if not exists public.treatments (
 
 alter table public.treatments enable row level security;
 
+-- SELECT: 고객은 본인 시술만, 디자이너는 본인이 시술한 것만
 drop policy if exists "본인 시술 조회" on public.treatments;
-create policy "본인 시술 조회"
+drop policy if exists "고객은 본인 시술 조회" on public.treatments;
+drop policy if exists "디자이너는 본인 시술 조회" on public.treatments;
+
+create policy "고객은 본인 시술 조회"
   on public.treatments
   for select
-  using (auth.uid() = customer_id or auth.uid() = designer_id);
+  using (auth.uid() = customer_id);
+
+create policy "디자이너는 본인 시술 조회"
+  on public.treatments
+  for select
+  using (auth.uid() = designer_id);
 
 drop policy if exists "본인 시술 생성" on public.treatments;
 create policy "본인 시술 생성"
@@ -96,3 +105,22 @@ alter table public.treatments
 -- 디자이너 시술 입력 컬럼
 alter table public.treatments
   add column if not exists technique text;
+
+
+-- 디자이너 전용 메모 (시술별 비공개 메모)
+create table if not exists public.designer_memos (
+  id uuid primary key default gen_random_uuid(),
+  treatment_id uuid not null references public.treatments(id) on delete cascade,
+  designer_id uuid not null references public.profiles(id),
+  memo text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.designer_memos enable row level security;
+
+drop policy if exists "디자이너 메모 본인만" on public.designer_memos;
+create policy "디자이너 메모 본인만"
+  on public.designer_memos
+  for all
+  using (auth.uid() = designer_id)
+  with check (auth.uid() = designer_id);
