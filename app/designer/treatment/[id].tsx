@@ -28,6 +28,8 @@ import {
   validateTreatmentNote,
 } from '../../../lib/validation';
 import { LoadingState } from '../../../src/components/loading-state';
+import { requestCustomerPayment, settleDesignerPayout } from '../../../lib/payments';
+import { normalizePaymentStatus } from '../../../lib/payment-status';
 import { getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
 
 type EditableField = 'technique' | 'designer_diagnosis' | 'home_care';
@@ -223,7 +225,9 @@ export default function DesignerTreatmentInputScreen() {
   const requiredItems = allItems.filter((item) => item.editable && !item.complete);
   const requiredCount = requiredItems.length;
   const progress = completedCount / TOTAL_ITEMS;
-  const canRequestSettlement = requiredCount === 0 && Boolean(treatment);
+  const paymentStatus = normalizePaymentStatus(treatment?.payment_status);
+  const canRequestPayment = paymentStatus === 'pending' && Boolean(treatment?.price);
+  const canSettle = paymentStatus === 'escrow' && requiredCount === 0;
 
   const openEditor = (field: EditableField) => {
     setActiveField(field);
@@ -251,9 +255,24 @@ export default function DesignerTreatmentInputScreen() {
 
     try {
       setIsSaving(true);
-      const updatedTreatment = await updateTreatment(treatment.id, {
+      let updatedTreatment = await updateTreatment(treatment.id, {
         [activeField]: trimmedValue,
       });
+
+      const allEditableComplete = ['technique', 'designer_diagnosis', 'home_care'].every((field) =>
+        Boolean(updatedTreatment[field as EditableField]?.trim()),
+      );
+
+      if (
+        normalizePaymentStatus(updatedTreatment.payment_status) === 'escrow' &&
+        allEditableComplete &&
+        !updatedTreatment.feedback_completed
+      ) {
+        updatedTreatment = await updateTreatment(treatment.id, {
+          feedback_completed: true,
+        });
+      }
+
       setTreatment(updatedTreatment);
       closeEditor();
     } catch (error) {
@@ -270,10 +289,7 @@ export default function DesignerTreatmentInputScreen() {
 
     try {
       setIsSaving(true);
-      await updateTreatment(treatment.id, {
-        feedback_completed: true,
-        payment_status: 'completed',
-      });
+      await settleDesignerPayout(treatment.id);
       showSuccessAlert('정산이 완료되었습니다 ✓', () => router.back());
     } catch (error) {
       showErrorAlert(getErrorMessage(error, '정산 요청 중 문제가 발생했습니다.'), '정산 실패');
@@ -283,16 +299,43 @@ export default function DesignerTreatmentInputScreen() {
   };
 
   const handleRequestSettlement = () => {
-    if (!treatment || !canRequestSettlement) {
+    if (!treatment || !canSettle) {
       return;
     }
 
     showConfirmAlert({
-      title: '정산 요청',
-      message: `고객 ${treatment.customer_name || '고객'}님의 시술을 정산 요청하시겠어요?`,
-      confirmLabel: '정산 요청',
+      title: '디자이너 정산',
+      message: `고객 ${treatment.customer_name || '고객'}님 시술을 정산하시겠어요?\n수수료 차감 후 디자이너에게 송금됩니다.`,
+      confirmLabel: '정산하기',
       onConfirm: () => {
         void processSettlement();
+      },
+    });
+  };
+
+  const handleRequestPayment = () => {
+    if (!treatment || !canRequestPayment) {
+      return;
+    }
+
+    showConfirmAlert({
+      title: '결제 요청',
+      message: `고객 ${treatment.customer_name || '고객'}님에게 ${(treatment.price ?? 0).toLocaleString('ko-KR')}원 결제 요청을 보낼까요?`,
+      confirmLabel: '결제 요청',
+      onConfirm: () => {
+        Promise.resolve()
+          .then(async () => {
+            setIsSaving(true);
+            const updated = await requestCustomerPayment(treatment.id);
+            setTreatment(updated);
+            showSuccessAlert('결제 요청을 보냈습니다. 고객이 결제하면 에스크로에 보관됩니다.');
+          })
+          .catch((error) => {
+            showErrorAlert(getErrorMessage(error), '결제 요청 실패');
+          })
+          .finally(() => {
+            setIsSaving(false);
+          });
       },
     });
   };
@@ -447,18 +490,41 @@ export default function DesignerTreatmentInputScreen() {
               </View>
             ))}
 
+            {canRequestPayment ? (
+              <Pressable
+                disabled={isSaving}
+                onPress={handleRequestPayment}
+                style={({ pressed }) => [styles.paymentRequestButton, pressed && styles.buttonPressed]}>
+                <Text style={styles.paymentRequestButtonText}>결제 요청 보내기</Text>
+              </Pressable>
+            ) : null}
+
+            {paymentStatus === 'payment_requested' ? (
+              <View style={styles.waitingPaymentBox}>
+                <Text style={styles.waitingPaymentText}>고객 결제 대기 중 (에스크로 보관 예정)</Text>
+              </View>
+            ) : null}
+
+            {paymentStatus === 'escrow' ? (
+              <View style={styles.escrowInfoBox}>
+                <Text style={styles.escrowInfoText}>고객 결제 완료 · 에스크로 보관 중</Text>
+              </View>
+            ) : null}
+
             <Pressable
-              disabled={!canRequestSettlement || isSaving}
+              disabled={!canSettle || isSaving || paymentStatus !== 'escrow'}
               onPress={handleRequestSettlement}
-              style={[styles.settlementButton, canRequestSettlement ? styles.settlementButtonActive : styles.settlementButtonDisabled]}>
+              style={[styles.settlementButton, canSettle ? styles.settlementButtonActive : styles.settlementButtonDisabled]}>
               <Text
                 style={[
                   styles.settlementButtonText,
-                  canRequestSettlement && styles.settlementButtonTextActive,
+                  canSettle && styles.settlementButtonTextActive,
                 ]}>
-                {canRequestSettlement
-                  ? '정산 요청하기'
-                  : `필수 항목 ${requiredCount}개 입력 후 정산 가능`}
+                {paymentStatus !== 'escrow'
+                  ? '고객 결제 후 정산 가능'
+                  : canSettle
+                    ? '디자이너 정산하기'
+                    : `필수 항목 ${requiredCount}개 입력 후 정산 가능`}
               </Text>
             </Pressable>
           </>
@@ -649,6 +715,49 @@ const styles = StyleSheet.create({
   },
   emptyValue: {
     color: '#6B6B7B',
+  },
+  paymentRequestButton: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: colors.coral,
+    borderRadius: 12,
+    borderWidth: 2,
+    marginBottom: 10,
+    paddingVertical: 15,
+  },
+  paymentRequestButtonText: {
+    color: colors.coral,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  buttonPressed: {
+    opacity: 0.85,
+  },
+  waitingPaymentBox: {
+    backgroundColor: colors.lightCoral,
+    borderRadius: 12,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  waitingPaymentText: {
+    color: colors.coral,
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  escrowInfoBox: {
+    backgroundColor: colors.lightMint,
+    borderRadius: 12,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  escrowInfoText: {
+    color: colors.mint,
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   settlementButton: {
     alignItems: 'center',

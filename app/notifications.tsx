@@ -4,9 +4,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const notifications = [
   {
-    id: '1',
-    message: '김지원님 시술 정산 대기 중',
+    id: 'payment-1',
+    message: '김미용 디자이너님이 결제를 요청했어요 · 250,000원',
     tone: 'danger' as const,
+    href: '/payment/demo-treatment-1' as const,
   },
   {
     id: '2',
@@ -40,10 +41,19 @@ export default function NotificationsScreen() {
         ]}
         showsVerticalScrollIndicator={false}>
         {notifications.map((item) => (
-          <View key={item.id} style={styles.card}>
+          <Pressable
+            key={item.id}
+            style={styles.card}
+            disabled={!item.href}
+            onPress={() => {
+              if (item.href) {
+                router.push(item.href);
+              }
+            }}>
             {item.tone === 'danger' ? <View style={styles.dangerDot} /> : null}
             <Text style={styles.message}>{item.message}</Text>
-          </View>
+            {item.href ? <Text style={styles.chevron}>›</Text> : null}
+          </Pressable>
         ))}
       </ScrollView>
     </View>
@@ -113,5 +123,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     lineHeight: 21,
+  },
+  chevron: {
+    color: '#9CA3AF',
+    fontSize: 22,
+    fontWeight: '300',
   },
 });

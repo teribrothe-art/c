@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
 import { getErrorMessage } from '../../lib/errors';
+import { normalizePaymentStatus } from '../../lib/payment-status';
 import { getDesignerTreatments, Treatment } from '../../lib/treatments';
 import { EmptyState } from '../../src/components/empty-state';
 import { LoadingState } from '../../src/components/loading-state';
@@ -35,12 +36,18 @@ function isCurrentMonth(date: string) {
 }
 
 function getStatusMeta(status?: PaymentStatus | null) {
-  if (status === 'completed') {
+  const normalized = normalizePaymentStatus(status);
+
+  if (normalized === 'completed') {
     return { label: '정산 완료', style: styles.completedBadge, textStyle: styles.completedBadgeText };
   }
 
-  if (status === 'feedback_required') {
-    return { label: '정산 대기', style: styles.requiredBadge, textStyle: styles.requiredBadgeText };
+  if (normalized === 'escrow') {
+    return { label: '에스크로', style: styles.requiredBadge, textStyle: styles.requiredBadgeText };
+  }
+
+  if (normalized === 'payment_requested') {
+    return { label: '결제 요청', style: styles.pendingBadge, textStyle: styles.pendingBadgeText };
   }
 
   return { label: '결제 대기', style: styles.pendingBadge, textStyle: styles.pendingBadgeText };
@@ -127,7 +134,7 @@ export default function DesignerClientsScreen() {
     return {
       monthCount: treatments.filter((treatment) => isCurrentMonth(treatment.treatment_date)).length,
       waitingCount: treatments.filter(
-        (treatment) => treatment.payment_status === 'feedback_required',
+        (treatment) => normalizePaymentStatus(treatment.payment_status) === 'escrow',
       ).length,
     };
   }, [treatments]);

@@ -1,5 +1,6 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
+import type { PaymentStatus } from './payment-status';
 import { supabase } from './supabase';
 
 export type Treatment = {
@@ -20,15 +21,22 @@ export type Treatment = {
   home_care?: string | null;
   ai_insight?: string | null;
   price?: number | null;
-  payment_status?: 'pending' | 'feedback_required' | 'completed' | null;
+  payment_status?: PaymentStatus | null;
   feedback_completed?: boolean | null;
+  payment_requested_at?: string | null;
+  paid_at?: string | null;
+  settled_at?: string | null;
+  toss_order_id?: string | null;
+  toss_payment_key?: string | null;
+  platform_fee?: number | null;
+  designer_payout_amount?: number | null;
   before_photo_url?: string | null;
   after_photo_url?: string | null;
   created_at?: string | null;
 };
 
 const treatmentSelectFields =
-  'id, customer_id, designer_id, designer_name, customer_name, treatment_date, treatment_type, treatment_title, products, technique, damage_level, notes, duration, designer_diagnosis, home_care, ai_insight, price, payment_status, feedback_completed, before_photo_url, after_photo_url, created_at';
+  'id, customer_id, designer_id, designer_name, customer_name, treatment_date, treatment_type, treatment_title, products, technique, damage_level, notes, duration, designer_diagnosis, home_care, ai_insight, price, payment_status, feedback_completed, payment_requested_at, paid_at, settled_at, toss_order_id, toss_payment_key, platform_fee, designer_payout_amount, before_photo_url, after_photo_url, created_at';
 
 const demoTreatments: Treatment[] = [
   {
@@ -47,7 +55,8 @@ const demoTreatments: Treatment[] = [
     home_care: '주 2회 헤어 마스크. 드라이 온도 낮게.',
     ai_insight: '다음 시술은 6주 후 권장. 모이스처 트리트먼트 우선.',
     price: 250000,
-    payment_status: 'feedback_required',
+    payment_status: 'payment_requested',
+    payment_requested_at: '2026-04-18T12:00:00.000Z',
     feedback_completed: false,
   },
   {
@@ -67,6 +76,10 @@ const demoTreatments: Treatment[] = [
     ai_insight: '컷 주기 6-8주 유지 권장.',
     price: 150000,
     payment_status: 'completed',
+    paid_at: '2026-03-05T14:00:00.000Z',
+    settled_at: '2026-03-06T10:00:00.000Z',
+    platform_fee: 15000,
+    designer_payout_amount: 135000,
     feedback_completed: true,
   },
   {
@@ -102,9 +115,12 @@ const demoTreatments: Treatment[] = [
     duration: '4시간',
     designer_diagnosis: '곱슬이 강해 열 보호와 수분 케어가 필요합니다.',
     home_care: '시술 후 48시간 샴푸를 피하고 보습 트리트먼트를 사용하세요.',
-    ai_insight: '정산 대기 상태입니다. 피드백 완료 후 정산을 진행하세요.',
+    ai_insight: '피드백 완료 후 정산 가능합니다.',
     price: 180000,
-    payment_status: 'feedback_required',
+    payment_status: 'escrow',
+    paid_at: '2026-04-10T16:00:00.000Z',
+    platform_fee: 18000,
+    designer_payout_amount: 162000,
     feedback_completed: false,
   },
 ];
@@ -133,7 +149,6 @@ export async function getTreatments() {
   return { user, treatments: (data ?? []) as Treatment[] };
 }
 
-
 export async function getTreatmentById(id: string) {
   const user = await getCurrentUser();
 
@@ -160,7 +175,6 @@ export async function getTreatmentById(id: string) {
 
   return { user, treatment: data as Treatment | null };
 }
-
 
 export async function getDesignerTreatments() {
   const user = await getCurrentUser();
@@ -195,8 +209,7 @@ export async function getDesignerTreatments() {
   return { user, treatments: (data ?? []) as Treatment[] };
 }
 
-
-type TreatmentUpdateInput = Partial<
+export type TreatmentUpdateInput = Partial<
   Pick<
     Treatment,
     | 'technique'
@@ -204,6 +217,13 @@ type TreatmentUpdateInput = Partial<
     | 'home_care'
     | 'feedback_completed'
     | 'payment_status'
+    | 'payment_requested_at'
+    | 'paid_at'
+    | 'settled_at'
+    | 'toss_order_id'
+    | 'toss_payment_key'
+    | 'platform_fee'
+    | 'designer_payout_amount'
     | 'before_photo_url'
     | 'after_photo_url'
   >
@@ -231,13 +251,15 @@ export async function updateTreatment(id: string, updates: TreatmentUpdateInput)
     return demoTreatments[index];
   }
 
-  const { data, error } = await supabase
-    .from('treatments')
-    .update(updates)
-    .eq('id', id)
-    .eq('designer_id', user.id)
-    .select(treatmentSelectFields)
-    .single();
+  let query = supabase.from('treatments').update(updates).eq('id', id);
+
+  if (user.role === 'designer') {
+    query = query.eq('designer_id', user.id);
+  } else {
+    query = query.eq('customer_id', user.id);
+  }
+
+  const { data, error } = await query.select(treatmentSelectFields).single();
 
   if (error) {
     throw toAppError(error);

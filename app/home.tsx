@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomTabBar } from '../src/components/bottom-tab-bar';
 import { getErrorMessage } from '../lib/errors';
+import { getCustomerPendingPayments } from '../lib/payments';
 import { getTreatments, Treatment } from '../lib/treatments';
 import { EmptyState } from '../src/components/empty-state';
 import { LoadingState } from '../src/components/loading-state';
@@ -75,6 +76,7 @@ export default function DiaryHomeScreen() {
   const detailRouter = useRouter();
   const [selectedFilter, setSelectedFilter] = useState<FilterKey>('전체');
   const [treatments, setTreatments] = useState<Treatment[]>([]);
+  const [pendingPayments, setPendingPayments] = useState<Treatment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -100,6 +102,8 @@ export default function DiaryHomeScreen() {
         }
 
         setTreatments(nextTreatments);
+        const pending = await getCustomerPendingPayments();
+        setPendingPayments(pending);
         setErrorMessage('');
       })
       .catch((error) => {
@@ -131,6 +135,19 @@ export default function DiaryHomeScreen() {
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}
         showsVerticalScrollIndicator={false}>
+
+        {pendingPayments.length > 0 ? (
+          <Pressable
+            style={styles.paymentBanner}
+            onPress={() => router.push(`/payment/${pendingPayments[0].id}`)}
+          >
+            <Text style={styles.paymentBannerTitle}>결제 요청이 도착했어요</Text>
+            <Text style={styles.paymentBannerSub}>
+              {pendingPayments[0].designer_name} · {(pendingPayments[0].price ?? 0).toLocaleString()}원 · 결제하기
+            </Text>
+          </Pressable>
+        ) : null}
+
         <View style={styles.header}>
           <Text style={styles.title}>내 다이어리</Text>
           <Pressable onPress={() => router.push('/notifications')} style={styles.notificationButton}>
@@ -208,6 +225,23 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: 120,
     paddingHorizontal: 22,
+  },
+  paymentBanner: {
+    backgroundColor: '#1A1A2E',
+    borderRadius: 16,
+    marginBottom: 16,
+    padding: 16,
+  },
+  paymentBannerTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  paymentBannerSub: {
+    color: '#C7C7D1',
+    fontSize: 13,
+    fontWeight: '600',
   },
   header: {
     alignItems: 'center',

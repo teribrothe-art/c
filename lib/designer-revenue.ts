@@ -1,3 +1,4 @@
+import { normalizePaymentStatus } from './payment-status';
 import { Treatment } from './treatments';
 
 export type RevenueSummary = {
@@ -46,19 +47,19 @@ export function buildDesignerRevenue(treatments: Treatment[]): RevenueSummary {
   }
 
   const monthRevenue = monthTreatments
-    .filter((treatment) => treatment.payment_status === 'completed')
-    .reduce((sum, treatment) => sum + (treatment.price ?? 0), 0);
+    .filter((treatment) => normalizePaymentStatus(treatment.payment_status) === 'completed')
+    .reduce((sum, treatment) => sum + (treatment.designer_payout_amount ?? treatment.price ?? 0), 0);
 
   const pendingSettlementCount = monthTreatments.filter(
-    (treatment) => treatment.payment_status === 'feedback_required',
+    (treatment) => normalizePaymentStatus(treatment.payment_status) === 'escrow',
   ).length;
 
   const completedSettlementCount = monthTreatments.filter(
-    (treatment) => treatment.payment_status === 'completed',
+    (treatment) => normalizePaymentStatus(treatment.payment_status) === 'completed',
   ).length;
 
   const recentSettlements = treatments
-    .filter((treatment) => treatment.payment_status === 'completed')
+    .filter((treatment) => normalizePaymentStatus(treatment.payment_status) === 'completed')
     .sort((a, b) => b.treatment_date.localeCompare(a.treatment_date))
     .slice(0, 5)
     .map((treatment) => ({
@@ -66,7 +67,7 @@ export function buildDesignerRevenue(treatments: Treatment[]): RevenueSummary {
       customerName: treatment.customer_name || '고객',
       treatmentTitle: treatment.treatment_title,
       treatmentDate: treatment.treatment_date,
-      price: treatment.price ?? 0,
+      price: treatment.designer_payout_amount ?? treatment.price ?? 0,
     }));
 
   return {

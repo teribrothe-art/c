@@ -50,8 +50,15 @@ create table if not exists public.treatments (
   home_care text,
   ai_insight text,
   price integer,
-  payment_status text default 'pending' check (payment_status in ('pending', 'feedback_required', 'completed')),
+  payment_status text default 'pending' check (payment_status in ('pending', 'payment_requested', 'escrow', 'completed', 'feedback_required')),
   feedback_completed boolean default false,
+  payment_requested_at timestamptz,
+  paid_at timestamptz,
+  settled_at timestamptz,
+  toss_order_id text,
+  toss_payment_key text,
+  platform_fee integer,
+  designer_payout_amount integer,
   created_at timestamptz default now()
 );
 
@@ -98,7 +105,7 @@ alter table public.treatments
 alter table public.treatments
   add column if not exists customer_name text,
   add column if not exists price integer,
-  add column if not exists payment_status text default 'pending' check (payment_status in ('pending', 'feedback_required', 'completed')),
+  add column if not exists payment_status text default 'pending' check (payment_status in ('pending', 'payment_requested', 'escrow', 'completed', 'feedback_required')),
   add column if not exists feedback_completed boolean default false;
 
 
