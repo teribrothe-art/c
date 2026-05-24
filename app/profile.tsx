@@ -55,9 +55,13 @@ function StatRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SettingsRow({ icon, label, onPress }: SettingItem & { onPress: () => void }) {
+function SettingsRow({
+  icon,
+  label,
+  onPress,
+}: SettingItem & { onPress?: () => void }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.settingRow, pressed && styles.settingRowPressed]}>
+    <Pressable onPress={onPress ?? (() => {})} style={({ pressed }) => [styles.settingRow, pressed && styles.settingRowPressed]}>
       <Text style={styles.settingIcon}>{icon}</Text>
       <Text style={styles.settingLabel}>{label}</Text>
       <Text style={styles.settingArrow}>›</Text>
@@ -78,7 +82,9 @@ function ActivityCard({ stats }: { stats: ProfileStats }) {
       ) : (
         <>
           <StatRow label="누적 시술 건수" value={`${stats.treatmentCount}건`} />
-          <StatRow label="누적 정산 금액" value={formatCurrency(stats.totalSettlementAmount)} />
+          <StatRow label="누적 정산 총액" value={formatCurrency(stats.totalSettlementAmount)} />
+          <StatRow label="이번 달 정산" value={formatCurrency(stats.monthSettlementAmount)} />
+          <StatRow label="정산 대기" value={`${stats.pendingSettlementCount}건`} />
           <StatRow label="단골 고객" value={`${stats.regularCustomerCount}명`} />
         </>
       )}
@@ -191,6 +197,16 @@ export default function ProfileScreen() {
 
             <ActivityCard stats={stats} />
 
+            {!isDesigner ? (
+              <Pressable
+                style={({ pressed }) => [styles.paymentsLink, pressed && styles.paymentsLinkPressed]}
+                onPress={() => router.push('/customer/payments')}>
+                <Text style={styles.paymentsLinkIcon}>💳</Text>
+                <Text style={styles.paymentsLinkLabel}>내 결제 내역</Text>
+                <Text style={styles.paymentsLinkArrow}>›</Text>
+              </Pressable>
+            ) : null}
+
             <View style={styles.card}>
               {settingItems.map((item, index) => (
                 <View key={item.label}>
@@ -281,6 +297,23 @@ const styles = StyleSheet.create({
   roleBadgeTextDesigner: {
     color: '#7B5EE6',
   },
+  paymentsLink: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 16,
+    shadowColor: '#1A1A2E',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  paymentsLinkPressed: { opacity: 0.88 },
+  paymentsLinkIcon: { fontSize: 20 },
+  paymentsLinkLabel: { color: '#1A1A2E', flex: 1, fontSize: 16, fontWeight: '800' },
+  paymentsLinkArrow: { color: '#9CA3AF', fontSize: 22 },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,

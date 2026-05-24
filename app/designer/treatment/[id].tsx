@@ -51,6 +51,10 @@ type InputSection = {
   items: InputItem[];
 };
 
+function formatDate(date: string) {
+  return date.replaceAll('-', '.');
+}
+
 const TOTAL_ITEMS = 6;
 
 function joinProducts(products: string[] | null) {
@@ -235,6 +239,7 @@ export default function DesignerTreatmentInputScreen() {
   const progress = completedCount / TOTAL_ITEMS;
   const paymentStatus = normalizePaymentStatus(treatment?.payment_status);
   const canRequestPayment = paymentStatus === 'pending' && Boolean(treatment?.price);
+  const isSettled = normalizePaymentStatus(treatment?.payment_status) === 'completed';
   const isPaymentPaid =
     paymentRecord?.status === 'paid' ||
     paymentRecord?.status === 'in_escrow' ||
@@ -303,7 +308,7 @@ export default function DesignerTreatmentInputScreen() {
       setIsSaving(true);
       await settleDesignerPayout(treatment.id);
       setPaymentRecord(await getPaymentByTreatmentId(treatment.id));
-      showSuccessAlert('정산이 완료되었습니다 ✓', () => router.back());
+      showSuccessAlert('정산이 요청되었습니다.\n영업일 기준 2-3일 내 입금됩니다.', () => router.back());
     } catch (error) {
       showErrorAlert(getErrorMessage(error, '정산 요청 중 문제가 발생했습니다.'), '정산 실패');
     } finally {
@@ -319,7 +324,7 @@ export default function DesignerTreatmentInputScreen() {
     showConfirmAlert({
       title: '디자이너 정산',
       message: `고객 ${treatment.customer_name || '고객'}님 시술을 정산하시겠어요?\n수수료 차감 후 디자이너에게 송금됩니다.`,
-      confirmLabel: '정산하기',
+      confirmLabel: '정산 요청',
       onConfirm: () => {
         void processSettlement();
       },
@@ -449,8 +454,7 @@ export default function DesignerTreatmentInputScreen() {
           <Text style={styles.headerTitle}>시술 입력 · {treatment?.customer_name || '고객'}</Text>
           <View style={styles.headerSpacer} />
         </View>
-
-        {isLoading ? (
+            {isLoading ? (
           <LoadingState message="불러오는 중..." />
         ) : errorMessage || !treatment ? (
           <View style={styles.stateBox}>
@@ -459,6 +463,28 @@ export default function DesignerTreatmentInputScreen() {
           </View>
         ) : (
           <>
+            <View
+              style={[
+                styles.paymentStatusCard,
+                !isPaymentPaid && styles.paymentStatusCardWaiting,
+                isPaymentPaid && !isSettled && styles.paymentStatusCardPaid,
+                isSettled && styles.paymentStatusCardDone,
+              ]}>
+              <Text style={styles.paymentStatusTitle}>결제 상태</Text>
+              <Text
+                style={[
+                  styles.paymentStatusText,
+                  isPaymentPaid && !isSettled && styles.paymentStatusTextMint,
+                  isSettled && styles.paymentStatusTextMuted,
+                ]}>
+                {isSettled
+                  ? `✓ 정산 완료 (${formatDate(treatment.settled_at?.slice(0, 10) || treatment.treatment_date)})`
+                  : isPaymentPaid
+                    ? `✓ 결제 완료. ${(paymentRecord?.designer_payout ?? 0).toLocaleString('ko-KR')}원 정산 가능`
+                    : '고객 결제 대기 중'}
+              </Text>
+            </View>
+
 
             <View style={styles.progressBlock}>
               <View style={styles.progressTopRow}>
@@ -577,6 +603,40 @@ export default function DesignerTreatmentInputScreen() {
 }
 
 const styles = StyleSheet.create({
+  paymentStatusCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    marginBottom: 16,
+    padding: 16,
+  },
+  paymentStatusCardWaiting: {
+    backgroundColor: '#F3F3F6',
+  },
+  paymentStatusCardPaid: {
+    backgroundColor: '#E8FAF7',
+  },
+  paymentStatusCardDone: {
+    backgroundColor: '#F3F3F6',
+    opacity: 0.85,
+  },
+  paymentStatusTitle: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  paymentStatusText: {
+    color: '#6B6B7B',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  paymentStatusTextMint: {
+    color: '#00C2A8',
+  },
+  paymentStatusTextMuted: {
+    color: '#9CA3AF',
+  },
+
   container: {
     flex: 1,
     backgroundColor: '#FAFAFC',

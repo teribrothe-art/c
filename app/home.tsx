@@ -1,5 +1,5 @@
-import { Href, router, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { Href, router, useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -124,6 +124,19 @@ export default function DiaryHomeScreen() {
       isMounted = false;
     };
   }, []);
+
+
+  const reloadPending = useCallback(() => {
+    getCustomerPendingPayments()
+      .then(setPendingPayments)
+      .catch(() => setPendingPayments([]));
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      reloadPending();
+    }, [reloadPending]),
+  );
 
   const filteredTreatments = useMemo(
     () => treatments.filter((treatment) => matchesFilter(treatment.treatment_type, selectedFilter)),

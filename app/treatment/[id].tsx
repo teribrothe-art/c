@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TreatmentPhotoCarousel } from '../../src/components/treatment-photo-carousel';
 import { getErrorMessage } from '../../lib/errors';
 import { getCustomerPaymentBadge, type CustomerPaymentBadge } from '../../lib/payment-status';
+import { normalizePaymentStatus } from '../../lib/payment-status';
 import { getPaymentByTreatmentId } from '../../lib/payments';
 import { getTreatmentById, Treatment } from '../../lib/treatments';
 import { LoadingState } from '../../src/components/loading-state';
@@ -145,6 +146,15 @@ export default function TreatmentDetailScreen() {
           </View>
         ) : (
           <>
+            
+            {normalizePaymentStatus(treatment.payment_status) === 'payment_requested' ? (
+              <Pressable
+                style={styles.payCta}
+                onPress={() => router.push(`/payment/${treatment.id}`)}>
+                <Text style={styles.payCtaText}>결제하기</Text>
+              </Pressable>
+            ) : null}
+
             <TreatmentPhotoCarousel
               afterPhotoPath={treatment.after_photo_url}
               beforePhotoPath={treatment.before_photo_url}
@@ -220,6 +230,14 @@ const styles = StyleSheet.create({
   payBadgeText: { color: '#FF5A5F', fontSize: 11, fontWeight: '800' },
   payBadgeTextSettlement: { color: '#00C2A8' },
   payBadgeTextDone: { color: '#6B6B7B' },
+  payCta: {
+    alignItems: 'center',
+    backgroundColor: '#FF5A5F',
+    borderRadius: 14,
+    marginBottom: 16,
+    paddingVertical: 14,
+  },
+  payCtaText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
   headerTitle: {
     color: '#1A1A2E',
     fontSize: 18,

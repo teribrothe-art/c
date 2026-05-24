@@ -1,19 +1,16 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { buildDesignerRevenue, RevenueSummary } from '../../lib/designer-revenue';
+import { fetchDesignerPaymentDashboard } from '../../lib/designer-payment-stats';
 import { getErrorMessage } from '../../lib/errors';
-import { getDesignerTreatments } from '../../lib/treatments';
 import { EmptyState } from '../../src/components/empty-state';
 import { LoadingState } from '../../src/components/loading-state';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
+
+const CORAL = '#FF5A5F';
+const MINT = '#00C2A8';
 
 function formatDate(date: string) {
   return date.replaceAll('-', '.');
@@ -45,25 +42,22 @@ function MetricCard({
 
 export default function DesignerRevenueScreen() {
   const insets = useSafeAreaInsets();
-  const [summary, setSummary] = useState<RevenueSummary | null>(null);
+  const [dashboard, setDashboard] = useState<Awaited<ReturnType<typeof fetchDesignerPaymentDashboard>> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
   const loadRevenue = useCallback(() => {
     setIsLoading(true);
 
-    getDesignerTreatments()
-      .then(({ treatments }) => {
-        setSummary(buildDesignerRevenue(treatments));
+    fetchDesignerPaymentDashboard()
+      .then((data) => {
+        setDashboard(data);
         setErrorMessage('');
       })
       .catch((error) => {
-        const message = getErrorMessage(error, '매출 데이터를 불러오지 못했습니다.');
-        setErrorMessage(message);
+        setErrorMessage(getErrorMessage(error, '매출 데이터를 불러오지 못했습니다.'));
       })
-      .finally(() => {
-        setIsLoading(false);
-      });
+      .finally(() => setIsLoading(false));
   }, []);
 
   useFocusEffect(
@@ -71,6 +65,8 @@ export default function DesignerRevenueScreen() {
       loadRevenue();
     }, [loadRevenue]),
   );
+
+  const hasData = dashboard && (dashboard.monthSettlementCount > 0 || dashboard.pendingPayoutCount > 0);
 
   return (
     <View style={styles.container}>
@@ -84,54 +80,57 @@ export default function DesignerRevenueScreen() {
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
-        ) : errorMessage || !summary ? (
+        ) : errorMessage || !dashboard ? (
           <View style={styles.stateBox}>
             <Text style={styles.stateText}>{errorMessage || '데이터를 불러올 수 없습니다.'}</Text>
           </View>
-        ) : summary.monthTreatmentCount === 0 ? (
+        ) : !hasData ? (
           <EmptyState
             icon="💰"
-            subtitle="이번 달 시술이 등록되면 매출 분석이 표시됩니다"
-            title="이번 달 시술 기록이 없어요"
+            subtitle="정산 완료되면 매출이 표시됩니다"
+            title="이번 달 정산 내역이 없어요"
           />
         ) : (
           <>
             <View style={styles.heroCard}>
-              <Text style={styles.heroLabel}>이번 달</Text>
-              <Text style={styles.heroValue}>{summary.monthRevenue.toLocaleString('ko-KR')}</Text>
-              <Text style={styles.heroUnit}>원</Text>
+              <Text style={styles.heroLabel}>이번 달 총 매출</Text>
+              <Text style={styles.heroValue}>{dashboard.monthRevenue.toLocaleString('ko-KR')}</Text>
+              <Text style={styles.heroUnit}>원 (정산 완료 기준)</Text>
             </View>
 
             <View style={styles.metricGrid}>
-              <MetricCard label="시술 건수" value={`${summary.monthTreatmentCount}건`} />
-              <MetricCard label="신규 고객" value={`${summary.newCustomerCount}명`} />
+              <MetricCard label="이번 달 정산" value={`${dashboard.monthSettlementCount}건`} tone="success" />
+              <MetricCard
+                label="평균 시술가"
+                value={`${dashboard.averageTreatmentPrice.toLocaleString('ko-KR')}원`}
+              />
               <MetricCard
                 label="정산 대기"
                 tone="danger"
-                value={`${summary.pendingSettlementCount}건`}
+                value={`${dashboard.pendingPayoutAmount.toLocaleString('ko-KR')}원`}
               />
-              <MetricCard
-                label="정산 완료"
-                tone="success"
-                value={`${summary.completedSettlementCount}건`}
-              />
+              <MetricCard label="대기 건수" tone="danger" value={`${dashboard.pendingPayoutCount}건`} />
             </View>
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>최근 정산 내역</Text>
-              {summary.recentSettlements.length === 0 ? (
+              {dashboard.recentSettlements.length === 0 ? (
                 <Text style={styles.emptyText}>최근 정산 완료 내역이 없습니다.</Text>
               ) : (
-                summary.recentSettlements.map((item) => (
-                  <View key={item.id} style={styles.settlementRow}>
+                dashboard.recentSettlements.map((item) => (
+                  <View key={item.paymentId} style={styles.settlementRow}>
                     <View style={styles.settlementInfo}>
+                      <Text style={styles.settlementDate}>{formatDate(item.date)}</Text>
                       <Text style={styles.settlementCustomer}>{item.customerName}</Text>
-                      <Text style={styles.settlementMeta}>
-                        {item.treatmentTitle} · {formatDate(item.treatmentDate)}
-                      </Text>
+                      <Text style={styles.settlementMeta}>{item.treatmentTitle}</Text>
+                      {item.feeAmount > 0 ? (
+                        <Text style={styles.feeText}>
+                          수수료 -{item.feeAmount.toLocaleString('ko-KR')}원
+                        </Text>
+                      ) : null}
                     </View>
                     <Text style={styles.settlementPrice}>
-                      {item.price.toLocaleString('ko-KR')}원
+                      {item.payout.toLocaleString('ko-KR')}원
                     </Text>
                   </View>
                 ))
@@ -146,20 +145,9 @@ export default function DesignerRevenueScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FAFAFC',
-  },
-  content: {
-    gap: 16,
-    paddingHorizontal: 16,
-  },
-  pageTitle: {
-    color: '#1A1A2E',
-    fontSize: 24,
-    fontWeight: '900',
-    marginBottom: 4,
-  },
+  container: { flex: 1, backgroundColor: '#FAFAFC' },
+  content: { gap: 16, paddingHorizontal: 16 },
+  pageTitle: { color: '#1A1A2E', fontSize: 24, fontWeight: '900', marginBottom: 4 },
   heroCard: {
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
@@ -172,75 +160,30 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 3,
   },
-  heroLabel: {
-    color: '#6B6B7B',
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  heroValue: {
-    color: '#1A1A2E',
-    fontSize: 40,
-    fontWeight: '900',
-  },
-  heroUnit: {
-    color: '#6B6B7B',
-    fontSize: 16,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-  metricGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
+  heroLabel: { color: '#6B6B7B', fontSize: 14, fontWeight: '700', marginBottom: 8 },
+  heroValue: { color: '#1A1A2E', fontSize: 40, fontWeight: '900' },
+  heroUnit: { color: '#6B6B7B', fontSize: 14, fontWeight: '600', marginTop: 4 },
+  metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   metricCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     minHeight: 92,
     padding: 14,
-    shadowColor: '#1A1A2E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
     width: '48%',
+    elevation: 3,
   },
-  metricLabel: {
-    color: '#6B6B7B',
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 10,
-  },
-  metricValue: {
-    color: '#1A1A2E',
-    fontSize: 22,
-    fontWeight: '900',
-  },
-  metricDanger: {
-    color: '#FF5A5F',
-  },
-  metricSuccess: {
-    color: '#00C2A8',
-  },
+  metricLabel: { color: '#6B6B7B', fontSize: 13, fontWeight: '700', marginBottom: 10 },
+  metricValue: { color: '#1A1A2E', fontSize: 20, fontWeight: '900' },
+  metricDanger: { color: CORAL },
+  metricSuccess: { color: MINT },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
-    shadowColor: '#1A1A2E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
     elevation: 3,
   },
-  cardTitle: {
-    color: '#1A1A2E',
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 12,
-  },
+  cardTitle: { color: '#1A1A2E', fontSize: 16, fontWeight: '800', marginBottom: 12 },
   settlementRow: {
-    alignItems: 'center',
     borderTopColor: '#EFEFF4',
     borderTopWidth: 1,
     flexDirection: 'row',
@@ -248,41 +191,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
   },
-  settlementInfo: {
-    flex: 1,
-    gap: 4,
-  },
-  settlementCustomer: {
-    color: '#1A1A2E',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  settlementMeta: {
-    color: '#6B6B7B',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  settlementPrice: {
-    color: '#00C2A8',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  emptyText: {
-    color: '#6B6B7B',
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  settlementInfo: { flex: 1, gap: 2 },
+  settlementDate: { color: '#9CA3AF', fontSize: 12, fontWeight: '600' },
+  settlementCustomer: { color: '#1A1A2E', fontSize: 15, fontWeight: '800' },
+  settlementMeta: { color: '#6B6B7B', fontSize: 13, fontWeight: '600' },
+  feeText: { color: '#9CA3AF', fontSize: 11, fontWeight: '600', marginTop: 2 },
+  settlementPrice: { color: CORAL, fontSize: 15, fontWeight: '900' },
+  emptyText: { color: '#6B6B7B', fontSize: 14, fontWeight: '600' },
   stateBox: {
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 32,
+    padding: 32,
   },
-  stateText: {
-    color: '#6B6B7B',
-    fontSize: 14,
-    textAlign: 'center',
-  },
+  stateText: { color: '#6B6B7B', fontSize: 14, textAlign: 'center' },
 });

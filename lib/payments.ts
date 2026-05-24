@@ -1,5 +1,6 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
+import { notifyDesignerPaymentCompleted } from './notifications';
 import {
   calculatePaymentFees,
   ensurePaymentRecordForTreatment,
@@ -12,6 +13,7 @@ import {
   updatePaymentOrderId,
   upsertDemoPaymentOnRequest,
 } from './payment-record';
+import { withRetry } from './payment-retry';
 import { normalizePaymentStatus } from './payment-status';
 import { supabase } from './supabase';
 import { createTossOrderId, isTossConfigured as isTossKeyConfigured } from './toss';
@@ -30,6 +32,11 @@ export function calculatePayout(amount: number) {
   };
 }
 
+/** 토스 영수증 URL (테스트/운영 공통 패턴) */
+export function buildTossReceiptUrl(paymentKey: string) {
+  return `https://dashboard.tosspayments.com/receipt/payment/${paymentKey}`;
+}
+
 function assertDesignerOwnership(treatment: Treatment, designerId: string) {
   if (treatment.designer_id !== designerId) {
     throw new Error('권한이 없습니다');
@@ -43,6 +50,28 @@ function assertCustomerOwnership(treatment: Treatment, customerId: string) {
 
   if (treatment.customer_id !== customerId) {
     throw new Error('권한이 없습니다');
+  }
+}
+
+export async function assertCanPayTreatment(treatmentId: string) {
+  const payment = await getPaymentByTreatmentId(treatmentId);
+
+  if (
+    payment?.status === 'paid' ||
+    payment?.status === 'completed' ||
+    payment?.status === 'in_escrow'
+  ) {
+    throw new Error('이미 결제가 완료된 시술입니다.');
+  }
+
+  const { treatment } = await getTreatmentById(treatmentId);
+
+  if (treatment && normalizePaymentStatus(treatment.payment_status) === 'escrow') {
+    throw new Error('이미 결제가 완료된 시술입니다.');
+  }
+
+  if (treatment && normalizePaymentStatus(treatment.payment_status) === 'completed') {
+    throw new Error('이미 정산이 완료된 시술입니다.');
   }
 }
 
@@ -85,8 +114,9 @@ export async function requestCustomerPayment(treatmentId: string) {
   return updatedTreatment;
 }
 
-/** 결제 버튼: pending 레코드 + toss_order_id */
 export async function preparePaymentSession(treatmentId: string) {
+  await assertCanPayTreatment(treatmentId);
+
   const { treatment } = await getTreatmentById(treatmentId);
 
   if (!treatment) {
@@ -94,7 +124,8 @@ export async function preparePaymentSession(treatmentId: string) {
   }
 
   const orderId = createTossOrderId(treatmentId);
-  await ensurePaymentRecordForTreatment(treatmentId);
+
+  await withRetry(() => ensurePaymentRecordForTreatment(treatmentId), { maxAttempts: 3 });
   await updatePaymentOrderId(treatmentId, orderId);
 
   await updateTreatment(treatmentId, {
@@ -114,6 +145,8 @@ export async function handleTossPaymentSuccess(
     throw new Error('로그인이 필요합니다.');
   }
 
+  await assertCanPayTreatment(treatmentId);
+
   const { treatment } = await getTreatmentById(treatmentId);
 
   if (!treatment) {
@@ -125,25 +158,49 @@ export async function handleTossPaymentSuccess(
   const amount = treatment.price ?? 0;
   const { platformFee, designerPayout } = calculatePayout(amount);
   const now = new Date().toISOString();
+  const receiptUrl = buildTossReceiptUrl(input.paymentKey);
 
   if (!isDemoAuthMode && supabase && isTossKeyConfigured()) {
-    // TODO: Supabase Edge Function에서 paymentKey 승인 API 호출
+    // TODO: Edge Function에서 paymentKey 승인 후 receiptUrl 갱신
   }
 
-  await markPaymentPaid(treatmentId, {
-    tossPaymentKey: input.paymentKey,
-    tossOrderId: input.orderId,
-  });
+  try {
+    await withRetry(
+      async () => {
+        await markPaymentPaid(treatmentId, {
+          tossPaymentKey: input.paymentKey,
+          tossOrderId: input.orderId,
+          receiptUrl,
+        });
+      },
+      { maxAttempts: 3 },
+    );
 
-  return updateTreatment(treatmentId, {
-    payment_status: 'escrow',
-    paid_at: now,
-    toss_payment_key: input.paymentKey,
-    toss_order_id: input.orderId,
-    platform_fee: platformFee,
-    designer_payout_amount: designerPayout,
-    feedback_completed: false,
-  });
+    const updatedTreatment = await withRetry(
+      () =>
+        updateTreatment(treatmentId, {
+          payment_status: 'escrow',
+          paid_at: now,
+          toss_payment_key: input.paymentKey,
+          toss_order_id: input.orderId,
+          platform_fee: platformFee,
+          designer_payout_amount: designerPayout,
+          feedback_completed: false,
+        }),
+      { maxAttempts: 3 },
+    );
+
+    const payment = await getPaymentByTreatmentId(treatmentId);
+
+    if (payment) {
+      await notifyDesignerPaymentCompleted(updatedTreatment, payment);
+    }
+
+    return updatedTreatment;
+  } catch (error) {
+    await markPaymentFailed(treatmentId).catch(() => undefined);
+    throw error;
+  }
 }
 
 export async function handleTossPaymentFailure(treatmentId: string) {
@@ -185,7 +242,7 @@ export async function settleDesignerPayout(treatmentId: string) {
 
   const now = new Date().toISOString();
 
-  await markPaymentCompleted(treatmentId);
+  await markPaymentCompleted(treatmentId, { receiptUrl: payment.receipt_url });
 
   return updateTreatment(treatmentId, {
     payment_status: 'completed',

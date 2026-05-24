@@ -1,5 +1,6 @@
 import { router, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -35,15 +36,19 @@ function isCurrentMonth(date: string) {
   );
 }
 
-function getStatusMeta(status?: PaymentStatus | null) {
+function getStatusMeta(status?: PaymentStatus | null, treatmentId?: string, paidHint?: boolean) {
   const normalized = normalizePaymentStatus(status);
 
   if (normalized === 'completed') {
     return { label: '정산 완료', style: styles.completedBadge, textStyle: styles.completedBadgeText };
   }
 
-  if (normalized === 'escrow') {
-    return { label: '에스크로', style: styles.requiredBadge, textStyle: styles.requiredBadgeText };
+  if (paidHint || normalized === 'escrow') {
+    return {
+      label: '결제 완료, 피드백 대기',
+      style: styles.paidWaitingBadge,
+      textStyle: styles.paidWaitingBadgeText,
+    };
   }
 
   if (normalized === 'payment_requested') {
@@ -54,7 +59,11 @@ function getStatusMeta(status?: PaymentStatus | null) {
 }
 
 function ClientTreatmentCard({ onPress, treatment }: { onPress: () => void; treatment: Treatment }) {
-  const status = getStatusMeta(treatment.payment_status);
+  const status = getStatusMeta(
+    treatment.payment_status,
+    treatment.id,
+    normalizePaymentStatus(treatment.payment_status) === 'escrow',
+  );
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.clientCard, pressed && styles.clientCardPressed]}>
@@ -87,17 +96,11 @@ export default function DesignerClientsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadClients = useCallback(() => {
+    setIsLoading(true);
 
-    Promise.resolve()
-      .then(async () => {
-        const { user, treatments: nextTreatments } = await getDesignerTreatments();
-
-        if (!isMounted) {
-          return;
-        }
-
+    getDesignerTreatments()
+      .then(({ user, treatments: nextTreatments }) => {
         if (!user) {
           router.replace('/');
           return;
@@ -112,23 +115,16 @@ export default function DesignerClientsScreen() {
         setErrorMessage('');
       })
       .catch((error) => {
-        if (!isMounted) {
-          return;
-        }
-
-        const message = getErrorMessage(error, '고객 시술을 불러오지 못했습니다.');
-        setErrorMessage(message);
+        setErrorMessage(getErrorMessage(error, '고객 시술을 불러오지 못했습니다.'));
       })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
+      .finally(() => setIsLoading(false));
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadClients();
+    }, [loadClients]),
+  );
 
   const summary = useMemo(() => {
     return {
@@ -347,6 +343,14 @@ const styles = StyleSheet.create({
   },
   requiredBadgeText: {
     color: '#FF5A5F',
+  },
+  paidWaitingBadge: {
+    backgroundColor: '#FFE8E9',
+  },
+  paidWaitingBadgeText: {
+    color: '#FF5A5F',
+    fontSize: 11,
+    fontWeight: '800',
   },
   pendingBadge: {
     backgroundColor: '#FFF0C7',

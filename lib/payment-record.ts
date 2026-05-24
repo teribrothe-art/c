@@ -38,6 +38,30 @@ const paymentSelectFields =
   'id, treatment_id, customer_id, designer_id, amount, fee_rate, fee_amount, designer_payout, status, toss_payment_key, toss_order_id, paid_at, settled_at, created_at, receipt_url, refund_amount, refund_reason, refunded_at';
 
 const demoPayments: PaymentRecord[] = [];
+// 데모: escrow 시술에 paid 결제 레코드
+if (isDemoAuthMode && demoPayments.length === 0) {
+  demoPayments.push({
+    id: 'demo-payment-demo-treatment-4',
+    treatment_id: 'demo-treatment-4',
+    customer_id: 'demo-customer-kim-jiwon',
+    designer_id: 'demo-designer-local',
+    amount: 180000,
+    fee_rate: 0.04,
+    fee_amount: 7200,
+    designer_payout: 172800,
+    status: 'paid',
+    toss_payment_key: 'demo_key_4',
+    toss_order_id: 'hair-demo-treatment-4',
+    paid_at: '2026-04-20T10:00:00.000Z',
+    settled_at: null,
+    created_at: '2026-04-20T09:00:00.000Z',
+    receipt_url: 'https://dashboard.tosspayments.com/receipt/payment/demo_key_4',
+    refund_amount: 0,
+    refund_reason: null,
+    refunded_at: null,
+  });
+}
+
 
 function requireTreatmentParties(treatment: Treatment) {
   if (!treatment.customer_id || !treatment.designer_id) {
@@ -222,7 +246,7 @@ export async function updatePaymentOrderId(treatmentId: string, tossOrderId: str
 
 export async function markPaymentPaid(
   treatmentId: string,
-  input: { tossPaymentKey: string; tossOrderId?: string | null },
+  input: { tossPaymentKey: string; tossOrderId?: string | null; receiptUrl?: string | null },
 ) {
   const amount = (await getTreatmentById(treatmentId)).treatment?.price ?? 0;
   const { feeRate, feeAmount, designerPayout } = calculatePaymentFees(amount);
@@ -243,6 +267,7 @@ export async function markPaymentPaid(
       toss_payment_key: input.tossPaymentKey,
       toss_order_id: input.tossOrderId ?? demoPayments[index].toss_order_id,
       paid_at: now,
+      receipt_url: input.receiptUrl ?? demoPayments[index].receipt_url,
     };
     return demoPayments[index];
   }
@@ -257,6 +282,7 @@ export async function markPaymentPaid(
       toss_payment_key: input.tossPaymentKey,
       toss_order_id: input.tossOrderId,
       paid_at: now,
+      ...(input.receiptUrl ? { receipt_url: input.receiptUrl } : {}),
     })
     .eq('treatment_id', treatmentId)
     .select(paymentSelectFields)

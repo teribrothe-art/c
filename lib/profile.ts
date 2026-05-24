@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getErrorMessage, toAppError } from './errors';
 
 import { getCurrentUser, isDemoAuthMode, UserRole } from './auth';
+import { fetchDesignerProfilePaymentStats } from './designer-payment-stats';
 import { supabase } from './supabase';
 import { getDesignerTreatments, getTreatments, Treatment } from './treatments';
 
@@ -25,6 +26,8 @@ export type DesignerStats = {
   kind: 'designer';
   treatmentCount: number;
   totalSettlementAmount: number;
+  monthSettlementAmount: number;
+  pendingSettlementCount: number;
   regularCustomerCount: number;
 };
 
@@ -54,24 +57,20 @@ function computeCustomerStats(treatments: Treatment[]): CustomerStats {
   };
 }
 
-function computeDesignerStats(treatments: Treatment[]): DesignerStats {
+function computeDesignerStatsFromTreatments(treatments: Treatment[]): Omit<DesignerStats, 'kind'> {
   const customerIds = new Set<string>();
-  let totalSettlementAmount = 0;
 
   for (const treatment of treatments) {
     if (treatment.customer_id) {
       customerIds.add(treatment.customer_id);
     }
-
-    if (treatment.payment_status === 'completed') {
-      totalSettlementAmount += treatment.price ?? 0;
-    }
   }
 
   return {
-    kind: 'designer',
     treatmentCount: treatments.length,
-    totalSettlementAmount,
+    totalSettlementAmount: 0,
+    monthSettlementAmount: 0,
+    pendingSettlementCount: 0,
     regularCustomerCount: customerIds.size,
   };
 }
@@ -123,9 +122,18 @@ export async function getProfileScreenData() {
 
   if (user.role === 'designer') {
     const { treatments } = await getDesignerTreatments();
+    const base = computeDesignerStatsFromTreatments(treatments);
+    const paymentStats = await fetchDesignerProfilePaymentStats();
+
     return {
       profile,
-      stats: computeDesignerStats(treatments),
+      stats: {
+        kind: 'designer' as const,
+        ...base,
+        totalSettlementAmount: paymentStats.totalSettlementAmount,
+        monthSettlementAmount: paymentStats.monthSettlementAmount,
+        pendingSettlementCount: paymentStats.pendingSettlementCount,
+      },
     };
   }
 

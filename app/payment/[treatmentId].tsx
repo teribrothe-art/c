@@ -248,8 +248,20 @@ export default function CustomerPaymentScreen() {
         <Text style={styles.successTitle}>결제가 완료되었습니다 ✓</Text>
         <Text style={styles.successSub}>디자이너 피드백 입력 후 정산됩니다</Text>
         <Text style={styles.successHint}>에스크로 방식으로 안전하게 보관됩니다</Text>
-        <Pressable style={styles.confirmButton} onPress={() => router.replace('/home')}>
-          <Text style={styles.confirmButtonText}>확인</Text>
+        <Pressable
+          style={styles.confirmButton}
+          onPress={async () => {
+            const payment = treatmentId ? await import('../../lib/payment-record').then((m) => m.getPaymentByTreatmentId(treatmentId)) : null;
+            if (payment?.id) {
+              router.replace(`/payment/receipt/${payment.id}`);
+            } else {
+              router.replace('/home');
+            }
+          }}>
+          <Text style={styles.confirmButtonText}>영수증 보기</Text>
+        </Pressable>
+        <Pressable style={styles.confirmSecondary} onPress={() => router.replace('/home')}>
+          <Text style={styles.confirmSecondaryText}>다이어리로</Text>
         </Pressable>
       </View>
     );
@@ -667,6 +679,16 @@ const styles = StyleSheet.create({
     minWidth: 200,
     paddingHorizontal: 32,
     paddingVertical: 14,
+  },
+  confirmSecondary: {
+    marginTop: 12,
+    paddingVertical: 12,
+  },
+  confirmSecondaryText: {
+    color: '#6B6B7B',
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   confirmButtonText: {
     color: '#FFFFFF',
