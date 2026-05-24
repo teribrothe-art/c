@@ -28,10 +28,14 @@ export type PaymentRecord = {
   paid_at: string | null;
   settled_at: string | null;
   created_at: string;
+  receipt_url: string | null;
+  refund_amount: number;
+  refund_reason: string | null;
+  refunded_at: string | null;
 };
 
 const paymentSelectFields =
-  'id, treatment_id, customer_id, designer_id, amount, fee_rate, fee_amount, designer_payout, status, toss_payment_key, toss_order_id, paid_at, settled_at, created_at';
+  'id, treatment_id, customer_id, designer_id, amount, fee_rate, fee_amount, designer_payout, status, toss_payment_key, toss_order_id, paid_at, settled_at, created_at, receipt_url, refund_amount, refund_reason, refunded_at';
 
 const demoPayments: PaymentRecord[] = [];
 
@@ -121,6 +125,10 @@ export async function ensurePaymentRecordForTreatment(treatmentId: string) {
       paid_at: null,
       settled_at: null,
       created_at: now,
+      receipt_url: null,
+      refund_amount: 0,
+      refund_reason: null,
+      refunded_at: null,
     };
 
     demoPayments.push(record);
@@ -174,6 +182,10 @@ export async function upsertDemoPaymentOnRequest(treatment: Treatment, tossOrder
     paid_at: null,
     settled_at: null,
     created_at: existingIndex >= 0 ? demoPayments[existingIndex].created_at : now,
+    receipt_url: null,
+    refund_amount: 0,
+    refund_reason: null,
+    refunded_at: null,
   };
 
   if (existingIndex >= 0) {
@@ -294,7 +306,10 @@ export async function markPaymentInEscrow(
   return markPaymentPaid(treatmentId, input);
 }
 
-export async function markPaymentCompleted(treatmentId: string) {
+export async function markPaymentCompleted(
+  treatmentId: string,
+  options?: { receiptUrl?: string | null },
+) {
   const now = new Date().toISOString();
 
   if (isDemoAuthMode || !supabase) {
@@ -308,6 +323,7 @@ export async function markPaymentCompleted(treatmentId: string) {
       ...demoPayments[index],
       status: 'completed',
       settled_at: now,
+      receipt_url: options?.receiptUrl ?? demoPayments[index].receipt_url,
     };
 
     return demoPayments[index];
@@ -318,6 +334,48 @@ export async function markPaymentCompleted(treatmentId: string) {
     .update({
       status: 'completed',
       settled_at: now,
+      ...(options?.receiptUrl ? { receipt_url: options.receiptUrl } : {}),
+    })
+    .eq('treatment_id', treatmentId)
+    .select(paymentSelectFields)
+    .single();
+
+  if (error) {
+    throw toAppError(error);
+  }
+
+  return data as PaymentRecord;
+}
+
+
+export async function recordPaymentRefund(
+  treatmentId: string,
+  input: { refundAmount: number; refundReason: string },
+) {
+  const now = new Date().toISOString();
+
+  if (isDemoAuthMode || !supabase) {
+    const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
+    if (index < 0) {
+      return null;
+    }
+    demoPayments[index] = {
+      ...demoPayments[index],
+      status: 'refunded',
+      refund_amount: input.refundAmount,
+      refund_reason: input.refundReason,
+      refunded_at: now,
+    };
+    return demoPayments[index];
+  }
+
+  const { data, error } = await supabase
+    .from('payments')
+    .update({
+      status: 'refunded',
+      refund_amount: input.refundAmount,
+      refund_reason: input.refundReason,
+      refunded_at: now,
     })
     .eq('treatment_id', treatmentId)
     .select(paymentSelectFields)

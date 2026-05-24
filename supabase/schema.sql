@@ -59,7 +59,11 @@ create table if not exists public.treatments (
   toss_payment_key text,
   platform_fee integer,
   designer_payout_amount integer,
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  receipt_url text,
+  refund_amount integer default 0,
+  refund_reason text,
+  refunded_at timestamptz
 );
 
 alter table public.treatments enable row level security;
@@ -134,6 +138,23 @@ create policy "결제 업데이트"
   on public.payments
   for update
   using (auth.uid() = customer_id or auth.uid() = designer_id);
+
+
+create or replace view public.designer_revenue
+with (security_invoker = true) as
+select
+  designer_id,
+  date_trunc('month', settled_at) as month,
+  count(*) as treatment_count,
+  sum(amount) as gross_revenue,
+  sum(fee_amount) as total_fees,
+  sum(designer_payout) as net_payout
+from public.payments
+where status = 'completed'
+  and settled_at is not null
+group by designer_id, date_trunc('month', settled_at);
+
+grant select on public.designer_revenue to authenticated;
 
 
 -- Day 5+ 시술 기록 상세 컬럼
