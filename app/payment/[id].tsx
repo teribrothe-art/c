@@ -15,6 +15,7 @@ import { getErrorMessage } from '../../lib/errors';
 import {
   calculatePayout,
   completeCustomerPayment,
+  ensurePaymentRecordForTreatment,
   isTossConfigured,
   PLATFORM_FEE_RATE,
 } from '../../lib/payments';
@@ -45,7 +46,7 @@ export default function CustomerPaymentScreen() {
     }
 
     getTreatmentById(id)
-      .then(({ user, treatment: nextTreatment }) => {
+      .then(async ({ user, treatment: nextTreatment }) => {
         if (!isMounted) {
           return;
         }
@@ -64,6 +65,12 @@ export default function CustomerPaymentScreen() {
 
         if (status !== 'payment_requested') {
           setErrorMessage('결제 요청된 시술만 결제할 수 있습니다.');
+          return;
+        }
+
+        await ensurePaymentRecordForTreatment(id);
+
+        if (!isMounted) {
           return;
         }
 

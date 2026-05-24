@@ -1,10 +1,18 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
+import {
+  calculatePaymentFees,
+  ensurePaymentRecordForTreatment,
+  markPaymentCompleted,
+  markPaymentInEscrow,
+  PLATFORM_FEE_RATE,
+  upsertDemoPaymentOnRequest,
+} from './payment-record';
 import { normalizePaymentStatus } from './payment-status';
 import { supabase } from './supabase';
 import { getTreatmentById, Treatment, updateTreatment } from './treatments';
 
-export const PLATFORM_FEE_RATE = 0.1;
+export { PLATFORM_FEE_RATE };
 
 export const isTossConfigured = Boolean(
   process.env.EXPO_PUBLIC_TOSS_CLIENT_KEY &&
@@ -12,11 +20,10 @@ export const isTossConfigured = Boolean(
 );
 
 export function calculatePayout(amount: number) {
-  const platformFee = Math.round(amount * PLATFORM_FEE_RATE);
-  const designerPayout = amount - platformFee;
+  const { feeAmount, designerPayout } = calculatePaymentFees(amount);
 
   return {
-    platformFee,
+    platformFee: feeAmount,
     designerPayout,
   };
 }
@@ -69,11 +76,15 @@ export async function requestCustomerPayment(treatmentId: string) {
   const orderId = createTossOrderId(treatmentId);
   const now = new Date().toISOString();
 
-  return updateTreatment(treatmentId, {
+  const updatedTreatment = await updateTreatment(treatmentId, {
     payment_status: 'payment_requested',
     payment_requested_at: now,
     toss_order_id: orderId,
   });
+
+  await upsertDemoPaymentOnRequest(updatedTreatment, orderId);
+
+  return updatedTreatment;
 }
 
 export async function completeCustomerPayment(treatmentId: string, tossPaymentKey?: string) {
@@ -103,18 +114,24 @@ export async function completeCustomerPayment(treatmentId: string, tossPaymentKe
     throw new Error('결제 금액이 올바르지 않습니다.');
   }
 
+  const paymentKey = tossPaymentKey ?? `demo-payment-${Date.now()}`;
   const { platformFee, designerPayout } = calculatePayout(amount);
   const now = new Date().toISOString();
 
   if (!isDemoAuthMode && supabase && isTossConfigured && tossPaymentKey) {
-    // 실제 연동: Supabase Edge Function에서 paymentKey로 토스 승인 API 호출 후 escrow 전환
-    // 여기서는 승인 완료된 paymentKey만 저장합니다.
+    // 실제 연동: Supabase Edge Function에서 paymentKey로 토스 승인 API 호출
   }
+
+  await ensurePaymentRecordForTreatment(treatmentId);
+  await markPaymentInEscrow(treatmentId, {
+    tossPaymentKey: paymentKey,
+    tossOrderId: treatment.toss_order_id,
+  });
 
   return updateTreatment(treatmentId, {
     payment_status: 'escrow',
     paid_at: now,
-    toss_payment_key: tossPaymentKey ?? `demo-payment-${Date.now()}`,
+    toss_payment_key: paymentKey,
     platform_fee: platformFee,
     designer_payout_amount: designerPayout,
     feedback_completed: false,
@@ -147,6 +164,8 @@ export async function settleDesignerPayout(treatmentId: string) {
   }
 
   const now = new Date().toISOString();
+
+  await markPaymentCompleted(treatmentId);
 
   return updateTreatment(treatmentId, {
     payment_status: 'completed',
@@ -190,3 +209,5 @@ export async function getCustomerPendingPayments() {
 
   return (data ?? []) as Treatment[];
 }
+
+export { ensurePaymentRecordForTreatment, getPaymentByTreatmentId } from './payment-record';
