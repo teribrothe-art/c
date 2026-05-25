@@ -10,7 +10,27 @@ const DEMO_INVITATIONS_KEY = 'hair-diary-customer-invitations';
 const DEMO_RELATIONSHIPS_KEY = 'hair-diary-designer-customer-relationships';
 
 const INVITE_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+/** I,O,0,1 제외 — generate_invite_code와 동일 */
+const INVITE_CODE_PATTERN = /^[A-HJ-NP-Z2-9]{6}$/;
 const INVITE_VALID_DAYS = 7;
+
+const NON_INVITE_URL_PREFIXES = ['http://', 'https://', 'exp://', 'exps://'];
+
+export function isValidInviteCodeFormat(code: string) {
+  return INVITE_CODE_PATTERN.test(code);
+}
+
+function looksLikeDevOrExpoUrl(payload: string) {
+  const lower = payload.trim().toLowerCase();
+
+  return (
+    NON_INVITE_URL_PREFIXES.some((prefix) => lower.startsWith(prefix)) ||
+    lower.includes('localhost') ||
+    lower.includes('127.0.0.1') ||
+    lower.includes('exp.direct') ||
+    lower.includes('/_expo/')
+  );
+}
 
 export type InvitationStatus = 'pending' | 'used' | 'expired';
 
@@ -70,8 +90,24 @@ const invitationSelect =
 const demoInvitations: CustomerInvitation[] = [];
 const demoRelationships: DesignerCustomerRelationship[] = [];
 
+/** 입력란용 — 허용 문자만 남기고 6자리까지 (미완성 입력 가능) */
+export function formatInviteCodeInput(raw: string) {
+  return raw
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-HJ-NP-Z2-9]/gi, '')
+    .slice(0, 6);
+}
+
 export function normalizeInviteCode(raw: string) {
-  return raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  return formatInviteCodeInput(raw);
+}
+
+/** 저장·QR·딥링크용 — 유효한 6자리만 반환, 아니면 빈 문자열 */
+export function sanitizeInviteCode(raw: string) {
+  const code = formatInviteCodeInput(raw);
+
+  return isValidInviteCodeFormat(code) ? code : '';
 }
 
 export function buildInviteDeepLink(code: string) {
@@ -86,25 +122,35 @@ export function buildInviteQrPayload(code: string) {
 export function parseInviteCodeFromQrPayload(payload: string) {
   const trimmed = payload.trim();
 
+  if (!trimmed || looksLikeDevOrExpoUrl(trimmed)) {
+    return '';
+  }
+
   try {
     if (trimmed.startsWith('hairdiaryapp://')) {
       const url = new URL(trimmed);
       const segment = url.pathname.replace(/^\//, '').split('/');
 
       if (segment[0] === 'invite' && segment[1]) {
-        return normalizeInviteCode(segment[1]);
+        return sanitizeInviteCode(segment[1]);
       }
+
+      return '';
     }
 
     if (trimmed.includes('invite/')) {
       const part = trimmed.split('invite/')[1]?.split(/[?#]/)[0] ?? '';
-      return normalizeInviteCode(part);
+      return sanitizeInviteCode(part);
     }
   } catch {
-    // fall through
+    return '';
   }
 
-  return normalizeInviteCode(trimmed);
+  if (/^[A-HJ-NP-Z2-9]{6}$/i.test(trimmed)) {
+    return sanitizeInviteCode(trimmed);
+  }
+
+  return '';
 }
 
 export function generateInviteCodeLocal(existing: Set<string>) {
@@ -213,7 +259,7 @@ async function fetchDesignerName(designerId: string) {
 }
 
 export async function validateInviteCode(rawCode: string): Promise<InviteValidationResult> {
-  const code = normalizeInviteCode(rawCode);
+  const code = sanitizeInviteCode(rawCode);
 
   if (code.length !== 6) {
     return { valid: false, reason: 'invalid', message: '코드가 올바르지 않아요' };

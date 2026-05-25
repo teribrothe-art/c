@@ -15,7 +15,12 @@ import { signUpWithEmail, UserRole } from '../lib/auth';
 import { getPostAuthRoute } from '../lib/auth-redirect';
 import { showErrorAlert } from '../lib/alerts';
 import { redeemInviteForCurrentUser } from '../lib/apply-pending-invite';
-import { normalizeInviteCode, validateInviteCode } from '../lib/customer-invitations';
+import {
+  formatInviteCodeInput,
+  isValidInviteCodeFormat,
+  sanitizeInviteCode,
+  validateInviteCode,
+} from '../lib/customer-invitations';
 import { clearPendingInviteCode, peekPendingInviteCode } from '../lib/pending-invite-code';
 import { getErrorMessage } from '../lib/errors';
 import { colors, disabledButtonStyle } from '../lib/theme';
@@ -43,8 +48,11 @@ export default function SignupScreen() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordConfirmError, setPasswordConfirmError] = useState<string | null>(null);
   const [roleError, setRoleError] = useState<string | null>(null);
-  const [inviteOpen, setInviteOpen] = useState(Boolean(inviteCodeParam));
-  const [inviteCode, setInviteCode] = useState(inviteCodeParam ? normalizeInviteCode(String(inviteCodeParam)) : '');
+  const initialInviteFromLink = inviteCodeParam
+    ? sanitizeInviteCode(String(inviteCodeParam))
+    : '';
+  const [inviteOpen, setInviteOpen] = useState(Boolean(initialInviteFromLink));
+  const [inviteCode, setInviteCode] = useState(initialInviteFromLink);
   const [inviteHint, setInviteHint] = useState<string | null>(null);
   const [inviteValid, setInviteValid] = useState<boolean | null>(null);
 
@@ -61,9 +69,11 @@ export default function SignupScreen() {
 
     peekPendingInviteCode()
       .then((pending) => {
-        if (pending.length === 6) {
+        if (isValidInviteCodeFormat(pending)) {
           setInviteCode(pending);
           setRole((current) => current ?? 'customer');
+        } else {
+          void clearPendingInviteCode();
         }
       })
       .catch(() => undefined);
@@ -76,7 +86,7 @@ export default function SignupScreen() {
       return;
     }
 
-    const code = normalizeInviteCode(inviteCode);
+    const code = formatInviteCodeInput(inviteCode);
 
     if (code.length === 0) {
       setInviteHint(null);
@@ -131,8 +141,8 @@ export default function SignupScreen() {
 
     const trimmedEmail = email.trim();
 
-    const code = normalizeInviteCode(inviteCode);
-    const wantsInvite = inviteOpen && code.length === 6;
+    const code = sanitizeInviteCode(inviteCode);
+    const wantsInvite = inviteOpen && isValidInviteCodeFormat(code);
 
     if (role === 'customer' && wantsInvite && inviteValid === false) {
       showErrorAlert('초대 코드를 확인하거나 비워두고 가입해주세요.');
@@ -272,7 +282,7 @@ export default function SignupScreen() {
                 autoCapitalize="characters"
                 editable={!isLoading}
                 maxLength={6}
-                onChangeText={(value) => setInviteCode(normalizeInviteCode(value))}
+                onChangeText={(value) => setInviteCode(formatInviteCodeInput(value))}
                 placeholder="6자리 코드 (비우면 일반 가입)"
                 placeholderTextColor="#9CA3AF"
                 style={styles.input}

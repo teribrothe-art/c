@@ -5,14 +5,14 @@ import { InteractionManager } from 'react-native';
 
 import { redeemInviteForCurrentUser } from '../../lib/apply-pending-invite';
 import { getCurrentUser } from '../../lib/auth';
-import { parseInviteCodeFromQrPayload } from '../../lib/customer-invitations';
+import { isValidInviteCodeFormat, parseInviteCodeFromQrPayload } from '../../lib/customer-invitations';
 import { stashPendingInviteCode } from '../../lib/pending-invite-code';
 
 async function routeInviteCode(
   code: string,
   router: ReturnType<typeof useRouter>,
 ) {
-  if (code.length !== 6) {
+  if (!isValidInviteCodeFormat(code)) {
     return;
   }
 

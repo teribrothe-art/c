@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { showErrorAlert } from '../lib/alerts';
-import { parseInviteCodeFromQrPayload } from '../lib/customer-invitations';
+import { isValidInviteCodeFormat, parseInviteCodeFromQrPayload } from '../lib/customer-invitations';
 
 export default function ScanInviteScreen() {
   const insets = useSafeAreaInsets();
@@ -46,8 +46,8 @@ export default function ScanInviteScreen() {
           try {
             const code = parseInviteCodeFromQrPayload(data);
 
-            if (code.length !== 6) {
-              throw new Error('다시 시도해주세요');
+            if (!isValidInviteCodeFormat(code)) {
+              throw new Error('초대 QR이 아니에요. 디자이너 초대 코드 QR을 스캔해주세요.');
             }
 
             router.replace({

@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 
 import { getCurrentUser, type UserRole } from './auth';
-import { normalizeInviteCode, redeemInviteCode } from './customer-invitations';
+import { isValidInviteCodeFormat, redeemInviteCode, sanitizeInviteCode } from './customer-invitations';
 import { consumePendingInviteCode, peekPendingInviteCode } from './pending-invite-code';
 
 type RedeemInviteOptions = {
@@ -21,9 +21,9 @@ export async function redeemInviteForCurrentUser(
     return false;
   }
 
-  const code = normalizeInviteCode(rawCode || (await peekPendingInviteCode()));
+  const code = sanitizeInviteCode(rawCode || (await peekPendingInviteCode()));
 
-  if (code.length !== 6) {
+  if (!isValidInviteCodeFormat(code)) {
     return false;
   }
 

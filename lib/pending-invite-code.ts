@@ -1,13 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { normalizeInviteCode } from './customer-invitations';
+import { isValidInviteCodeFormat, sanitizeInviteCode } from './customer-invitations';
 
 const PENDING_INVITE_KEY = 'hair-diary-pending-invite-code';
 
 export async function stashPendingInviteCode(rawCode: string) {
-  const code = normalizeInviteCode(rawCode);
+  const code = sanitizeInviteCode(rawCode);
 
-  if (code.length !== 6) {
+  if (!isValidInviteCodeFormat(code)) {
     return;
   }
 
@@ -16,7 +16,19 @@ export async function stashPendingInviteCode(rawCode: string) {
 
 export async function peekPendingInviteCode() {
   const raw = await AsyncStorage.getItem(PENDING_INVITE_KEY);
-  return raw ? normalizeInviteCode(raw) : '';
+
+  if (!raw) {
+    return '';
+  }
+
+  const code = sanitizeInviteCode(raw);
+
+  if (!isValidInviteCodeFormat(code)) {
+    await AsyncStorage.removeItem(PENDING_INVITE_KEY);
+    return '';
+  }
+
+  return code;
 }
 
 export async function consumePendingInviteCode() {
