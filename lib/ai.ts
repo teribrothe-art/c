@@ -1,12 +1,17 @@
 import axios, { isAxiosError } from 'axios';
 
+import { chatWithClaudeViaEdge, shouldUseAiEdgeProxy } from './ai-edge';
 import { getCurrentUser, isDemoAuthMode } from './auth';
-import { getAnthropicApiKey, isAnthropicConfigured } from './ai-providers';
+import {
+  getAnthropicApiKey,
+  isAnthropicConfigured,
+  isClientKeyAiAllowed,
+} from './ai-providers';
 import { toAppError } from './errors';
 import { AI_NO_PRODUCT_INSTRUCTION } from './treatment-privacy';
 import { sanitizeTreatmentsForCustomer } from './treatment-privacy';
 import { Treatment } from './treatments';
-import { supabase } from './supabase';
+import { isSupabaseConfigured, supabase } from './supabase';
 
 const CLAUDE_MODEL = 'claude-haiku-4-5';
 const ANTHROPIC_MESSAGES_URL = 'https://api.anthropic.com/v1/messages';
@@ -49,6 +54,11 @@ export type SavedAiConversation = {
   audio_url: string | null;
   context_used: Record<string, unknown> | null;
   created_at: string;
+};
+
+export type ClaudeChatMeta = {
+  model: string;
+  provider: string;
 };
 
 const conversationSelect =
@@ -169,7 +179,7 @@ function parseClaudeError(error: unknown): string {
       error.message;
 
     if (status === 401 || status === 403) {
-      return 'API 키를 확인해주세요. .env의 EXPO_PUBLIC_ANTHROPIC_API_KEY를 설정한 뒤 앱을 다시 시작해주세요.';
+      return 'AI API 키를 확인해주세요.';
     }
 
     if (status === 429) {
@@ -190,7 +200,51 @@ function parseClaudeError(error: unknown): string {
   return '잠시 후 다시 시도해주세요';
 }
 
-/** Anthropic Claude API — 개인화 답변 */
+/** 로컬 개발 전용 — 앱에 키가 있을 때만 직접 Anthropic 호출 */
+async function chatWithClaudeDirect(
+  userMessage: string,
+  userContext: UserAiContext | Record<string, unknown>,
+): Promise<ClaudeChatMeta & { text: string }> {
+  const apiKey = getAnthropicApiKey();
+  const contextJson = JSON.stringify(userContext, null, 0);
+
+  const { data } = await axios.post<{
+    content?: { type: string; text?: string }[];
+  }>(
+    ANTHROPIC_MESSAGES_URL,
+    {
+      model: CLAUDE_MODEL,
+      max_tokens: 500,
+      system: SYSTEM_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: `시술 이력 컨텍스트:\n${contextJson}\n\n고객 질문:\n${userMessage}`,
+        },
+      ],
+    },
+    {
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      timeout: 60_000,
+    },
+  );
+
+  const text = data.content?.find((block) => block.type === 'text')?.text?.trim();
+
+  if (!text) {
+    throw new Error('잠시 후 다시 시도해주세요');
+  }
+
+  return { text, model: CLAUDE_MODEL, provider: 'anthropic-client-dev' };
+}
+
+/**
+ * Anthropic Claude — Supabase Edge 프록시 우선, 데모/미연동 시 로컬 응답
+ */
 export async function chatWithClaude(
   userMessage: string,
   userContext: UserAiContext | Record<string, unknown>,
@@ -202,53 +256,62 @@ export async function chatWithClaude(
     throw new Error('메시지를 입력해주세요.');
   }
 
-  if (!isAnthropicConfigured()) {
-    return buildDemoAiResponse(trimmedMessage, userContext as UserAiContext);
+  const context = userContext as UserAiContext;
+
+  if (isDemoAuthMode || !isSupabaseConfigured) {
+    return buildDemoAiResponse(trimmedMessage, context);
   }
 
-  const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY?.trim() || getAnthropicApiKey();
-  const contextJson = JSON.stringify(userContext, null, 0);
-
-  try {
-    const { data } = await axios.post<{
-      content?: { type: string; text?: string }[];
-    }>(
-      ANTHROPIC_MESSAGES_URL,
-      {
-        model: CLAUDE_MODEL,
-        max_tokens: 500,
-        system: SYSTEM_PROMPT,
-        messages: [
-          {
-            role: 'user',
-            content: `시술 이력 컨텍스트:\n${contextJson}\n\n고객 질문:\n${trimmedMessage}`,
-          },
-        ],
-      },
-      {
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        },
-        timeout: 60_000,
-      },
-    );
-
-    const text = data.content?.find((block) => block.type === 'text')?.text?.trim();
-
-    if (!text) {
-      throw new Error('잠시 후 다시 시도해주세요');
-    }
-
-    return text;
-  } catch (error) {
-    if (error instanceof Error && error.message === '메시지를 입력해주세요.') {
-      throw error;
-    }
-
-    throw new Error(parseClaudeError(error));
+  if (shouldUseAiEdgeProxy()) {
+    const edge = await chatWithClaudeViaEdge(trimmedMessage, userContext as Record<string, unknown>);
+    return edge.text;
   }
+
+  if (isClientKeyAiAllowed() && isAnthropicConfigured()) {
+    try {
+      const direct = await chatWithClaudeDirect(trimmedMessage, userContext);
+      return direct.text;
+    } catch (directError) {
+      throw new Error(parseClaudeError(directError));
+    }
+  }
+
+  throw new Error(
+    'AI 상담 서버가 준비되지 않았습니다. Supabase Edge Function(ai-chat)을 배포하거나 supabase/AI_EDGE.md를 참고해주세요.',
+  );
+}
+
+/** chatWithClaude 메타데이터 (저장용) */
+export async function chatWithClaudeDetailed(
+  userMessage: string,
+  userContext: UserAiContext | Record<string, unknown>,
+  userId: string,
+): Promise<ClaudeChatMeta & { text: string }> {
+  const trimmedMessage = userMessage.trim();
+
+  if (!trimmedMessage) {
+    throw new Error('메시지를 입력해주세요.');
+  }
+
+  if (isDemoAuthMode || !isSupabaseConfigured) {
+    return {
+      text: buildDemoAiResponse(trimmedMessage, userContext as UserAiContext),
+      model: 'demo',
+      provider: 'demo',
+    };
+  }
+
+  if (shouldUseAiEdgeProxy()) {
+    return chatWithClaudeViaEdge(trimmedMessage, userContext as Record<string, unknown>);
+  }
+
+  if (isClientKeyAiAllowed() && isAnthropicConfigured()) {
+    return chatWithClaudeDirect(trimmedMessage, userContext);
+  }
+
+  throw new Error(
+    'AI 상담 서버가 준비되지 않았습니다. Supabase Edge Function(ai-chat)을 배포해주세요.',
+  );
 }
 
 /** ai_conversations 저장 */

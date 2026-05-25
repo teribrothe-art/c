@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
-import { chatWithClaude, getUserContext, saveAiConversation, UserAiContext } from './ai';
-import { isAnthropicConfigured } from './ai-providers';
+import { getUserContext, saveAiConversation, UserAiContext } from './ai';
+import { chatWithClaudeDetailed } from './ai';
+import { isAiChatEnabled } from './ai-edge';
 import { toAppError } from './errors';
 import { supabase } from './supabase';
 import { getTreatments, Treatment } from './treatments';
@@ -119,7 +120,11 @@ export async function askAiWithContext(userMessage: string) {
   }
 
   const userContext = await getUserContext(user.id);
-  const aiResponse = await chatWithClaude(trimmed, userContext, user.id);
+  const { text: aiResponse, model, provider } = await chatWithClaudeDetailed(
+    trimmed,
+    userContext,
+    user.id,
+  );
 
   return saveAiConversation({
     userId: user.id,
@@ -127,10 +132,12 @@ export async function askAiWithContext(userMessage: string) {
     aiResponse,
     contextUsed: {
       ...userContext,
-      provider: isAnthropicConfigured() ? 'anthropic' : 'demo',
-      model: isAnthropicConfigured() ? 'claude-haiku-4-5' : 'demo',
+      provider,
+      model,
     },
   });
 }
+
+export { isAiChatEnabled };
 
 export { saveAiConversation } from './ai';

@@ -43,6 +43,13 @@ export function isAnthropicConfigured() {
   );
 }
 
+/** 로컬 개발용 — 앱에 API 키 직접 포함 (프로덕션 비권장) */
+export function isClientKeyAiAllowed() {
+  const flag = process.env.EXPO_PUBLIC_AI_ALLOW_CLIENT_KEY?.trim().toLowerCase();
+
+  return flag === 'true' || flag === '1';
+}
+
 export function getActiveAiProvider(): AiProvider {
   if (isOpenAiConfigured()) {
     return 'openai';

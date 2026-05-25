@@ -1,0 +1,94 @@
+import { FunctionsHttpError } from '@supabase/supabase-js';
+
+import { isDemoAuthMode } from './auth';
+import { isAnthropicConfigured, isClientKeyAiAllowed } from './ai-providers';
+import { isSupabaseConfigured, supabase } from './supabase';
+
+type EdgeChatSuccess = {
+  text: string;
+  model?: string;
+  provider?: string;
+};
+
+type EdgeChatError = {
+  error?: string;
+};
+
+async function readEdgeErrorMessage(error: FunctionsHttpError) {
+  try {
+    const context = await error.context.json();
+    const body = context as EdgeChatError;
+
+    if (body.error) {
+      return body.error;
+    }
+  } catch {
+    // fall through
+  }
+
+  return error.message || 'AI 상담 요청에 실패했습니다.';
+}
+
+/** Supabase Edge Function `ai-chat` — Anthropic 프록시 */
+export async function chatWithClaudeViaEdge(
+  userMessage: string,
+  userContext: Record<string, unknown>,
+): Promise<{ text: string; model: string; provider: string }> {
+  if (!isSupabaseConfigured || !supabase) {
+    throw new Error('Supabase가 연결되지 않았습니다.');
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    throw new Error('로그인이 필요합니다.');
+  }
+
+  const { data, error } = await supabase.functions.invoke<EdgeChatSuccess>('ai-chat', {
+    body: {
+      userMessage,
+      userContext,
+    },
+  });
+
+  if (error) {
+    if (error instanceof FunctionsHttpError) {
+      throw new Error(await readEdgeErrorMessage(error));
+    }
+
+    throw new Error(error.message || 'AI 상담 요청에 실패했습니다.');
+  }
+
+  const text = data?.text?.trim();
+
+  if (!text) {
+    const edgeError = (data as EdgeChatError | null)?.error;
+
+    throw new Error(edgeError || '잠시 후 다시 시도해주세요');
+  }
+
+  return {
+    text,
+    model: data?.model ?? 'claude-haiku-4-5',
+    provider: data?.provider ?? 'anthropic-edge',
+  };
+}
+
+export function shouldUseAiEdgeProxy() {
+  return isSupabaseConfigured && Boolean(supabase) && !isDemoAuthMode;
+}
+
+/** 실제 AI 사용 가능 여부 (Edge 프록시 또는 로컬 dev 키) */
+export function isAiChatEnabled() {
+  if (isDemoAuthMode) {
+    return false;
+  }
+
+  if (shouldUseAiEdgeProxy()) {
+    return true;
+  }
+
+  return isClientKeyAiAllowed() && isAnthropicConfigured();
+}

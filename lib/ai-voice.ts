@@ -1,7 +1,7 @@
-import { chatWithClaude, getUserContext, saveAiConversation } from './ai';
+import { chatWithClaudeDetailed, getUserContext, saveAiConversation } from './ai';
 import { getCurrentUser } from './auth';
 import { checkConsultationUsage } from './ai-usage';
-import { isAnthropicConfigured } from './ai-providers';
+import { isAiChatEnabled } from './ai-edge';
 
 /** 텍스트 AI 상담 — getUserContext → chatWithClaude → ai_conversations 저장 */
 export async function processTextConsultation(userMessage: string) {
@@ -24,7 +24,11 @@ export async function processTextConsultation(userMessage: string) {
   }
 
   const userContext = await getUserContext(user.id);
-  const aiResponse = await chatWithClaude(trimmed, userContext, user.id);
+  const { text: aiResponse, model, provider } = await chatWithClaudeDetailed(
+    trimmed,
+    userContext,
+    user.id,
+  );
 
   return saveAiConversation({
     userId: user.id,
@@ -33,8 +37,10 @@ export async function processTextConsultation(userMessage: string) {
     contextUsed: {
       ...userContext,
       source: 'text',
-      provider: isAnthropicConfigured() ? 'anthropic' : 'demo',
-      model: isAnthropicConfigured() ? 'claude-haiku-4-5' : 'demo',
+      provider,
+      model,
     },
   });
 }
+
+export { isAiChatEnabled };

@@ -17,7 +17,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { showErrorAlert } from '../../lib/alerts';
 import { AiConversation, listAiConversations } from '../../lib/ai-conversations';
 import { processTextConsultation } from '../../lib/ai-voice';
-import { isAnthropicConfigured } from '../../lib/ai-providers';
+import { isAiChatEnabled } from '../../lib/ai-edge';
+import { isDemoAuthMode } from '../../lib/auth';
+import { isSupabaseConfigured } from '../../lib/supabase';
 import { getConsultationUsageSummary } from '../../lib/ai-usage';
 import { colors } from '../../lib/theme';
 import { BottomTabBar } from '../../src/components/bottom-tab-bar';
@@ -136,9 +138,13 @@ export default function CustomerVoiceScreen() {
           <Text style={styles.decoIcon}>💬</Text>
         </LinearGradient>
         <Text style={styles.voiceHint}>
-          {isAnthropicConfigured()
-            ? '시술 이력 기반 Claude AI 상담'
-            : '데모 모드 — .env에 Anthropic API 키를 설정하면 실제 AI가 응답해요'}
+          {isDemoAuthMode
+            ? '데모 모드 — 샘플 응답으로 동작합니다'
+            : isAiChatEnabled()
+              ? isSupabaseConfigured
+                ? '시술 이력 기반 Claude AI (Supabase Edge 프록시)'
+                : '시술 이력 기반 Claude AI 상담'
+              : 'AI 서버 미연결 — supabase/functions/ai-chat 배포 필요'}
         </Text>
         {usageHint ? <Text style={styles.usageHint}>{usageHint}</Text> : null}
       </View>
