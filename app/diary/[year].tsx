@@ -1,5 +1,5 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -36,15 +36,16 @@ export default function DiaryYearDetailScreen() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadYearDiary = useCallback(() => {
+    if (!Number.isFinite(selectedYear)) {
+      router.replace('/diary');
+      return Promise.resolve();
+    }
 
-    getTreatments()
+    setIsLoading(true);
+
+    return getTreatments()
       .then(({ user, treatments: nextTreatments }) => {
-        if (!isMounted) {
-          return;
-        }
-
         if (!user) {
           router.replace('/');
           return;
@@ -55,31 +56,26 @@ export default function DiaryYearDetailScreen() {
           return;
         }
 
-        if (!Number.isFinite(selectedYear)) {
-          router.replace('/diary');
-          return;
-        }
-
         setTreatments(nextTreatments);
         setErrorMessage('');
       })
       .catch((error) => {
-        if (!isMounted) {
-          return;
-        }
-
         setErrorMessage(getErrorMessage(error, '시술 기록을 불러오지 못했습니다.'));
       })
       .finally(() => {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
       });
-
-    return () => {
-      isMounted = false;
-    };
   }, [selectedYear]);
+
+  useEffect(() => {
+    void loadYearDiary();
+  }, [loadYearDiary]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadYearDiary();
+    }, [loadYearDiary]),
+  );
 
   const yearTreatments = useMemo(() => {
     if (!Number.isFinite(selectedYear)) {

@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
 import type { PaymentStatus } from './payment-status';
+import { filterTreatmentsForCustomerUser, sortTreatmentsForDiaryList } from './diary-list';
 import { sanitizeTreatmentsForCustomer, sanitizeTreatmentForCustomer } from './treatment-privacy';
 import { defaultTreatmentTitle, DEFAULT_TREATMENT_DURATION } from './treatment-options';
 import { supabase } from './supabase';
@@ -267,10 +268,13 @@ export async function getTreatments() {
   }
 
   if (user.role === 'customer') {
-    return { user, treatments: sanitizeTreatmentsForCustomer(treatments) };
+    const sanitized = sanitizeTreatmentsForCustomer(treatments);
+    const mine = sortTreatmentsForDiaryList(filterTreatmentsForCustomerUser(user.id, sanitized));
+
+    return { user, treatments: mine };
   }
 
-  return { user, treatments };
+  return { user, treatments: sortTreatmentsForDiaryList(treatments) };
 }
 
 export async function getTreatmentById(id: string) {

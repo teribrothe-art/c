@@ -2,6 +2,7 @@ import { Href, router, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -25,6 +26,8 @@ import {
   DiaryFilterKey,
   treatmentMatchesDiaryFilter,
 } from '../lib/diary-filters';
+import { countTreatmentsForDiaryFilter } from '../lib/diary-list';
+import { getDiaryYearSummaries } from '../lib/diary-years';
 import { filterTreatmentsByQuery } from '../lib/treatment-search';
 import { getTreatments, Treatment } from '../lib/treatments';
 import { EmptyState } from '../src/components/empty-state';
@@ -46,55 +49,49 @@ export default function DiaryHomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [dailyCare, setDailyCare] = useState<DailyCareSnapshot | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadDiaryData = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
 
-    Promise.resolve()
-      .then(async () => {
-        const { user, treatments: nextTreatments } = await getTreatments();
+    if (!silent) {
+      setIsLoading(true);
+    }
 
-        if (!isMounted) {
-          return;
-        }
+    try {
+      const { user, treatments: nextTreatments } = await getTreatments();
 
-        if (!user) {
-          router.replace('/');
-          return;
-        }
+      if (!user) {
+        router.replace('/');
+        return;
+      }
 
-        if (user.role === 'designer') {
-          router.replace('/designer/clients' as Href);
-          return;
-        }
+      if (user.role === 'designer') {
+        router.replace('/designer/clients' as Href);
+        return;
+      }
 
-        setTreatments(nextTreatments);
-        const pending = await getCustomerPendingPayments();
-        setPendingPayments(pending);
-        const care = await getTodayDailyCare(nextTreatments);
-        setDailyCare(care);
-        setErrorMessage('');
-        shouldShowOnboarding('customer').then(setShowOnboarding);
-      })
-      .catch((error) => {
-        if (!isMounted) {
-          return;
-        }
-
-        const message = getErrorMessage(error, '시술 기록을 불러오지 못했습니다.');
-        setErrorMessage(message);
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
+      setTreatments(nextTreatments);
+      const pending = await getCustomerPendingPayments();
+      setPendingPayments(pending);
+      const care = await getTodayDailyCare(nextTreatments);
+      setDailyCare(care);
+      setErrorMessage('');
+    } catch (error) {
+      const message = getErrorMessage(error, '시술 기록을 불러오지 못했습니다.');
+      setErrorMessage(message);
+    } finally {
+      if (!silent) {
+        setIsLoading(false);
+      }
+      setIsRefreshing(false);
+    }
   }, []);
 
+  useEffect(() => {
+    void loadDiaryData();
+    shouldShowOnboarding('customer').then(setShowOnboarding);
+  }, [loadDiaryData]);
 
   const reloadPending = useCallback(() => {
     getCustomerPendingPayments()
@@ -115,10 +112,13 @@ export default function DiaryHomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      void loadDiaryData({ silent: true });
       reloadPending();
       reloadDailyCare();
-    }, [reloadPending, reloadDailyCare]),
+    }, [loadDiaryData, reloadPending, reloadDailyCare]),
   );
+
+  const yearSummaries = useMemo(() => getDiaryYearSummaries(treatments), [treatments]);
 
   const filteredTreatments = useMemo(() => {
     const byType = treatments.filter((treatment) =>
@@ -135,10 +135,23 @@ export default function DiaryHomeScreen() {
     router.push('/diary');
   };
 
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    void loadDiaryData({ silent: true });
+  };
+
+  const formatFilterLabel = (filter: (typeof DIARY_FILTER_OPTIONS)[number]) => {
+    const count = countTreatmentsForDiaryFilter(treatments, filter.key);
+    return count > 0 ? `${filter.icon} ${filter.label} ${count}` : `${filter.icon} ${filter.label}`;
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#FF5A5F" />
+        }
         showsVerticalScrollIndicator={false}>
 
         {pendingPayments.length > 0 ? (
@@ -169,8 +182,15 @@ export default function DiaryHomeScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>내 다이어리</Text>
+            <Text style={styles.recordCount}>
+              {isLoading ? '기록 불러오는 중…' : `시술 ${treatments.length}건`}
+            </Text>
             <Pressable onPress={() => router.push('/diary')} style={styles.yearBrowseLink}>
-              <Text style={styles.yearBrowseText}>연도별 보기 ›</Text>
+              <Text style={styles.yearBrowseText}>
+                {yearSummaries.length > 0
+                  ? `연도별 보기 · ${yearSummaries.length}개 연도 ›`
+                  : '연도별 보기 ›'}
+              </Text>
             </Pressable>
           </View>
           <View style={styles.headerActions}>
@@ -197,26 +217,33 @@ export default function DiaryHomeScreen() {
           />
         ) : null}
 
-        <ScrollView
-          contentContainerStyle={styles.filterContent}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterScroll}>
-          {DIARY_FILTER_OPTIONS.map((filter) => {
-            const selected = selectedFilter === filter.key;
+        <View style={styles.filterRow}>
+          <ScrollView
+            contentContainerStyle={styles.filterContent}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}>
+            {DIARY_FILTER_OPTIONS.map((filter) => {
+              const selected = selectedFilter === filter.key;
 
-            return (
-              <Pressable
-                key={filter.key}
-                onPress={() => setSelectedFilter(filter.key)}
-                style={[styles.filterTab, selected && styles.filterTabSelected]}>
-                <Text style={[styles.filterText, selected && styles.filterTextSelected]}>
-                  {filter.icon} {filter.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+              return (
+                <Pressable
+                  key={filter.key}
+                  onPress={() => setSelectedFilter(filter.key)}
+                  style={[styles.filterTab, selected && styles.filterTabSelected]}>
+                  <Text style={[styles.filterText, selected && styles.filterTextSelected]}>
+                    {formatFilterLabel(filter)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+          <Pressable
+            onPress={() => router.push('/diary')}
+            style={({ pressed }) => [styles.yearChip, pressed && styles.yearChipPressed]}>
+            <Text style={styles.yearChipText}>📅 연도</Text>
+          </Pressable>
+        </View>
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -224,6 +251,9 @@ export default function DiaryHomeScreen() {
           <View style={styles.stateBox}>
             <Text style={styles.stateTitle}>기록을 불러오지 못했어요</Text>
             <Text style={styles.stateText}>{errorMessage}</Text>
+            <Pressable onPress={() => void loadDiaryData()} style={styles.retryButton}>
+              <Text style={styles.retryButtonText}>다시 불러오기</Text>
+            </Pressable>
           </View>
         ) : treatments.length === 0 ? (
           <EmptyState
@@ -310,6 +340,12 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: '800',
   },
+  recordCount: {
+    color: '#6B6B7B',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 4,
+  },
   yearBrowseLink: {
     marginTop: 6,
     paddingVertical: 2,
@@ -338,13 +374,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  filterScroll: {
+  filterRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
     marginBottom: 20,
     marginHorizontal: -22,
+  },
+  filterScroll: {
+    flex: 1,
   },
   filterContent: {
     gap: 10,
     paddingHorizontal: 22,
+  },
+  yearChip: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 999,
+    borderWidth: 1,
+    marginRight: 22,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  yearChipPressed: {
+    opacity: 0.85,
+  },
+  yearChipText: {
+    color: '#FF5A5F',
+    fontSize: 14,
+    fontWeight: '800',
   },
   filterTab: {
     borderRadius: 999,
@@ -386,5 +445,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#FF5A5F',
+    borderRadius: 12,
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

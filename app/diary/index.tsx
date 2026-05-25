@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -16,15 +16,11 @@ export default function DiaryYearBrowseScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadYears = useCallback(() => {
+    setIsLoading(true);
 
-    getTreatments()
+    return getTreatments()
       .then(({ user, treatments: nextTreatments }) => {
-        if (!isMounted) {
-          return;
-        }
-
         if (!user) {
           router.replace('/');
           return;
@@ -39,22 +35,22 @@ export default function DiaryYearBrowseScreen() {
         setErrorMessage('');
       })
       .catch((error) => {
-        if (!isMounted) {
-          return;
-        }
-
         setErrorMessage(getErrorMessage(error, '시술 기록을 불러오지 못했습니다.'));
       })
       .finally(() => {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
       });
-
-    return () => {
-      isMounted = false;
-    };
   }, []);
+
+  useEffect(() => {
+    void loadYears();
+  }, [loadYears]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadYears();
+    }, [loadYears]),
+  );
 
   const yearSummaries = useMemo(() => getDiaryYearSummaries(treatments), [treatments]);
 
