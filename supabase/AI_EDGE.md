@@ -30,14 +30,16 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 
 ## 4. 로컬 개발 (Edge Function 없이 테스트)
 
-`.env` 에만 추가:
+`.env` 에 추가 (개발 빌드 `expo start`):
 
 ```env
-EXPO_PUBLIC_AI_ALLOW_CLIENT_KEY=true
 EXPO_PUBLIC_ANTHROPIC_API_KEY=sk-ant-api03-...
+# 선택: 프로덕션 빌드에서도 클라이언트 직접 호출 시
+# EXPO_PUBLIC_AI_ALLOW_CLIENT_KEY=true
 ```
 
-프로덕션 빌드/EAS Update에는 위 두 변수를 넣지 마세요.
+개발 모드에서는 `EXPO_PUBLIC_AI_ALLOW_CLIENT_KEY` 없이도 키가 있으면 Claude를 직접 호출합니다.  
+프로덕션/EAS Update에는 **Anthropic 키를 앱에 넣지 마세요** (Edge만 사용).
 
 ## 5. 동작 확인
 

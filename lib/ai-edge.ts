@@ -1,8 +1,12 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 
-import { isDemoAuthMode } from './auth';
-import { isAnthropicConfigured, isClientKeyAiAllowed } from './ai-providers';
+import { canUseDirectAnthropicClient } from './ai-providers';
 import { isSupabaseConfigured, supabase } from './supabase';
+
+export type AiConversationTurn = {
+  user_message: string;
+  ai_response: string;
+};
 
 type EdgeChatSuccess = {
   text: string;
@@ -33,6 +37,7 @@ async function readEdgeErrorMessage(error: FunctionsHttpError) {
 export async function chatWithClaudeViaEdge(
   userMessage: string,
   userContext: Record<string, unknown>,
+  conversationHistory: AiConversationTurn[] = [],
 ): Promise<{ text: string; model: string; provider: string }> {
   if (!isSupabaseConfigured || !supabase) {
     throw new Error('Supabase가 연결되지 않았습니다.');
@@ -50,6 +55,7 @@ export async function chatWithClaudeViaEdge(
     body: {
       userMessage,
       userContext,
+      conversationHistory,
     },
   });
 
@@ -77,18 +83,22 @@ export async function chatWithClaudeViaEdge(
 }
 
 export function shouldUseAiEdgeProxy() {
-  return isSupabaseConfigured && Boolean(supabase) && !isDemoAuthMode;
+  return isSupabaseConfigured && Boolean(supabase);
 }
 
-/** 실제 AI 사용 가능 여부 (Edge 프록시 또는 로컬 dev 키) */
+/** 실제 Claude 연동 가능 여부 */
 export function isAiChatEnabled() {
-  if (isDemoAuthMode) {
-    return false;
-  }
+  return shouldUseAiEdgeProxy() || canUseDirectAnthropicClient();
+}
 
+export function getAiChatStatusLabel() {
   if (shouldUseAiEdgeProxy()) {
-    return true;
+    return 'Claude AI · 시술 이력 기반 맞춤 상담 (보안 프록시)';
   }
 
-  return isClientKeyAiAllowed() && isAnthropicConfigured();
+  if (canUseDirectAnthropicClient()) {
+    return 'Claude AI · 시술 이력 기반 맞춤 상담';
+  }
+
+  return 'AI 연동 대기 — Supabase Edge(ai-chat) 배포 또는 Anthropic API 키 설정';
 }

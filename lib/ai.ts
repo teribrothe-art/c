@@ -1,12 +1,12 @@
 import axios, { isAxiosError } from 'axios';
 
-import { chatWithClaudeViaEdge, shouldUseAiEdgeProxy } from './ai-edge';
-import { getCurrentUser, isDemoAuthMode } from './auth';
 import {
-  getAnthropicApiKey,
-  isAnthropicConfigured,
-  isClientKeyAiAllowed,
-} from './ai-providers';
+  AiConversationTurn,
+  chatWithClaudeViaEdge,
+  shouldUseAiEdgeProxy,
+} from './ai-edge';
+import { getCurrentUser, isDemoAuthMode } from './auth';
+import { canUseDirectAnthropicClient, getAnthropicApiKey } from './ai-providers';
 import { toAppError } from './errors';
 import { AI_NO_PRODUCT_INSTRUCTION } from './treatment-privacy';
 import { sanitizeTreatmentsForCustomer } from './treatment-privacy';
@@ -200,13 +200,37 @@ function parseClaudeError(error: unknown): string {
   return '잠시 후 다시 시도해주세요';
 }
 
+function buildClaudeMessages(
+  userMessage: string,
+  userContext: UserAiContext | Record<string, unknown>,
+  conversationHistory: AiConversationTurn[],
+) {
+  const contextJson = JSON.stringify(userContext, null, 0);
+  const messages: { role: 'user' | 'assistant'; content: string }[] = [];
+
+  for (const turn of conversationHistory) {
+    messages.push({ role: 'user', content: turn.user_message });
+    messages.push({ role: 'assistant', content: turn.ai_response });
+  }
+
+  messages.push({
+    role: 'user',
+    content:
+      conversationHistory.length === 0
+        ? `시술 이력 컨텍스트:\n${contextJson}\n\n고객 질문:\n${userMessage}`
+        : `시술 이력 컨텍스트(참고):\n${contextJson}\n\n고객 질문:\n${userMessage}`,
+  });
+
+  return messages;
+}
+
 /** 로컬 개발 전용 — 앱에 키가 있을 때만 직접 Anthropic 호출 */
 async function chatWithClaudeDirect(
   userMessage: string,
   userContext: UserAiContext | Record<string, unknown>,
+  conversationHistory: AiConversationTurn[] = [],
 ): Promise<ClaudeChatMeta & { text: string }> {
   const apiKey = getAnthropicApiKey();
-  const contextJson = JSON.stringify(userContext, null, 0);
 
   const { data } = await axios.post<{
     content?: { type: string; text?: string }[];
@@ -216,12 +240,7 @@ async function chatWithClaudeDirect(
       model: CLAUDE_MODEL,
       max_tokens: 500,
       system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: `시술 이력 컨텍스트:\n${contextJson}\n\n고객 질문:\n${userMessage}`,
-        },
-      ],
+      messages: buildClaudeMessages(userMessage, userContext, conversationHistory),
     },
     {
       headers: {
@@ -242,50 +261,10 @@ async function chatWithClaudeDirect(
   return { text, model: CLAUDE_MODEL, provider: 'anthropic-client-dev' };
 }
 
-/**
- * Anthropic Claude — Supabase Edge 프록시 우선, 데모/미연동 시 로컬 응답
- */
-export async function chatWithClaude(
+async function resolveClaudeChat(
   userMessage: string,
   userContext: UserAiContext | Record<string, unknown>,
-  _userId: string,
-): Promise<string> {
-  const trimmedMessage = userMessage.trim();
-
-  if (!trimmedMessage) {
-    throw new Error('메시지를 입력해주세요.');
-  }
-
-  const context = userContext as UserAiContext;
-
-  if (isDemoAuthMode || !isSupabaseConfigured) {
-    return buildDemoAiResponse(trimmedMessage, context);
-  }
-
-  if (shouldUseAiEdgeProxy()) {
-    const edge = await chatWithClaudeViaEdge(trimmedMessage, userContext as Record<string, unknown>);
-    return edge.text;
-  }
-
-  if (isClientKeyAiAllowed() && isAnthropicConfigured()) {
-    try {
-      const direct = await chatWithClaudeDirect(trimmedMessage, userContext);
-      return direct.text;
-    } catch (directError) {
-      throw new Error(parseClaudeError(directError));
-    }
-  }
-
-  throw new Error(
-    'AI 상담 서버가 준비되지 않았습니다. Supabase Edge Function(ai-chat)을 배포하거나 supabase/AI_EDGE.md를 참고해주세요.',
-  );
-}
-
-/** chatWithClaude 메타데이터 (저장용) */
-export async function chatWithClaudeDetailed(
-  userMessage: string,
-  userContext: UserAiContext | Record<string, unknown>,
-  userId: string,
+  conversationHistory: AiConversationTurn[] = [],
 ): Promise<ClaudeChatMeta & { text: string }> {
   const trimmedMessage = userMessage.trim();
 
@@ -293,25 +272,66 @@ export async function chatWithClaudeDetailed(
     throw new Error('메시지를 입력해주세요.');
   }
 
+  if (shouldUseAiEdgeProxy()) {
+    try {
+      return await chatWithClaudeViaEdge(
+        trimmedMessage,
+        userContext as Record<string, unknown>,
+        conversationHistory,
+      );
+    } catch (edgeError) {
+      if (canUseDirectAnthropicClient()) {
+        try {
+          return await chatWithClaudeDirect(trimmedMessage, userContext, conversationHistory);
+        } catch (directError) {
+          throw new Error(parseClaudeError(directError));
+        }
+      }
+
+      throw edgeError instanceof Error ? edgeError : new Error(String(edgeError));
+    }
+  }
+
+  if (canUseDirectAnthropicClient()) {
+    try {
+      return await chatWithClaudeDirect(trimmedMessage, userContext, conversationHistory);
+    } catch (directError) {
+      throw new Error(parseClaudeError(directError));
+    }
+  }
+
   if (isDemoAuthMode || !isSupabaseConfigured) {
     return {
       text: buildDemoAiResponse(trimmedMessage, userContext as UserAiContext),
       model: 'demo',
-      provider: 'demo',
+      provider: 'demo-fallback',
     };
   }
 
-  if (shouldUseAiEdgeProxy()) {
-    return chatWithClaudeViaEdge(trimmedMessage, userContext as Record<string, unknown>);
-  }
-
-  if (isClientKeyAiAllowed() && isAnthropicConfigured()) {
-    return chatWithClaudeDirect(trimmedMessage, userContext);
-  }
-
   throw new Error(
-    'AI 상담 서버가 준비되지 않았습니다. Supabase Edge Function(ai-chat)을 배포해주세요.',
+    'AI 상담 서버가 준비되지 않았습니다. Supabase Edge Function(ai-chat)을 배포하거나 supabase/AI_EDGE.md를 참고해주세요.',
   );
+}
+
+/** Anthropic Claude — Edge 프록시 우선, 개발 시 직접 호출, 미연동 시 데모 응답 */
+export async function chatWithClaude(
+  userMessage: string,
+  userContext: UserAiContext | Record<string, unknown>,
+  _userId: string,
+  conversationHistory: AiConversationTurn[] = [],
+): Promise<string> {
+  const result = await resolveClaudeChat(userMessage, userContext, conversationHistory);
+  return result.text;
+}
+
+/** chatWithClaude 메타데이터 (저장용) */
+export async function chatWithClaudeDetailed(
+  userMessage: string,
+  userContext: UserAiContext | Record<string, unknown>,
+  _userId: string,
+  conversationHistory: AiConversationTurn[] = [],
+): Promise<ClaudeChatMeta & { text: string }> {
+  return resolveClaudeChat(userMessage, userContext, conversationHistory);
 }
 
 /** ai_conversations 저장 */

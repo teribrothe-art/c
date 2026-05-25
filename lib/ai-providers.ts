@@ -50,6 +50,19 @@ export function isClientKeyAiAllowed() {
   return flag === 'true' || flag === '1';
 }
 
+/** 개발 빌드에서 Anthropic 키가 있으면 직접 호출 허용 (Edge 없을 때) */
+export function canUseDirectAnthropicClient() {
+  if (!isAnthropicConfigured()) {
+    return false;
+  }
+
+  if (isClientKeyAiAllowed()) {
+    return true;
+  }
+
+  return process.env.NODE_ENV !== 'production';
+}
+
 export function getActiveAiProvider(): AiProvider {
   if (isOpenAiConfigured()) {
     return 'openai';

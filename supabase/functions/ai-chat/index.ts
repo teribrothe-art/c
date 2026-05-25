@@ -68,7 +68,11 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: '인증에 실패했습니다.' }, 401);
   }
 
-  let payload: { userMessage?: string; userContext?: unknown };
+  let payload: {
+    userMessage?: string;
+    userContext?: unknown;
+    conversationHistory?: { user_message?: string; ai_response?: string }[];
+  };
 
   try {
     payload = await req.json();
@@ -83,6 +87,26 @@ Deno.serve(async (req) => {
   }
 
   const contextJson = JSON.stringify(payload.userContext ?? {}, null, 0);
+  const history = Array.isArray(payload.conversationHistory)
+    ? payload.conversationHistory
+        .filter((turn) => turn.user_message?.trim() && turn.ai_response?.trim())
+        .slice(-8)
+    : [];
+
+  const messages = [];
+
+  for (const turn of history) {
+    messages.push({ role: 'user', content: turn.user_message.trim() });
+    messages.push({ role: 'assistant', content: turn.ai_response.trim() });
+  }
+
+  messages.push({
+    role: 'user',
+    content:
+      history.length === 0
+        ? `시술 이력 컨텍스트:\n${contextJson}\n\n고객 질문:\n${userMessage}`
+        : `시술 이력 컨텍스트(참고):\n${contextJson}\n\n고객 질문:\n${userMessage}`,
+  });
 
   try {
     const anthropicResponse = await fetch(ANTHROPIC_MESSAGES_URL, {
@@ -96,12 +120,7 @@ Deno.serve(async (req) => {
         model: CLAUDE_MODEL,
         max_tokens: 500,
         system: SYSTEM_PROMPT,
-        messages: [
-          {
-            role: 'user',
-            content: `시술 이력 컨텍스트:\n${contextJson}\n\n고객 질문:\n${userMessage}`,
-          },
-        ],
+        messages,
       }),
     });
 

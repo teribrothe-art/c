@@ -1,4 +1,5 @@
 import { chatWithClaudeDetailed, getUserContext, saveAiConversation } from './ai';
+import { listAiConversations } from './ai-conversations';
 import { getCurrentUser } from './auth';
 import { checkConsultationUsage } from './ai-usage';
 import { isAiChatEnabled } from './ai-edge';
@@ -24,10 +25,19 @@ export async function processTextConsultation(userMessage: string) {
   }
 
   const userContext = await getUserContext(user.id);
+  const recent = await listAiConversations(6);
+  const conversationHistory = recent
+    .slice()
+    .reverse()
+    .flatMap((item) => [
+      { user_message: item.user_message, ai_response: item.ai_response },
+    ]);
+
   const { text: aiResponse, model, provider } = await chatWithClaudeDetailed(
     trimmed,
     userContext,
     user.id,
+    conversationHistory,
   );
 
   return saveAiConversation({

@@ -17,9 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { showErrorAlert } from '../../lib/alerts';
 import { AiConversation, listAiConversations } from '../../lib/ai-conversations';
 import { processTextConsultation } from '../../lib/ai-voice';
-import { isAiChatEnabled } from '../../lib/ai-edge';
-import { isDemoAuthMode } from '../../lib/auth';
-import { isSupabaseConfigured } from '../../lib/supabase';
+import { getAiChatStatusLabel, isAiChatEnabled } from '../../lib/ai-edge';
 import { getConsultationUsageSummary } from '../../lib/ai-usage';
 import { colors } from '../../lib/theme';
 import { BottomTabBar } from '../../src/components/bottom-tab-bar';
@@ -137,15 +135,12 @@ export default function CustomerVoiceScreen() {
           style={styles.decoCircle}>
           <Text style={styles.decoIcon}>💬</Text>
         </LinearGradient>
-        <Text style={styles.voiceHint}>
-          {isDemoAuthMode
-            ? '데모 모드 — 샘플 응답으로 동작합니다'
-            : isAiChatEnabled()
-              ? isSupabaseConfigured
-                ? '시술 이력 기반 Claude AI (Supabase Edge 프록시)'
-                : '시술 이력 기반 Claude AI 상담'
-              : 'AI 서버 미연결 — supabase/functions/ai-chat 배포 필요'}
-        </Text>
+        <Text style={styles.voiceHint}>{getAiChatStatusLabel()}</Text>
+        {!isAiChatEnabled() ? (
+          <Text style={styles.setupHint}>
+            Supabase 연결 + ai-chat 배포 또는 .env에 EXPO_PUBLIC_ANTHROPIC_API_KEY 설정
+          </Text>
+        ) : null}
         {usageHint ? <Text style={styles.usageHint}>{usageHint}</Text> : null}
       </View>
 
@@ -221,7 +216,16 @@ const styles = StyleSheet.create({
     width: DECO_SIZE,
   },
   decoIcon: { fontSize: 40 },
-  voiceHint: { color: colors.muted, fontSize: 12, marginTop: 8 },
+  voiceHint: { color: colors.muted, fontSize: 12, marginTop: 8, textAlign: 'center' },
+  setupHint: {
+    color: colors.coral,
+    fontSize: 11,
+    fontWeight: '600',
+    lineHeight: 16,
+    marginTop: 4,
+    paddingHorizontal: 20,
+    textAlign: 'center',
+  },
   usageHint: { color: colors.purple, fontSize: 12, fontWeight: '600', marginTop: 4 },
   inputSection: { gap: 8, paddingHorizontal: 16, paddingBottom: 8 },
   input: {

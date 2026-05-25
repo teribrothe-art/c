@@ -120,10 +120,20 @@ export async function askAiWithContext(userMessage: string) {
   }
 
   const userContext = await getUserContext(user.id);
+  const recent = await listAiConversations(6);
+  const conversationHistory = recent
+    .slice()
+    .reverse()
+    .map((item) => ({
+      user_message: item.user_message,
+      ai_response: item.ai_response,
+    }));
+
   const { text: aiResponse, model, provider } = await chatWithClaudeDetailed(
     trimmed,
     userContext,
     user.id,
+    conversationHistory,
   );
 
   return saveAiConversation({
