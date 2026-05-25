@@ -45,7 +45,7 @@ import type { PaymentRecord } from '../../../lib/payment-record';
 import { notifyCustomerTreatmentRecorded } from '../../../lib/notifications';
 import { getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
 
-type EditableField = 'technique' | 'designer_diagnosis' | 'home_care';
+type EditableField = 'technique' | 'designer_diagnosis' | 'home_care' | 'price';
 
 type InputItem = {
   editable?: EditableField;
@@ -72,6 +72,10 @@ function joinProducts(products: string[] | null) {
 function getDraftValue(treatment: Treatment | null, field: EditableField) {
   if (!treatment) {
     return '';
+  }
+
+  if (field === 'price') {
+    return treatment.price ? String(treatment.price) : '';
   }
 
   return treatment[field] ?? '';
@@ -203,6 +207,12 @@ export default function DesignerTreatmentInputScreen() {
             value: treatment?.duration ?? '',
             complete: Boolean(treatment?.duration),
           },
+          {
+            label: '시술 금액',
+            value: treatment?.price ? `${treatment.price.toLocaleString('ko-KR')}원` : '',
+            complete: Boolean(treatment?.price),
+            editable: 'price',
+          },
         ],
       },
       {
@@ -247,14 +257,16 @@ export default function DesignerTreatmentInputScreen() {
   const requiredCount = requiredItems.length;
   const progress = completedCount / TOTAL_ITEMS;
   const paymentStatus = normalizePaymentStatus(treatment?.payment_status);
-  const canRequestPayment = paymentStatus === 'pending' && Boolean(treatment?.price);
+  const isCustomerLinked = Boolean(treatment?.customer_id);
+  const canRequestPayment =
+    paymentStatus === 'pending' && Boolean(treatment?.price) && isCustomerLinked;
   const isSettled = normalizePaymentStatus(treatment?.payment_status) === 'completed';
   const isPaymentPaid =
     paymentRecord?.status === 'paid' ||
     paymentRecord?.status === 'in_escrow' ||
     paymentStatus === 'escrow';
   const canSettle = isPaymentPaid && requiredCount === 0;
-  const canInviteCustomer = requiredCount === 0;
+  const canInviteCustomer = requiredCount === 0 && !isCustomerLinked;
 
   const openEditor = (field: EditableField) => {
     setActiveField(field);
@@ -273,21 +285,34 @@ export default function DesignerTreatmentInputScreen() {
 
     const trimmedValue = inputValue.trim();
 
-    const validationError = validateTreatmentNote(inputValue);
+    if (activeField !== 'price') {
+      const validationError = validateTreatmentNote(inputValue);
 
-    if (validationError) {
-      showWarningAlert(validationError);
+      if (validationError) {
+        showWarningAlert(validationError);
+        return;
+      }
+    }
+
+    const priceValue =
+      activeField === 'price' ? Number(trimmedValue.replace(/[^0-9]/g, '')) : undefined;
+
+    if (activeField === 'price' && (!priceValue || priceValue <= 0)) {
+      showWarningAlert('올바른 금액을 입력해주세요.');
       return;
     }
 
     try {
       setIsSaving(true);
-      let updatedTreatment = await updateTreatment(treatment.id, {
-        [activeField]: trimmedValue,
-      });
+      const patch =
+        activeField === 'price'
+          ? { price: priceValue }
+          : { [activeField]: trimmedValue as string };
 
-      const allEditableComplete = ['technique', 'designer_diagnosis', 'home_care'].every((field) =>
-        Boolean(updatedTreatment[field as EditableField]?.trim()),
+      let updatedTreatment = await updateTreatment(treatment.id, patch);
+
+      const allEditableComplete = ['technique', 'designer_diagnosis', 'home_care'].every(
+        (field) => Boolean(updatedTreatment[field as 'technique' | 'designer_diagnosis' | 'home_care']?.trim()),
       );
 
       if (
@@ -486,6 +511,19 @@ export default function DesignerTreatmentInputScreen() {
           <>
             <View
               style={[
+                styles.linkStatusCard,
+                isCustomerLinked ? styles.linkStatusConnected : styles.linkStatusPending,
+              ]}>
+              <Text style={styles.linkStatusTitle}>고객 연결</Text>
+              <Text style={styles.linkStatusText}>
+                {isCustomerLinked
+                  ? '✓ 앱에 가입·연결된 고객입니다'
+                  : '초대 코드로 가입하면 다이어리에 시술이 표시돼요'}
+              </Text>
+            </View>
+
+            <View
+              style={[
                 styles.paymentStatusCard,
                 !isPaymentPaid && styles.paymentStatusCardWaiting,
                 isPaymentPaid && !isSettled && styles.paymentStatusCardPaid,
@@ -557,6 +595,12 @@ export default function DesignerTreatmentInputScreen() {
                 style={({ pressed }) => [styles.paymentRequestButton, pressed && styles.buttonPressed]}>
                 <Text style={styles.paymentRequestButtonText}>결제 요청 보내기</Text>
               </Pressable>
+            ) : paymentStatus === 'pending' && !isCustomerLinked ? (
+              <View style={styles.waitingPaymentBox}>
+                <Text style={styles.waitingPaymentText}>
+                  고객 연결 후 결제 요청이 가능합니다 (고객 초대 → 가입)
+                </Text>
+              </View>
             ) : null}
 
             {paymentStatus === 'payment_requested' ? (
@@ -644,6 +688,29 @@ export default function DesignerTreatmentInputScreen() {
 }
 
 const styles = StyleSheet.create({
+  linkStatusCard: {
+    borderRadius: 14,
+    marginBottom: 12,
+    padding: 14,
+  },
+  linkStatusPending: {
+    backgroundColor: '#F3F0FF',
+  },
+  linkStatusConnected: {
+    backgroundColor: '#E8FAF7',
+  },
+  linkStatusTitle: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  linkStatusText: {
+    color: '#1A1A2E',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
   paymentStatusCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,

@@ -8,7 +8,7 @@ import { supabase } from './supabase';
 
 export type Treatment = {
   id: string;
-  customer_id?: string;
+  customer_id?: string | null;
   designer_id?: string | null;
   designer_name: string | null;
   customer_name?: string | null;
@@ -254,6 +254,15 @@ export async function getDesignerTreatments() {
   return { user, treatments: (data ?? []) as Treatment[] };
 }
 
+export type CreateDesignerTreatmentInput = {
+  customerName: string;
+  treatmentType: string;
+  treatmentTitle?: string;
+  price?: number;
+  damageLevel?: number;
+  duration?: string;
+};
+
 export type TreatmentUpdateInput = Partial<
   Pick<
     Treatment,
@@ -273,8 +282,96 @@ export type TreatmentUpdateInput = Partial<
     | 'designer_payout_amount'
     | 'before_photo_url'
     | 'after_photo_url'
+    | 'price'
+    | 'duration'
+    | 'damage_level'
   >
 >;
+
+export async function createDesignerTreatment(input: CreateDesignerTreatmentInput) {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== 'designer') {
+    throw new Error('디자이너만 시술을 등록할 수 있습니다.');
+  }
+
+  const customerName = input.customerName.trim();
+
+  if (!customerName) {
+    throw new Error('고객 이름을 입력해주세요.');
+  }
+
+  const treatmentType = input.treatmentType.trim();
+
+  if (!treatmentType) {
+    throw new Error('시술 종류를 선택해주세요.');
+  }
+
+  const treatmentTitle = input.treatmentTitle?.trim() || `${treatmentType} 시술`;
+  const treatmentDate = new Date().toISOString().slice(0, 10);
+  const price = input.price && input.price > 0 ? Math.round(input.price) : 150000;
+
+  const baseRow = {
+    customer_id: null as string | null,
+    designer_id: user.id,
+    designer_name: '디자이너',
+    customer_name: customerName,
+    treatment_date: treatmentDate,
+    treatment_type: treatmentType,
+    treatment_title: treatmentTitle,
+    products: null as string[] | null,
+    technique: null as string | null,
+    damage_level: input.damageLevel ?? 5,
+    duration: input.duration?.trim() || '1시간 30분',
+    designer_diagnosis: null as string | null,
+    home_care: null as string | null,
+    ai_insight: null as string | null,
+    price,
+    payment_status: 'pending' as const,
+    feedback_completed: false,
+  };
+
+  if (isDemoAuthMode || !supabase) {
+    await hydrateDemoTreatments();
+
+    const usersRaw = await AsyncStorage.getItem('hair-diary-demo-users');
+    const users = usersRaw ? (JSON.parse(usersRaw) as { id: string; name: string | null }[]) : [];
+    const designerName = users.find((item) => item.id === user.id)?.name ?? '디자이너';
+
+    const treatment: Treatment = {
+      id: `demo-treatment-${Date.now()}`,
+      ...baseRow,
+      designer_name: designerName,
+      created_at: new Date().toISOString(),
+    };
+
+    demoTreatments.unshift(treatment);
+    await persistDemoTreatments();
+
+    return treatment;
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('name')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const { data, error } = await supabase
+    .from('treatments')
+    .insert({
+      ...baseRow,
+      designer_name: profile?.name?.trim() || '디자이너',
+    })
+    .select(treatmentSelectFields)
+    .single();
+
+  if (error) {
+    throw toAppError(error);
+  }
+
+  return data as Treatment;
+}
 
 export async function updateTreatment(id: string, updates: TreatmentUpdateInput) {
   const user = await getCurrentUser();

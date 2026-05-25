@@ -1,7 +1,21 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { showWarningAlert } from '../../lib/alerts';
+import { showErrorAlert } from '../../lib/alerts';
+import { getErrorMessage } from '../../lib/errors';
+import { colors } from '../../lib/theme';
+import { createDesignerTreatment } from '../../lib/treatments';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
 
 const quickInputs = [
@@ -15,9 +29,46 @@ const quickInputs = [
 
 export default function DesignerInputScreen() {
   const insets = useSafeAreaInsets();
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedType, setSelectedType] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [priceText, setPriceText] = useState('150000');
+  const [isCreating, setIsCreating] = useState(false);
 
-  const handleQuickInput = (label: string) => {
-    showWarningAlert(`${label} 시술 입력 기능은 곧 제공될 예정입니다.`, '준비 중');
+  const openCreateModal = (type: string) => {
+    setSelectedType(type);
+    setModalVisible(true);
+  };
+
+  const handleCreate = async () => {
+    const price = Number(priceText.replace(/[^0-9]/g, ''));
+
+    if (!customerName.trim()) {
+      showErrorAlert('고객 이름을 입력해주세요.');
+      return;
+    }
+
+    if (!Number.isFinite(price) || price <= 0) {
+      showErrorAlert('시술 금액을 올바르게 입력해주세요.');
+      return;
+    }
+
+    try {
+      setIsCreating(true);
+      const treatment = await createDesignerTreatment({
+        customerName,
+        treatmentType: selectedType,
+        price,
+      });
+
+      setModalVisible(false);
+      setCustomerName('');
+      router.push(`/designer/treatment/${treatment.id}`);
+    } catch (error) {
+      showErrorAlert(getErrorMessage(error, '시술을 만들지 못했습니다.'));
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -32,14 +83,17 @@ export default function DesignerInputScreen() {
 
         <View style={styles.heroCard}>
           <Text style={styles.heroTitle}>어떤 시술을 추가할까요?</Text>
-          <Text style={styles.heroSubtitle}>빠른 입력으로 시술 종류를 선택하세요.</Text>
+          <Text style={styles.heroSubtitle}>
+            고객 이름을 입력하면 시술 기록이 생성됩니다. 가입 전이면 초대 코드로 연결하세요.
+          </Text>
         </View>
 
         <View style={styles.grid}>
           {quickInputs.map((item) => (
             <Pressable
               key={item.label}
-              onPress={() => handleQuickInput(item.label)}
+              disabled={isCreating}
+              onPress={() => openCreateModal(item.label)}
               style={({ pressed }) => [styles.quickButton, pressed && styles.quickButtonPressed]}>
               <Text style={styles.quickIcon}>{item.icon}</Text>
               <Text style={styles.quickLabel}>{item.label}</Text>
@@ -47,8 +101,55 @@ export default function DesignerInputScreen() {
           ))}
         </View>
 
-        <Text style={styles.footerHint}>기존 고객의 시술 추가는 [고객] 탭에서 가능합니다</Text>
+        <Text style={styles.footerHint}>생성 후 시술 상세에서 입력·초대·결제 요청을 진행하세요</Text>
       </ScrollView>
+
+      <Modal animationType="slide" transparent visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>{selectedType} 시술 추가</Text>
+
+            <Text style={styles.label}>고객 이름 *</Text>
+            <TextInput
+              placeholder="예: 김지원"
+              placeholderTextColor="#9CA3AF"
+              style={styles.input}
+              value={customerName}
+              onChangeText={setCustomerName}
+            />
+
+            <Text style={styles.label}>시술 금액 (원)</Text>
+            <TextInput
+              keyboardType="number-pad"
+              placeholder="150000"
+              placeholderTextColor="#9CA3AF"
+              style={styles.input}
+              value={priceText}
+              onChangeText={setPriceText}
+            />
+
+            <Pressable
+              disabled={isCreating}
+              onPress={() => void handleCreate()}
+              style={({ pressed }) => [
+                styles.createButton,
+                pressed && { opacity: 0.88 },
+                isCreating && styles.createButtonDisabled,
+              ]}>
+              {isCreating ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.createButtonText}>시술 기록 만들기</Text>
+              )}
+            </Pressable>
+
+            <Pressable onPress={() => setModalVisible(false)} style={styles.cancelLink}>
+              <Text style={styles.cancelText}>취소</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       <DesignerBottomTabBar />
     </View>
   );
@@ -89,6 +190,7 @@ const styles = StyleSheet.create({
     color: '#6B6B7B',
     fontSize: 14,
     fontWeight: '600',
+    lineHeight: 20,
   },
   grid: {
     flexDirection: 'row',
@@ -119,15 +221,71 @@ const styles = StyleSheet.create({
   },
   quickLabel: {
     color: '#1A1A2E',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
   },
   footerHint: {
     color: '#6B6B7B',
     fontSize: 13,
-    fontWeight: '600',
-    lineHeight: 20,
-    marginTop: 4,
+    lineHeight: 18,
     textAlign: 'center',
+  },
+  modalBackdrop: {
+    backgroundColor: 'rgba(26, 26, 46, 0.45)',
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    gap: 10,
+    padding: 24,
+    paddingBottom: 32,
+  },
+  modalTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  label: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  input: {
+    borderColor: '#E8E8F0',
+    borderRadius: 12,
+    borderWidth: 1,
+    color: colors.text,
+    fontSize: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  createButton: {
+    alignItems: 'center',
+    backgroundColor: colors.coral,
+    borderRadius: 12,
+    marginTop: 8,
+    minHeight: 48,
+    justifyContent: 'center',
+    paddingVertical: 14,
+  },
+  createButtonDisabled: {
+    opacity: 0.65,
+  },
+  createButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  cancelLink: {
+    alignItems: 'center',
+    paddingTop: 4,
+  },
+  cancelText: {
+    color: colors.muted,
+    fontSize: 15,
   },
 });

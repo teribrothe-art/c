@@ -19,17 +19,17 @@ import { LoadingState } from '../src/components/loading-state';
 
 export default function TodayCareScreen() {
   const insets = useSafeAreaInsets();
-  const fade = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0));
   const [data, setData] = useState<TodayCareScreenData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    Animated.timing(fade, {
+    Animated.timing(fadeAnim.current, {
       toValue: 1,
       duration: 600,
       useNativeDriver: true,
     }).start();
-  }, [fade]);
+  }, []);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => true);
@@ -97,7 +97,7 @@ export default function TodayCareScreen() {
     <Animated.View
       style={[
         styles.screen,
-        { opacity: fade, paddingTop: insets.top, paddingBottom: insets.bottom },
+        { opacity: fadeAnim.current, paddingTop: insets.top, paddingBottom: insets.bottom },
       ]}>
       <StatusBar style="dark" />
 

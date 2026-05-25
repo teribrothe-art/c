@@ -1,6 +1,10 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
-import { notifyDesignerPaymentCompleted, notifyDesignerSettlementCompleted } from './notifications';
+import {
+  notifyDesignerPaymentCompleted,
+  notifyDesignerPaymentRequested,
+  notifyDesignerSettlementCompleted,
+} from './notifications';
 import {
   calculatePaymentFees,
   ensurePaymentRecordForTreatment,
@@ -100,6 +104,12 @@ export async function requestCustomerPayment(treatmentId: string) {
     throw new Error('결제 금액이 설정되지 않았습니다.');
   }
 
+  if (!treatment.customer_id) {
+    throw new Error(
+      '고객이 아직 앱에 연결되지 않았어요. 초대 코드로 가입을 완료한 뒤 결제 요청을 보내주세요.',
+    );
+  }
+
   const orderId = createTossOrderId(treatmentId);
   const now = new Date().toISOString();
 
@@ -110,6 +120,7 @@ export async function requestCustomerPayment(treatmentId: string) {
   });
 
   await upsertDemoPaymentOnRequest(updatedTreatment, orderId);
+  await notifyDesignerPaymentRequested(updatedTreatment);
 
   return updatedTreatment;
 }

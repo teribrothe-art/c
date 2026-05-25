@@ -56,6 +56,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "beta:smoke": "node scripts/beta-smoke-demo.mjs",
     "update:preview": "eas update --branch preview --message \"베타 v1.0\""
   },
   "private": true
