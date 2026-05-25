@@ -30,6 +30,13 @@ npm run start:phone
 
 데모 로그인( Supabase 미설정 시): `demo@hair.app` / `demo1234`, `designer@hair.app` / `demo1234`
 
+### Expo Go에서 "Something went wrong" (파란 화면)
+
+1. **Expo Go 앱을 최신 버전**으로 업데이트 (이 프로젝트는 SDK 56)
+2. PC에서 캐시 삭제 후 재시작: `npm run start:phone`
+3. 휴대폰과 PC **같은 Wi‑Fi**이면 `npm run start:lan`이 더 안정적
+4. Expo Go에서 **Reload**(↻) 한 번 더 시도
+
 `.env` 파일을 만든 뒤 Supabase 값을 입력합니다.
 
 ```sh
