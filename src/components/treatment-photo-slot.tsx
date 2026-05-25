@@ -9,7 +9,9 @@ type TreatmentPhotoSlotProps = {
   label: string;
   previewUrl?: string | null;
   uploadStatus?: UploadStatus;
-  onPress: () => void;
+  onAdd: () => void;
+  onPreview: () => void;
+  onEdit: () => void;
   onRemove: () => void;
 };
 
@@ -17,7 +19,9 @@ export function TreatmentPhotoSlot({
   label,
   previewUrl,
   uploadStatus = 'idle',
-  onPress,
+  onAdd,
+  onPreview,
+  onEdit,
   onRemove,
 }: TreatmentPhotoSlotProps) {
   const hasPhoto = Boolean(previewUrl);
@@ -29,7 +33,7 @@ export function TreatmentPhotoSlot({
       <Text style={styles.label}>{label}</Text>
       <Pressable
         disabled={isUploading}
-        onPress={onPress}
+        onPress={hasPhoto ? onPreview : onAdd}
         style={[styles.box, !hasPhoto && !isUploading && styles.emptyBox]}>
         {isUploading ? (
           <View style={styles.centerContent}>
@@ -46,14 +50,17 @@ export function TreatmentPhotoSlot({
         ) : hasPhoto ? (
           <>
             <Image contentFit="cover" source={{ uri: previewUrl! }} style={styles.image} />
+            <View style={styles.viewHint} pointerEvents="none">
+              <Text style={styles.viewHintText}>탭하여 보기</Text>
+            </View>
             <Pressable
               hitSlop={8}
               onPress={(event) => {
                 event.stopPropagation?.();
-                onPress();
+                onEdit();
               }}
               style={styles.editButton}>
-              <Text style={styles.editText}>편집</Text>
+              <Text style={styles.editText}>변경</Text>
             </Pressable>
             <Pressable
               hitSlop={8}
@@ -118,6 +125,20 @@ const styles = StyleSheet.create({
   uploadingText: {
     color: colors.muted,
     fontSize: 13,
+    fontWeight: '700',
+  },
+  viewHint: {
+    backgroundColor: 'rgba(26, 26, 46, 0.55)',
+    borderRadius: 8,
+    bottom: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    position: 'absolute',
+    right: 10,
+  },
+  viewHintText: {
+    color: '#FFFFFF',
+    fontSize: 11,
     fontWeight: '700',
   },
   editButton: {

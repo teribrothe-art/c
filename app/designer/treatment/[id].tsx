@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CustomerInviteModal } from '../../../src/components/customer-invite-modal';
 import { TreatmentPhotoEditModal } from '../../../src/components/treatment-photo-edit-modal';
+import { TreatmentPhotoPreviewModal } from '../../../src/components/treatment-photo-preview-modal';
 import { TreatmentPhotoSlot } from '../../../src/components/treatment-photo-slot';
 import { parseWonAmount, sanitizeWonDigits } from '../../../lib/currency-input';
 import { prepareImageForUpload } from '../../../lib/prepare-upload-image';
@@ -182,6 +183,11 @@ export default function DesignerTreatmentInputScreen() {
   }>({ before: 'idle', after: 'idle' });
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [photoDraft, setPhotoDraft] = useState<{ kind: TreatmentPhotoKind; uri: string } | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<{
+    kind: TreatmentPhotoKind;
+    uri: string;
+    label: string;
+  } | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -717,16 +723,34 @@ export default function DesignerTreatmentInputScreen() {
               <TreatmentPhotoSlot
                 uploadStatus={photoUploadStatus.before}
                 label="Before (전)"
-                onPress={() => handlePickPhoto('before')}
-                onRemove={() => handleRemovePhoto('before')}
                 previewUrl={photoPreviews.before}
+                onAdd={() => handlePickPhoto('before')}
+                onPreview={() =>
+                  photoPreviews.before &&
+                  setPhotoPreview({
+                    kind: 'before',
+                    uri: photoPreviews.before,
+                    label: 'Before (전)',
+                  })
+                }
+                onEdit={() => handlePickPhoto('before')}
+                onRemove={() => handleRemovePhoto('before')}
               />
               <TreatmentPhotoSlot
                 uploadStatus={photoUploadStatus.after}
                 label="After (후)"
-                onPress={() => handlePickPhoto('after')}
-                onRemove={() => handleRemovePhoto('after')}
                 previewUrl={photoPreviews.after}
+                onAdd={() => handlePickPhoto('after')}
+                onPreview={() =>
+                  photoPreviews.after &&
+                  setPhotoPreview({
+                    kind: 'after',
+                    uri: photoPreviews.after,
+                    label: 'After (후)',
+                  })
+                }
+                onEdit={() => handlePickPhoto('after')}
+                onRemove={() => handleRemovePhoto('after')}
               />
             </View>
 
@@ -889,6 +913,22 @@ export default function DesignerTreatmentInputScreen() {
           </View>
         </View>
       </Modal>
+
+      <TreatmentPhotoPreviewModal
+        imageUri={photoPreview?.uri ?? null}
+        title={photoPreview?.label ?? '시술 사진'}
+        visible={Boolean(photoPreview)}
+        onClose={() => setPhotoPreview(null)}
+        onChangePhoto={
+          photoPreview
+            ? () => {
+                const kind = photoPreview.kind;
+                setPhotoPreview(null);
+                void handlePickPhoto(kind);
+              }
+            : undefined
+        }
+      />
 
       <TreatmentPhotoEditModal
         imageUri={photoDraft?.uri ?? null}
