@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { showErrorAlert } from '../lib/alerts';
 import { isValidInviteCodeFormat, parseInviteCodeFromQrPayload } from '../lib/customer-invitations';
+import { stashPendingInviteCode } from '../lib/pending-invite-code';
 
 export default function ScanInviteScreen() {
   const insets = useSafeAreaInsets();
@@ -50,9 +51,15 @@ export default function ScanInviteScreen() {
               throw new Error('초대 QR이 아니에요. 디자이너 초대 코드 QR을 스캔해주세요.');
             }
 
-            router.replace({
-              pathname: (returnTo as '/signup') ?? '/signup',
-              params: { inviteCode: code },
+            void stashPendingInviteCode(code).then(() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace({
+                  pathname: (returnTo as '/signup') ?? '/signup',
+                  params: { inviteCode: code },
+                });
+              }
             });
           } catch {
             setScanned(false);
