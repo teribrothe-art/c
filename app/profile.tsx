@@ -86,6 +86,17 @@ function ActivityCard({ stats }: { stats: ProfileStats }) {
           <StatRow label="누적 시술 건수" value={`${stats.treatmentCount}건`} />
           <StatRow label="누적 정산 총액" value={formatCurrency(stats.totalSettlementAmount)} />
           <StatRow label="이번 달 정산" value={formatCurrency(stats.monthSettlementAmount)} />
+          {stats.monthlySettlementTotals.length > 0 ? (
+            <View style={styles.monthlySettlementBlock}>
+              {stats.monthlySettlementTotals.map((month) => (
+                <StatRow
+                  key={month.monthKey}
+                  label={month.label}
+                  value={formatCurrency(month.amount)}
+                />
+              ))}
+            </View>
+          ) : null}
           <StatRow label="정산 대기" value={`${stats.pendingSettlementCount}건`} />
           <StatRow label="단골 고객" value={`${stats.regularCustomerCount}명`} />
           {stats.recentSettlements.length ? (
@@ -382,6 +393,13 @@ const styles = StyleSheet.create({
     color: '#1A1A2E',
     fontSize: 14,
     fontWeight: '800',
+  },
+  monthlySettlementBlock: {
+    borderTopColor: '#EFEFF4',
+    borderTopWidth: 1,
+    marginBottom: 4,
+    marginTop: 4,
+    paddingTop: 10,
   },
   activityList: {
     borderTopColor: '#EFEFF4',

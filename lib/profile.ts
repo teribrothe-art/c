@@ -4,6 +4,7 @@ import { getErrorMessage, toAppError } from './errors';
 import { getCurrentUser, isDemoAuthMode, UserRole } from './auth';
 import {
   fetchDesignerProfilePaymentStats,
+  type MonthlySettlementTotal,
   SettlementListItem,
 } from './designer-payment-stats';
 import { supabase } from './supabase';
@@ -30,6 +31,7 @@ export type DesignerStats = {
   treatmentCount: number;
   totalSettlementAmount: number;
   monthSettlementAmount: number;
+  monthlySettlementTotals: MonthlySettlementTotal[];
   pendingSettlementCount: number;
   regularCustomerCount: number;
   recentSettlements: SettlementListItem[];
@@ -74,6 +76,7 @@ function computeDesignerStatsFromTreatments(treatments: Treatment[]): Omit<Desig
     treatmentCount: treatments.length,
     totalSettlementAmount: 0,
     monthSettlementAmount: 0,
+    monthlySettlementTotals: [],
     pendingSettlementCount: 0,
     regularCustomerCount: customerIds.size,
     recentSettlements: [],
@@ -137,6 +140,7 @@ export async function getProfileScreenData() {
         ...base,
         totalSettlementAmount: paymentStats.totalSettlementAmount,
         monthSettlementAmount: paymentStats.monthSettlementAmount,
+        monthlySettlementTotals: paymentStats.monthlySettlementTotals,
         pendingSettlementCount: paymentStats.pendingSettlementCount,
         recentSettlements: paymentStats.recentSettlements,
       },

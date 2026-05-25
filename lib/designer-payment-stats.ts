@@ -128,9 +128,54 @@ export async function fetchDesignerPaymentDashboard(): Promise<DesignerPaymentDa
   };
 }
 
+export type MonthlySettlementTotal = {
+  monthKey: string;
+  label: string;
+  amount: number;
+  settlementCount: number;
+};
+
+export function formatMonthSettlementLabel(monthKey: string) {
+  const [, month] = monthKey.split('-');
+  return `${Number(month)}월 정산 총액`;
+}
+
+function settlementMonthKey(payment: PaymentRecord) {
+  return (payment.settled_at ?? '').slice(0, 7);
+}
+
+function buildMonthlySettlementTotals(
+  completed: PaymentRecord[],
+  payoutOf: (payment: PaymentRecord) => number,
+): MonthlySettlementTotal[] {
+  const map = new Map<string, { amount: number; settlementCount: number }>();
+
+  for (const payment of completed) {
+    if (!payment.settled_at) {
+      continue;
+    }
+
+    const monthKey = settlementMonthKey(payment);
+    const current = map.get(monthKey) ?? { amount: 0, settlementCount: 0 };
+    current.amount += payoutOf(payment);
+    current.settlementCount += 1;
+    map.set(monthKey, current);
+  }
+
+  return [...map.entries()]
+    .map(([monthKey, stats]) => ({
+      monthKey,
+      label: formatMonthSettlementLabel(monthKey),
+      amount: stats.amount,
+      settlementCount: stats.settlementCount,
+    }))
+    .sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+}
+
 export type DesignerProfilePaymentStats = {
   totalSettlementAmount: number;
   monthSettlementAmount: number;
+  monthlySettlementTotals: MonthlySettlementTotal[];
   pendingSettlementCount: number;
   recentSettlements: SettlementListItem[];
 };
@@ -142,6 +187,7 @@ export async function fetchDesignerProfilePaymentStats(): Promise<DesignerProfil
     return {
       totalSettlementAmount: 0,
       monthSettlementAmount: 0,
+      monthlySettlementTotals: [],
       pendingSettlementCount: 0,
       recentSettlements: [],
     };
@@ -178,9 +224,12 @@ export async function fetchDesignerProfilePaymentStats(): Promise<DesignerProfil
       };
     });
 
+  const monthlySettlementTotals = buildMonthlySettlementTotals(completed, payoutOf);
+
   return {
     totalSettlementAmount,
     monthSettlementAmount,
+    monthlySettlementTotals,
     pendingSettlementCount,
     recentSettlements,
   };
