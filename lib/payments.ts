@@ -21,6 +21,7 @@ import { withRetry } from './payment-retry';
 import { normalizePaymentStatus } from './payment-status';
 import { supabase } from './supabase';
 import { createTossOrderId, isTossConfigured as isTossKeyConfigured } from './toss';
+import { isDesignerSettlementInputComplete } from './treatment-settlement';
 import { getTreatmentById, Treatment, updateTreatment } from './treatments';
 
 export { PLATFORM_FEE_RATE };
@@ -233,7 +234,7 @@ export async function settleDesignerPayout(treatmentId: string) {
     throw new Error('디자이너만 정산할 수 있습니다.');
   }
 
-  const { treatment } = await getTreatmentById(treatmentId);
+  let { treatment } = await getTreatmentById(treatmentId);
 
   if (!treatment) {
     throw new Error('시술 기록을 찾을 수 없습니다.');
@@ -241,14 +242,24 @@ export async function settleDesignerPayout(treatmentId: string) {
 
   assertDesignerOwnership(treatment, user.id);
 
-  const payment = await getPaymentByTreatmentId(treatmentId);
+  let payment = await getPaymentByTreatmentId(treatmentId);
 
-  if (!payment || payment.status !== 'paid') {
+  if (!payment) {
     throw new Error('고객 결제 완료 후에만 정산할 수 있습니다.');
   }
 
-  if (!treatment.feedback_completed) {
-    throw new Error('피드백 입력을 완료한 뒤 정산할 수 있습니다.');
+  if (payment.status !== 'paid' && payment.status !== 'in_escrow') {
+    throw new Error('고객 결제 완료 후에만 정산할 수 있습니다.');
+  }
+
+  if (isDesignerSettlementInputComplete(treatment) && !treatment.feedback_completed) {
+    await updateTreatment(treatmentId, { feedback_completed: true });
+    const refreshed = await getTreatmentById(treatmentId);
+    treatment = refreshed.treatment ?? treatment;
+  }
+
+  if (!isDesignerSettlementInputComplete(treatment)) {
+    throw new Error('기법·진단·홈케어 입력을 완료한 뒤 정산할 수 있습니다.');
   }
 
   const now = new Date().toISOString();
@@ -260,7 +271,10 @@ export async function settleDesignerPayout(treatmentId: string) {
   const updatedTreatment = await updateTreatment(treatmentId, {
     payment_status: 'completed',
     settled_at: now,
+    feedback_completed: true,
   });
+
+  payment = (await getPaymentByTreatmentId(treatmentId)) ?? completedPayment ?? payment;
 
   const paymentForNotify = completedPayment ?? payment;
 

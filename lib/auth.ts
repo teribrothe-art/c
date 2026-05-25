@@ -89,7 +89,7 @@ async function ensureDemoUsersSeeded() {
   const byEmail = new Map(existing.map((user) => [user.email, user]));
   let changed = false;
 
-  for (const seeded of [...SEEDED_DEMO_USERS, ...BETA_DESIGNERS]) {
+  for (const seeded of [...SEEDED_DEMO_USERS, ...BETA_DESIGNERS, ...BETA_CUSTOMERS]) {
     if (!byEmail.has(seeded.email)) {
       existing.push(seeded);
       changed = true;

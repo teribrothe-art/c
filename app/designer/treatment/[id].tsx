@@ -43,6 +43,12 @@ import {
 import { normalizePaymentStatus } from '../../../lib/payment-status';
 import type { PaymentRecord } from '../../../lib/payment-record';
 import { notifyCustomerTreatmentRecorded } from '../../../lib/notifications';
+import {
+  canTreatmentSettle,
+  getSettlementBlockReason,
+  isDesignerSettlementInputComplete,
+  shouldSyncFeedbackCompleted,
+} from '../../../lib/treatment-settlement';
 import { getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
 
 type EditableField = 'technique' | 'designer_diagnosis' | 'home_care' | 'price';
@@ -159,8 +165,14 @@ export default function DesignerTreatmentInputScreen() {
           return;
         }
 
-        setTreatment(nextTreatment);
         const payment = await getPaymentByTreatmentId(id);
+        let loadedTreatment = nextTreatment;
+
+        if (shouldSyncFeedbackCompleted(loadedTreatment)) {
+          loadedTreatment = await updateTreatment(id, { feedback_completed: true });
+        }
+
+        setTreatment(loadedTreatment);
         setPaymentRecord(payment);
         const [beforePreview, afterPreview] = await Promise.all([
           getTreatmentPhotoSignedUrl(nextTreatment.before_photo_url),
@@ -265,8 +277,14 @@ export default function DesignerTreatmentInputScreen() {
     paymentRecord?.status === 'paid' ||
     paymentRecord?.status === 'in_escrow' ||
     paymentStatus === 'escrow';
-  const canSettle = isPaymentPaid && requiredCount === 0;
-  const canInviteCustomer = requiredCount === 0 && !isCustomerLinked;
+  const settlementInputComplete = isDesignerSettlementInputComplete(treatment);
+  const canSettle =
+    !isSettled && canTreatmentSettle(treatment, paymentRecord?.status ?? null);
+  const settlementBlockReason = getSettlementBlockReason(
+    treatment,
+    paymentRecord?.status ?? null,
+  );
+  const canInviteCustomer = settlementInputComplete && !isCustomerLinked;
 
   const openEditor = (field: EditableField) => {
     setActiveField(field);
@@ -311,15 +329,9 @@ export default function DesignerTreatmentInputScreen() {
 
       let updatedTreatment = await updateTreatment(treatment.id, patch);
 
-      const allEditableComplete = ['technique', 'designer_diagnosis', 'home_care'].every(
-        (field) => Boolean(updatedTreatment[field as 'technique' | 'designer_diagnosis' | 'home_care']?.trim()),
-      );
+      const inputComplete = isDesignerSettlementInputComplete(updatedTreatment);
 
-      if (
-        normalizePaymentStatus(updatedTreatment.payment_status) === 'escrow' &&
-        allEditableComplete &&
-        !updatedTreatment.feedback_completed
-      ) {
+      if (shouldSyncFeedbackCompleted(updatedTreatment)) {
         updatedTreatment = await updateTreatment(treatment.id, {
           feedback_completed: true,
         });
@@ -328,7 +340,7 @@ export default function DesignerTreatmentInputScreen() {
       setTreatment(updatedTreatment);
       closeEditor();
 
-      if (updatedTreatment.customer_id && allEditableComplete) {
+      if (updatedTreatment.customer_id && inputComplete) {
         void notifyCustomerTreatmentRecorded(updatedTreatment).catch(() => undefined);
       }
     } catch (error) {
@@ -548,7 +560,13 @@ export default function DesignerTreatmentInputScreen() {
             <View style={styles.progressBlock}>
               <View style={styles.progressTopRow}>
                 <Text style={styles.progressText}>완료 {completedCount}/{TOTAL_ITEMS} 항목</Text>
-                <Text style={styles.remainingText}>정산까지 {requiredCount}개</Text>
+                <Text style={styles.remainingText}>
+                  {settlementInputComplete
+                    ? isPaymentPaid
+                      ? '정산 가능'
+                      : '결제 후 정산'
+                    : `정산까지 ${['technique', 'designer_diagnosis', 'home_care'].filter((field) => !treatment?.[field as 'technique' | 'designer_diagnosis' | 'home_care']?.trim()).length}개`}
+                </Text>
               </View>
               <View style={styles.progressTrack}>
                 <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
@@ -628,7 +646,7 @@ export default function DesignerTreatmentInputScreen() {
             ) : null}
 
             <Pressable
-              disabled={!canSettle || isSaving || !isPaymentPaid}
+              disabled={!canSettle || isSaving}
               onPress={handleRequestSettlement}
               style={[styles.settlementButton, canSettle ? styles.settlementButtonActive : styles.settlementButtonDisabled]}>
               <Text
@@ -636,11 +654,11 @@ export default function DesignerTreatmentInputScreen() {
                   styles.settlementButtonText,
                   canSettle && styles.settlementButtonTextActive,
                 ]}>
-                {!isPaymentPaid
-                  ? '고객 결제 후 정산 가능'
+                {isSettled
+                  ? '정산 완료'
                   : canSettle
                     ? '정산 요청'
-                    : `필수 항목 ${requiredCount}개 입력 후 정산 가능`}
+                    : settlementBlockReason ?? `필수 항목 ${requiredCount}개 입력 후 정산 가능`}
               </Text>
             </Pressable>
           </>
