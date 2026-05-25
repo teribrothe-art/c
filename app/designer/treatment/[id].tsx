@@ -410,7 +410,7 @@ export default function DesignerTreatmentInputScreen() {
     treatment,
     paymentRecord?.status ?? null,
   );
-  const canInviteCustomer = settlementInputComplete && !isCustomerLinked;
+  const canInviteCustomer = !isCustomerLinked;
 
   const openEditor = (field: EditableField) => {
     setActiveField(field);
