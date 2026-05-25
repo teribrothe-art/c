@@ -56,11 +56,6 @@ function TreatmentCard({ onPress, treatment }: { onPress: () => void; treatment:
         <View style={[styles.tag, styles.typeTag]}>
           <Text style={[styles.tagText, styles.typeTagText]}>#{treatment.treatment_type}</Text>
         </View>
-        {(treatment.products ?? []).map((product) => (
-          <View key={product} style={[styles.tag, styles.productTag]}>
-            <Text style={[styles.tagText, styles.productTagText]}>#{product}</Text>
-          </View>
-        ))}
         {typeof treatment.damage_level === 'number' && (
           <View style={[styles.tag, styles.damageTag]}>
             <Text style={[styles.tagText, styles.damageTagText]}>#손상{treatment.damage_level}</Text>
@@ -348,12 +343,6 @@ const styles = StyleSheet.create({
   },
   typeTagText: {
     color: '#FF5A5F',
-  },
-  productTag: {
-    backgroundColor: '#E0D7FA',
-  },
-  productTagText: {
-    color: '#7B5EE6',
   },
   damageTag: {
     backgroundColor: '#CCF2EC',
