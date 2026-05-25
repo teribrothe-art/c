@@ -6,20 +6,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   fetchDesignerRevenueAnalytics,
   type DesignerRevenueAnalytics,
+  type WeekdayRevenueCell,
 } from '../../lib/designer-revenue-analytics';
 import { getErrorMessage } from '../../lib/errors';
 import { RevenueBarChart } from '../../src/components/revenue-bar-chart';
 import { EmptyState } from '../../src/components/empty-state';
 import { LoadingState } from '../../src/components/loading-state';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
+import { WeeklyRevenuePanel } from '../../src/components/weekly-revenue-panel';
 
 const CORAL = '#FF5A5F';
 const MINT = '#00C2A8';
 const PURPLE = '#7B5EE6';
-
-function formatDate(date: string) {
-  return date.replaceAll('-', '.');
-}
 
 function MetricCard({
   label,
@@ -49,31 +47,46 @@ export default function DesignerRevenueScreen() {
   const insets = useSafeAreaInsets();
   const [analytics, setAnalytics] = useState<DesignerRevenueAnalytics | null>(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | undefined>(undefined);
+  const [selectedWeekKey, setSelectedWeekKey] = useState<string | undefined>(undefined);
+  const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const loadRevenue = useCallback(
-    (monthKey?: string) => {
-      setIsLoading(true);
+  const loadRevenue = useCallback((monthKey?: string, weekKey?: string) => {
+    setIsLoading(true);
 
-      fetchDesignerRevenueAnalytics(monthKey)
-        .then((data) => {
-          setAnalytics(data);
-          setSelectedMonthKey(data.selectedMonthKey);
-          setErrorMessage('');
-        })
-        .catch((error) => {
-          setErrorMessage(getErrorMessage(error, '매출 데이터를 불러오지 못했습니다.'));
-        })
-        .finally(() => setIsLoading(false));
-    },
-    [],
-  );
+    fetchDesignerRevenueAnalytics(monthKey, weekKey)
+      .then((data) => {
+        setAnalytics(data);
+        setSelectedMonthKey(data.selectedMonthKey);
+        setSelectedWeekKey(data.selectedWeekKey);
+        setSelectedDayDate((prev) => {
+          if (prev && data.selectedWeek.days.some((day) => day.date === prev)) {
+            return prev;
+          }
+
+          const todayInWeek = data.selectedWeek.days.find((day) => day.isToday);
+
+          if (todayInWeek) {
+            return todayInWeek.date;
+          }
+
+          const withRevenue = data.selectedWeek.days.find((day) => day.totalAmount > 0);
+
+          return withRevenue?.date ?? data.selectedWeek.days[0]?.date ?? null;
+        });
+        setErrorMessage('');
+      })
+      .catch((error) => {
+        setErrorMessage(getErrorMessage(error, '매출 데이터를 불러오지 못했습니다.'));
+      })
+      .finally(() => setIsLoading(false));
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      loadRevenue(selectedMonthKey);
-    }, [loadRevenue, selectedMonthKey]),
+      loadRevenue(selectedMonthKey, selectedWeekKey);
+    }, [loadRevenue, selectedMonthKey, selectedWeekKey]),
   );
 
   const monthlyChartPoints = useMemo(
@@ -91,21 +104,45 @@ export default function DesignerRevenueScreen() {
     [analytics?.months],
   );
 
-  const dailyChartPoints = useMemo(
-    () =>
-      (analytics?.dailyTotals ?? []).map((day) => ({
-        key: day.date,
-        label: day.label,
-        value: day.totalAmount,
-        subLabel: `${day.settlementCount}건`,
-      })),
-    [analytics?.dailyTotals],
-  );
+  const weekIndex = useMemo(() => {
+    if (!analytics) {
+      return -1;
+    }
+
+    return analytics.weeklyWeeks.findIndex((week) => week.weekKey === analytics.selectedWeekKey);
+  }, [analytics]);
+
+  const visibleSettlements = useMemo(() => {
+    if (!analytics) {
+      return [];
+    }
+
+    if (!selectedDayDate) {
+      return analytics.recentSettlements;
+    }
+
+    return analytics.recentSettlements.filter((item) => item.date === selectedDayDate);
+  }, [analytics, selectedDayDate]);
+
+  const settlementSectionTitle = useMemo(() => {
+    if (!analytics) {
+      return '';
+    }
+
+    if (selectedDayDate) {
+      const day = analytics.selectedWeek.days.find((cell) => cell.date === selectedDayDate);
+
+      if (day) {
+        return `${day.dateWithWeekdayLabel} 정산`;
+      }
+    }
+
+    return `${analytics.selectedMonth.label} 정산 상세`;
+  }, [analytics, selectedDayDate]);
 
   const hasAnyRevenue = Boolean(
     analytics &&
-      (analytics.months.some((month) => month.revenue > 0) ||
-        analytics.pendingPayoutCount > 0),
+      (analytics.months.some((month) => month.revenue > 0) || analytics.pendingPayoutCount > 0),
   );
 
   const handleSelectMonth = (monthKey: string) => {
@@ -114,7 +151,47 @@ export default function DesignerRevenueScreen() {
     }
 
     setSelectedMonthKey(monthKey);
+    setSelectedWeekKey(undefined);
+    setSelectedDayDate(null);
     loadRevenue(monthKey);
+  };
+
+  const handleSelectWeek = (weekKey: string) => {
+    if (weekKey === selectedWeekKey) {
+      return;
+    }
+
+    setSelectedWeekKey(weekKey);
+    setSelectedDayDate(null);
+    loadRevenue(selectedMonthKey, weekKey);
+  };
+
+  const handleSelectDay = (day: WeekdayRevenueCell) => {
+    setSelectedDayDate(day.date);
+  };
+
+  const handlePrevWeek = () => {
+    if (!analytics || weekIndex <= 0) {
+      return;
+    }
+
+    const prev = analytics.weeklyWeeks[weekIndex - 1];
+
+    if (prev) {
+      handleSelectWeek(prev.weekKey);
+    }
+  };
+
+  const handleNextWeek = () => {
+    if (!analytics || weekIndex < 0 || weekIndex >= analytics.weeklyWeeks.length - 1) {
+      return;
+    }
+
+    const next = analytics.weeklyWeeks[weekIndex + 1];
+
+    if (next) {
+      handleSelectWeek(next.weekKey);
+    }
   };
 
   return (
@@ -126,7 +203,9 @@ export default function DesignerRevenueScreen() {
         ]}
         showsVerticalScrollIndicator={false}>
         <Text style={styles.pageTitle}>매출 분석</Text>
-        <Text style={styles.pageSubtitle}>월별 매출과 선택한 달의 일별 합계를 확인하세요</Text>
+        <Text style={styles.pageSubtitle}>
+          월별 매출과 주간(월~일) 합계를 한 화면에서 확인하세요
+        </Text>
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -137,7 +216,7 @@ export default function DesignerRevenueScreen() {
         ) : !hasAnyRevenue ? (
           <EmptyState
             icon="📊"
-            subtitle="정산 완료되면 월별·일별 매출이 표시됩니다"
+            subtitle="정산 완료되면 월별·주간 매출이 표시됩니다"
             title="매출 데이터가 없어요"
           />
         ) : (
@@ -209,44 +288,36 @@ export default function DesignerRevenueScreen() {
               />
               <MetricCard label="대기 건수" tone="danger" value={`${analytics.pendingPayoutCount}건`} />
               <MetricCard
-                label="일별 정산일"
+                label="선택 주 합계"
                 tone="success"
-                value={`${analytics.dailyTotals.length}일`}
+                value={`${analytics.selectedWeek.weekTotal.toLocaleString('ko-KR')}원`}
               />
             </View>
 
-            <RevenueBarChart
-              emptyMessage={`${analytics.selectedMonth.label} 일별 정산 내역이 없습니다`}
-              points={dailyChartPoints}
-              title={`${analytics.selectedMonth.label} 일별 합계`}
+            <WeeklyRevenuePanel
+              canGoNext={weekIndex >= 0 && weekIndex < analytics.weeklyWeeks.length - 1}
+              canGoPrev={weekIndex > 0}
+              days={analytics.selectedWeek.days}
+              onNextWeek={handleNextWeek}
+              onPrevWeek={handlePrevWeek}
+              onSelectDay={handleSelectDay}
+              selectedDate={selectedDayDate}
+              weekLabel={analytics.selectedWeek.label}
             />
 
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>일별 합계 금액</Text>
-              {analytics.dailyTotals.length === 0 ? (
-                <Text style={styles.emptyText}>이 달에 정산된 일별 내역이 없습니다.</Text>
+              <Text style={styles.cardTitle}>{settlementSectionTitle}</Text>
+              {visibleSettlements.length === 0 ? (
+                <Text style={styles.emptyText}>
+                  {selectedDayDate
+                    ? '해당 날짜에 정산 완료 내역이 없습니다.'
+                    : '해당 월 정산 완료 내역이 없습니다.'}
+                </Text>
               ) : (
-                analytics.dailyTotals.map((day) => (
-                  <View key={day.date} style={styles.dailyRow}>
-                    <View style={styles.dailyInfo}>
-                      <Text style={styles.dailyDate}>{formatDate(day.date)}</Text>
-                      <Text style={styles.dailyMeta}>정산 {day.settlementCount}건</Text>
-                    </View>
-                    <Text style={styles.dailyAmount}>{day.totalAmount.toLocaleString('ko-KR')}원</Text>
-                  </View>
-                ))
-              )}
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>{analytics.selectedMonth.label} 정산 상세</Text>
-              {analytics.recentSettlements.length === 0 ? (
-                <Text style={styles.emptyText}>해당 월 정산 완료 내역이 없습니다.</Text>
-              ) : (
-                analytics.recentSettlements.map((item) => (
+                visibleSettlements.map((item) => (
                   <View key={item.paymentId} style={styles.settlementRow}>
                     <View style={styles.settlementInfo}>
-                      <Text style={styles.settlementDate}>{formatDate(item.date)}</Text>
+                      <Text style={styles.settlementDate}>{item.dateWithWeekdayLabel}</Text>
                       <Text style={styles.settlementCustomer}>{item.customerName}</Text>
                       <Text style={styles.settlementMeta}>{item.treatmentTitle}</Text>
                     </View>
@@ -330,18 +401,6 @@ const styles = StyleSheet.create({
   monthChipAmountSelected: { color: CORAL },
   monthChipMeta: { color: '#6B6B7B', fontSize: 12, fontWeight: '600', marginTop: 2 },
   monthChipMetaSelected: { color: '#6B6B7B' },
-  dailyRow: {
-    borderTopColor: '#EFEFF4',
-    borderTopWidth: 1,
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-  },
-  dailyInfo: { flex: 1, gap: 2 },
-  dailyDate: { color: '#1A1A2E', fontSize: 15, fontWeight: '800' },
-  dailyMeta: { color: '#6B6B7B', fontSize: 12, fontWeight: '600' },
-  dailyAmount: { color: MINT, fontSize: 16, fontWeight: '900' },
   settlementRow: {
     borderTopColor: '#EFEFF4',
     borderTopWidth: 1,

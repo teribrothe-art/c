@@ -1,8 +1,20 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
 import { calculatePaymentFees, getPaymentByTreatmentId, PaymentRecord } from './payment-record';
+import {
+  buildWeeklyRevenueWeeks,
+  formatDateWithWeekday,
+  getWeekStartMonday,
+  resolveDefaultWeekKey,
+  toLocalDateString,
+  type WeeklyRevenueWeek,
+  type WeekdayRevenueCell,
+} from './designer-revenue-weekly';
 import { supabase } from './supabase';
 import { getDesignerTreatments } from './treatments';
+
+export type { WeekdayRevenueCell, WeeklyRevenueWeek };
+export { formatDateWithWeekday };
 
 export type MonthlyRevenueBucket = {
   monthKey: string;
@@ -22,6 +34,9 @@ export type DesignerRevenueAnalytics = {
   months: MonthlyRevenueBucket[];
   selectedMonthKey: string;
   selectedMonth: MonthlyRevenueBucket;
+  weeklyWeeks: WeeklyRevenueWeek[];
+  selectedWeekKey: string;
+  selectedWeek: WeeklyRevenueWeek;
   dailyTotals: DailyRevenuePoint[];
   pendingPayoutAmount: number;
   pendingPayoutCount: number;
@@ -31,14 +46,13 @@ export type DesignerRevenueAnalytics = {
     customerName: string;
     treatmentTitle: string;
     date: string;
+    dateWithWeekdayLabel: string;
     payout: number;
   }[];
 };
 
 function currentMonthKey() {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  return `${now.getFullYear()}-${month}`;
+  return toLocalDateString().slice(0, 7);
 }
 
 export function formatMonthKeyLabel(monthKey: string) {
@@ -152,6 +166,7 @@ function emptyMonth(monthKey: string): MonthlyRevenueBucket {
 
 export async function fetchDesignerRevenueAnalytics(
   selectedMonthKey?: string,
+  selectedWeekKey?: string,
 ): Promise<DesignerRevenueAnalytics> {
   const user = await getCurrentUser();
   const fallbackMonth = currentMonthKey();
@@ -159,10 +174,22 @@ export async function fetchDesignerRevenueAnalytics(
   if (!user || user.role !== 'designer') {
     const month = selectedMonthKey ?? fallbackMonth;
 
+    const emptyWeekStart = `${month}-01`;
+    const emptyDays = buildWeeklyRevenueWeeks([], month)[0]?.days ?? [];
+
     return {
       months: [emptyMonth(month)],
       selectedMonthKey: month,
       selectedMonth: emptyMonth(month),
+      weeklyWeeks: [],
+      selectedWeekKey: emptyWeekStart,
+      selectedWeek: {
+        weekKey: emptyWeekStart,
+        label: '',
+        days: emptyDays,
+        weekTotal: 0,
+        settlementCount: 0,
+      },
       dailyTotals: [],
       pendingPayoutAmount: 0,
       pendingPayoutCount: 0,
@@ -194,6 +221,19 @@ export async function fetchDesignerRevenueAnalytics(
       : months[0]?.monthKey ?? fallbackMonth;
 
   const selectedMonth = months.find((month) => month.monthKey === resolvedMonthKey) ?? emptyMonth(resolvedMonthKey);
+  const weeklyWeeks = buildWeeklyRevenueWeeks(completed, resolvedMonthKey);
+  const resolvedWeekKey =
+    selectedWeekKey && weeklyWeeks.some((week) => week.weekKey === selectedWeekKey)
+      ? selectedWeekKey
+      : resolveDefaultWeekKey(weeklyWeeks, resolvedMonthKey);
+  const selectedWeek =
+    weeklyWeeks.find((week) => week.weekKey === resolvedWeekKey) ?? weeklyWeeks[0] ?? {
+      weekKey: resolvedWeekKey,
+      label: '',
+      days: buildWeeklyRevenueWeeks([], resolvedMonthKey)[0]?.days ?? [],
+      weekTotal: 0,
+      settlementCount: 0,
+    };
   const dailyTotals = buildDailyTotals(completed, resolvedMonthKey);
 
   const paidPending = payments.filter(
@@ -218,11 +258,14 @@ export async function fetchDesignerRevenueAnalytics(
     .map((payment) => {
       const treatment = treatmentMap.get(payment.treatment_id);
 
+      const date = settlementDateOf(payment);
+
       return {
         paymentId: payment.id,
         customerName: treatment?.customer_name || '고객',
         treatmentTitle: treatment?.treatment_title || '시술',
-        date: settlementDateOf(payment),
+        date,
+        dateWithWeekdayLabel: formatDateWithWeekday(date),
         payout: payoutOf(payment),
       };
     });
@@ -231,6 +274,9 @@ export async function fetchDesignerRevenueAnalytics(
     months,
     selectedMonthKey: resolvedMonthKey,
     selectedMonth,
+    weeklyWeeks,
+    selectedWeekKey: resolvedWeekKey,
+    selectedWeek,
     dailyTotals,
     pendingPayoutAmount,
     pendingPayoutCount: paidPending.length,
