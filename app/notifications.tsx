@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Href, router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,14 +10,17 @@ import {
   AppNotification,
   getNotificationsForCurrentUser,
   markNotificationRead,
+  resolveNotificationHref,
 } from '../lib/notifications';
 import { LoadingState } from '../src/components/loading-state';
+import { EmptyState } from '../src/components/empty-state';
 
 const CORAL = '#FF5A5F';
 
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<AppNotification[]>([]);
+  const [userRole, setUserRole] = useState<'customer' | 'designer' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -31,6 +34,7 @@ export default function NotificationsScreen() {
           return;
         }
 
+        setUserRole(user.role ?? null);
         const notifications = await getNotificationsForCurrentUser(user.id);
         setItems(notifications);
         setErrorMessage('');
@@ -51,8 +55,10 @@ export default function NotificationsScreen() {
     await markNotificationRead(item.id);
     setItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, read: true } : n)));
 
-    if (item.href) {
-      router.push(item.href as `/designer/treatment/${string}`);
+    const href = resolveNotificationHref(item, userRole);
+
+    if (href) {
+      router.push(href as Href);
     }
   };
 
@@ -77,15 +83,20 @@ export default function NotificationsScreen() {
         ) : errorMessage ? (
           <Text style={styles.error}>{errorMessage}</Text>
         ) : items.length === 0 ? (
-          <Text style={styles.empty}>알림이 없습니다.</Text>
+          <EmptyState icon="🔔" title="새 알림이 없어요" subtitle="결제·시술 관련 소식이 여기에 표시돼요" />
         ) : (
           items.map((item) => (
             <Pressable
               key={item.id}
-              style={[styles.card, !item.read && styles.cardUnread]}
-              onPress={() => handlePress(item)}>
+              style={({ pressed }) => [
+                styles.card,
+                !item.read && styles.cardUnread,
+                pressed && styles.cardPressed,
+              ]}
+              onPress={() => void handlePress(item)}>
               {!item.read ? <View style={styles.dot} /> : null}
               <View style={styles.cardBody}>
+                <Text style={styles.cardTitle}>{item.title}</Text>
                 <Text style={styles.message}>{item.message}</Text>
                 <Text style={styles.time}>{item.created_at.slice(0, 10).replaceAll('-', '.')}</Text>
               </View>
@@ -126,12 +137,13 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 3,
   },
+  cardPressed: { opacity: 0.88 },
   cardUnread: { borderColor: '#FFE0E1', borderWidth: 1 },
   dot: { backgroundColor: CORAL, borderRadius: 4, height: 8, width: 8 },
   cardBody: { flex: 1, gap: 4 },
-  message: { color: '#1A1A2E', fontSize: 14, fontWeight: '700', lineHeight: 21 },
+  cardTitle: { color: '#1A1A2E', fontSize: 13, fontWeight: '800' },
+  message: { color: '#1A1A2E', fontSize: 14, fontWeight: '600', lineHeight: 21 },
   time: { color: '#9CA3AF', fontSize: 12, fontWeight: '600' },
   chevron: { color: '#9CA3AF', fontSize: 22 },
-  empty: { color: '#6B6B7B', fontSize: 14, textAlign: 'center' },
   error: { color: CORAL, textAlign: 'center' },
 });

@@ -51,13 +51,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#EFEFF4',
     borderRadius: 20,
-    height: 120,
+    height: 100,
     justifyContent: 'center',
     marginBottom: 8,
-    width: 120,
+    width: 100,
   },
   icon: {
-    fontSize: 48,
+    fontSize: 60,
   },
   title: {
     color: colors.text,

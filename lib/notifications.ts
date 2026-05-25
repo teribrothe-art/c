@@ -6,7 +6,12 @@ import { Treatment } from './treatments';
 
 const STORAGE_KEY = 'hair-diary-notifications';
 
-export type NotificationType = 'payment_completed' | 'payment_requested' | 'settlement_completed';
+export type NotificationType =
+  | 'payment_completed'
+  | 'payment_requested'
+  | 'settlement_completed'
+  | 'customer_payment_due'
+  | 'customer_feedback';
 
 export type AppNotification = {
   id: string;
@@ -74,20 +79,74 @@ export async function notifyDesignerPaymentCompleted(treatment: Treatment, payme
 }
 
 export async function notifyDesignerPaymentRequested(treatment: Treatment) {
-  if (!treatment.designer_id) {
+  const customerName = treatment.customer_name || '고객';
+
+  if (treatment.designer_id) {
+    await addNotification({
+      user_id: treatment.designer_id,
+      type: 'payment_requested',
+      title: '결제 요청',
+      message: `${customerName}님에게 결제 요청을 보냈습니다.`,
+      treatment_id: treatment.id,
+      href: `/designer/treatment/${treatment.id}`,
+    });
+  }
+
+  if (treatment.customer_id) {
+    await addNotification({
+      user_id: treatment.customer_id,
+      type: 'customer_payment_due',
+      title: '결제 안내',
+      message: `${treatment.treatment_title} 시술 결제가 필요해요.`,
+      treatment_id: treatment.id,
+      href: `/payment/${treatment.id}`,
+    });
+  }
+
+  return null;
+}
+
+export async function notifyCustomerFeedbackNeeded(treatment: Treatment) {
+  if (!treatment.customer_id) {
     return null;
   }
 
-  const customerName = treatment.customer_name || '고객';
-
   return addNotification({
-    user_id: treatment.designer_id,
-    type: 'payment_requested',
-    title: '결제 요청',
-    message: `${customerName}님에게 결제 요청을 보냈습니다.`,
+    user_id: treatment.customer_id,
+    type: 'customer_feedback',
+    title: '피드백 요청',
+    message: `${treatment.treatment_title} 시술 후기를 남겨주세요.`,
     treatment_id: treatment.id,
-    href: `/designer/treatment/${treatment.id}`,
+    href: `/treatment/${treatment.id}`,
   });
+}
+
+/** 알림 탭 시 이동 경로 (역할·타입 기준) */
+export function resolveNotificationHref(
+  item: AppNotification,
+  role: 'customer' | 'designer' | null | undefined,
+) {
+  if (item.href) {
+    return item.href;
+  }
+
+  if (item.type === 'customer_payment_due') {
+    return `/payment/${item.treatment_id}`;
+  }
+
+  if (item.type === 'customer_feedback') {
+    return `/treatment/${item.treatment_id}`;
+  }
+
+  if (role === 'customer') {
+    if (item.type === 'payment_requested') {
+      return `/payment/${item.treatment_id}`;
+    }
+
+    return `/treatment/${item.treatment_id}`;
+  }
+
+  return `/designer/treatment/${item.treatment_id}`;
 }
 
 export async function getNotificationsForCurrentUser(userId: string) {

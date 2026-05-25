@@ -131,9 +131,13 @@ export default function CustomerVoiceScreen() {
           maxLength={500}
         />
         <Pressable
-          style={[styles.sendButton, isSending && styles.sendDisabled]}
           onPress={() => void handleSend()}
-          disabled={isSending}>
+          disabled={isSending}
+          style={({ pressed }) => [
+            styles.sendButton,
+            isSending && styles.sendDisabled,
+            pressed && { opacity: 0.7 },
+          ]}>
           {isSending ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
@@ -153,7 +157,7 @@ export default function CustomerVoiceScreen() {
         ) : conversations.length === 0 ? (
           <EmptyState
             icon="💬"
-            title="AI에게 물어보세요"
+            title="AI와 첫 대화를 시작해보세요"
             subtitle="시술 이력을 바탕으로 맞춤 케어 조언을 드려요"
           />
         ) : (

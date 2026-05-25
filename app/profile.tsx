@@ -1,5 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
+import { Image } from 'expo-image';
 import {
   Pressable,
   ScrollView,
@@ -13,6 +14,7 @@ import { signOut } from '../lib/auth';
 import { showConfirmAlert, showErrorAlert, showWarningAlert } from '../lib/alerts';
 import { getErrorMessage } from '../lib/errors';
 import { LoadingState } from '../src/components/loading-state';
+import { getProfileAvatarUri } from '../lib/profile-update';
 import { getProfileScreenData, ProfileData, ProfileStats } from '../lib/profile';
 import { BottomTabBar } from '../src/components/bottom-tab-bar';
 import { DesignerBottomTabBar } from '../src/components/designer-bottom-tab-bar';
@@ -98,6 +100,7 @@ export default function ProfileScreen() {
   const [stats, setStats] = useState<ProfileStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
 
   const loadProfile = useCallback(() => {
     setIsLoading(true);
@@ -112,6 +115,7 @@ export default function ProfileScreen() {
         setProfile(data.profile);
         setStats(data.stats);
         setErrorMessage('');
+        getProfileAvatarUri(data.profile.id).then(setAvatarUri);
       })
       .catch((error) => {
         const message = getErrorMessage(error, '프로필을 불러오지 못했습니다.');
@@ -129,6 +133,11 @@ export default function ProfileScreen() {
   );
 
   const handleSettingPress = (label: string) => {
+    if (label === '프로필 수정') {
+      router.push('/profile/edit');
+      return;
+    }
+
     showWarningAlert('곧 제공될 예정입니다.', label);
   };
 
@@ -176,7 +185,11 @@ export default function ProfileScreen() {
                   styles.avatar,
                   isDesigner ? styles.avatarDesigner : styles.avatarCustomer,
                 ]}>
-                <Text style={styles.avatarText}>{getInitial(profile)}</Text>
+                {avatarUri ? (
+                  <Image source={{ uri: avatarUri }} style={styles.avatarPhoto} contentFit="cover" />
+                ) : (
+                  <Text style={styles.avatarText}>{getInitial(profile)}</Text>
+                )}
               </View>
               <Text style={styles.name}>{displayName}</Text>
               <Text style={styles.email}>{profile.email}</Text>
@@ -263,6 +276,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 40,
     fontWeight: '900',
+  },
+  avatarPhoto: {
+    borderRadius: 50,
+    height: 100,
+    width: 100,
   },
   name: {
     color: '#1A1A2E',

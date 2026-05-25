@@ -86,9 +86,9 @@ export default function DesignerRevenueScreen() {
           </View>
         ) : !hasData ? (
           <EmptyState
-            icon="💰"
+            icon="📊"
             subtitle="정산 완료되면 매출이 표시됩니다"
-            title="이번 달 정산 내역이 없어요"
+            title="이번 달 매출이 없어요"
           />
         ) : (
           <>

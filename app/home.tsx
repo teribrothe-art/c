@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,9 +13,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabBar } from '../src/components/bottom-tab-bar';
 import { getErrorMessage } from '../lib/errors';
 import { getCustomerPendingPayments } from '../lib/payments';
+import {
+  CUSTOMER_ONBOARDING_SLIDES,
+  markOnboardingSeen,
+  shouldShowOnboarding,
+} from '../lib/onboarding';
+import { filterTreatmentsByQuery } from '../lib/treatment-search';
 import { getTreatments, Treatment } from '../lib/treatments';
 import { EmptyState } from '../src/components/empty-state';
 import { LoadingState } from '../src/components/loading-state';
+import { OnboardingModal } from '../src/components/onboarding-modal';
 
 type FilterKey = '전체' | '컷' | '컬러' | '펌';
 
@@ -74,6 +82,9 @@ export default function DiaryHomeScreen() {
   const [pendingPayments, setPendingPayments] = useState<Treatment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -100,6 +111,7 @@ export default function DiaryHomeScreen() {
         const pending = await getCustomerPendingPayments();
         setPendingPayments(pending);
         setErrorMessage('');
+        shouldShowOnboarding('customer').then(setShowOnboarding);
       })
       .catch((error) => {
         if (!isMounted) {
@@ -133,10 +145,12 @@ export default function DiaryHomeScreen() {
     }, [reloadPending]),
   );
 
-  const filteredTreatments = useMemo(
-    () => treatments.filter((treatment) => matchesFilter(treatment.treatment_type, selectedFilter)),
-    [selectedFilter, treatments],
-  );
+  const filteredTreatments = useMemo(() => {
+    const byType = treatments.filter((treatment) =>
+      matchesFilter(treatment.treatment_type, selectedFilter),
+    );
+    return filterTreatmentsByQuery(byType, searchQuery);
+  }, [selectedFilter, treatments, searchQuery]);
 
   return (
     <View style={styles.container}>
@@ -158,10 +172,29 @@ export default function DiaryHomeScreen() {
 
         <View style={styles.header}>
           <Text style={styles.title}>내 다이어리</Text>
-          <Pressable onPress={() => router.push('/notifications')} style={styles.notificationButton}>
-            <Text style={styles.notificationIcon}>🔔</Text>
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => setSearchOpen((open) => !open)}
+              style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}>
+              <Text style={styles.headerIcon}>🔍</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/notifications')}
+              style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}>
+              <Text style={styles.headerIcon}>🔔</Text>
+            </Pressable>
+          </View>
         </View>
+
+        {searchOpen ? (
+          <TextInput
+            style={styles.searchInput}
+            placeholder="시술명·디자이너명 검색"
+            placeholderTextColor="#9CA3AF"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        ) : null}
 
         <ScrollView
           contentContainerStyle={styles.filterContent}
@@ -198,10 +231,11 @@ export default function DiaryHomeScreen() {
             title="아직 시술 기록이 없어요"
           />
         ) : filteredTreatments.length === 0 ? (
-          <View style={styles.stateBox}>
-            <Text style={styles.stateTitle}>선택한 필터에 맞는 기록이 없어요</Text>
-            <Text style={styles.stateText}>다른 필터를 선택해보세요.</Text>
-          </View>
+          <EmptyState
+            icon="🔍"
+            subtitle={searchQuery ? '다른 검색어를 시도해보세요' : '다른 필터를 선택해보세요'}
+            title={searchQuery ? '검색 결과가 없어요' : '선택한 필터에 맞는 기록이 없어요'}
+          />
         ) : (
           <View style={styles.timeline}>
             {filteredTreatments.map((treatment) => (
@@ -221,6 +255,15 @@ export default function DiaryHomeScreen() {
       </ScrollView>
 
       <BottomTabBar />
+
+      <OnboardingModal
+        visible={showOnboarding}
+        slides={CUSTOMER_ONBOARDING_SLIDES}
+        onComplete={() => {
+          void markOnboardingSeen('customer');
+          setShowOnboarding(false);
+        }}
+      />
     </View>
   );
 }
@@ -262,14 +305,24 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: '800',
   },
-  notificationButton: {
+  headerActions: { flexDirection: 'row', gap: 4 },
+  iconButton: {
     alignItems: 'center',
     height: 44,
     justifyContent: 'center',
     width: 44,
   },
-  notificationIcon: {
-    fontSize: 24,
+  iconButtonPressed: { opacity: 0.7 },
+  headerIcon: { fontSize: 22 },
+  searchInput: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 14,
+    borderWidth: 1,
+    fontSize: 15,
+    marginBottom: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   filterScroll: {
     marginBottom: 20,

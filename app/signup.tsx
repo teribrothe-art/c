@@ -68,7 +68,7 @@ export default function SignupScreen() {
         name,
         role,
       });
-      router.replace('/home');
+      router.replace(role === 'designer' ? '/designer/clients' : '/home');
     } catch (error) {
       showErrorAlert(getErrorMessage(error), '회원가입 실패');
     } finally {
