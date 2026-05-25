@@ -268,15 +268,23 @@ export async function settleDesignerPayout(treatmentId: string) {
     receiptUrl: payment.receipt_url,
   });
 
+  const settledPayment = (await getPaymentByTreatmentId(treatmentId)) ?? completedPayment ?? payment;
+  const payoutAmount =
+    settledPayment.designer_payout ??
+    calculatePayout(treatment.price ?? settledPayment.amount ?? 0).designerPayout;
+  const platformFee =
+    settledPayment.fee_amount ??
+    calculatePayout(treatment.price ?? settledPayment.amount ?? 0).platformFee;
+
   const updatedTreatment = await updateTreatment(treatmentId, {
     payment_status: 'completed',
     settled_at: now,
     feedback_completed: true,
+    platform_fee: platformFee,
+    designer_payout_amount: payoutAmount,
   });
 
-  payment = (await getPaymentByTreatmentId(treatmentId)) ?? completedPayment ?? payment;
-
-  const paymentForNotify = completedPayment ?? payment;
+  const paymentForNotify = settledPayment;
 
   await notifyDesignerSettlementCompleted(updatedTreatment, paymentForNotify);
 

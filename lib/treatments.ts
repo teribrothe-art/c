@@ -236,8 +236,8 @@ export async function getDesignerTreatments() {
     await hydrateDemoTreatments();
     return {
       user,
-      treatments: [...demoTreatments]
-        .map((treatment) => ({ ...treatment, designer_id: user.id }))
+      treatments: demoTreatments
+        .filter((treatment) => treatment.designer_id === user.id)
         .sort((a, b) => b.treatment_date.localeCompare(a.treatment_date)),
     };
   }

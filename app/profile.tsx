@@ -88,6 +88,24 @@ function ActivityCard({ stats }: { stats: ProfileStats }) {
           <StatRow label="이번 달 정산" value={formatCurrency(stats.monthSettlementAmount)} />
           <StatRow label="정산 대기" value={`${stats.pendingSettlementCount}건`} />
           <StatRow label="단골 고객" value={`${stats.regularCustomerCount}명`} />
+          {stats.recentSettlements.length ? (
+            <View style={styles.activityList}>
+              <Text style={styles.activityListTitle}>최근 정산</Text>
+              {stats.recentSettlements.map((item) => (
+                <View key={item.paymentId} style={styles.activityRow}>
+                  <View style={styles.activityRowMain}>
+                    <Text style={styles.activityRowTitle}>
+                      {item.customerName} · {item.treatmentTitle}
+                    </Text>
+                    <Text style={styles.activityRowDate}>{formatDate(item.date)}</Text>
+                  </View>
+                  <Text style={styles.activityRowAmount}>+{formatCurrency(item.payout)}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.activityEmpty}>정산 완료 내역이 여기에 표시됩니다.</Text>
+          )}
         </>
       )}
     </View>
@@ -364,6 +382,50 @@ const styles = StyleSheet.create({
     color: '#1A1A2E',
     fontSize: 14,
     fontWeight: '800',
+  },
+  activityList: {
+    borderTopColor: '#EFEFF4',
+    borderTopWidth: 1,
+    gap: 10,
+    marginTop: 8,
+    paddingTop: 14,
+  },
+  activityListTitle: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  activityRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  activityRowMain: {
+    flex: 1,
+    gap: 2,
+  },
+  activityRowTitle: {
+    color: '#1A1A2E',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  activityRowDate: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  activityRowAmount: {
+    color: '#00C2A8',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  activityEmpty: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+    marginTop: 8,
   },
   settingRow: {
     alignItems: 'center',

@@ -164,13 +164,17 @@ export async function notifyDesignerSettlementCompleted(
   }
 
   const customerName = treatment.customer_name || '고객';
-  const amount = (payment.amount ?? treatment.price ?? 0).toLocaleString('ko-KR');
+  const payout = (
+    payment.designer_payout ??
+    treatment.designer_payout_amount ??
+    (payment.amount ?? treatment.price ?? 0)
+  ).toLocaleString('ko-KR');
 
   return addNotification({
     user_id: treatment.designer_id,
     type: 'settlement_completed',
     title: '정산 완료',
-    message: `${customerName} 시술 정산 완료 - ${amount}원`,
+    message: `${customerName} 시술 정산 완료 - ${payout}원 입금 예정`,
     treatment_id: treatment.id,
     href: '/designer/revenue',
   });

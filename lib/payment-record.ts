@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
 import { supabase } from './supabase';
@@ -37,10 +39,10 @@ export type PaymentRecord = {
 const paymentSelectFields =
   'id, treatment_id, customer_id, designer_id, amount, fee_rate, fee_amount, designer_payout, status, toss_payment_key, toss_order_id, paid_at, settled_at, created_at, receipt_url, refund_amount, refund_reason, refunded_at';
 
-const demoPayments: PaymentRecord[] = [];
-// 데모: escrow 시술에 paid 결제 레코드
-if (isDemoAuthMode && demoPayments.length === 0) {
-  demoPayments.push({
+const DEMO_PAYMENTS_KEY = 'hair-diary-demo-payments';
+
+const INITIAL_DEMO_PAYMENTS: PaymentRecord[] = [
+  {
     id: 'demo-payment-demo-treatment-4',
     treatment_id: 'demo-treatment-4',
     customer_id: 'demo-customer-kim-jiwon',
@@ -59,7 +61,57 @@ if (isDemoAuthMode && demoPayments.length === 0) {
     refund_amount: 0,
     refund_reason: null,
     refunded_at: null,
-  });
+  },
+];
+
+const demoPayments: PaymentRecord[] = INITIAL_DEMO_PAYMENTS.map((item) => ({ ...item }));
+
+let demoPaymentsHydratePromise: Promise<void> | null = null;
+
+async function hydrateDemoPayments() {
+  if (!isDemoAuthMode) {
+    return;
+  }
+
+  if (!demoPaymentsHydratePromise) {
+    demoPaymentsHydratePromise = (async () => {
+      const raw = await AsyncStorage.getItem(DEMO_PAYMENTS_KEY);
+
+      if (raw) {
+        const stored = JSON.parse(raw) as PaymentRecord[];
+        demoPayments.length = 0;
+        demoPayments.push(...stored);
+        return;
+      }
+
+      demoPayments.length = 0;
+      demoPayments.push(...INITIAL_DEMO_PAYMENTS.map((item) => ({ ...item })));
+      await AsyncStorage.setItem(DEMO_PAYMENTS_KEY, JSON.stringify(demoPayments));
+    })();
+  }
+
+  await demoPaymentsHydratePromise;
+}
+
+async function persistDemoPayments() {
+  if (!isDemoAuthMode) {
+    return;
+  }
+
+  await AsyncStorage.setItem(DEMO_PAYMENTS_KEY, JSON.stringify(demoPayments));
+}
+
+function withSettledFees(payment: PaymentRecord) {
+  const { feeRate, feeAmount, designerPayout } = calculatePaymentFees(
+    payment.amount,
+    payment.fee_rate ?? PLATFORM_FEE_RATE,
+  );
+
+  return {
+    fee_rate: payment.fee_rate ?? feeRate,
+    fee_amount: payment.fee_amount ?? feeAmount,
+    designer_payout: payment.designer_payout ?? designerPayout,
+  };
 }
 
 
@@ -87,6 +139,7 @@ export function calculatePaymentFees(amount: number, feeRate = PLATFORM_FEE_RATE
 
 export async function getPaymentByTreatmentId(treatmentId: string) {
   if (isDemoAuthMode || !supabase) {
+    await hydrateDemoPayments();
     return demoPayments.find((payment) => payment.treatment_id === treatmentId) ?? null;
   }
 
@@ -134,6 +187,7 @@ export async function ensurePaymentRecordForTreatment(treatmentId: string) {
   const now = new Date().toISOString();
 
   if (isDemoAuthMode || !supabase) {
+    await hydrateDemoPayments();
     const record: PaymentRecord = {
       id: `demo-payment-${treatmentId}`,
       treatment_id: treatmentId,
@@ -156,6 +210,7 @@ export async function ensurePaymentRecordForTreatment(treatmentId: string) {
     };
 
     demoPayments.push(record);
+    await persistDemoPayments();
     return record;
   }
 
@@ -184,6 +239,8 @@ export async function upsertDemoPaymentOnRequest(treatment: Treatment, tossOrder
   if (!isDemoAuthMode) {
     return;
   }
+
+  await hydrateDemoPayments();
 
   const { customerId, designerId } = requireTreatmentParties(treatment);
   const amount = treatment.price ?? 0;
@@ -217,6 +274,8 @@ export async function upsertDemoPaymentOnRequest(treatment: Treatment, tossOrder
   } else {
     demoPayments.push(record);
   }
+
+  await persistDemoPayments();
 }
 
 
@@ -225,6 +284,7 @@ export async function updatePaymentOrderId(treatmentId: string, tossOrderId: str
     const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
     if (index >= 0) {
       demoPayments[index] = { ...demoPayments[index], toss_order_id: tossOrderId, status: 'pending' };
+      await persistDemoPayments();
       return demoPayments[index];
     }
     return null;
@@ -253,6 +313,7 @@ export async function markPaymentPaid(
   const now = new Date().toISOString();
 
   if (isDemoAuthMode || !supabase) {
+    await hydrateDemoPayments();
     const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
     if (index < 0) {
       await ensurePaymentRecordForTreatment(treatmentId);
@@ -269,6 +330,7 @@ export async function markPaymentPaid(
       paid_at: now,
       receipt_url: input.receiptUrl ?? demoPayments[index].receipt_url,
     };
+    await persistDemoPayments();
     return demoPayments[index];
   }
 
@@ -298,6 +360,7 @@ export async function markPaymentPaid(
 /** 결제 실패 시 pending으로 되돌립니다 (스키마에 failed 없음) */
 export async function markPaymentFailed(treatmentId: string) {
   if (isDemoAuthMode || !supabase) {
+    await hydrateDemoPayments();
     const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
     if (index < 0) {
       return null;
@@ -308,6 +371,7 @@ export async function markPaymentFailed(treatmentId: string) {
       toss_payment_key: null,
       paid_at: null,
     };
+    await persistDemoPayments();
     return demoPayments[index];
   }
 
@@ -339,27 +403,38 @@ export async function markPaymentCompleted(
   const now = new Date().toISOString();
 
   if (isDemoAuthMode || !supabase) {
+    await hydrateDemoPayments();
     const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
 
     if (index < 0) {
       return null;
     }
 
+    const current = demoPayments[index];
+    const fees = withSettledFees(current);
+
     demoPayments[index] = {
-      ...demoPayments[index],
+      ...current,
+      ...fees,
       status: 'completed',
       settled_at: now,
-      receipt_url: options?.receiptUrl ?? demoPayments[index].receipt_url,
+      receipt_url: options?.receiptUrl ?? current.receipt_url,
     };
 
+    await persistDemoPayments();
     return demoPayments[index];
   }
+
+  const amount = (await getTreatmentById(treatmentId)).treatment?.price ?? 0;
+  const fees = calculatePaymentFees(amount);
 
   const { data, error } = await supabase
     .from('payments')
     .update({
       status: 'completed',
       settled_at: now,
+      fee_amount: fees.feeAmount,
+      designer_payout: fees.designerPayout,
       ...(options?.receiptUrl ? { receipt_url: options.receiptUrl } : {}),
     })
     .eq('treatment_id', treatmentId)
@@ -381,6 +456,7 @@ export async function recordPaymentRefund(
   const now = new Date().toISOString();
 
   if (isDemoAuthMode || !supabase) {
+    await hydrateDemoPayments();
     const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
     if (index < 0) {
       return null;
@@ -392,6 +468,7 @@ export async function recordPaymentRefund(
       refund_reason: input.refundReason,
       refunded_at: now,
     };
+    await persistDemoPayments();
     return demoPayments[index];
   }
 

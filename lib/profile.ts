@@ -2,7 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getErrorMessage, toAppError } from './errors';
 
 import { getCurrentUser, isDemoAuthMode, UserRole } from './auth';
-import { fetchDesignerProfilePaymentStats } from './designer-payment-stats';
+import {
+  fetchDesignerProfilePaymentStats,
+  SettlementListItem,
+} from './designer-payment-stats';
 import { supabase } from './supabase';
 import { getDesignerTreatments, getTreatments, Treatment } from './treatments';
 
@@ -29,6 +32,7 @@ export type DesignerStats = {
   monthSettlementAmount: number;
   pendingSettlementCount: number;
   regularCustomerCount: number;
+  recentSettlements: SettlementListItem[];
 };
 
 export type ProfileStats = CustomerStats | DesignerStats;
@@ -72,6 +76,7 @@ function computeDesignerStatsFromTreatments(treatments: Treatment[]): Omit<Desig
     monthSettlementAmount: 0,
     pendingSettlementCount: 0,
     regularCustomerCount: customerIds.size,
+    recentSettlements: [],
   };
 }
 
@@ -133,6 +138,7 @@ export async function getProfileScreenData() {
         totalSettlementAmount: paymentStats.totalSettlementAmount,
         monthSettlementAmount: paymentStats.monthSettlementAmount,
         pendingSettlementCount: paymentStats.pendingSettlementCount,
+        recentSettlements: paymentStats.recentSettlements,
       },
     };
   }
