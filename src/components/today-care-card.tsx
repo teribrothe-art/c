@@ -25,7 +25,7 @@ export function TodayCareCard({ care, onViewDiary }: TodayCareCardProps) {
           <Text style={styles.damageText}>{damageLabel}</Text>
         </View>
 
-        <Text style={styles.quote}>“{care.message}”</Text>
+        <Text style={styles.quote}>“{care.message || care.headline}”</Text>
 
         {care.recommendation ? (
           <Text style={styles.recommendation}>다음 점검: {care.recommendation}</Text>

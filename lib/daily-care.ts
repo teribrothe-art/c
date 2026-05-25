@@ -1,29 +1,20 @@
 import { buildInsightPayload } from './insight-content';
+import type { DailyCareSnapshot } from './daily-insights';
 import { Treatment } from './treatments';
 
-export type DailyInsightType = string;
-
-export type DailyCareSnapshot = {
-  damageLevel: number | null;
-  message: string;
-  latestTreatmentId: string | null;
-  insightType: DailyInsightType;
-  recommendation: string | null;
-  insightId?: string;
-};
-
+export type { DailyCareSnapshot };
 export type DailyCareContent = DailyCareSnapshot;
 
 export function buildDailyCareContent(treatments: Treatment[]): DailyCareContent {
   const payload = buildInsightPayload(treatments);
   const sorted = [...treatments].sort((a, b) => b.treatment_date.localeCompare(a.treatment_date));
-  const firstLine = payload.insightMessage.split('\n')[0] ?? payload.insightMessage;
+  const firstLine = payload.message.split('\n')[0] ?? payload.message;
 
   return {
     damageLevel: payload.damageLevel,
+    headline: payload.headline,
     message: firstLine,
     latestTreatmentId: sorted[0]?.id ?? null,
-    insightType: payload.insightType,
     recommendation: payload.recommendation,
   };
 }

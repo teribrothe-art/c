@@ -255,12 +255,10 @@ create table if not exists public.daily_insights (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
   insight_date date not null default current_date,
-  insight_type text not null,
-  insight_message text not null,
   damage_level integer check (damage_level between 1 and 10),
-  recommendation text,
+  headline text not null,
+  message text not null,
   viewed_at timestamptz default now(),
-  dismissed boolean default false,
   unique (user_id, insight_date)
 );
 

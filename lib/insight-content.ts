@@ -6,11 +6,10 @@ export type TimeOfDayGreeting = {
 };
 
 export type InsightPayload = {
-  insightType: string;
-  insightMessage: string;
+  headline: string;
+  message: string;
   damageLevel: number | null;
   recommendation: string | null;
-  damageHeadline: string;
 };
 
 export function getTimeOfDayGreeting(date = new Date()): string {
@@ -74,26 +73,6 @@ function daysSinceTreatmentDate(treatmentDate: string, now = new Date()) {
   return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
 }
 
-function insightTypeFromDamage(damageLevel: number | null): string {
-  if (typeof damageLevel !== 'number') {
-    return 'welcome';
-  }
-
-  if (damageLevel >= 9) {
-    return 'critical_damage';
-  }
-
-  if (damageLevel >= 7) {
-    return 'high_damage';
-  }
-
-  if (damageLevel >= 4) {
-    return 'mid_damage';
-  }
-
-  return 'low_damage';
-}
-
 function buildWelcomeInsightLines(): string[] {
   return [
     '헤어 다이어리에 오신 것을 환영해요!',
@@ -138,11 +117,10 @@ export function buildInsightPayload(treatments: Treatment[], now = new Date()): 
     const lines = buildWelcomeInsightLines();
 
     return {
-      insightType: 'welcome',
-      insightMessage: lines.join('\n'),
+      headline: getDamageHeadline(null),
+      message: lines.join('\n'),
       damageLevel: null,
       recommendation: null,
-      damageHeadline: getDamageHeadline(null),
     };
   }
 
@@ -153,10 +131,19 @@ export function buildInsightPayload(treatments: Treatment[], now = new Date()): 
   const lines = buildTreatmentInsightLines(treatments, now);
 
   return {
-    insightType: insightTypeFromDamage(damageLevel),
-    insightMessage: lines.join('\n'),
+    headline: getDamageHeadline(damageLevel),
+    message: lines.join('\n'),
     damageLevel,
     recommendation: analysis.hasData ? analysis.nextRecommendation : null,
-    damageHeadline: getDamageHeadline(damageLevel),
   };
+}
+
+export function extractRecommendationFromMessage(message: string) {
+  const line = message.split('\n').find((item) => item.startsWith('다음 시술 권장:'));
+
+  if (!line) {
+    return null;
+  }
+
+  return line.replace('다음 시술 권장:', '').trim();
 }
