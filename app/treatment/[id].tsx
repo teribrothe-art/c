@@ -1,12 +1,12 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { ReactNode, useEffect, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { ReactNode, useCallback, useEffect, useState } from 'react';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TreatmentPhotoCarousel } from '../../src/components/treatment-photo-carousel';
@@ -65,25 +65,24 @@ export default function TreatmentDetailScreen() {
   const [paymentBadge, setPaymentBadge] = useState<CustomerPaymentBadge>({ label: '결제 대기', variant: 'pending' });
   const [recordNav, setRecordNav] = useState<ReturnType<typeof getTreatmentNavigation>>(null);
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadTreatmentDetail = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!id) {
+        setErrorMessage('시술 ID를 찾을 수 없습니다.');
+        setTreatment(null);
+        setRecordNav(null);
+        return;
+      }
 
-    Promise.resolve()
-      .then(async () => {
-        if (!id) {
-          throw new Error('시술 ID를 찾을 수 없습니다.');
-        }
-
+      if (!options?.silent) {
         setIsLoading(true);
+      }
 
+      try {
         const [{ user, treatment: nextTreatment }, { treatments }] = await Promise.all([
           getTreatmentById(id),
           getTreatments(),
         ]);
-
-        if (!isMounted) {
-          return;
-        }
 
         if (!user) {
           router.replace('/');
@@ -93,33 +92,40 @@ export default function TreatmentDetailScreen() {
         if (!nextTreatment) {
           setErrorMessage('시술 기록을 찾을 수 없습니다.');
           setRecordNav(null);
+          setTreatment(null);
           return;
         }
 
         setTreatment(nextTreatment);
         setRecordNav(getTreatmentNavigation(treatments, id));
         const payment = await getPaymentByTreatmentId(id);
-        setPaymentBadge(getCustomerPaymentBadge(nextTreatment.payment_status, payment?.status ?? null));
+        setPaymentBadge(
+          getCustomerPaymentBadge(nextTreatment.payment_status, payment?.status ?? null, {
+            settledAt: nextTreatment.settled_at,
+          }),
+        );
         setErrorMessage('');
-      })
-      .catch((error) => {
-        if (!isMounted) {
-          return;
-        }
-
+      } catch (error) {
         const message = getErrorMessage(error, '시술 기록을 불러오지 못했습니다.');
         setErrorMessage(message);
-      })
-      .finally(() => {
-        if (isMounted) {
+      } finally {
+        if (!options?.silent) {
           setIsLoading(false);
         }
-      });
+      }
+    },
+    [id],
+  );
 
-    return () => {
-      isMounted = false;
-    };
-  }, [id]);
+  useEffect(() => {
+    void loadTreatmentDetail();
+  }, [loadTreatmentDetail]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadTreatmentDetail({ silent: true });
+    }, [loadTreatmentDetail]),
+  );
 
   return (
     <View style={styles.container}>
@@ -146,7 +152,11 @@ export default function TreatmentDetailScreen() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="always"
+        nestedScrollEnabled
+        showsVerticalScrollIndicator={false}>
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
         ) : errorMessage || !treatment ? (

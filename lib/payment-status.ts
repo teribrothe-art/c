@@ -47,10 +47,11 @@ export function getPaymentStatusLabel(status?: string | null) {
 export function getCustomerPaymentBadge(
   treatmentStatus?: string | null,
   paymentStatus?: PaymentRecordStatus | null,
+  options?: { settledAt?: string | null },
 ): CustomerPaymentBadge {
   const treatment = normalizePaymentStatus(treatmentStatus);
 
-  if (treatment === 'completed' || paymentStatus === 'completed') {
+  if (options?.settledAt || treatment === 'completed' || paymentStatus === 'completed') {
     return { label: '완료', variant: 'done' };
   }
 
@@ -60,6 +61,10 @@ export function getCustomerPaymentBadge(
     treatment === 'escrow'
   ) {
     return { label: '정산 대기', variant: 'settlement' };
+  }
+
+  if (treatment === 'payment_requested') {
+    return { label: '결제 요청', variant: 'pending' };
   }
 
   return { label: '결제 대기', variant: 'pending' };

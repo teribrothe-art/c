@@ -1,8 +1,7 @@
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
@@ -11,6 +10,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 
 import { getTreatmentPhotoSignedUrl } from '../../lib/treatment-photos';
 import { TreatmentPhotoPreviewModal } from './treatment-photo-preview-modal';
@@ -32,6 +32,7 @@ export function TreatmentPhotoCarousel({
 }: TreatmentPhotoCarouselProps) {
   const { width: windowWidth } = useWindowDimensions();
   const slideWidth = windowWidth - 44;
+  const scrollRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [photoPreview, setPhotoPreview] = useState<{ uri: string; title: string } | null>(null);
@@ -76,6 +77,7 @@ export function TreatmentPhotoCarousel({
 
         setSignedUrls(nextSignedUrls);
         setActiveIndex(0);
+        scrollRef.current?.scrollTo({ x: 0, animated: false });
       })
       .catch(() => {
         if (isMounted) {
@@ -90,6 +92,17 @@ export function TreatmentPhotoCarousel({
 
   const resolvedSlides = slides.filter((slide) => signedUrls[slide.key]);
 
+  const goToSlide = (index: number) => {
+    const safeIndex = Math.max(0, Math.min(index, resolvedSlides.length - 1));
+    setActiveIndex(safeIndex);
+    scrollRef.current?.scrollTo({ x: slideWidth * safeIndex, animated: true });
+  };
+
+  const onScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const index = Math.round(event.nativeEvent.contentOffset.x / slideWidth);
+    setActiveIndex(index);
+  };
+
   if (resolvedSlides.length === 0) {
     return (
       <LinearGradient colors={['#FFD4D5', '#E0D7FA']} style={styles.fallback}>
@@ -98,23 +111,45 @@ export function TreatmentPhotoCarousel({
     );
   }
 
-  const onScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const index = Math.round(event.nativeEvent.contentOffset.x / slideWidth);
-    setActiveIndex(index);
-  };
-
   return (
     <>
       <View style={styles.wrapper}>
-        <FlatList
-          data={resolvedSlides}
+        {resolvedSlides.length > 1 ? (
+          <View style={styles.segmentRow}>
+            {resolvedSlides.map((slide, index) => {
+              const selected = index === activeIndex;
+
+              return (
+                <Pressable
+                  key={slide.key}
+                  accessibilityRole="button"
+                  hitSlop={6}
+                  onPress={() => goToSlide(index)}
+                  style={[styles.segment, selected && styles.segmentSelected]}>
+                  <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
+                    {slide.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
+        <ScrollView
+          ref={scrollRef}
           horizontal
-          keyExtractor={(item) => item.key}
+          nestedScrollEnabled
           onMomentumScrollEnd={onScrollEnd}
           pagingEnabled
           showsHorizontalScrollIndicator={false}
-          renderItem={({ item }) => (
+          snapToAlignment="start"
+          snapToInterval={slideWidth}
+          decelerationRate="fast"
+          style={[styles.scroller, { width: slideWidth }]}>
+          {resolvedSlides.map((item) => (
             <Pressable
+              key={item.key}
+              accessibilityRole="button"
               onPress={() =>
                 setPhotoPreview({
                   uri: signedUrls[item.key],
@@ -123,30 +158,38 @@ export function TreatmentPhotoCarousel({
               }
               style={[styles.slide, { width: slideWidth }]}>
               <Image contentFit="cover" source={{ uri: signedUrls[item.key] }} style={styles.image} />
-              <View style={styles.badge}>
+              <View style={styles.badge} pointerEvents="none">
                 <Text style={styles.badgeText}>{item.label}</Text>
               </View>
               <View style={styles.tapHint} pointerEvents="none">
                 <Text style={styles.tapHintText}>탭하여 크게 보기</Text>
               </View>
             </Pressable>
-          )}
-        />
+          ))}
+        </ScrollView>
 
         {resolvedSlides.length > 1 ? (
           <View style={styles.indicatorRow}>
             {resolvedSlides.map((slide, index) => (
-              <View
+              <Pressable
                 key={slide.key}
-                style={[styles.dot, index === activeIndex && styles.dotActive]}
-              />
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={() => goToSlide(index)}
+                style={styles.dotPressable}>
+                <View style={[styles.dot, index === activeIndex && styles.dotActive]} />
+              </Pressable>
             ))}
           </View>
         ) : null}
 
-        {resolvedSlides.length > 0 ? (
-          <Text style={styles.helperText}>좌우로 넘기거나 사진을 눌러 전·후를 확인하세요</Text>
-        ) : null}
+        {resolvedSlides.length > 1 ? (
+          <Text style={styles.helperText}>
+            Before·After 버튼을 누르거나 좌우로 넘겨 전·후 사진을 확인하세요
+          </Text>
+        ) : (
+          <Text style={styles.helperText}>사진을 눌러 크게 볼 수 있어요</Text>
+        )}
       </View>
 
       <TreatmentPhotoPreviewModal
@@ -163,13 +206,43 @@ const styles = StyleSheet.create({
   wrapper: {
     gap: 10,
   },
+  segmentRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  segment: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 999,
+    borderWidth: 1,
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  segmentSelected: {
+    backgroundColor: '#FF5A5F',
+    borderColor: '#FF5A5F',
+  },
+  segmentText: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  segmentTextSelected: {
+    color: '#FFFFFF',
+  },
+  scroller: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
   slide: {
     borderRadius: 12,
-    height: 130,
+    height: 180,
     overflow: 'hidden',
   },
   image: {
-    height: 130,
+    height: 180,
     width: '100%',
   },
   badge: {
@@ -212,6 +285,9 @@ const styles = StyleSheet.create({
     gap: 6,
     justifyContent: 'center',
   },
+  dotPressable: {
+    padding: 4,
+  },
   dot: {
     backgroundColor: '#E6E6EE',
     borderRadius: 999,
@@ -225,7 +301,7 @@ const styles = StyleSheet.create({
   fallback: {
     alignItems: 'center',
     borderRadius: 12,
-    height: 130,
+    height: 180,
     justifyContent: 'center',
     overflow: 'hidden',
   },

@@ -88,6 +88,10 @@ const INITIAL_DEMO_TREATMENTS: Treatment[] = [
     platform_fee: 15000,
     designer_payout_amount: 135000,
     feedback_completed: true,
+    before_photo_url:
+      'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=900&q=80',
+    after_photo_url:
+      'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=900&q=80',
   },
   {
     id: 'demo-treatment-3',
@@ -198,6 +202,10 @@ const INITIAL_DEMO_TREATMENTS: Treatment[] = [
     platform_fee: 18000,
     designer_payout_amount: 162000,
     feedback_completed: false,
+    before_photo_url:
+      'https://images.unsplash.com/photo-1492106087820-71f1a00d2d11?auto=format&fit=crop&w=900&q=80',
+    after_photo_url:
+      'https://images.unsplash.com/photo-1521590839637-31813ae3d58c?auto=format&fit=crop&w=900&q=80',
   },
 ];
 
@@ -222,8 +230,27 @@ async function hydrateDemoTreatments() {
       let merged = false;
 
       for (const seed of INITIAL_DEMO_TREATMENTS) {
-        if (!demoTreatments.some((item) => item.id === seed.id)) {
+        const existingIndex = demoTreatments.findIndex((item) => item.id === seed.id);
+
+        if (existingIndex < 0) {
           demoTreatments.push({ ...seed });
+          merged = true;
+          continue;
+        }
+
+        const existing = demoTreatments[existingIndex];
+        const patch: Partial<Treatment> = {};
+
+        if (seed.before_photo_url && !existing.before_photo_url) {
+          patch.before_photo_url = seed.before_photo_url;
+        }
+
+        if (seed.after_photo_url && !existing.after_photo_url) {
+          patch.after_photo_url = seed.after_photo_url;
+        }
+
+        if (Object.keys(patch).length > 0) {
+          demoTreatments[existingIndex] = { ...existing, ...patch };
           merged = true;
         }
       }
