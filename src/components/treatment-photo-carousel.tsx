@@ -5,6 +5,7 @@ import {
   FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Pressable,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 
 import { getTreatmentPhotoSignedUrl } from '../../lib/treatment-photos';
+import { TreatmentPhotoPreviewModal } from './treatment-photo-preview-modal';
 
 type Slide = {
   key: string;
@@ -32,6 +34,7 @@ export function TreatmentPhotoCarousel({
   const slideWidth = windowWidth - 44;
   const [activeIndex, setActiveIndex] = useState(0);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [photoPreview, setPhotoPreview] = useState<{ uri: string; title: string } | null>(null);
 
   const slides = useMemo<Slide[]>(() => {
     const nextSlides: Slide[] = [];
@@ -101,35 +104,58 @@ export function TreatmentPhotoCarousel({
   };
 
   return (
-    <View style={styles.wrapper}>
-      <FlatList
-        data={resolvedSlides}
-        horizontal
-        keyExtractor={(item) => item.key}
-        onMomentumScrollEnd={onScrollEnd}
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <View style={[styles.slide, { width: slideWidth }]}>
-            <Image contentFit="cover" source={{ uri: signedUrls[item.key] }} style={styles.image} />
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{item.label}</Text>
-            </View>
-          </View>
-        )}
-      />
+    <>
+      <View style={styles.wrapper}>
+        <FlatList
+          data={resolvedSlides}
+          horizontal
+          keyExtractor={(item) => item.key}
+          onMomentumScrollEnd={onScrollEnd}
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <Pressable
+              onPress={() =>
+                setPhotoPreview({
+                  uri: signedUrls[item.key],
+                  title: item.label,
+                })
+              }
+              style={[styles.slide, { width: slideWidth }]}>
+              <Image contentFit="cover" source={{ uri: signedUrls[item.key] }} style={styles.image} />
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{item.label}</Text>
+              </View>
+              <View style={styles.tapHint} pointerEvents="none">
+                <Text style={styles.tapHintText}>탭하여 크게 보기</Text>
+              </View>
+            </Pressable>
+          )}
+        />
 
-      {resolvedSlides.length > 1 ? (
-        <View style={styles.indicatorRow}>
-          {resolvedSlides.map((slide, index) => (
-            <View
-              key={slide.key}
-              style={[styles.dot, index === activeIndex && styles.dotActive]}
-            />
-          ))}
-        </View>
-      ) : null}
-    </View>
+        {resolvedSlides.length > 1 ? (
+          <View style={styles.indicatorRow}>
+            {resolvedSlides.map((slide, index) => (
+              <View
+                key={slide.key}
+                style={[styles.dot, index === activeIndex && styles.dotActive]}
+              />
+            ))}
+          </View>
+        ) : null}
+
+        {resolvedSlides.length > 0 ? (
+          <Text style={styles.helperText}>좌우로 넘기거나 사진을 눌러 전·후를 확인하세요</Text>
+        ) : null}
+      </View>
+
+      <TreatmentPhotoPreviewModal
+        imageUri={photoPreview?.uri ?? null}
+        title={photoPreview?.title ?? '시술 사진'}
+        visible={Boolean(photoPreview)}
+        onClose={() => setPhotoPreview(null)}
+      />
+    </>
   );
 }
 
@@ -159,6 +185,26 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
+  },
+  tapHint: {
+    backgroundColor: 'rgba(26, 26, 46, 0.55)',
+    borderRadius: 8,
+    bottom: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    position: 'absolute',
+    right: 10,
+  },
+  tapHintText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  helperText: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   indicatorRow: {
     alignItems: 'center',

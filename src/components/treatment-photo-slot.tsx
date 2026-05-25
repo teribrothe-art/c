@@ -46,6 +46,16 @@ export function TreatmentPhotoSlot({
             <View style={styles.successBadge}>
               <Text style={styles.successText}>✓</Text>
             </View>
+            <Pressable
+              hitSlop={8}
+              onPress={(event) => {
+                event.stopPropagation?.();
+                onPreview();
+              }}
+              style={styles.viewHintOverlay}
+            >
+              <Text style={styles.viewHintOverlayText}>탭하여 보기</Text>
+            </Pressable>
           </>
         ) : hasPhoto ? (
           <>
@@ -135,6 +145,21 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     position: 'absolute',
     right: 10,
+  },
+  viewHintOverlay: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewHintOverlayText: {
+    backgroundColor: 'rgba(26, 26, 46, 0.45)',
+    borderRadius: 8,
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   viewHintText: {
     color: '#FFFFFF',

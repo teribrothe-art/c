@@ -15,12 +15,6 @@ function toDisplayUri(result: ImageManipulator.ImageResult) {
   return result.uri;
 }
 
-/** 편집 미리보기용 — 크기만 조회 */
-export async function probeImageSize(sourceUri: string) {
-  const result = await ImageManipulator.manipulateAsync(sourceUri, [], JPEG_OPTIONS);
-  return { uri: toDisplayUri(result), width: result.width, height: result.height };
-}
-
 export async function rotateTreatmentPhoto(sourceUri: string, degrees: 90 | -90 = 90) {
   const result = await ImageManipulator.manipulateAsync(sourceUri, [{ rotate: degrees }], JPEG_OPTIONS);
   return toDisplayUri(result);
