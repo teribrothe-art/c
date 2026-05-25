@@ -66,6 +66,11 @@ import {
   isDesignerSettlementInputComplete,
   shouldSyncFeedbackCompleted,
 } from '../../../lib/treatment-settlement';
+import { isAiAppUtilizationEnabled } from '../../../lib/ai-edge';
+import {
+  canGenerateTreatmentAiInsight,
+  generateAndSaveTreatmentAiInsight,
+} from '../../../lib/treatment-ai-insight';
 import { getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
 
 type EditableField =
@@ -188,6 +193,7 @@ export default function DesignerTreatmentInputScreen() {
     uri: string;
     label: string;
   } | null>(null);
+  const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -445,10 +451,52 @@ export default function DesignerTreatmentInputScreen() {
       if (updatedTreatment.customer_id && inputComplete) {
         void notifyCustomerTreatmentRecorded(updatedTreatment).catch(() => undefined);
       }
+
+      if (inputComplete && !updatedTreatment.ai_insight?.trim()) {
+        void maybeAutoGenerateAiInsight(updatedTreatment);
+      }
     } catch (error) {
       showErrorAlert(getErrorMessage(error, '저장 중 문제가 발생했습니다.'), '저장 실패');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const maybeAutoGenerateAiInsight = async (source: Treatment) => {
+    if (!canGenerateTreatmentAiInsight(source) || source.ai_insight?.trim()) {
+      return;
+    }
+
+    try {
+      setIsGeneratingInsight(true);
+      const { treatment: saved } = await generateAndSaveTreatmentAiInsight(source);
+      setTreatment(saved);
+    } catch {
+      // 자동 생성 실패 시 디자이너가 수동 생성 가능
+    } finally {
+      setIsGeneratingInsight(false);
+    }
+  };
+
+  const handleGenerateAiInsight = async () => {
+    if (!treatment) {
+      return;
+    }
+
+    if (!canGenerateTreatmentAiInsight(treatment)) {
+      showWarningAlert('기법·진단·홈케어를 모두 입력한 뒤 생성할 수 있어요.');
+      return;
+    }
+
+    try {
+      setIsGeneratingInsight(true);
+      const { treatment: saved } = await generateAndSaveTreatmentAiInsight(treatment);
+      setTreatment(saved);
+      showSuccessAlert('고객 다이어리에 AI 인사이트가 반영됐어요.');
+    } catch (error) {
+      showErrorAlert(getErrorMessage(error, 'AI 인사이트 생성에 실패했습니다.'), '생성 실패');
+    } finally {
+      setIsGeneratingInsight(false);
     }
   };
 
@@ -808,6 +856,42 @@ export default function DesignerTreatmentInputScreen() {
               </View>
             ))}
 
+            <View style={styles.aiInsightCard}>
+              <Text style={styles.aiInsightTitle}>AI 인사이트</Text>
+              <Text style={styles.aiInsightHint}>
+                {isAiAppUtilizationEnabled()
+                  ? 'Claude AI가 시술 데이터를 바탕으로 고객용 인사이트를 작성해요.'
+                  : 'AI 연동 전에도 규칙 기반 인사이트를 자동 생성할 수 있어요.'}
+              </Text>
+              <Text style={styles.aiInsightBody}>
+                {treatment.ai_insight?.trim() ||
+                  '생성하면 고객 시술 기록·내 모발 분석에 표시됩니다.'}
+              </Text>
+              <Pressable
+                disabled={
+                  !canGenerateTreatmentAiInsight(treatment) ||
+                  isGeneratingInsight ||
+                  isSaving
+                }
+                onPress={() => void handleGenerateAiInsight()}
+                style={({ pressed }) => [
+                  styles.aiInsightButton,
+                  (!canGenerateTreatmentAiInsight(treatment) ||
+                    isGeneratingInsight ||
+                    isSaving) &&
+                    styles.aiInsightButtonDisabled,
+                  pressed && styles.buttonPressed,
+                ]}>
+                <Text style={styles.aiInsightButtonText}>
+                  {isGeneratingInsight
+                    ? 'AI 생성 중...'
+                    : treatment.ai_insight?.trim()
+                      ? 'AI 인사이트 다시 생성'
+                      : 'AI 인사이트 생성'}
+                </Text>
+              </Pressable>
+            </View>
+
             {canRequestPayment ? (
               <Pressable
                 disabled={isSaving}
@@ -1083,6 +1167,47 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 42,
+  },
+  aiInsightCard: {
+    backgroundColor: '#F0FBF9',
+    borderColor: '#B8EDE4',
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 10,
+    marginBottom: 24,
+    padding: 16,
+  },
+  aiInsightTitle: {
+    color: '#1A1A2E',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  aiInsightHint: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 19,
+  },
+  aiInsightBody: {
+    color: '#1A1A2E',
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 21,
+  },
+  aiInsightButton: {
+    alignItems: 'center',
+    backgroundColor: colors.mint,
+    borderRadius: 12,
+    marginTop: 4,
+    paddingVertical: 14,
+  },
+  aiInsightButtonDisabled: {
+    ...disabledButtonStyle,
+  },
+  aiInsightButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
   },
   photoSection: {
     gap: 8,

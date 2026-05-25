@@ -136,9 +136,12 @@ export default function CustomerVoiceScreen() {
           <Text style={styles.decoIcon}>💬</Text>
         </LinearGradient>
         <Text style={styles.voiceHint}>{getAiChatStatusLabel()}</Text>
+        <Text style={styles.featureHint}>
+          시술 AI 인사이트·오늘의 케어·맞춤 상담이 Claude와 연동됩니다
+        </Text>
         {!isAiChatEnabled() ? (
           <Text style={styles.setupHint}>
-            Supabase 연결 + ai-chat 배포 또는 .env에 EXPO_PUBLIC_ANTHROPIC_API_KEY 설정
+            Supabase 연결 + ai-chat 배포 또는 .env에 EXPO_PUBLIC_ANTHROPIC_API_KEY 설정 (미연동 시 데모·규칙 기반)
           </Text>
         ) : null}
         {usageHint ? <Text style={styles.usageHint}>{usageHint}</Text> : null}
@@ -217,6 +220,15 @@ const styles = StyleSheet.create({
   },
   decoIcon: { fontSize: 40 },
   voiceHint: { color: colors.muted, fontSize: 12, marginTop: 8, textAlign: 'center' },
+  featureHint: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 18,
+    marginTop: 6,
+    paddingHorizontal: 16,
+    textAlign: 'center',
+  },
   setupHint: {
     color: colors.coral,
     fontSize: 11,

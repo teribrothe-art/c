@@ -358,6 +358,7 @@ export type TreatmentUpdateInput = Partial<
     | 'technique'
     | 'designer_diagnosis'
     | 'home_care'
+    | 'ai_insight'
     | 'feedback_completed'
     | 'payment_status'
     | 'payment_requested_at'

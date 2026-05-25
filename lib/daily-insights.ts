@@ -3,6 +3,7 @@ import type { Href } from 'expo-router';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { extractRecommendationFromMessage } from './insight-content';
+import { enhanceTodayCareWithAi } from './daily-ai-care';
 import { buildTodayCarePayload } from './today-care-content';
 import { toAppError } from './errors';
 import { supabase } from './supabase';
@@ -102,7 +103,8 @@ async function getOrCreateTodayInsight(userId: string, insightDate: string, trea
     return existing;
   }
 
-  const payload = buildTodayCarePayload(treatments);
+  const basePayload = buildTodayCarePayload(treatments);
+  const payload = await enhanceTodayCareWithAi(treatments, basePayload);
 
   const recordPayload = {
     user_id: userId,

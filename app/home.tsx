@@ -193,7 +193,11 @@ export default function DiaryHomeScreen() {
         ) : null}
 
         {!isLoading && !errorMessage && dailyCare ? (
-          <TodayCareCard care={dailyCare} onViewDiary={handleViewDiaryFromCare} />
+          <TodayCareCard
+            care={dailyCare}
+            onViewDiary={handleViewDiaryFromCare}
+            onAiConsult={() => router.push('/voice')}
+          />
         ) : null}
 
         <View style={styles.header}>

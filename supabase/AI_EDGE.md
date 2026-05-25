@@ -45,6 +45,18 @@ EXPO_PUBLIC_ANTHROPIC_API_KEY=sk-ant-api03-...
 
 1. 고객 계정으로 로그인
 2. **AI 상담** 탭에서 메시지 전송
+
+## AI 인사이트 · 오늘의 케어
+
+동일한 `ai-chat` Edge Function에 `taskType`을 전달합니다.
+
+| taskType | 용도 |
+|----------|------|
+| `chat` (기본) | 고객 AI 상담 |
+| `treatment_insight` | 디자이너 시술 기록 → `treatments.ai_insight` |
+| `daily_care` | 로그인 후 오늘의 케어 문구 |
+
+배포 후 디자이너 시술 입력 화면에서 **AI 인사이트 생성**이 Claude로 동작합니다. 미연동 시 앱은 규칙 기반 문구로 폴백합니다.
 3. Supabase **Edge Functions → ai-chat → Logs** 에서 호출 확인
 4. `ai_conversations` 테이블에 저장 확인
 

@@ -181,7 +181,15 @@ export default function TreatmentDetailScreen() {
             </SectionCard>
 
             <SectionCard title="AI 인사이트" variant="mint">
-              <Text style={styles.bodyText}>{treatment.ai_insight || 'AI 인사이트가 없습니다.'}</Text>
+              <Text style={styles.bodyText}>
+                {treatment.ai_insight ||
+                  '디자이너가 시술 입력을 마치면 AI 인사이트가 생성돼요.'}
+              </Text>
+              <Pressable
+                onPress={() => router.push('/voice')}
+                style={({ pressed }) => [styles.aiConsultLink, pressed && { opacity: 0.85 }]}>
+                <Text style={styles.aiConsultLinkText}>AI 상담에서 더 물어보기 →</Text>
+              </Pressable>
             </SectionCard>
 
             <Text style={styles.footerNotice}>
@@ -296,6 +304,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     lineHeight: 23,
+  },
+  aiConsultLink: {
+    marginTop: 12,
+  },
+  aiConsultLinkText: {
+    color: '#00C2A8',
+    fontSize: 14,
+    fontWeight: '800',
   },
   homeCareBox: {
     borderTopColor: 'rgba(123, 94, 230, 0.22)',

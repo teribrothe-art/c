@@ -7,9 +7,10 @@ import { colors } from '../../lib/theme';
 type TodayCareCardProps = {
   care: DailyCareSnapshot;
   onViewDiary: () => void;
+  onAiConsult?: () => void;
 };
 
-export function TodayCareCard({ care, onViewDiary }: TodayCareCardProps) {
+export function TodayCareCard({ care, onViewDiary, onAiConsult }: TodayCareCardProps) {
   const damageLabel =
     typeof care.damageLevel === 'number'
       ? `손상도 ${care.damageLevel}/10`
@@ -31,11 +32,20 @@ export function TodayCareCard({ care, onViewDiary }: TodayCareCardProps) {
           <Text style={styles.recommendation}>다음 점검: {care.recommendation}</Text>
         ) : null}
 
-        <Pressable
-          onPress={onViewDiary}
-          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
-          <Text style={styles.buttonText}>다이어리 보기</Text>
-        </Pressable>
+        <View style={styles.buttonRow}>
+          <Pressable
+            onPress={onViewDiary}
+            style={({ pressed }) => [styles.button, styles.buttonSecondary, pressed && styles.buttonPressed]}>
+            <Text style={[styles.buttonText, styles.buttonTextSecondary]}>다이어리 보기</Text>
+          </Pressable>
+          {onAiConsult ? (
+            <Pressable
+              onPress={onAiConsult}
+              style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
+              <Text style={styles.buttonText}>AI 상담</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </LinearGradient>
     </View>
   );
@@ -86,15 +96,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'center',
+    marginTop: 4,
+  },
   button: {
     alignItems: 'center',
-    alignSelf: 'center',
     backgroundColor: colors.coral,
     borderRadius: 14,
-    marginTop: 4,
-    minWidth: 160,
-    paddingHorizontal: 24,
+    flex: 1,
+    maxWidth: 160,
+    paddingHorizontal: 16,
     paddingVertical: 14,
+  },
+  buttonSecondary: {
+    backgroundColor: '#FFFFFF',
+    borderColor: colors.coral,
+    borderWidth: 1.5,
   },
   buttonPressed: {
     opacity: 0.85,
@@ -103,5 +123,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800',
+  },
+  buttonTextSecondary: {
+    color: colors.coral,
   },
 });

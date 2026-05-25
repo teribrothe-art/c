@@ -33,11 +33,18 @@ async function readEdgeErrorMessage(error: FunctionsHttpError) {
   return error.message || 'AI 상담 요청에 실패했습니다.';
 }
 
+export type AiEdgeTaskType = 'chat' | 'treatment_insight' | 'daily_care';
+
+type AiEdgeInvokeOptions = {
+  taskType?: AiEdgeTaskType;
+};
+
 /** Supabase Edge Function `ai-chat` — Anthropic 프록시 */
 export async function chatWithClaudeViaEdge(
   userMessage: string,
   userContext: Record<string, unknown>,
   conversationHistory: AiConversationTurn[] = [],
+  options: AiEdgeInvokeOptions = {},
 ): Promise<{ text: string; model: string; provider: string }> {
   if (!isSupabaseConfigured || !supabase) {
     throw new Error('Supabase가 연결되지 않았습니다.');
@@ -56,6 +63,7 @@ export async function chatWithClaudeViaEdge(
       userMessage,
       userContext,
       conversationHistory,
+      taskType: options.taskType ?? 'chat',
     },
   });
 
@@ -86,9 +94,14 @@ export function shouldUseAiEdgeProxy() {
   return isSupabaseConfigured && Boolean(supabase);
 }
 
-/** 실제 Claude 연동 가능 여부 */
+/** 실제 Claude 연동 가능 여부 (상담·인사이트·오늘의 케어) */
 export function isAiChatEnabled() {
   return shouldUseAiEdgeProxy() || canUseDirectAnthropicClient();
+}
+
+/** @deprecated isAiChatEnabled와 동일 */
+export function isAiAppUtilizationEnabled() {
+  return isAiChatEnabled();
 }
 
 export function getAiChatStatusLabel() {

@@ -84,14 +84,17 @@ export default function AnalysisScreen() {
             subtitle="시술 기록이 쌓이면 손상도와 AI 인사이트를 보여드릴게요"
             title="아직 분석할 데이터가 없어요"
           />
-        ) : treatmentCount < 3 ? (
-          <EmptyState
-            icon="📊"
-            subtitle="시술 기록이 3건 이상 쌓이면 추세 분석을 확인할 수 있어요"
-            title="분석에는 최소 3건의 시술이 필요해요"
-          />
         ) : (
           <>
+            {treatmentCount < 3 ? (
+              <View style={styles.noticeBox}>
+                <Text style={styles.noticeText}>
+                  손상도 추세는 시술 3건 이상일 때 표시돼요. AI 인사이트는 아래에서 바로 확인할 수 있어요.
+                </Text>
+              </View>
+            ) : null}
+
+            {treatmentCount >= 3 ? (
             <View style={styles.card}>
               <Text style={styles.cardTitle}>최근 손상도 추세</Text>
               <Text style={styles.damageHeadline}>
@@ -114,12 +117,15 @@ export default function AnalysisScreen() {
                 ))}
               </View>
             </View>
+            ) : null}
 
+            {treatmentCount >= 3 ? (
             <View style={styles.card}>
               <Text style={styles.cardTitle}>시술 빈도</Text>
               <Text style={styles.frequencyLine}>최근 3개월 시술 {analysis.recentThreeMonthsCount}건</Text>
               <Text style={styles.frequencyHint}>다음 시술 권장: {analysis.nextRecommendation}</Text>
             </View>
+            ) : null}
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>AI 인사이트 모음</Text>
@@ -158,6 +164,17 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '900',
     marginBottom: 4,
+  },
+  noticeBox: {
+    backgroundColor: '#F5F3FF',
+    borderRadius: 12,
+    padding: 14,
+  },
+  noticeText: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 20,
   },
   card: {
     backgroundColor: '#FFFFFF',
