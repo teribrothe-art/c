@@ -63,6 +63,7 @@ export default function TreatmentDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [paymentBadge, setPaymentBadge] = useState<CustomerPaymentBadge>({ label: '결제 대기', variant: 'pending' });
+  const [receiptPaymentId, setReceiptPaymentId] = useState<string | null>(null);
   const [recordNav, setRecordNav] = useState<ReturnType<typeof getTreatmentNavigation>>(null);
 
   const loadTreatmentDetail = useCallback(
@@ -104,6 +105,13 @@ export default function TreatmentDetailScreen() {
             settledAt: nextTreatment.settled_at,
           }),
         );
+        const canViewReceipt = Boolean(
+          payment &&
+            (payment.status === 'paid' ||
+              payment.status === 'in_escrow' ||
+              payment.status === 'completed'),
+        );
+        setReceiptPaymentId(canViewReceipt ? payment?.id ?? null : null);
         setErrorMessage('');
       } catch (error) {
         const message = getErrorMessage(error, '시술 기록을 불러오지 못했습니다.');
@@ -182,6 +190,25 @@ export default function TreatmentDetailScreen() {
                 <Text style={styles.payCtaText}>결제하기</Text>
               </Pressable>
             ) : null}
+
+            {receiptPaymentId ? (
+              <Pressable
+                style={styles.receiptLink}
+                onPress={() => router.push(`/payment/receipt/${receiptPaymentId}`)}>
+                <Text style={styles.receiptLinkText}>영수증 보기</Text>
+              </Pressable>
+            ) : null}
+
+            <Pressable
+              style={styles.paymentsHubLink}
+              onPress={() =>
+                router.push({
+                  pathname: '/customer/payments',
+                  params: { select: treatment.id },
+                })
+              }>
+              <Text style={styles.paymentsHubLinkText}>다른 시술 결제·영수증 보기 ›</Text>
+            </Pressable>
 
             <TreatmentPhotoCarousel
               afterPhotoPath={treatment.after_photo_url}
@@ -274,6 +301,30 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   payCtaText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  receiptLink: {
+    alignItems: 'center',
+    backgroundColor: '#E8FAF7',
+    borderColor: '#00C2A8',
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 12,
+    paddingVertical: 14,
+  },
+  receiptLinkText: {
+    color: '#00A88F',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  paymentsHubLink: {
+    marginBottom: 16,
+    paddingVertical: 6,
+  },
+  paymentsHubLinkText: {
+    color: '#7B5EE6',
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   headerTitle: {
     color: '#1A1A2E',
     fontSize: 18,

@@ -1,3 +1,4 @@
+import { fetchCustomerPaymentEntries } from './customer-payment-entries';
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
 import { getPaymentByTreatmentId, PaymentRecord, PaymentRecordStatus } from './payment-record';
@@ -38,29 +39,21 @@ export async function fetchCustomerPaymentHistory(): Promise<CustomerPaymentList
   }
 
   if (isDemoAuthMode || !supabase) {
-    const { treatments } = await getTreatments();
-    const items: CustomerPaymentListItem[] = [];
+    const entries = await fetchCustomerPaymentEntries();
 
-    for (const treatment of treatments) {
-      const payment = await getPaymentByTreatmentId(treatment.id);
+    return entries
+      .filter((entry) => entry.payment)
+      .map((entry) => {
+        const payment = entry.payment!;
+        const badge = getCustomerPaymentBadge(payment.status, entry.treatment.payment_status);
 
-      if (!payment && normalizeNeedsPayment(treatment)) {
-        continue;
-      }
-
-      if (!payment) {
-        continue;
-      }
-
-      const badge = getCustomerPaymentBadge(payment.status, treatment.payment_status);
-      items.push({ payment, treatment, badgeLabel: badge.label, badgeVariant: badge.variant });
-    }
-
-    return items.sort((a, b) =>
-      (b.payment.paid_at ?? b.payment.created_at).localeCompare(
-        a.payment.paid_at ?? a.payment.created_at,
-      ),
-    );
+        return {
+          payment,
+          treatment: entry.treatment,
+          badgeLabel: badge.label,
+          badgeVariant: badge.variant,
+        };
+      });
   }
 
   const { data, error } = await supabase

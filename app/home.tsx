@@ -173,11 +173,22 @@ export default function DiaryHomeScreen() {
         {pendingPayments.length > 0 ? (
           <Pressable
             style={styles.paymentBanner}
-            onPress={() => router.push(`/payment/${pendingPayments[0].id}` as const)}
+            onPress={() => {
+              if (pendingPayments.length > 1) {
+                router.push('/customer/payments');
+                return;
+              }
+
+              router.push(`/payment/${pendingPayments[0].id}` as const);
+            }}
           >
-            <Text style={styles.paymentBannerTitle}>결제 필요</Text>
+            <Text style={styles.paymentBannerTitle}>
+              {pendingPayments.length > 1 ? `결제 필요 ${pendingPayments.length}건` : '결제 필요'}
+            </Text>
             <Text style={styles.paymentBannerSub}>
-              {pendingPayments[0].designer_name} · {(pendingPayments[0].price ?? 0).toLocaleString()}원 · 결제하기
+              {pendingPayments.length > 1
+                ? '시술을 선택해 금액·영수증을 확인하고 결제하세요'
+                : `${pendingPayments[0].designer_name} · ${(pendingPayments[0].price ?? 0).toLocaleString()}원 · 결제하기`}
             </Text>
           </Pressable>
         ) : null}

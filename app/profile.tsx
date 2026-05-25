@@ -233,7 +233,7 @@ export default function ProfileScreen() {
                 style={({ pressed }) => [styles.paymentsLink, pressed && styles.paymentsLinkPressed]}
                 onPress={() => router.push('/customer/payments')}>
                 <Text style={styles.paymentsLinkIcon}>💳</Text>
-                <Text style={styles.paymentsLinkLabel}>내 결제 내역</Text>
+                <Text style={styles.paymentsLinkLabel}>시술별 결제·영수증</Text>
                 <Text style={styles.paymentsLinkArrow}>›</Text>
               </Pressable>
             ) : null}
