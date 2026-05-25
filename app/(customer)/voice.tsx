@@ -20,8 +20,11 @@ import { processTextConsultation } from '../../lib/ai-voice';
 import { getAiChatStatusLabel, isAiChatEnabled } from '../../lib/ai-edge';
 import { getConsultationUsageSummary } from '../../lib/ai-usage';
 import { colors } from '../../lib/theme';
+import { getTreatments } from '../../lib/treatments';
+import { getWeatherHairCareAdvice, type WeatherHairCareAdvice } from '../../lib/weather-hair-care';
 import { BottomTabBar } from '../../src/components/bottom-tab-bar';
 import { EmptyState } from '../../src/components/empty-state';
+import { WeatherHairCareCard } from '../../src/components/weather-hair-care-card';
 
 const CORAL = colors.coral;
 const PURPLE = colors.purple;
@@ -61,6 +64,18 @@ export default function CustomerVoiceScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [usageHint, setUsageHint] = useState('');
+  const [weatherCare, setWeatherCare] = useState<WeatherHairCareAdvice | null>(null);
+  const [isWeatherLoading, setIsWeatherLoading] = useState(false);
+
+  const loadWeatherCare = useCallback(() => {
+    setIsWeatherLoading(true);
+
+    getTreatments()
+      .then(({ treatments }) => getWeatherHairCareAdvice(treatments))
+      .then(setWeatherCare)
+      .catch(() => setWeatherCare(null))
+      .finally(() => setIsWeatherLoading(false));
+  }, []);
 
   const loadHistory = useCallback(() => {
     setIsLoading(true);
@@ -87,7 +102,8 @@ export default function CustomerVoiceScreen() {
   useFocusEffect(
     useCallback(() => {
       loadHistory();
-    }, [loadHistory]),
+      loadWeatherCare();
+    }, [loadHistory, loadWeatherCare]),
   );
 
   const handleSend = async () => {
@@ -125,6 +141,10 @@ export default function CustomerVoiceScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.title}>AI 상담</Text>
+      </View>
+
+      <View style={styles.weatherSection}>
+        <WeatherHairCareCard advice={weatherCare} isLoading={isWeatherLoading} />
       </View>
 
       <View style={styles.heroSection}>
@@ -210,6 +230,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: { paddingHorizontal: 16, paddingBottom: 4 },
   title: { color: colors.text, fontSize: 22, fontWeight: '900' },
+  weatherSection: { paddingHorizontal: 16, paddingTop: 4 },
   heroSection: { alignItems: 'center', paddingVertical: 12 },
   decoCircle: {
     alignItems: 'center',

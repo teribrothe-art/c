@@ -33,7 +33,6 @@ import { buildHomePromoSlides } from '../lib/home-promo-slides';
 import { safePush } from '../lib/safe-navigate';
 import { filterTreatmentsByQuery } from '../lib/treatment-search';
 import { getTreatments, Treatment } from '../lib/treatments';
-import { getWeatherHairCareAdvice, type WeatherHairCareAdvice } from '../lib/weather-hair-care';
 import { EmptyState } from '../src/components/empty-state';
 import { LoadingState } from '../src/components/loading-state';
 import { OnboardingModal } from '../src/components/onboarding-modal';
@@ -41,7 +40,6 @@ import { AiConsultQuickCard } from '../src/components/ai-consult-quick-card';
 import { HomePromoCarousel } from '../src/components/home-promo-carousel';
 import { TodayCareCard } from '../src/components/today-care-card';
 import { TreatmentDiaryCard } from '../src/components/treatment-diary-card';
-import { WeatherHairCareCard } from '../src/components/weather-hair-care-card';
 import type { HomePromoSlide } from '../lib/home-promo-slides';
 
 export default function DiaryHomeScreen() {
@@ -55,8 +53,6 @@ export default function DiaryHomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [dailyCare, setDailyCare] = useState<DailyCareSnapshot | null>(null);
-  const [weatherCare, setWeatherCare] = useState<WeatherHairCareAdvice | null>(null);
-  const [isWeatherLoading, setIsWeatherLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const promoCarouselHeight = useMemo(
@@ -89,11 +85,6 @@ export default function DiaryHomeScreen() {
       setPendingPayments(pending);
       const care = await getTodayDailyCare(nextTreatments);
       setDailyCare(care);
-      setIsWeatherLoading(true);
-      getWeatherHairCareAdvice(nextTreatments)
-        .then(setWeatherCare)
-        .catch(() => setWeatherCare(null))
-        .finally(() => setIsWeatherLoading(false));
       setErrorMessage('');
     } catch (error) {
       const message = getErrorMessage(error, '시술 기록을 불러오지 못했습니다.');
@@ -128,25 +119,11 @@ export default function DiaryHomeScreen() {
       .catch(() => setDailyCare(null));
   }, [treatments]);
 
-  const reloadWeatherCare = useCallback(() => {
-    if (treatments.length === 0) {
-      setWeatherCare(null);
-      return;
-    }
-
-    setIsWeatherLoading(true);
-    getWeatherHairCareAdvice(treatments)
-      .then(setWeatherCare)
-      .catch(() => setWeatherCare(null))
-      .finally(() => setIsWeatherLoading(false));
-  }, [treatments]);
-
   useFocusEffect(
     useCallback(() => {
       reloadPending();
       reloadDailyCare();
-      reloadWeatherCare();
-    }, [reloadPending, reloadDailyCare, reloadWeatherCare]),
+    }, [reloadPending, reloadDailyCare]),
   );
 
   const yearSummaries = useMemo(() => getDiaryYearSummaries(treatments), [treatments]);
@@ -242,11 +219,6 @@ export default function DiaryHomeScreen() {
                 onAiConsult={openVoice}
               />
             ) : null}
-            <WeatherHairCareCard
-              advice={weatherCare}
-              isLoading={isWeatherLoading}
-              onAiConsult={openVoice}
-            />
             <HomePromoCarousel
               minHeight={promoCarouselHeight}
               slides={promoSlides}
