@@ -50,6 +50,7 @@ import {
   validateTreatmentNote,
   validateTreatmentTitle,
 } from '../../../lib/validation';
+import { ScalpProductPicker } from '../../../src/components/scalp-product-picker';
 import { TreatmentOptionChips } from '../../../src/components/treatment-option-chips';
 import { LoadingState } from '../../../src/components/loading-state';
 import {
@@ -1187,6 +1188,26 @@ export default function DesignerTreatmentInputScreen() {
                 value={inputValue}
                 onChangeValue={setInputValue}
               />
+            ) : activeField === 'products' ? (
+              <View style={styles.modalPresetBlock}>
+                <ScalpProductPicker
+                  maxHeight={240}
+                  treatmentType={treatment?.treatment_type ?? ''}
+                  value={inputValue}
+                  onChange={setInputValue}
+                />
+                <Text style={styles.modalSubLabel}>브랜드 빠른 추가</Text>
+                <TreatmentOptionChips
+                  options={[...PRODUCT_PRESETS]}
+                  value=""
+                  onChange={(preset) => {
+                    const current = parseProductsInput(inputValue);
+                    if (!current.includes(preset)) {
+                      setInputValue(formatProductsInput([...current, preset]));
+                    }
+                  }}
+                />
+              </View>
             ) : (
               <>
                 <TextInput
@@ -1197,11 +1218,7 @@ export default function DesignerTreatmentInputScreen() {
                       : MAX_TREATMENT_NOTE_LENGTH
                   }
                   onChangeText={setInputValue}
-                  placeholder={
-                    activeField === 'products'
-                      ? '예: 웰라 12%, 로레알 (쉼표·줄바꿈으로 구분)'
-                      : '내용을 입력하세요'
-                  }
+                  placeholder="내용을 입력하세요"
                   placeholderTextColor="#9B9BA7"
                   style={[
                     styles.modalInput,
@@ -1216,20 +1233,6 @@ export default function DesignerTreatmentInputScreen() {
                       options={titlePresets}
                       value={inputValue}
                       onChange={setInputValue}
-                    />
-                  </View>
-                ) : null}
-                {activeField === 'products' ? (
-                  <View style={styles.modalPresetBlock}>
-                    <TreatmentOptionChips
-                      options={[...PRODUCT_PRESETS]}
-                      value=""
-                      onChange={(preset) => {
-                        const current = parseProductsInput(inputValue);
-                        if (!current.includes(preset)) {
-                          setInputValue(formatProductsInput([...current, preset]));
-                        }
-                      }}
                     />
                   </View>
                 ) : null}
@@ -1780,6 +1783,12 @@ const styles = StyleSheet.create({
   },
   modalPresetBlock: {
     marginTop: 12,
+  },
+  modalSubLabel: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 8,
   },
   modalActions: {
     flexDirection: 'row',
