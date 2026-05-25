@@ -698,6 +698,39 @@ export async function getDesignerClientListItems(): Promise<DesignerClientListIt
   return rows.sort((a, b) => b.treatmentDate.localeCompare(a.treatmentDate));
 }
 
+export async function renewCustomerInvitation(input: {
+  invitationId: string;
+  treatmentId: string;
+  customerName?: string;
+  customerPhone?: string;
+}) {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== 'designer') {
+    throw new Error('디자이너만 초대 코드를 다시 발급할 수 있습니다.');
+  }
+
+  const { treatment } = await getTreatmentById(input.treatmentId);
+
+  if (!treatment || treatment.designer_id !== user.id) {
+    throw new Error('시술 기록을 찾을 수 없습니다.');
+  }
+
+  const customerName = (input.customerName?.trim() || treatment.customer_name?.trim() || '').trim();
+
+  if (!customerName) {
+    throw new Error('고객 이름을 입력해주세요.');
+  }
+
+  await expireInvitation(input.invitationId);
+
+  return createCustomerInvitation({
+    treatmentId: input.treatmentId,
+    customerName,
+    customerPhone: input.customerPhone,
+  });
+}
+
 export async function expireInvitation(invitationId: string) {
   const user = await getCurrentUser();
 

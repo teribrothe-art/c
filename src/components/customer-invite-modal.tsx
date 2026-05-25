@@ -20,6 +20,7 @@ import {
   createCustomerInvitation,
   CustomerInvitation,
   getPendingInvitationForTreatment,
+  renewCustomerInvitation,
 } from '../../lib/customer-invitations';
 import { getErrorMessage } from '../../lib/errors';
 import { formatPhoneInput } from '../../lib/phone-input';
@@ -29,7 +30,7 @@ import {
   searchRegisteredCustomers,
 } from '../../lib/registered-customers';
 import { colors } from '../../lib/theme';
-import type { Treatment } from '../../lib/treatments';
+import { getTreatmentById, type Treatment } from '../../lib/treatments';
 
 type InviteMode = 'existing' | 'new';
 
@@ -76,19 +77,22 @@ export function CustomerInviteModal({
 
     setIsLoadingInvite(true);
 
-    getPendingInvitationForTreatment(treatmentId)
-      .then((pending) => {
+    Promise.all([getPendingInvitationForTreatment(treatmentId), getTreatmentById(treatmentId)])
+      .then(([pending, { treatment }]) => {
         if (!isMounted) {
           return;
         }
 
+        const treatmentName = treatment?.customer_name?.trim() || defaultCustomerName;
+
         if (pending) {
           setInvitation(pending);
           setMode('new');
-          setCustomerName(pending.customer_name ?? defaultCustomerName);
+          setCustomerName(treatmentName || pending.customer_name || '');
           setCustomerPhone(pending.customer_phone ?? '');
         } else {
           setInvitation(null);
+          setCustomerName(treatmentName || defaultCustomerName);
         }
       })
       .catch(() => undefined)
@@ -161,6 +165,29 @@ export function CustomerInviteModal({
       showSuccessAlert('초대 코드가 생성됐어요. 고객에게 QR 또는 코드를 공유해주세요.');
     } catch (error) {
       showErrorAlert(getErrorMessage(error, '초대 코드를 만들지 못했습니다.'));
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleRenew = async () => {
+    if (!invitation) {
+      return;
+    }
+
+    try {
+      setIsCreating(true);
+      const renewed = await renewCustomerInvitation({
+        invitationId: invitation.id,
+        treatmentId,
+        customerName,
+        customerPhone,
+      });
+      setInvitation(renewed);
+      onInvitationCreated?.(renewed);
+      showSuccessAlert('새 초대 코드를 발급했어요. 이전 코드는 더 이상 사용할 수 없어요.');
+    } catch (error) {
+      showErrorAlert(getErrorMessage(error, '새 초대 코드를 만들지 못했습니다.'));
     } finally {
       setIsCreating(false);
     }
@@ -250,7 +277,44 @@ export function CustomerInviteModal({
               {invitation || mode === 'new' ? (
                 invitation ? (
                   <>
-                    <Text style={styles.subtitle}>신규 고객용 초대 코드</Text>
+                    <Text style={styles.subtitle}>
+                      이름·전화를 수정한 뒤 새 코드를 발급하면{'\n'}이전 초대 코드는 사용할 수 없어요
+                    </Text>
+
+                    <Text style={styles.label}>고객 이름 *</Text>
+                    <TextInput
+                      placeholder="예: 김지원"
+                      placeholderTextColor="#9CA3AF"
+                      style={styles.input}
+                      value={customerName}
+                      onChangeText={setCustomerName}
+                    />
+
+                    <Text style={styles.label}>전화번호 (선택)</Text>
+                    <TextInput
+                      keyboardType="phone-pad"
+                      placeholder="010-0000-0000"
+                      placeholderTextColor="#9CA3AF"
+                      style={styles.input}
+                      value={customerPhone}
+                      onChangeText={(text) => setCustomerPhone(formatPhoneInput(text))}
+                      maxLength={13}
+                    />
+
+                    <Pressable
+                      disabled={isCreating}
+                      onPress={() => void handleRenew()}
+                      style={({ pressed }) => [
+                        styles.primaryButton,
+                        pressed && styles.buttonPressed,
+                        isCreating && styles.buttonDisabled,
+                      ]}>
+                      <Text style={styles.primaryButtonText}>
+                        {isCreating ? '발급 중...' : '새 초대 코드 발급'}
+                      </Text>
+                    </Pressable>
+
+                    <Text style={styles.subtitle}>현재 초대 코드</Text>
                     <Text style={styles.code}>{invitation.invite_code}</Text>
 
                     <View style={styles.qrWrap}>

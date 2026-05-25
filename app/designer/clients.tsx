@@ -15,10 +15,9 @@ import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-b
 import { getErrorMessage } from '../../lib/errors';
 import { normalizePaymentStatus } from '../../lib/payment-status';
 import {
-  createCustomerInvitation,
   DesignerClientListItem,
-  expireInvitation,
   getDesignerClientListItems,
+  renewCustomerInvitation,
 } from '../../lib/customer-invitations';
 import {
   DESIGNER_ONBOARDING_SLIDES,
@@ -110,14 +109,16 @@ function DesignerClientCard({
         {item.inviteCode && item.inviteStatus === 'pending' ? (
           <Text style={styles.inviteCodeText}>코드 {item.inviteCode}</Text>
         ) : null}
-        {item.inviteStatus === 'expired' && onReinvite ? (
+        {(item.inviteStatus === 'pending' || item.inviteStatus === 'expired') && onReinvite ? (
           <Pressable
             onPress={(event) => {
               event.stopPropagation?.();
               onReinvite();
             }}
             style={styles.reinviteButton}>
-            <Text style={styles.reinviteText}>재초대</Text>
+            <Text style={styles.reinviteText}>
+              {item.inviteStatus === 'pending' ? '초대 다시 보내기' : '재초대'}
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -192,18 +193,18 @@ export default function DesignerClientsScreen() {
   }, [clientItems]);
 
   const handleReinvite = (item: DesignerClientListItem) => {
-    if (!item.invitationId) {
+    if (!item.invitationId || !item.treatmentId) {
       return;
     }
 
     Promise.resolve()
       .then(async () => {
-        await expireInvitation(item.invitationId!);
-        await createCustomerInvitation({
+        await renewCustomerInvitation({
+          invitationId: item.invitationId!,
           treatmentId: item.treatmentId,
-          customerName: item.customerName,
+          customerName: item.treatment?.customer_name?.trim() || item.customerName,
         });
-        showSuccessAlert('새 초대 코드를 만들었어요.');
+        showSuccessAlert('새 초대 코드를 만들었어요. 이전 코드는 더 이상 사용할 수 없어요.');
         loadClients();
       })
       .catch((error) => {
