@@ -10,7 +10,10 @@ import {
   View,
 } from 'react-native';
 
+import { redeemInviteForCurrentUser } from '../lib/apply-pending-invite';
 import { getPostAuthRoute } from '../lib/auth-redirect';
+import { getCurrentUser } from '../lib/auth';
+import { peekPendingInviteCode } from '../lib/pending-invite-code';
 import { BETA_DESIGNERS, BETA_TEST_PASSWORD } from '../lib/beta-test-accounts';
 import { DEMO_LOGIN_HINT, isDemoAuthMode, signInWithEmail } from '../lib/auth';
 import { showLoginFailureAlert } from '../lib/alerts';
@@ -50,6 +53,18 @@ export default function LoginScreen() {
       setIsLoading(true);
       setLoginError(null);
       await signInWithEmail({ email: trimmedEmail, password });
+
+      const user = await getCurrentUser();
+      const pendingInvite = await peekPendingInviteCode();
+
+      if (user?.role === 'customer' && pendingInvite.length === 6) {
+        const redeemed = await redeemInviteForCurrentUser(pendingInvite);
+
+        if (redeemed) {
+          return;
+        }
+      }
+
       const nextRoute = await getPostAuthRoute();
       router.replace(nextRoute);
     } catch (error) {

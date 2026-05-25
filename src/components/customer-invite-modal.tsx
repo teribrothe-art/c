@@ -1,5 +1,5 @@
 import * as Clipboard from 'expo-clipboard';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -14,8 +14,10 @@ import QRCode from 'react-native-qrcode-svg';
 import { showErrorAlert, showSuccessAlert } from '../../lib/alerts';
 import {
   buildInviteDeepLink,
+  buildInviteQrPayload,
   createCustomerInvitation,
   CustomerInvitation,
+  getPendingInvitationForTreatment,
 } from '../../lib/customer-invitations';
 import { getErrorMessage } from '../../lib/errors';
 import { formatPhoneInput } from '../../lib/phone-input';
@@ -24,18 +26,62 @@ import { colors } from '../../lib/theme';
 type CustomerInviteModalProps = {
   visible: boolean;
   treatmentId: string;
+  defaultCustomerName?: string;
   onClose: () => void;
+  onInvitationCreated?: (invitation: CustomerInvitation) => void;
 };
 
-export function CustomerInviteModal({ visible, treatmentId, onClose }: CustomerInviteModalProps) {
-  const [customerName, setCustomerName] = useState('');
+export function CustomerInviteModal({
+  visible,
+  treatmentId,
+  defaultCustomerName = '',
+  onClose,
+  onInvitationCreated,
+}: CustomerInviteModalProps) {
+  const [customerName, setCustomerName] = useState(defaultCustomerName);
   const [customerPhone, setCustomerPhone] = useState('');
   const [invitation, setInvitation] = useState<CustomerInvitation | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isLoadingInvite, setIsLoadingInvite] = useState(false);
+
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+
+    setCustomerName((current) => current || defaultCustomerName);
+
+    let isMounted = true;
+
+    setIsLoadingInvite(true);
+
+    getPendingInvitationForTreatment(treatmentId)
+      .then((pending) => {
+        if (!isMounted) {
+          return;
+        }
+
+        if (pending) {
+          setInvitation(pending);
+          setCustomerName(pending.customer_name ?? defaultCustomerName);
+          setCustomerPhone(pending.customer_phone ?? '');
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (isMounted) {
+          setIsLoadingInvite(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [visible, treatmentId, defaultCustomerName]);
 
   const handleClose = () => {
     setInvitation(null);
-    setCustomerName('');
+    setCustomerName(defaultCustomerName);
     setCustomerPhone('');
     onClose();
   };
@@ -49,6 +95,8 @@ export function CustomerInviteModal({ visible, treatmentId, onClose }: CustomerI
         customerPhone,
       });
       setInvitation(created);
+      onInvitationCreated?.(created);
+      showSuccessAlert('초대 코드가 생성됐어요. 고객에게 QR 또는 코드를 공유해주세요.');
     } catch (error) {
       showErrorAlert(getErrorMessage(error, '초대 코드를 만들지 못했습니다.'));
     } finally {
@@ -57,7 +105,7 @@ export function CustomerInviteModal({ visible, treatmentId, onClose }: CustomerI
   };
 
   const shareMessage = invitation
-    ? `헤어 다이어리 초대 코드: ${invitation.invite_code}\n가입 시 코드를 입력해주세요.\n${buildInviteDeepLink(invitation.invite_code)}`
+    ? `헤어 다이어리 초대\n코드: ${invitation.invite_code}\n\n1) 앱 설치 후 회원가입(고객)\n2) 초대 코드 입력 또는 QR 스캔\n\n${buildInviteDeepLink(invitation.invite_code)}`
     : '';
 
   const handleShare = async () => {
@@ -81,15 +129,26 @@ export function CustomerInviteModal({ visible, treatmentId, onClose }: CustomerI
     showSuccessAlert('초대 코드가 복사되었어요.');
   };
 
+  const handleCopyLink = async () => {
+    if (!invitation) {
+      return;
+    }
+
+    await Clipboard.setStringAsync(buildInviteDeepLink(invitation.invite_code));
+    showSuccessAlert('초대 링크가 복사되었어요.');
+  };
+
   return (
     <Modal animationType="slide" transparent visible={visible} onRequestClose={handleClose}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          {!invitation ? (
+          {isLoadingInvite ? (
+            <Text style={styles.loadingText}>초대 정보 불러오는 중...</Text>
+          ) : !invitation ? (
             <>
               <Text style={styles.title}>고객을 초대하세요</Text>
               <Text style={styles.subtitle}>
-                고객님이 헤어 다이어리에 가입하면{'\n'}자동으로 이 시술 기록이 나타나요
+                고객님이 헤어 다이어리에 가입하면{'\n'}자동으로 이 시술 기록이 연결돼요
               </Text>
 
               <Text style={styles.label}>고객 이름 *</Text>
@@ -131,23 +190,32 @@ export function CustomerInviteModal({ visible, treatmentId, onClose }: CustomerI
               <Text style={styles.code}>{invitation.invite_code}</Text>
 
               <View style={styles.qrWrap}>
-                <QRCode size={200} value={buildInviteDeepLink(invitation.invite_code)} />
+                <QRCode size={200} value={buildInviteQrPayload(invitation.invite_code)} />
               </View>
 
-              <Text style={styles.expiry}>7일 후 만료됩니다</Text>
+              <Text style={styles.expiry}>7일 후 만료 · 가입 시 코드 입력 또는 QR 스캔</Text>
+              <Text style={styles.steps}>
+                고객: 회원가입 → &quot;초대 코드 있어요?&quot; → 코드 입력 또는 QR 스캔
+              </Text>
 
               <View style={styles.actionRow}>
                 <Pressable
                   onPress={() => void handleShare()}
                   style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
-                  <Text style={styles.secondaryButtonText}>카톡으로 공유</Text>
+                  <Text style={styles.secondaryButtonText}>공유</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => void handleCopy()}
                   style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
-                  <Text style={styles.secondaryButtonText}>복사</Text>
+                  <Text style={styles.secondaryButtonText}>코드 복사</Text>
                 </Pressable>
               </View>
+
+              <Pressable
+                onPress={() => void handleCopyLink()}
+                style={({ pressed }) => [styles.linkCopyButton, pressed && styles.buttonPressed]}>
+                <Text style={styles.linkCopyText}>앱 링크 복사 (설치 후 자동 열기)</Text>
+              </Pressable>
             </>
           )}
 
@@ -179,6 +247,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 16,
     elevation: 8,
+  },
+  loadingText: {
+    color: colors.muted,
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   title: {
     color: colors.text,
@@ -238,6 +312,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
+  steps: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
   actionRow: {
     flexDirection: 'row',
     gap: 10,
@@ -253,6 +334,15 @@ const styles = StyleSheet.create({
     color: colors.coral,
     fontSize: 15,
     fontWeight: '800',
+  },
+  linkCopyButton: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  linkCopyText: {
+    color: colors.mint,
+    fontSize: 14,
+    fontWeight: '700',
   },
   closeLink: {
     alignItems: 'center',

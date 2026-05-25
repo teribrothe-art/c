@@ -1065,6 +1065,7 @@ export default function DesignerTreatmentInputScreen() {
       {treatment ? (
         <CustomerInviteModal
           treatmentId={treatment.id}
+          defaultCustomerName={treatment.customer_name ?? ''}
           visible={inviteModalVisible}
           onClose={() => setInviteModalVisible(false)}
         />

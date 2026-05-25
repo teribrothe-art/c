@@ -14,11 +14,9 @@ import {
 import { signUpWithEmail, UserRole } from '../lib/auth';
 import { getPostAuthRoute } from '../lib/auth-redirect';
 import { showErrorAlert } from '../lib/alerts';
-import {
-  normalizeInviteCode,
-  redeemInviteCode,
-  validateInviteCode,
-} from '../lib/customer-invitations';
+import { redeemInviteForCurrentUser } from '../lib/apply-pending-invite';
+import { normalizeInviteCode, validateInviteCode } from '../lib/customer-invitations';
+import { peekPendingInviteCode } from '../lib/pending-invite-code';
 import { getErrorMessage } from '../lib/errors';
 import { colors, disabledButtonStyle } from '../lib/theme';
 import {
@@ -55,6 +53,22 @@ export default function SignupScreen() {
       setRole('customer');
     }
   }, [inviteCodeParam, role]);
+
+  useEffect(() => {
+    if (inviteCodeParam) {
+      return;
+    }
+
+    peekPendingInviteCode()
+      .then((pending) => {
+        if (pending.length === 6) {
+          setInviteCode(pending);
+          setInviteOpen(true);
+          setRole((current) => current ?? 'customer');
+        }
+      })
+      .catch(() => undefined);
+  }, [inviteCodeParam]);
 
   useEffect(() => {
     if (!inviteOpen || role !== 'customer') {
@@ -120,7 +134,15 @@ export default function SignupScreen() {
 
     const code = normalizeInviteCode(inviteCode);
 
-    if (role === 'customer' && inviteOpen && code.length === 6 && inviteValid === false) {
+    const hasInviteFromLink = Boolean(inviteCodeParam && normalizeInviteCode(String(inviteCodeParam)).length === 6);
+
+    if (
+      role === 'customer' &&
+      inviteOpen &&
+      code.length === 6 &&
+      inviteValid === false &&
+      !hasInviteFromLink
+    ) {
       showErrorAlert('유효한 초대 코드를 입력해주세요.');
       return;
     }
@@ -140,14 +162,7 @@ export default function SignupScreen() {
       }
 
       if (inviteOpen && code.length === 6) {
-        const redeemed = await redeemInviteCode(code, user.id);
-        router.replace({
-          pathname: '/invite-welcome',
-          params: {
-            designerName: redeemed.designerName,
-            customerName: redeemed.customerName,
-          },
-        });
+        await redeemInviteForCurrentUser(code);
         return;
       }
 

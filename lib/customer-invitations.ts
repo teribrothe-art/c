@@ -78,6 +78,11 @@ export function buildInviteDeepLink(code: string) {
   return `hairdiaryapp://invite/${normalizeInviteCode(code)}`;
 }
 
+/** QR 스캔용 — 6자리 코드만 인코딩 (카메라·앱 모두 인식) */
+export function buildInviteQrPayload(code: string) {
+  return normalizeInviteCode(code);
+}
+
 export function parseInviteCodeFromQrPayload(payload: string) {
   const trimmed = payload.trim();
 
@@ -102,7 +107,7 @@ export function parseInviteCodeFromQrPayload(payload: string) {
   return normalizeInviteCode(trimmed);
 }
 
-function generateInviteCodeLocal(existing: Set<string>) {
+export function generateInviteCodeLocal(existing: Set<string>) {
   let code = '';
 
   do {
@@ -320,13 +325,25 @@ export async function createCustomerInvitation(input: {
     return invitation;
   }
 
+  let inviteCode = '';
+
   const { data: codeData, error: codeError } = await supabase.rpc('generate_invite_code');
 
-  if (codeError) {
-    throw toAppError(codeError);
-  }
+  if (codeError || !codeData) {
+    const { data: existingRows, error: existingError } = await supabase
+      .from('customer_invitations')
+      .select('invite_code')
+      .limit(500);
 
-  const inviteCode = String(codeData);
+    if (existingError) {
+      throw toAppError(codeError ?? existingError);
+    }
+
+    const existingCodes = new Set((existingRows ?? []).map((row) => row.invite_code));
+    inviteCode = generateInviteCodeLocal(existingCodes);
+  } else {
+    inviteCode = String(codeData);
+  }
 
   const { data, error } = await supabase
     .from('customer_invitations')
@@ -373,7 +390,7 @@ export async function getPendingInvitationForTreatment(treatmentId: string) {
     .select(invitationSelect)
     .eq('treatment_id', treatmentId)
     .eq('designer_id', user.id)
-    .eq('status', 'pending')
+    .in('status', ['pending', 'active'])
     .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false })
     .limit(1)
@@ -441,7 +458,7 @@ export async function redeemInviteCode(rawCode: string, customerId: string) {
       used_by: customerId,
     })
     .eq('id', invitation.id)
-    .eq('status', 'pending')
+    .in('status', ['pending', 'active'])
     .select(invitationSelect)
     .single();
 
@@ -449,10 +466,19 @@ export async function redeemInviteCode(rawCode: string, customerId: string) {
     throw toAppError(error);
   }
 
-  // Supabase: link_customer_to_designer 트리거가 관계·시술·알림을 처리합니다.
+  const redeemed = normalizeInvitationRow(data as CustomerInvitation);
+
+  const { error: applyError } = await supabase.rpc('apply_customer_invite', {
+    p_invitation_id: redeemed.id,
+    p_customer_id: customerId,
+  });
+
+  if (applyError && !applyError.message.includes('Could not find the function')) {
+    throw toAppError(applyError);
+  }
 
   return {
-    invitation: normalizeInvitationRow(data as CustomerInvitation),
+    invitation: redeemed,
     designerName: validation.designerName,
     customerName: invitation.customer_name ?? '고객',
   };

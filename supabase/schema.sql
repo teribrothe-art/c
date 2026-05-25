@@ -390,6 +390,8 @@ begin
 end;
 $$;
 
+grant execute on function public.generate_invite_code() to authenticated;
+
 create or replace function public.link_customer_to_designer()
 returns trigger
 language plpgsql
@@ -397,7 +399,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if new.status = 'used' and old.status = 'pending' and new.used_by is not null then
+  if new.status = 'used' and old.status in ('pending', 'active') and new.used_by is not null then
     insert into public.designer_customer_relationships (designer_id, customer_id)
     values (new.designer_id, new.used_by)
     on conflict (designer_id, customer_id) do nothing;
@@ -429,6 +431,40 @@ create trigger on_invitation_used
   after update on public.customer_invitations
   for each row
   execute function public.link_customer_to_designer();
+
+create or replace function public.apply_customer_invite(
+  p_invitation_id uuid,
+  p_customer_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  inv public.customer_invitations%rowtype;
+begin
+  select * into inv
+  from public.customer_invitations
+  where id = p_invitation_id;
+
+  if not found then
+    raise exception 'INVITATION_NOT_FOUND';
+  end if;
+
+  insert into public.designer_customer_relationships (designer_id, customer_id)
+  values (inv.designer_id, p_customer_id)
+  on conflict (designer_id, customer_id) do nothing;
+
+  if inv.treatment_id is not null then
+    update public.treatments
+    set customer_id = p_customer_id
+    where id = inv.treatment_id;
+  end if;
+end;
+$$;
+
+grant execute on function public.apply_customer_invite(uuid, uuid) to authenticated;
 
 create or replace function public.create_app_notification(
   p_user_id uuid,
