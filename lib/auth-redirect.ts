@@ -1,7 +1,6 @@
 import type { Href } from 'expo-router';
 
 import { getCurrentUser } from './auth';
-import { resolveCustomerPostLoginRoute } from './daily-insights';
 
 export async function getPostAuthRoute(): Promise<Href> {
   const user = await getCurrentUser();
@@ -14,5 +13,5 @@ export async function getPostAuthRoute(): Promise<Href> {
     return '/designer/clients';
   }
 
-  return resolveCustomerPostLoginRoute();
+  return '/today-care';
 }

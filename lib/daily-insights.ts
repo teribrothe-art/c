@@ -2,13 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Href } from 'expo-router';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
-import {
-  buildInsightPayload,
-  extractRecommendationFromMessage,
-  getDamageAccentColor,
-  getTimeOfDayGreeting,
-} from './insight-content';
-import { getProfileScreenData } from './profile';
+import { extractRecommendationFromMessage } from './insight-content';
+import { buildTodayCarePayload } from './today-care-content';
 import { toAppError } from './errors';
 import { supabase } from './supabase';
 import { getTreatments, Treatment } from './treatments';
@@ -26,16 +21,11 @@ export type DailyInsight = {
   viewed_at: string | null;
 };
 
-export type DailyInsightScreenData = {
-  insightId: string;
-  userName: string;
-  timeGreeting: string;
+export type TodayCareScreenData = {
   damageLevel: number | null;
-  damageScoreLabel: string;
-  damageHeadline: string;
-  insightMessage: string;
-  recommendation: string | null;
-  accentColor: string;
+  damageScoreLabel: string | null;
+  headline: string;
+  message: string;
 };
 
 export type DailyCareSnapshot = {
@@ -104,8 +94,15 @@ export async function findTodayInsightRecord(userId: string, insightDate: string
   return (data as DailyInsight | null) ?? null;
 }
 
-async function upsertTodayInsight(userId: string, insightDate: string, treatments: Treatment[]) {
-  const payload = buildInsightPayload(treatments);
+/** 오늘 첫 조회 시에만 INSERT, 이후에는 캐시 반환 */
+async function getOrCreateTodayInsight(userId: string, insightDate: string, treatments: Treatment[]) {
+  const existing = await findTodayInsightRecord(userId, insightDate);
+
+  if (existing) {
+    return existing;
+  }
+
+  const payload = buildTodayCarePayload(treatments);
 
   const recordPayload = {
     user_id: userId,
@@ -118,27 +115,19 @@ async function upsertTodayInsight(userId: string, insightDate: string, treatment
 
   if (isDemoAuthMode || !supabase) {
     const items = await readDemoStore();
-    const existingIndex = items.findIndex(
-      (item) => item.user_id === userId && item.insight_date === insightDate,
-    );
     const record: DailyInsight = {
-      id: existingIndex >= 0 ? items[existingIndex].id : `demo-insight-${insightDate}`,
+      id: `demo-insight-${insightDate}`,
       ...recordPayload,
     };
 
-    if (existingIndex >= 0) {
-      items[existingIndex] = record;
-    } else {
-      items.unshift(record);
-    }
-
+    items.unshift(record);
     await writeDemoStore(items.slice(0, 120));
     return record;
   }
 
   const { data, error } = await supabase
     .from('daily_insights')
-    .upsert(recordPayload, { onConflict: 'user_id,insight_date' })
+    .insert(recordPayload)
     .select(selectFields)
     .single();
 
@@ -181,74 +170,38 @@ function toDailyCareSnapshot(insight: DailyInsight, treatments: Treatment[]): Da
   };
 }
 
-function toInsightScreenData(insight: DailyInsight, userName: string): DailyInsightScreenData {
+function toTodayCareScreenData(insight: DailyInsight): TodayCareScreenData {
   return {
-    insightId: insight.id,
-    userName,
-    timeGreeting: getTimeOfDayGreeting(),
     damageLevel: insight.damage_level,
     damageScoreLabel:
-      typeof insight.damage_level === 'number'
-        ? `손상도 ${insight.damage_level}/10`
-        : '손상도 기록 없음',
-    damageHeadline: insight.headline,
-    insightMessage: insight.message,
-    recommendation: extractRecommendationFromMessage(insight.message),
-    accentColor: getDamageAccentColor(insight.damage_level),
+      typeof insight.damage_level === 'number' ? `손상도 ${insight.damage_level}/10` : null,
+    headline: insight.headline,
+    message: insight.message,
   };
 }
 
-/** 로그인 후 고객 이동 경로: /insight 또는 /home */
+/** 로그인 후 고객 → 오늘의 케어 (매번 표시) */
 export async function resolveCustomerPostLoginRoute(): Promise<Href> {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    return '/';
-  }
-
-  const insightDate = toLocalDateString();
-
-  if (await isTodayInsightDismissed(user.id, insightDate)) {
-    return '/home';
-  }
-
-  const existing = await findTodayInsightRecord(user.id, insightDate);
-
-  if (!existing) {
-    const { treatments } = await getTreatments();
-    await upsertTodayInsight(user.id, insightDate, treatments);
-    return '/insight';
-  }
-
-  return '/insight';
+  return '/today-care';
 }
 
-export async function loadInsightScreenData(): Promise<DailyInsightScreenData | null> {
+export async function loadTodayCareScreenData(): Promise<TodayCareScreenData | null> {
   const user = await getCurrentUser();
 
   if (!user || user.role === 'designer') {
     return null;
   }
 
+  const { treatments } = await getTreatments();
   const insightDate = toLocalDateString();
+  const insight = await getOrCreateTodayInsight(user.id, insightDate, treatments);
 
-  if (await isTodayInsightDismissed(user.id, insightDate)) {
-    return null;
-  }
+  return toTodayCareScreenData(insight);
+}
 
-  let insight = await findTodayInsightRecord(user.id, insightDate);
-
-  if (!insight) {
-    const { treatments } = await getTreatments();
-    insight = await upsertTodayInsight(user.id, insightDate, treatments);
-  }
-
-  await touchViewed(insight);
-
-  const profile = await getProfileScreenData();
-  const userName = profile?.profile.name?.trim() || '고객';
-
-  return toInsightScreenData(insight, userName);
+/** @deprecated /today-care 사용 */
+export async function loadInsightScreenData(): Promise<TodayCareScreenData | null> {
+  return loadTodayCareScreenData();
 }
 
 export async function getTodayDailyCare(treatments: Treatment[]): Promise<DailyCareSnapshot | null> {
@@ -259,11 +212,6 @@ export async function getTodayDailyCare(treatments: Treatment[]): Promise<DailyC
   }
 
   const insightDate = toLocalDateString();
-
-  if (await isTodayInsightDismissed(user.id, insightDate)) {
-    return null;
-  }
-
   let insight = await findTodayInsightRecord(user.id, insightDate);
 
   if (!insight) {
@@ -271,9 +219,7 @@ export async function getTodayDailyCare(treatments: Treatment[]): Promise<DailyC
       return null;
     }
 
-    insight = await upsertTodayInsight(user.id, insightDate, treatments);
-  } else {
-    await touchViewed(insight);
+    insight = await getOrCreateTodayInsight(user.id, insightDate, treatments);
   }
 
   return toDailyCareSnapshot(insight, treatments);
