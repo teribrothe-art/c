@@ -21,6 +21,7 @@ type HomePromoCarouselProps = {
 };
 
 const AUTO_SCROLL_MS = 4200;
+const FOOTER_HEIGHT = 44;
 
 export function HomePromoCarousel({ slides, minHeight, onPressSlide }: HomePromoCarouselProps) {
   const listRef = useRef<FlatList<HomePromoSlide>>(null);
@@ -77,83 +78,88 @@ export function HomePromoCarousel({ slides, minHeight, onPressSlide }: HomePromo
     return null;
   }
 
-  return (
-    <View style={[styles.wrap, { height: carouselHeight }]}>
-      <FlatList
-        ref={listRef}
-        data={slides}
-        horizontal
-        keyExtractor={(item) => item.id}
-        onScrollToIndexFailed={() => undefined}
-        onViewableItemsChanged={onViewableItemsChanged}
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        snapToAlignment="start"
-        snapToInterval={slideWidth}
-        decelerationRate="fast"
-        viewabilityConfig={{ itemVisiblePercentThreshold: 80 }}
-        getItemLayout={(_, index) => ({
-          length: slideWidth,
-          offset: slideWidth * index,
-          index,
-        })}
-        onMomentumScrollEnd={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
-          const index = Math.round(event.nativeEvent.contentOffset.x / slideWidth);
-          setActiveIndex(index);
-        }}
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={() => onPressSlide(item)}
-            style={({ pressed }) => [
-              styles.slidePressable,
-              { width: slideWidth, height: carouselHeight - 28 },
-              pressed && styles.slidePressed,
-            ]}>
-            <LinearGradient colors={item.gradient} style={styles.slideCard}>
-              {item.badge ? <Text style={styles.badge}>{item.badge}</Text> : null}
-              <Text style={styles.title}>{item.title}</Text>
-              <Text style={styles.subtitle}>{item.subtitle}</Text>
-              <View style={styles.ctaPill}>
-                <Text style={styles.ctaText}>{item.ctaLabel} ›</Text>
-              </View>
-            </LinearGradient>
-          </Pressable>
-        )}
-      />
+  const showNav = slides.length > 1;
 
-      {slides.length > 1 ? (
-        <>
+  return (
+    <View style={styles.wrap}>
+      <View style={{ height: carouselHeight }}>
+        <FlatList
+          ref={listRef}
+          data={slides}
+          horizontal
+          keyExtractor={(item) => item.id}
+          onScrollToIndexFailed={() => undefined}
+          onViewableItemsChanged={onViewableItemsChanged}
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          snapToAlignment="start"
+          snapToInterval={slideWidth}
+          decelerationRate="fast"
+          viewabilityConfig={{ itemVisiblePercentThreshold: 80 }}
+          getItemLayout={(_, index) => ({
+            length: slideWidth,
+            offset: slideWidth * index,
+            index,
+          })}
+          onMomentumScrollEnd={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
+            const index = Math.round(event.nativeEvent.contentOffset.x / slideWidth);
+            setActiveIndex(index);
+          }}
+          renderItem={({ item }) => (
+            <Pressable
+              onPress={() => onPressSlide(item)}
+              style={({ pressed }) => [
+                styles.slidePressable,
+                { width: slideWidth, height: carouselHeight },
+                pressed && styles.slidePressed,
+              ]}>
+              <LinearGradient colors={item.gradient} style={styles.slideCard}>
+                {item.badge ? <Text style={styles.badge}>{item.badge}</Text> : null}
+                <Text style={styles.title}>{item.title}</Text>
+                <Text style={styles.subtitle}>{item.subtitle}</Text>
+                <View style={styles.ctaPill}>
+                  <Text style={styles.ctaText}>{item.ctaLabel} ›</Text>
+                </View>
+              </LinearGradient>
+            </Pressable>
+          )}
+        />
+      </View>
+
+      {showNav ? (
+        <View style={[styles.footer, { height: FOOTER_HEIGHT }]}>
           <Pressable
             accessibilityLabel="이전 배너"
             accessibilityRole="button"
             hitSlop={8}
             onPress={goToPrevious}
-            style={({ pressed }) => [styles.navHit, styles.navHitLeft, pressed && styles.navHitPressed]}>
+            style={({ pressed }) => [styles.navHit, pressed && styles.navHitPressed]}>
             <View style={styles.navButton}>
               <Text style={styles.navButtonText}>‹</Text>
             </View>
           </Pressable>
+
+          <View style={styles.dots}>
+            {slides.map((slide, index) => (
+              <View
+                key={slide.id}
+                style={[styles.dot, index === activeIndex && styles.dotActive]}
+              />
+            ))}
+          </View>
+
           <Pressable
             accessibilityLabel="다음 배너"
             accessibilityRole="button"
             hitSlop={8}
             onPress={goToNext}
-            style={({ pressed }) => [styles.navHit, styles.navHitRight, pressed && styles.navHitPressed]}>
+            style={({ pressed }) => [styles.navHit, pressed && styles.navHitPressed]}>
             <View style={styles.navButton}>
               <Text style={styles.navButtonText}>›</Text>
             </View>
           </Pressable>
-        </>
+        </View>
       ) : null}
-
-      <View style={styles.dots} pointerEvents="none">
-        {slides.map((slide, index) => (
-          <View
-            key={slide.id}
-            style={[styles.dot, index === activeIndex && styles.dotActive]}
-          />
-        ))}
-      </View>
     </View>
   );
 }
@@ -161,37 +167,31 @@ export function HomePromoCarousel({ slides, minHeight, onPressSlide }: HomePromo
 const styles = StyleSheet.create({
   wrap: {
     marginBottom: 16,
-    position: 'relative',
     width: '100%',
+  },
+  footer: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 8,
   },
   navHit: {
     alignItems: 'center',
-    bottom: 28,
+    height: 36,
     justifyContent: 'center',
-    position: 'absolute',
-    top: 0,
-    width: 52,
-    zIndex: 2,
-  },
-  navHitLeft: {
-    left: 0,
-  },
-  navHitRight: {
-    right: 0,
+    width: 40,
   },
   navHitPressed: {
     opacity: 0.85,
   },
   navButton: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
     borderRadius: 999,
+    borderWidth: 1,
     height: 36,
     justifyContent: 'center',
-    shadowColor: '#1A1A2E',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
     width: 36,
   },
   navButtonText: {
@@ -252,12 +252,10 @@ const styles = StyleSheet.create({
   },
   dots: {
     alignItems: 'center',
-    bottom: 4,
+    flex: 1,
     flexDirection: 'row',
     gap: 6,
     justifyContent: 'center',
-    position: 'absolute',
-    width: '100%',
   },
   dot: {
     backgroundColor: '#D8D8E4',
