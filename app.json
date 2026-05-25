@@ -1,0 +1,82 @@
+{
+  "expo": {
+    "name": "헤어 다이어리",
+    "slug": "hair-diary-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "splash": {
+      "image": "./assets/images/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FAFAFC"
+    },
+    "scheme": "hairdiaryapp",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "icon": "./assets/expo.icon"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#FAFAFC",
+          "android": {
+            "image": "./assets/images/icon.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#FAFAFC"
+          },
+          "ios": {
+            "image": "./assets/images/icon.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#FAFAFC"
+          }
+        }
+      ],
+      "expo-font",
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "\uc2dc\uc220 \uc804\ud6c4 \uc0ac\uc9c4\uc744 \ub4f1\ub85d\ud558\uae30 \uc704\ud574 \uc0ac\uc9c4 \ub77c\uc774\ube0c\ub7ec\ub9ac \uc811\uadfc\uc774 \ud544\uc694\ud569\ub2c8\ub2e4.",
+          "cameraPermission": "\uc2dc\uc220 \uc0ac\uc9c4 \ucd2c\uc601\uc744 \uc704\ud574 \uce74\uba54\ub77c \uc811\uadfc\uc774 \ud544\uc694\ud569\ub2c8\ub2e4."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "AI \uc74c\uc131 \uc0c1\ub2f4\uc744 \uc704\ud574 \ub9c8\uc774\ud06c \uc811\uadfc\uc774 \ud544\uc694\ud569\ub2c8\ub2e4."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "QR \uc2a4\uce94\uc744 \uc704\ud574 \uce74\uba54\ub77c \uc811\uadfc\uc774 \ud544\uc694\ud569\ub2c8\ub2e4."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
+  }
+}

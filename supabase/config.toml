@@ -1,0 +1,5 @@
+# Supabase CLI 로컬/배포 설정
+# https://supabase.com/docs/guides/functions
+
+[functions.ai-chat]
+verify_jwt = true
