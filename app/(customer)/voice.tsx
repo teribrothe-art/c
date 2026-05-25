@@ -18,6 +18,7 @@ import { showErrorAlert } from '../../lib/alerts';
 import { AiConversation, listAiConversations } from '../../lib/ai-conversations';
 import { processTextConsultation } from '../../lib/ai-voice';
 import { isAnthropicConfigured } from '../../lib/ai-providers';
+import { getConsultationUsageSummary } from '../../lib/ai-usage';
 import { colors } from '../../lib/theme';
 import { BottomTabBar } from '../../src/components/bottom-tab-bar';
 import { EmptyState } from '../../src/components/empty-state';
@@ -59,13 +60,23 @@ export default function CustomerVoiceScreen() {
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [usageHint, setUsageHint] = useState('');
 
   const loadHistory = useCallback(() => {
     setIsLoading(true);
 
-    listAiConversations()
-      .then((items) => {
+    Promise.all([listAiConversations(), getConsultationUsageSummary()])
+      .then(([items, usage]) => {
         setConversations(items.reverse());
+
+        if (usage.premium || usage.todayLimit >= 999) {
+          setUsageHint('');
+          return;
+        }
+
+        setUsageHint(
+          `오늘 ${usage.todayCount}/${usage.todayLimit}회 · 이번 달 ${usage.monthCount}/${usage.monthLimit}회`,
+        );
       })
       .catch(() => {
         showErrorAlert('대화 기록을 불러오지 못했습니다.');
@@ -92,6 +103,13 @@ export default function CustomerVoiceScreen() {
 
       const saved = await processTextConsultation(trimmed);
       setConversations((prev) => [...prev, saved]);
+      const usage = await getConsultationUsageSummary();
+
+      if (!usage.premium && usage.todayLimit < 999) {
+        setUsageHint(
+          `오늘 ${usage.todayCount}/${usage.todayLimit}회 · 이번 달 ${usage.monthCount}/${usage.monthLimit}회`,
+        );
+      }
     } catch (error) {
       const text = error instanceof Error ? error.message : '잠시 후 다시 시도해주세요';
       showErrorAlert(text);
@@ -122,6 +140,7 @@ export default function CustomerVoiceScreen() {
             ? '시술 이력 기반 Claude AI 상담'
             : '데모 모드 — .env에 Anthropic API 키를 설정하면 실제 AI가 응답해요'}
         </Text>
+        {usageHint ? <Text style={styles.usageHint}>{usageHint}</Text> : null}
       </View>
 
       <View style={styles.inputSection}>
@@ -197,6 +216,7 @@ const styles = StyleSheet.create({
   },
   decoIcon: { fontSize: 40 },
   voiceHint: { color: colors.muted, fontSize: 12, marginTop: 8 },
+  usageHint: { color: colors.purple, fontSize: 12, fontWeight: '600', marginTop: 4 },
   inputSection: { gap: 8, paddingHorizontal: 16, paddingBottom: 8 },
   input: {
     backgroundColor: '#FFFFFF',

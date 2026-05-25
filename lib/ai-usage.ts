@@ -1,11 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { listAiConversations } from './ai-conversations';
-import { getCurrentUser } from './auth';
+import { getCurrentUser, isDemoAuthMode } from './auth';
 
 const PREMIUM_STORAGE_KEY = 'hair-diary-ai-premium';
-export const FREE_DAILY_CONSULT_LIMIT = 3;
-export const MONTHLY_API_CONSULT_LIMIT = 30;
+/** 무료 회원 하루 상담 횟수 (이전 3회 → 20회) */
+export const FREE_DAILY_CONSULT_LIMIT = 20;
+export const MONTHLY_API_CONSULT_LIMIT = 200;
 
 function isSameLocalDay(iso: string, reference = new Date()) {
   const date = new Date(iso);
@@ -56,35 +57,76 @@ export async function countConsultationsThisMonth() {
 }
 
 export type UsageCheckResult =
-  | { allowed: true }
-  | { allowed: false; reason: 'daily_limit' | 'monthly_limit'; message: string };
+  | { allowed: true; todayCount: number; todayLimit: number; monthCount: number; monthLimit: number }
+  | {
+      allowed: false;
+      reason: 'daily_limit' | 'monthly_limit';
+      message: string;
+      todayCount: number;
+      todayLimit: number;
+      monthCount: number;
+      monthLimit: number;
+    };
+
+export async function getConsultationUsageSummary() {
+  const premium = await isPremiumUser();
+  const todayCount = await countConsultationsToday();
+  const monthCount = await countConsultationsThisMonth();
+  const todayLimit = premium ? 999 : FREE_DAILY_CONSULT_LIMIT;
+  const monthLimit = premium ? 9999 : MONTHLY_API_CONSULT_LIMIT;
+
+  return {
+    premium,
+    todayCount,
+    monthCount,
+    todayLimit,
+    monthLimit,
+    todayRemaining: Math.max(0, todayLimit - todayCount),
+  };
+}
 
 export async function checkConsultationUsage(): Promise<UsageCheckResult> {
-  const premium = await isPremiumUser();
+  const summary = await getConsultationUsageSummary();
 
-  if (premium) {
-    return { allowed: true };
+  if (isDemoAuthMode || summary.premium) {
+    return {
+      allowed: true,
+      todayCount: summary.todayCount,
+      todayLimit: summary.todayLimit,
+      monthCount: summary.monthCount,
+      monthLimit: summary.monthLimit,
+    };
   }
 
-  const todayCount = await countConsultationsToday();
-
-  if (todayCount >= FREE_DAILY_CONSULT_LIMIT) {
+  if (summary.todayCount >= summary.todayLimit) {
     return {
       allowed: false,
       reason: 'daily_limit',
-      message: '프리미엄으로 업그레이드해주세요',
+      message: `오늘 상담은 ${summary.todayLimit}회까지예요. 내일 다시 이용해주세요.`,
+      todayCount: summary.todayCount,
+      todayLimit: summary.todayLimit,
+      monthCount: summary.monthCount,
+      monthLimit: summary.monthLimit,
     };
   }
 
-  const monthCount = await countConsultationsThisMonth();
-
-  if (monthCount >= MONTHLY_API_CONSULT_LIMIT) {
+  if (summary.monthCount >= summary.monthLimit) {
     return {
       allowed: false,
       reason: 'monthly_limit',
-      message: '오늘의 상담 한도가 다 됐어요',
+      message: `이번 달 상담 한도(${summary.monthLimit}회)를 모두 사용했어요.`,
+      todayCount: summary.todayCount,
+      todayLimit: summary.todayLimit,
+      monthCount: summary.monthCount,
+      monthLimit: summary.monthLimit,
     };
   }
 
-  return { allowed: true };
+  return {
+    allowed: true,
+    todayCount: summary.todayCount,
+    todayLimit: summary.todayLimit,
+    monthCount: summary.monthCount,
+    monthLimit: summary.monthLimit,
+  };
 }
