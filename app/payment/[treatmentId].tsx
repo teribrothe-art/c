@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -15,10 +15,8 @@ import { showErrorAlert } from '../../lib/alerts';
 import { getErrorMessage } from '../../lib/errors';
 import { ensurePaymentRecordForTreatment } from '../../lib/payment-record';
 import {
-  calculatePayout,
   handleTossPaymentFailure,
   handleTossPaymentSuccess,
-  PLATFORM_FEE_RATE,
   preparePaymentSession,
 } from '../../lib/payments';
 import { normalizePaymentStatus } from '../../lib/payment-status';
@@ -136,7 +134,6 @@ export default function CustomerPaymentScreen() {
   }, [treatmentId]);
 
   const amount = treatment?.price ?? 0;
-  const payout = useMemo(() => calculatePayout(amount), [amount]);
 
   const handlePay = async () => {
     if (!treatment || !treatmentId || isPaying) {
@@ -301,22 +298,6 @@ export default function CustomerPaymentScreen() {
         <View style={styles.amountHero}>
           <Text style={styles.amountLabel}>결제 금액</Text>
           <Text style={styles.amountValue}>{formatWon(amount)}</Text>
-        </View>
-
-        <View style={styles.detailCard}>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>시술 금액</Text>
-            <Text style={styles.detailValue}>{formatWon(amount)}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>앱 수수료 ({Math.round(PLATFORM_FEE_RATE * 100)}%)</Text>
-            <Text style={styles.feeValue}>-{formatWon(payout.platformFee)}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.detailRow}>
-            <Text style={styles.payoutLabel}>디자이너 입금</Text>
-            <Text style={styles.payoutValue}>{formatWon(payout.designerPayout)}</Text>
-          </View>
         </View>
 
         <View style={styles.methodCard}>
@@ -500,47 +481,6 @@ const styles = StyleSheet.create({
   amountValue: {
     color: '#1A1A2E',
     fontSize: 40,
-    fontWeight: '800',
-  },
-  detailCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    gap: 12,
-    marginBottom: 12,
-    padding: 18,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  detailLabel: {
-    color: '#6B6B7B',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  detailValue: {
-    color: '#1A1A2E',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  feeValue: {
-    color: CORAL,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  divider: {
-    backgroundColor: '#E8E8F0',
-    height: 1,
-    marginVertical: 4,
-  },
-  payoutLabel: {
-    color: '#1A1A2E',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  payoutValue: {
-    color: MINT,
-    fontSize: 16,
     fontWeight: '800',
   },
   methodCard: {
