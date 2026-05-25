@@ -1,15 +1,17 @@
 import * as Linking from 'expo-linking';
-import { router } from 'expo-router';
-import { useEffect } from 'react';
+import { useRootNavigationState, useRouter } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { InteractionManager } from 'react-native';
 
 import { redeemInviteForCurrentUser } from '../../lib/apply-pending-invite';
 import { getCurrentUser } from '../../lib/auth';
 import { parseInviteCodeFromQrPayload } from '../../lib/customer-invitations';
-import { showErrorAlert } from '../../lib/alerts';
-import { getErrorMessage } from '../../lib/errors';
 import { stashPendingInviteCode } from '../../lib/pending-invite-code';
 
-async function routeInviteCode(code: string) {
+async function routeInviteCode(
+  code: string,
+  router: ReturnType<typeof useRouter>,
+) {
   if (code.length !== 6) {
     return;
   }
@@ -25,9 +27,8 @@ async function routeInviteCode(code: string) {
       if (redeemed) {
         return;
       }
-    } catch (error) {
-      showErrorAlert(getErrorMessage(error, '초대 코드 연결에 실패했습니다.'));
-      return;
+    } catch {
+      // 로그인 화면에서 수동 연결 가능
     }
   }
 
@@ -37,29 +38,50 @@ async function routeInviteCode(code: string) {
   });
 }
 
-function handleInviteUrl(url: string | null) {
-  if (!url) {
-    return;
-  }
-
-  const code = parseInviteCodeFromQrPayload(url);
-
-  void routeInviteCode(code);
-}
-
 /** 앱 외부 QR/링크(hairdiaryapp://invite/CODE) → 회원가입 화면으로 연결 */
 export function InviteDeepLinkHandler() {
+  const router = useRouter();
+  const rootState = useRootNavigationState();
+  const handledInitial = useRef(false);
+
+  const navigationReady = Boolean(rootState?.key);
+
   useEffect(() => {
-    Linking.getInitialURL()
-      .then(handleInviteUrl)
-      .catch(() => undefined);
+    if (!navigationReady || handledInitial.current) {
+      return;
+    }
+
+    handledInitial.current = true;
+
+    const task = InteractionManager.runAfterInteractions(() => {
+      Linking.getInitialURL()
+        .then((url) => {
+          if (!url) {
+            return;
+          }
+
+          const code = parseInviteCodeFromQrPayload(url);
+          return routeInviteCode(code, router);
+        })
+        .catch(() => undefined);
+    });
+
+    return () => task.cancel();
+  }, [navigationReady, router]);
+
+  useEffect(() => {
+    if (!navigationReady) {
+      return;
+    }
 
     const subscription = Linking.addEventListener('url', (event) => {
-      handleInviteUrl(event.url);
+      const code = parseInviteCodeFromQrPayload(event.url);
+
+      void routeInviteCode(code, router);
     });
 
     return () => subscription.remove();
-  }, []);
+  }, [navigationReady, router]);
 
   return null;
 }
