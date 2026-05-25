@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
+import { chatWithClaude, getUserContext, saveAiConversation, UserAiContext } from './ai';
+import { isAnthropicConfigured } from './ai-providers';
 import { toAppError } from './errors';
 import { supabase } from './supabase';
 import { getTreatments, Treatment } from './treatments';
@@ -35,12 +37,15 @@ async function writeDemoStore(items: AiConversation[]) {
 
 export function buildTreatmentContext(treatments: Treatment[]) {
   const recent = treatments.slice(0, 5).map((treatment) => ({
-    id: treatment.id,
-    date: treatment.treatment_date,
-    type: treatment.treatment_type,
-    title: treatment.treatment_title,
-    damage: treatment.damage_level,
-    insight: treatment.ai_insight,
+    treatment_date: treatment.treatment_date,
+    treatment_type: treatment.treatment_type,
+    treatment_title: treatment.treatment_title,
+    damage_level: treatment.damage_level ?? null,
+    duration: treatment.duration ?? null,
+    designer_diagnosis: treatment.designer_diagnosis ?? null,
+    home_care: treatment.home_care ?? null,
+    ai_insight: treatment.ai_insight ?? null,
+    designer_name: treatment.designer_name ?? null,
   }));
 
   return {
@@ -49,25 +54,26 @@ export function buildTreatmentContext(treatments: Treatment[]) {
   };
 }
 
-/** 데모/연동 전 플레이스홀더 응답 */
+/** @deprecated lib/ai.ts getUserContext + chatWithClaude 사용 */
 export function generatePlaceholderAiResponse(userMessage: string, treatments: Treatment[]) {
-  const latest = treatments[0];
+  const context: UserAiContext = {
+    user_id: 'demo',
+    profile: { name: null, joined_at: null },
+    recent_treatments: buildTreatmentContext(treatments).recent_treatments,
+  };
+
+  const lower = userMessage.toLowerCase();
+  const latest = context.recent_treatments[0];
 
   if (!latest) {
     return '아직 등록된 시술 기록이 없어요. 시술 후 다이어리를 채우면 더 정확한 조언을 드릴 수 있어요.';
   }
 
-  const lower = userMessage.toLowerCase();
-
   if (lower.includes('손상') || lower.includes('케어')) {
     return `최근 ${latest.treatment_type} 시술 기준 손상도는 ${latest.damage_level ?? '-'}/10이에요. ${latest.home_care || '주 2회 딥 케어와 열 차단을 권장해요.'}`;
   }
 
-  if (lower.includes('다음') || lower.includes('언제')) {
-    return `${latest.treatment_title} 이후에는 4~6주 간격으로 점검을 추천해요. ${latest.ai_insight || '다음 방문 전 모이스처 트리트먼트를 유지해 보세요.'}`;
-  }
-
-  return `${latest.treatment_title}(${latest.treatment_date}) 기록을 참고했어요. ${latest.designer_diagnosis || latest.ai_insight || '궁금한 점을 조금 더 구체적으로 말씀해 주시면 맞춤 조언을 드릴게요.'}`;
+  return `${latest.treatment_title} 기록을 참고했어요. ${latest.designer_diagnosis || latest.ai_insight || '궁금한 점을 더 구체적으로 말씀해 주세요.'}`;
 }
 
 export async function listAiConversations(limit = 30) {
@@ -99,80 +105,32 @@ export async function listAiConversations(limit = 30) {
   return (data ?? []) as AiConversation[];
 }
 
-export async function saveAiConversation(input: {
-  userMessage: string;
-  aiResponse: string;
-  audioUrl?: string | null;
-  contextUsed?: Record<string, unknown> | null;
-}) {
+export async function askAiWithContext(userMessage: string) {
   const user = await getCurrentUser();
 
   if (!user) {
     throw new Error('로그인이 필요합니다.');
   }
 
-  const record: Omit<AiConversation, 'id' | 'created_at'> = {
-    user_id: user.id,
-    user_message: input.userMessage.trim(),
-    ai_response: input.aiResponse.trim(),
-    audio_url: input.audioUrl ?? null,
-    context_used: input.contextUsed ?? null,
-  };
+  const trimmed = userMessage.trim();
 
-  if (!record.user_message) {
+  if (!trimmed) {
     throw new Error('메시지를 입력해 주세요.');
   }
 
-  if (isDemoAuthMode || !supabase) {
-    const items = await readDemoStore();
-    const conversation: AiConversation = {
-      ...record,
-      id: `demo-ai-${Date.now()}`,
-      created_at: new Date().toISOString(),
-    };
-
-    items.unshift(conversation);
-    await writeDemoStore(items.slice(0, 100));
-    return conversation;
-  }
-
-  const { data, error } = await supabase
-    .from('ai_conversations')
-    .insert(record)
-    .select(selectFields)
-    .single();
-
-  if (error) {
-    throw toAppError(error);
-  }
-
-  return data as AiConversation;
-}
-
-export async function askAiWithContext(userMessage: string) {
-  const { treatments } = await getTreatments();
-  const contextUsed: Record<string, unknown> = {
-    ...buildTreatmentContext(treatments),
-  };
-  const { generateAiResponse, getActiveAiProvider } = await import('./ai-providers');
-  const provider = getActiveAiProvider();
-
-  let aiResponse: string;
-
-  try {
-    aiResponse = await generateAiResponse(userMessage, treatments);
-    contextUsed.provider = provider;
-    contextUsed.fallback = false;
-  } catch (error) {
-    aiResponse = generatePlaceholderAiResponse(userMessage, treatments);
-    contextUsed.fallback = true;
-    contextUsed.provider = provider;
-    contextUsed.error = error instanceof Error ? error.message : 'AI API failed';
-  }
+  const userContext = await getUserContext(user.id);
+  const aiResponse = await chatWithClaude(trimmed, userContext, user.id);
 
   return saveAiConversation({
-    userMessage,
+    userId: user.id,
+    userMessage: trimmed,
     aiResponse,
-    contextUsed,
+    contextUsed: {
+      ...userContext,
+      provider: isAnthropicConfigured() ? 'anthropic' : 'demo',
+      model: isAnthropicConfigured() ? 'claude-haiku-4-5' : 'demo',
+    },
   });
 }
+
+export { saveAiConversation } from './ai';

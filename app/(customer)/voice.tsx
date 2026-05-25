@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { showErrorAlert } from '../../lib/alerts';
 import { AiConversation, listAiConversations } from '../../lib/ai-conversations';
 import { processTextConsultation } from '../../lib/ai-voice';
+import { isAnthropicConfigured } from '../../lib/ai-providers';
 import { colors } from '../../lib/theme';
 import { BottomTabBar } from '../../src/components/bottom-tab-bar';
 import { EmptyState } from '../../src/components/empty-state';
@@ -116,7 +117,11 @@ export default function CustomerVoiceScreen() {
           style={styles.decoCircle}>
           <Text style={styles.decoIcon}>💬</Text>
         </LinearGradient>
-        <Text style={styles.voiceHint}>음성 입력은 준비 중입니다</Text>
+        <Text style={styles.voiceHint}>
+          {isAnthropicConfigured()
+            ? '시술 이력 기반 Claude AI 상담'
+            : '데모 모드 — .env에 Anthropic API 키를 설정하면 실제 AI가 응답해요'}
+        </Text>
       </View>
 
       <View style={styles.inputSection}>

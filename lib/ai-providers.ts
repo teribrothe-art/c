@@ -31,7 +31,16 @@ export function isOpenAiConfigured() {
 }
 
 export function isAnthropicConfigured() {
-  return isRealKey(getAnthropicApiKey(), 'sk-ant-');
+  const key = getAnthropicApiKey();
+
+  if (!key) {
+    return false;
+  }
+
+  return (
+    (key.startsWith('sk-ant-') || key.startsWith('sk-ant-api')) &&
+    !PLACEHOLDER_MARKERS.some((marker) => key.includes(marker))
+  );
 }
 
 export function getActiveAiProvider(): AiProvider {

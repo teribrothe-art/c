@@ -1,50 +1,112 @@
 import axios, { isAxiosError } from 'axios';
 
-import { buildTreatmentContext, generatePlaceholderAiResponse } from './ai-conversations';
-import { isDemoAuthMode } from './auth';
+import { getCurrentUser, isDemoAuthMode } from './auth';
 import { getAnthropicApiKey, isAnthropicConfigured } from './ai-providers';
 import { toAppError } from './errors';
 import { AI_NO_PRODUCT_INSTRUCTION } from './treatment-privacy';
+import { sanitizeTreatmentsForCustomer } from './treatment-privacy';
+import { Treatment } from './treatments';
 import { supabase } from './supabase';
-import { getTreatments } from './treatments';
 
 const CLAUDE_MODEL = 'claude-haiku-4-5';
+const ANTHROPIC_MESSAGES_URL = 'https://api.anthropic.com/v1/messages';
+const DEMO_CONVERSATIONS_KEY = 'hair-diary-ai-conversations';
 
 const SYSTEM_PROMPT = `당신은 헤어 케어 AI 어시스턴트입니다.
 사용자의 시술 이력을 참고해서 개인화된 답변을 제공하세요.
-답변은 친근하고 전문적이게, 한국어로 2-3문장 이내로 짧게.
-손상도, 시술 주기, 홈케어 등 구체적 조언 포함.
+답변은 친근하고 전문적이게, 한국어로 2~3문장 이내로 짧게 작성하세요.
+손상도, 시술 주기, 홈케어, 디자이너 소견 등 구체적 조언을 포함하세요.
+의료 진단이 아닌 일반적인 헤어 케어 조언 수준으로 답하세요.
 
 ${AI_NO_PRODUCT_INSTRUCTION}`;
+
+export type UserAiTreatmentContext = {
+  treatment_date: string;
+  treatment_type: string;
+  treatment_title: string;
+  damage_level: number | null;
+  duration: string | null;
+  designer_diagnosis: string | null;
+  home_care: string | null;
+  ai_insight: string | null;
+  designer_name: string | null;
+};
 
 export type UserAiContext = {
   user_id: string;
   profile: {
-    id: string;
-    email: string | null;
     name: string | null;
-    role: string | null;
+    joined_at: string | null;
   };
-  treatment_count: number;
-  recent_treatments: ReturnType<typeof buildTreatmentContext>['recent_treatments'];
+  recent_treatments: UserAiTreatmentContext[];
 };
 
-/** profiles + 최근 시술 5건을 JSON 컨텍스트로 반환 */
-export async function getUserContext(userId: string): Promise<UserAiContext> {
-  const { treatments } = await getTreatments();
-  const treatmentContext = buildTreatmentContext(treatments);
+export type SavedAiConversation = {
+  id: string;
+  user_id: string;
+  user_message: string;
+  ai_response: string;
+  audio_url: string | null;
+  context_used: Record<string, unknown> | null;
+  created_at: string;
+};
 
-  let profile = {
-    id: userId,
-    email: null as string | null,
-    name: null as string | null,
-    role: null as string | null,
+const conversationSelect =
+  'id, user_id, user_message, ai_response, audio_url, context_used, created_at';
+
+function mapTreatmentToContext(treatment: Treatment): UserAiTreatmentContext {
+  return {
+    treatment_date: treatment.treatment_date,
+    treatment_type: treatment.treatment_type,
+    treatment_title: treatment.treatment_title,
+    damage_level: treatment.damage_level ?? null,
+    duration: treatment.duration ?? null,
+    designer_diagnosis: treatment.designer_diagnosis ?? null,
+    home_care: treatment.home_care ?? null,
+    ai_insight: treatment.ai_insight ?? null,
+    designer_name: treatment.designer_name ?? null,
+  };
+}
+
+async function fetchRecentTreatmentsForUser(userId: string): Promise<Treatment[]> {
+  const treatmentSelect =
+    'id, customer_id, designer_id, designer_name, customer_name, treatment_date, treatment_type, treatment_title, technique, damage_level, notes, duration, designer_diagnosis, home_care, ai_insight, price, payment_status, feedback_completed, payment_requested_at, paid_at, settled_at, toss_order_id, toss_payment_key, platform_fee, designer_payout_amount, before_photo_url, after_photo_url, created_at';
+
+  if (isDemoAuthMode || !supabase) {
+    const { getTreatments } = await import('./treatments');
+    const { treatments } = await getTreatments();
+
+    return treatments
+      .filter((item) => item.customer_id === userId)
+      .sort((a, b) => b.treatment_date.localeCompare(a.treatment_date))
+      .slice(0, 5);
+  }
+
+  const { data, error } = await supabase
+    .from('treatments')
+    .select(treatmentSelect)
+    .eq('customer_id', userId)
+    .order('treatment_date', { ascending: false })
+    .limit(5);
+
+  if (error) {
+    throw toAppError(error);
+  }
+
+  return sanitizeTreatmentsForCustomer((data ?? []) as Treatment[]);
+}
+
+/** profiles + 최근 시술 5건 JSON (약품·가격 제외) */
+export async function getUserContext(userId: string): Promise<UserAiContext> {
+  let profile: UserAiContext['profile'] = {
+    name: null,
+    joined_at: null,
   };
 
   if (supabase && !isDemoAuthMode) {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, email, name, role')
+      .select('name, created_at')
       .eq('id', userId)
       .maybeSingle();
 
@@ -54,28 +116,86 @@ export async function getUserContext(userId: string): Promise<UserAiContext> {
 
     if (data) {
       profile = {
-        id: data.id,
-        email: data.email ?? null,
-        name: data.name,
-        role: data.role,
+        name: data.name ?? null,
+        joined_at: data.created_at ?? null,
       };
     }
+  } else {
+    const usersRaw = await (
+      await import('@react-native-async-storage/async-storage')
+    ).default.getItem('hair-diary-demo-users');
+    const users = usersRaw ? (JSON.parse(usersRaw) as { id: string; name: string | null }[]) : [];
+    const match = users.find((user) => user.id === userId);
+    profile = {
+      name: match?.name ?? null,
+      joined_at: new Date().toISOString(),
+    };
   }
+
+  const treatments = await fetchRecentTreatmentsForUser(userId);
 
   return {
     user_id: userId,
     profile,
-    treatment_count: treatmentContext.treatment_count,
-    recent_treatments: treatmentContext.recent_treatments,
+    recent_treatments: treatments.map(mapTreatmentToContext),
   };
 }
 
-/** Anthropic Claude — 개인화 답변 (2~3문장) */
+function buildDemoAiResponse(userMessage: string, userContext: UserAiContext) {
+  const latest = userContext.recent_treatments[0];
+
+  if (!latest) {
+    return '아직 등록된 시술 기록이 없어요. 시술 후 다이어리를 채우면 더 정확한 조언을 드릴 수 있어요.';
+  }
+
+  const lower = userMessage.toLowerCase();
+
+  if (lower.includes('손상') || lower.includes('케어')) {
+    return `최근 ${latest.treatment_type} 시술 기준 손상도는 ${latest.damage_level ?? '-'}/10이에요. ${latest.home_care || '주 2회 딥 케어와 열 차단을 권장해요.'}`;
+  }
+
+  if (lower.includes('다음') || lower.includes('언제')) {
+    return `${latest.treatment_title} 이후에는 4~6주 간격으로 점검을 추천해요. ${latest.ai_insight || '다음 방문 전 수분 케어를 유지해 보세요.'}`;
+  }
+
+  return `${latest.treatment_title}(${latest.treatment_date}) 기록을 참고했어요. ${latest.designer_diagnosis || latest.ai_insight || '궁금한 점을 조금 더 구체적으로 말씀해 주시면 맞춤 조언을 드릴게요.'}`;
+}
+
+function parseClaudeError(error: unknown): string {
+  if (isAxiosError(error)) {
+    const status = error.response?.status;
+    const apiMessage =
+      (error.response?.data as { error?: { message?: string } })?.error?.message ??
+      error.message;
+
+    if (status === 401 || status === 403) {
+      return 'API 키를 확인해주세요. .env의 EXPO_PUBLIC_ANTHROPIC_API_KEY를 설정한 뒤 앱을 다시 시작해주세요.';
+    }
+
+    if (status === 429) {
+      return '오늘의 상담 한도가 다 됐어요';
+    }
+
+    if (!error.response) {
+      return '인터넷 연결을 확인해주세요';
+    }
+
+    return apiMessage || '잠시 후 다시 시도해주세요';
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return '잠시 후 다시 시도해주세요';
+}
+
+/** Anthropic Claude API — 개인화 답변 */
 export async function chatWithClaude(
   userMessage: string,
   userContext: UserAiContext | Record<string, unknown>,
+  _userId: string,
 ): Promise<string> {
-  const contextJson = JSON.stringify(userContext, null, 0);
   const trimmedMessage = userMessage.trim();
 
   if (!trimmedMessage) {
@@ -83,20 +203,20 @@ export async function chatWithClaude(
   }
 
   if (!isAnthropicConfigured()) {
-    const { treatments } = await getTreatments();
-    return generatePlaceholderAiResponse(trimmedMessage, treatments);
+    return buildDemoAiResponse(trimmedMessage, userContext as UserAiContext);
   }
 
-  const apiKey = getAnthropicApiKey();
+  const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY?.trim() || getAnthropicApiKey();
+  const contextJson = JSON.stringify(userContext, null, 0);
 
   try {
     const { data } = await axios.post<{
       content?: { type: string; text?: string }[];
     }>(
-      'https://api.anthropic.com/v1/messages',
+      ANTHROPIC_MESSAGES_URL,
       {
         model: CLAUDE_MODEL,
-        max_tokens: 280,
+        max_tokens: 500,
         system: SYSTEM_PROMPT,
         messages: [
           {
@@ -109,7 +229,7 @@ export async function chatWithClaude(
         headers: {
           'x-api-key': apiKey,
           'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
+          'content-type': 'application/json',
         },
         timeout: 60_000,
       },
@@ -127,18 +247,64 @@ export async function chatWithClaude(
       throw error;
     }
 
-    const { treatments } = await getTreatments();
-
-    if (isAxiosError(error) && (error.response?.status === 429 || !error.response)) {
-      if (error.response?.status === 429) {
-        throw new Error('오늘의 상담 한도가 다 됐어요');
-      }
-
-      if (!error.response) {
-        throw new Error('인터넷 연결 확인');
-      }
-    }
-
-    return generatePlaceholderAiResponse(trimmedMessage, treatments);
+    throw new Error(parseClaudeError(error));
   }
+}
+
+/** ai_conversations 저장 */
+export async function saveAiConversation(input: {
+  userId: string;
+  userMessage: string;
+  aiResponse: string;
+  audioUrl?: string | null;
+  contextUsed?: Record<string, unknown> | null;
+}): Promise<SavedAiConversation> {
+  const record = {
+    user_id: input.userId,
+    user_message: input.userMessage.trim(),
+    ai_response: input.aiResponse.trim(),
+    audio_url: input.audioUrl ?? null,
+    context_used: input.contextUsed ?? null,
+  };
+
+  if (!record.user_message) {
+    throw new Error('메시지를 입력해 주세요.');
+  }
+
+  if (!record.ai_response) {
+    throw new Error('AI 응답이 비어 있습니다.');
+  }
+
+  if (isDemoAuthMode || !supabase) {
+    const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+    const raw = await AsyncStorage.getItem(DEMO_CONVERSATIONS_KEY);
+    const items = raw ? (JSON.parse(raw) as SavedAiConversation[]) : [];
+    const conversation: SavedAiConversation = {
+      ...record,
+      id: `demo-ai-${Date.now()}`,
+      created_at: new Date().toISOString(),
+    };
+
+    items.unshift(conversation);
+    await AsyncStorage.setItem(DEMO_CONVERSATIONS_KEY, JSON.stringify(items.slice(0, 100)));
+    return conversation;
+  }
+
+  const user = await getCurrentUser();
+
+  if (!user || user.id !== input.userId) {
+    throw new Error('대화를 저장할 권한이 없습니다.');
+  }
+
+  const { data, error } = await supabase
+    .from('ai_conversations')
+    .insert(record)
+    .select(conversationSelect)
+    .single();
+
+  if (error) {
+    throw toAppError(error);
+  }
+
+  return data as SavedAiConversation;
 }
