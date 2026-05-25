@@ -3,7 +3,8 @@ import { Platform } from 'react-native';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
-import { imagePickerOptions, isDisplayableImageUri, normalizePickerAssetUri } from './image-uri';
+import { imagePickerOptions, isDisplayableImageUri } from './image-uri';
+import { prepareImageForUpload } from './prepare-upload-image';
 import { supabase } from './supabase';
 import { Treatment, updateTreatment } from './treatments';
 
@@ -71,7 +72,7 @@ export async function pickTreatmentPhotoFromLibrary() {
     throw new Error('PHOTO_TOO_LARGE');
   }
 
-  return normalizePickerAssetUri(asset);
+  return prepareImageForUpload(asset.uri);
 }
 
 export async function uploadTreatmentPhoto(
