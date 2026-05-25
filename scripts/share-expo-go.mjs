@@ -36,7 +36,6 @@ async function writeShareArtifacts(url, meta) {
     '1. 휴대폰에 Expo Go 설치 (SDK 56)',
     '2. Expo Go → Scan QR code → expo-go-qr.png 스캔',
     '   또는 Enter URL manually → 위 exp:// 주소 붙여넣기',
-    '3. 데모 로그인: demo@hair.app / demo1234',
     '',
     '## PC에서 Metro 유지',
     '이 창을 닫지 말고 npm run start:phone 이 켜져 있어야 합니다.',
@@ -68,7 +67,7 @@ async function writeShareArtifacts(url, meta) {
   <img src="${qrDataUrl}" alt="Expo Go QR" />
   <p class="url" id="url">${url}</p>
   <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('url').textContent).then(()=>alert('주소 복사됨'))">주소 복사</button>
-  <p class="meta">Expo Go → Scan QR 또는 URL 직접 입력 · 데모: demo@hair.app / demo1234</p>
+  <p class="meta">Expo Go → Scan QR 또는 URL 직접 입력 후 앱에서 로그인하세요.</p>
 </body>
 </html>
 `;
