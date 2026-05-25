@@ -14,8 +14,7 @@ import { redeemInviteForCurrentUser } from '../lib/apply-pending-invite';
 import { getPostAuthRoute } from '../lib/auth-redirect';
 import { getCurrentUser } from '../lib/auth';
 import { peekPendingInviteCode } from '../lib/pending-invite-code';
-import { BETA_DESIGNERS, BETA_TEST_PASSWORD } from '../lib/beta-test-accounts';
-import { DEMO_LOGIN_HINT, isDemoAuthMode, signInWithEmail } from '../lib/auth';
+import { signInWithEmail } from '../lib/auth';
 import { showLoginFailureAlert } from '../lib/alerts';
 import { getErrorMessage } from '../lib/errors';
 import { colors, disabledButtonStyle } from '../lib/theme';
@@ -137,17 +136,6 @@ export default function LoginScreen() {
 
           <InlineFieldError message={loginError} />
 
-          {isDemoAuthMode ? (
-            <>
-              <Text style={styles.demoHint}>
-                데모: {DEMO_LOGIN_HINT.customerEmail} / {DEMO_LOGIN_HINT.customerPassword}
-              </Text>
-              <Text style={styles.demoHint}>
-                베타 디자이너: {BETA_DESIGNERS[0].email} … {BETA_DESIGNERS[4].email} / {BETA_TEST_PASSWORD}
-              </Text>
-            </>
-          ) : null}
-
           <Pressable
             disabled={isSubmitDisabled}
             onPress={handleLogin}
@@ -233,11 +221,5 @@ const styles = StyleSheet.create({
     color: colors.coral,
     fontSize: 16,
     fontWeight: '600',
-  },
-  demoHint: {
-    color: colors.muted,
-    fontSize: 13,
-    lineHeight: 18,
-    textAlign: 'center',
   },
 });
