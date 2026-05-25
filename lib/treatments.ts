@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
 import type { PaymentStatus } from './payment-status';
@@ -39,7 +41,9 @@ export type Treatment = {
 const treatmentSelectFields =
   'id, customer_id, designer_id, designer_name, customer_name, treatment_date, treatment_type, treatment_title, products, technique, damage_level, notes, duration, designer_diagnosis, home_care, ai_insight, price, payment_status, feedback_completed, payment_requested_at, paid_at, settled_at, toss_order_id, toss_payment_key, platform_fee, designer_payout_amount, before_photo_url, after_photo_url, created_at';
 
-const demoTreatments: Treatment[] = [
+const DEMO_TREATMENTS_KEY = 'hair-diary-demo-treatments';
+
+const INITIAL_DEMO_TREATMENTS: Treatment[] = [
   {
     id: 'demo-treatment-1',
     customer_id: 'demo-customer-kim-jiwon',
@@ -126,6 +130,30 @@ const demoTreatments: Treatment[] = [
   },
 ];
 
+const demoTreatments: Treatment[] = INITIAL_DEMO_TREATMENTS.map((item) => ({ ...item }));
+
+let demoHydratePromise: Promise<void> | null = null;
+
+async function hydrateDemoTreatments() {
+  if (!demoHydratePromise) {
+    demoHydratePromise = (async () => {
+      const raw = await AsyncStorage.getItem(DEMO_TREATMENTS_KEY);
+
+      if (raw) {
+        const stored = JSON.parse(raw) as Treatment[];
+        demoTreatments.length = 0;
+        demoTreatments.push(...stored);
+      }
+    })();
+  }
+
+  await demoHydratePromise;
+}
+
+async function persistDemoTreatments() {
+  await AsyncStorage.setItem(DEMO_TREATMENTS_KEY, JSON.stringify(demoTreatments));
+}
+
 export async function getTreatments() {
   const user = await getCurrentUser();
 
@@ -136,7 +164,8 @@ export async function getTreatments() {
   let treatments: Treatment[];
 
   if (isDemoAuthMode || !supabase) {
-    treatments = demoTreatments;
+    await hydrateDemoTreatments();
+    treatments = [...demoTreatments];
   } else {
     const { data, error } = await supabase
       .from('treatments')
@@ -168,6 +197,7 @@ export async function getTreatmentById(id: string) {
   let treatment: Treatment | null;
 
   if (isDemoAuthMode || !supabase) {
+    await hydrateDemoTreatments();
     treatment = demoTreatments.find((item) => item.id === id) ?? null;
   } else {
     const { data, error } = await supabase
@@ -202,9 +232,10 @@ export async function getDesignerTreatments() {
   }
 
   if (isDemoAuthMode || !supabase) {
+    await hydrateDemoTreatments();
     return {
       user,
-      treatments: demoTreatments
+      treatments: [...demoTreatments]
         .map((treatment) => ({ ...treatment, designer_id: user.id }))
         .sort((a, b) => b.treatment_date.localeCompare(a.treatment_date)),
     };
@@ -261,6 +292,8 @@ export async function updateTreatment(id: string, updates: TreatmentUpdateInput)
       ...demoTreatments[index],
       ...updates,
     };
+
+    await persistDemoTreatments();
 
     return demoTreatments[index];
   }

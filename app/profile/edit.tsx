@@ -1,8 +1,8 @@
 import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { showErrorAlert, showSuccessAlert } from '../../lib/alerts';
 import { getErrorMessage } from '../../lib/errors';
+import { imagePickerOptions, normalizePickerAssetUri } from '../../lib/image-uri';
 import { getProfileAvatarUri, updateProfile } from '../../lib/profile-update';
 import { getProfileScreenData } from '../../lib/profile';
 import { colors } from '../../lib/theme';
@@ -47,22 +48,21 @@ export default function ProfileEditScreen() {
   }, []);
 
   const handlePickPhoto = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (!permission.granted) {
-      showErrorAlert('사진 라이브러리 접근 권한이 필요해요.');
-      return;
-    }
+      if (!permission.granted) {
+        showErrorAlert('사진 라이브러리 접근 권한이 필요해요.');
+        return;
+      }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+      const result = await ImagePicker.launchImageLibraryAsync(imagePickerOptions({ aspect: [1, 1] }));
 
-    if (!result.canceled && result.assets[0]?.uri) {
-      setAvatarUri(result.assets[0].uri);
+      if (!result.canceled && result.assets[0]) {
+        setAvatarUri(normalizePickerAssetUri(result.assets[0]));
+      }
+    } catch (error) {
+      showErrorAlert(getErrorMessage(error, '사진을 선택하지 못했습니다.'));
     }
   };
 
@@ -94,13 +94,17 @@ export default function ProfileEditScreen() {
         <LoadingState message="불러오는 중..." />
       ) : (
         <View style={styles.body}>
-          <Pressable onPress={() => void handlePickPhoto()} style={styles.avatarButton}>
+          <Pressable
+            onPress={() => void handlePickPhoto()}
+            style={({ pressed }) => [styles.avatarButton, pressed && { opacity: 0.85 }]}>
             {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+              <Image source={{ uri: avatarUri }} style={styles.avatarImage} contentFit="cover" />
             ) : (
-              <Text style={styles.avatarPlaceholder}>📷</Text>
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarPlaceholderText}>📷</Text>
+              </View>
             )}
-            <Text style={styles.avatarHint}>프로필 사진 (선택)</Text>
+            <Text style={styles.avatarHint}>탭하여 프로필 사진 선택 (선택)</Text>
           </Pressable>
 
           <Text style={styles.label}>이름</Text>
@@ -116,7 +120,11 @@ export default function ProfileEditScreen() {
           <Pressable
             disabled={isSaving}
             onPress={() => void handleSave()}
-            style={({ pressed }) => [styles.saveButton, pressed && styles.savePressed, isSaving && styles.saveDisabled]}>
+            style={({ pressed }) => [
+              styles.saveButton,
+              pressed && styles.savePressed,
+              isSaving && styles.saveDisabled,
+            ]}>
             <Text style={styles.saveText}>{isSaving ? '저장 중...' : '저장'}</Text>
           </Pressable>
         </View>
@@ -141,7 +149,15 @@ const styles = StyleSheet.create({
   body: { gap: 16, padding: 20 },
   avatarButton: { alignItems: 'center', gap: 8 },
   avatarImage: { borderRadius: 50, height: 100, width: 100 },
-  avatarPlaceholder: { fontSize: 48 },
+  avatarPlaceholder: {
+    alignItems: 'center',
+    backgroundColor: '#EFEFF4',
+    borderRadius: 50,
+    height: 100,
+    justifyContent: 'center',
+    width: 100,
+  },
+  avatarPlaceholderText: { fontSize: 40 },
   avatarHint: { color: colors.muted, fontSize: 13, fontWeight: '600' },
   label: { color: colors.muted, fontSize: 13, fontWeight: '700' },
   input: {

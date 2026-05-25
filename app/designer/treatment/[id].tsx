@@ -389,6 +389,10 @@ export default function DesignerTreatmentInputScreen() {
       setPhotoUploadStatus((current) => ({ ...current, [kind]: 'uploading' }));
       const updatedTreatment = await uploadTreatmentPhoto(treatment.id, kind, localUri);
       setTreatment(updatedTreatment);
+      setPhotoPreviews((current) => ({
+        ...current,
+        [kind]: updatedTreatment[kind === 'before' ? 'before_photo_url' : 'after_photo_url'] ?? localUri,
+      }));
       await refreshPhotoPreview(updatedTreatment);
       flashPhotoSuccess(kind);
     } catch (error) {
@@ -397,7 +401,7 @@ export default function DesignerTreatmentInputScreen() {
       if (message === 'PHOTO_TOO_LARGE') {
         showWarningAlert('사진 용량은 5MB 이하만 업로드할 수 있습니다. 다른 사진을 선택해주세요.', '용량 초과');
       } else {
-        showErrorAlert('사진을 다시 업로드해주세요', '업로드 실패');
+        showErrorAlert(getErrorMessage(error, '사진을 다시 업로드해주세요'), '업로드 실패');
       }
 
       setPhotoUploadStatus((current) => ({ ...current, [kind]: 'idle' }));
