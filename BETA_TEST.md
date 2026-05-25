@@ -15,6 +15,18 @@
 | 고객 | demo@hair.app | demo1234 |
 | 디자이너 | designer@hair.app | demo1234 |
 
+### 베타 전용 10계정 (앱 첫 실행 시 자동 시드)
+
+| # | 디자이너 | 고객 (E2E 후 생성) | 비밀번호 |
+|---|----------|-------------------|----------|
+| 1 | beta-designer-1@hair.app | beta-customer-1@hair.app | beta1234 |
+| 2 | beta-designer-2@hair.app | beta-customer-2@hair.app | beta1234 |
+| 3 | beta-designer-3@hair.app | beta-customer-3@hair.app | beta1234 |
+| 4 | beta-designer-4@hair.app | beta-customer-4@hair.app | beta1234 |
+| 5 | beta-designer-5@hair.app | beta-customer-5@hair.app | beta1234 |
+
+자동 검증: `npm run beta:e2e`
+
 ---
 
 ## 시나리오 A — 신규 고객 초대 (핵심)
