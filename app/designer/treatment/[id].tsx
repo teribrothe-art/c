@@ -634,14 +634,16 @@ const styles = StyleSheet.create({
   },
   paymentStatusTitle: {
     color: '#6B6B7B',
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '700',
+    lineHeight: 22,
     marginBottom: 6,
   },
   paymentStatusText: {
     color: '#6B6B7B',
     fontSize: 15,
     fontWeight: '800',
+    lineHeight: 22,
   },
   paymentStatusTextMint: {
     color: '#00C2A8',
@@ -691,8 +693,9 @@ const styles = StyleSheet.create({
   },
   photoSectionTitle: {
     color: '#6B6B7B',
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
+    lineHeight: 22,
     marginBottom: 4,
   },
   progressBlock: {
@@ -706,13 +709,15 @@ const styles = StyleSheet.create({
   },
   progressText: {
     color: '#1A1A2E',
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '800',
+    lineHeight: 19,
   },
   remainingText: {
     color: '#FF5A5F',
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '900',
+    lineHeight: 19,
   },
   progressTrack: {
     height: 4,
@@ -730,8 +735,9 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: '#6B6B7B',
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
+    lineHeight: 22,
     marginBottom: 10,
   },
   cardList: {
@@ -780,8 +786,9 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     color: '#1A1A2E',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '900',
+    lineHeight: 24,
   },
   checkMark: {
     color: '#00C2A8',
@@ -790,14 +797,15 @@ const styles = StyleSheet.create({
   },
   requiredLabel: {
     color: '#FF5A5F',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '900',
+    lineHeight: 20,
   },
   fieldValue: {
     color: '#1A1A2E',
-    fontSize: 17,
+    fontSize: 14,
     fontWeight: '800',
-    lineHeight: 24,
+    lineHeight: 21,
   },
   emptyValue: {
     color: '#6B6B7B',
@@ -861,7 +869,8 @@ const styles = StyleSheet.create({
   settlementButtonText: {
     color: '#6B6B7B',
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '800',
+    lineHeight: 24,
   },
   settlementButtonTextActive: {
     color: '#FFFFFF',
@@ -902,8 +911,9 @@ const styles = StyleSheet.create({
   },
   counterText: {
     color: colors.muted,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
+    lineHeight: 18,
     marginTop: 8,
     textAlign: 'right',
   },
@@ -921,7 +931,7 @@ const styles = StyleSheet.create({
     color: '#1A1A2E',
     fontSize: 16,
     fontWeight: '600',
-    lineHeight: 22,
+    lineHeight: 24,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
