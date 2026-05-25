@@ -14,14 +14,16 @@ export function BottomTabBar() {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+    <View
+      pointerEvents="box-none"
+      style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 12) }]}>
       <View style={styles.tabBar}>
         {tabs.map((tab) => {
           const selected = pathname === tab.href;
 
           return (
             <Link href={tab.href} key={String(tab.href)} asChild>
-              <Pressable style={styles.tabItem}>
+              <Pressable accessibilityRole="button" hitSlop={6} style={styles.tabItem}>
                 <View style={[styles.tabDot, selected && styles.tabDotSelected]} />
                 <Text style={[styles.tabLabel, selected && styles.tabLabelSelected]}>{tab.label}</Text>
               </Pressable>
@@ -35,15 +37,17 @@ export function BottomTabBar() {
 
 const styles = StyleSheet.create({
   wrapper: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: '#FFFFFF',
     borderTopColor: '#EFEFF4',
     borderTopWidth: 1,
+    bottom: 0,
+    elevation: 24,
+    left: 0,
     paddingHorizontal: 12,
     paddingTop: 10,
+    position: 'absolute',
+    right: 0,
+    zIndex: 50,
   },
   tabBar: {
     flexDirection: 'row',

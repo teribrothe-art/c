@@ -13,8 +13,14 @@ export function AiConsultQuickCard({
   subtitle = '시술 기록·손상도를 바탕으로 맞춤 상담',
 }: AiConsultQuickCardProps) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.wrap, pressed && styles.pressed]}>
-      <LinearGradient colors={['#E8FAF7', '#CCF2EC']} style={styles.card}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.wrap, pressed && styles.pressed]}>
+      <LinearGradient
+        colors={['#E8FAF7', '#CCF2EC']}
+        pointerEvents="none"
+        style={styles.card}>
         <View style={styles.iconCircle}>
           <Text style={styles.icon}>🎙️</Text>
         </View>
@@ -31,6 +37,7 @@ export function AiConsultQuickCard({
 const styles = StyleSheet.create({
   wrap: {
     marginBottom: 12,
+    width: '100%',
   },
   pressed: {
     opacity: 0.9,

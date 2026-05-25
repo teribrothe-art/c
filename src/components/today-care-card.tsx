@@ -18,7 +18,7 @@ export function TodayCareCard({ care, onViewDiary, onAiConsult }: TodayCareCardP
 
   return (
     <View style={styles.wrapper}>
-      <LinearGradient colors={['#FFFFFF', '#F5F3FF']} style={styles.card}>
+      <LinearGradient colors={['#FFFFFF', '#F5F3FF']} pointerEvents="box-none" style={styles.card}>
         <Text style={styles.title}>오늘의 케어</Text>
 
         <View style={styles.damageRow}>
@@ -34,12 +34,16 @@ export function TodayCareCard({ care, onViewDiary, onAiConsult }: TodayCareCardP
 
         <View style={styles.buttonRow}>
           <Pressable
+            accessibilityRole="button"
+            hitSlop={8}
             onPress={onViewDiary}
             style={({ pressed }) => [styles.button, styles.buttonSecondary, pressed && styles.buttonPressed]}>
             <Text style={[styles.buttonText, styles.buttonTextSecondary]}>다이어리 보기</Text>
           </Pressable>
           {onAiConsult ? (
             <Pressable
+              accessibilityRole="button"
+              hitSlop={8}
               onPress={onAiConsult}
               style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
               <Text style={styles.buttonText}>AI 상담</Text>
@@ -108,6 +112,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     flex: 1,
     maxWidth: 160,
+    minHeight: 48,
+    justifyContent: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
   },

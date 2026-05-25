@@ -18,6 +18,7 @@ import {
 import { filterTreatmentsByYear, sortTreatmentsInYear } from '../../lib/diary-years';
 import { getErrorMessage } from '../../lib/errors';
 import { filterTreatmentsByQuery } from '../../lib/treatment-search';
+import { safePush } from '../../lib/safe-navigate';
 import { getTreatments, Treatment } from '../../lib/treatments';
 import { colors } from '../../lib/theme';
 import { EmptyState } from '../../src/components/empty-state';
@@ -116,6 +117,8 @@ export default function DiaryYearDetailScreen() {
 
       <ScrollView
         contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="always"
+        nestedScrollEnabled
         showsVerticalScrollIndicator={false}>
         {searchOpen ? (
           <TextInput
@@ -127,17 +130,15 @@ export default function DiaryYearDetailScreen() {
           />
         ) : null}
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterContent}
-          style={styles.filterScroll}>
+        <View style={styles.filterWrap}>
           {DIARY_FILTER_OPTIONS.map((filter) => {
             const selected = selectedFilter === filter.key;
 
             return (
               <Pressable
                 key={filter.key}
+                accessibilityRole="button"
+                hitSlop={4}
                 onPress={() => setSelectedFilter(filter.key)}
                 style={[styles.filterTab, selected && styles.filterTabSelected]}>
                 <Text style={[styles.filterText, selected && styles.filterTextSelected]}>
@@ -146,7 +147,7 @@ export default function DiaryYearDetailScreen() {
               </Pressable>
             );
           })}
-        </ScrollView>
+        </View>
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -174,7 +175,7 @@ export default function DiaryYearDetailScreen() {
                 key={treatment.id}
                 treatment={treatment}
                 onPress={() =>
-                  router.push({
+                  safePush({
                     pathname: '/treatment/[id]',
                     params: { id: treatment.id },
                   })
@@ -248,12 +249,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  filterScroll: {
-    marginHorizontal: -22,
-  },
-  filterContent: {
+  filterWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
-    paddingHorizontal: 22,
   },
   filterTab: {
     backgroundColor: '#FFFFFF',

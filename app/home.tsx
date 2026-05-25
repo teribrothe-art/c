@@ -1,14 +1,14 @@
-import { Href, router, useFocusEffect, useRouter } from 'expo-router';
+import { Href, router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomTabBar } from '../src/components/bottom-tab-bar';
@@ -28,6 +28,7 @@ import {
 } from '../lib/diary-filters';
 import { countTreatmentsForDiaryFilter } from '../lib/diary-list';
 import { getDiaryYearSummaries } from '../lib/diary-years';
+import { safePush } from '../lib/safe-navigate';
 import { filterTreatmentsByQuery } from '../lib/treatment-search';
 import { getTreatments, Treatment } from '../lib/treatments';
 import { EmptyState } from '../src/components/empty-state';
@@ -39,7 +40,6 @@ import { TreatmentDiaryCard } from '../src/components/treatment-diary-card';
 
 export default function DiaryHomeScreen() {
   const insets = useSafeAreaInsets();
-  const detailRouter = useRouter();
   const [selectedFilter, setSelectedFilter] = useState<DiaryFilterKey>('전체');
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [pendingPayments, setPendingPayments] = useState<Treatment[]>([]);
@@ -112,10 +112,9 @@ export default function DiaryHomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void loadDiaryData({ silent: true });
       reloadPending();
       reloadDailyCare();
-    }, [loadDiaryData, reloadPending, reloadDailyCare]),
+    }, [reloadPending, reloadDailyCare]),
   );
 
   const yearSummaries = useMemo(() => getDiaryYearSummaries(treatments), [treatments]);
@@ -132,7 +131,22 @@ export default function DiaryHomeScreen() {
   }, [selectedFilter, treatments, searchQuery]);
 
   const handleViewDiaryFromCare = () => {
-    router.push('/diary');
+    safePush('/diary');
+  };
+
+  const openVoice = () => {
+    safePush('/voice');
+  };
+
+  const openDiaryYears = () => {
+    safePush('/diary');
+  };
+
+  const openTreatment = (treatmentId: string) => {
+    safePush({
+      pathname: '/treatment/[id]',
+      params: { id: treatmentId },
+    });
   };
 
   const handleRefresh = () => {
@@ -149,6 +163,8 @@ export default function DiaryHomeScreen() {
     <View style={styles.container}>
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}
+        keyboardShouldPersistTaps="always"
+        nestedScrollEnabled
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#FF5A5F" />
         }
@@ -168,12 +184,12 @@ export default function DiaryHomeScreen() {
 
         {!isLoading && !errorMessage ? (
           <View style={styles.topSection}>
-            <AiConsultQuickCard onPress={() => router.push('/voice')} />
+            <AiConsultQuickCard onPress={openVoice} />
             {dailyCare ? (
               <TodayCareCard
                 care={dailyCare}
                 onViewDiary={handleViewDiaryFromCare}
-                onAiConsult={() => router.push('/voice')}
+                onAiConsult={openVoice}
               />
             ) : null}
           </View>
@@ -185,7 +201,11 @@ export default function DiaryHomeScreen() {
             <Text style={styles.recordCount}>
               {isLoading ? '기록 불러오는 중…' : `시술 ${treatments.length}건`}
             </Text>
-            <Pressable onPress={() => router.push('/diary')} style={styles.yearBrowseLink}>
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={openDiaryYears}
+              style={styles.yearBrowseLink}>
               <Text style={styles.yearBrowseText}>
                 {yearSummaries.length > 0
                   ? `연도별 보기 · ${yearSummaries.length}개 연도 ›`
@@ -200,7 +220,8 @@ export default function DiaryHomeScreen() {
               <Text style={styles.headerIcon}>🔍</Text>
             </Pressable>
             <Pressable
-              onPress={() => router.push('/notifications')}
+              accessibilityRole="button"
+              onPress={() => safePush('/notifications')}
               style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}>
               <Text style={styles.headerIcon}>🔔</Text>
             </Pressable>
@@ -217,30 +238,28 @@ export default function DiaryHomeScreen() {
           />
         ) : null}
 
-        <View style={styles.filterRow}>
-          <ScrollView
-            contentContainerStyle={styles.filterContent}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.filterScroll}>
-            {DIARY_FILTER_OPTIONS.map((filter) => {
-              const selected = selectedFilter === filter.key;
+        <View style={styles.filterWrap}>
+          {DIARY_FILTER_OPTIONS.map((filter) => {
+            const selected = selectedFilter === filter.key;
 
-              return (
-                <Pressable
-                  key={filter.key}
-                  onPress={() => setSelectedFilter(filter.key)}
-                  style={[styles.filterTab, selected && styles.filterTabSelected]}>
-                  <Text style={[styles.filterText, selected && styles.filterTextSelected]}>
-                    {formatFilterLabel(filter)}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+            return (
+              <Pressable
+                key={filter.key}
+                accessibilityRole="button"
+                hitSlop={4}
+                onPress={() => setSelectedFilter(filter.key)}
+                style={[styles.filterTab, selected && styles.filterTabSelected]}>
+                <Text style={[styles.filterText, selected && styles.filterTextSelected]}>
+                  {formatFilterLabel(filter)}
+                </Text>
+              </Pressable>
+            );
+          })}
           <Pressable
-            onPress={() => router.push('/diary')}
-            style={({ pressed }) => [styles.yearChip, pressed && styles.yearChipPressed]}>
+            accessibilityRole="button"
+            hitSlop={4}
+            onPress={openDiaryYears}
+            style={({ pressed }) => [styles.filterTab, styles.yearChip, pressed && styles.yearChipPressed]}>
             <Text style={styles.yearChipText}>📅 연도</Text>
           </Pressable>
         </View>
@@ -272,12 +291,7 @@ export default function DiaryHomeScreen() {
             {filteredTreatments.map((treatment) => (
               <TreatmentDiaryCard
                 key={treatment.id}
-                onPress={() =>
-                  detailRouter.push({
-                    pathname: '/treatment/[id]',
-                    params: { id: treatment.id },
-                  })
-                }
+                onPress={() => openTreatment(treatment.id)}
                 treatment={treatment}
               />
             ))}
@@ -374,28 +388,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  filterRow: {
-    alignItems: 'center',
+  filterWrap: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 20,
-    marginHorizontal: -22,
-  },
-  filterScroll: {
-    flex: 1,
-  },
-  filterContent: {
+    flexWrap: 'wrap',
     gap: 10,
-    paddingHorizontal: 22,
+    marginBottom: 20,
   },
   yearChip: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E8E8F0',
-    borderRadius: 999,
+    borderColor: '#FFD4D5',
     borderWidth: 1,
-    marginRight: 22,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
   },
   yearChipPressed: {
     opacity: 0.85,

@@ -16,7 +16,11 @@ export function TreatmentDiaryCard({ onPress, treatment }: TreatmentDiaryCardPro
   const typeIcon = getTreatmentTypeIcon(treatment.treatment_type);
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
+    <Pressable
+      accessibilityRole="button"
+      hitSlop={4}
+      onPress={onPress}
+      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
       <Text style={styles.cardMeta}>
         {formatDate(treatment.treatment_date)} {treatment.designer_name ?? '담당 디자이너'}
       </Text>
