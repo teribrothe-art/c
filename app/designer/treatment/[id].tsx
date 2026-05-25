@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,7 +13,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CustomerInviteModal } from '../../../src/components/customer-invite-modal';
+import { TreatmentPhotoEditModal } from '../../../src/components/treatment-photo-edit-modal';
 import { TreatmentPhotoSlot } from '../../../src/components/treatment-photo-slot';
+import { prepareImageForUpload } from '../../../lib/prepare-upload-image';
 import {
   getTreatmentPhotoSignedUrl,
   pickTreatmentPhotoFromLibrary,
@@ -176,6 +179,7 @@ export default function DesignerTreatmentInputScreen() {
     after: 'idle' | 'uploading' | 'success';
   }>({ before: 'idle', after: 'idle' });
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
+  const [photoDraft, setPhotoDraft] = useState<{ kind: TreatmentPhotoKind; uri: string } | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -519,24 +523,22 @@ export default function DesignerTreatmentInputScreen() {
     }, 1200);
   };
 
-  const handlePickPhoto = async (kind: TreatmentPhotoKind) => {
-    if (!treatment || photoUploadStatus[kind] === 'uploading') {
+  const uploadPreparedPhoto = async (kind: TreatmentPhotoKind, localUri: string) => {
+    if (!treatment) {
       return;
     }
 
+    setPhotoUploadStatus((current) => ({ ...current, [kind]: 'uploading' }));
+
     try {
-      const localUri = await pickTreatmentPhotoFromLibrary();
-
-      if (!localUri) {
-        return;
-      }
-
-      setPhotoUploadStatus((current) => ({ ...current, [kind]: 'uploading' }));
-      const updatedTreatment = await uploadTreatmentPhoto(treatment.id, kind, localUri);
+      const preparedUri =
+        Platform.OS === 'web' ? await prepareImageForUpload(localUri) : localUri;
+      const updatedTreatment = await uploadTreatmentPhoto(treatment.id, kind, preparedUri);
       setTreatment(updatedTreatment);
       setPhotoPreviews((current) => ({
         ...current,
-        [kind]: updatedTreatment[kind === 'before' ? 'before_photo_url' : 'after_photo_url'] ?? localUri,
+        [kind]:
+          updatedTreatment[kind === 'before' ? 'before_photo_url' : 'after_photo_url'] ?? preparedUri,
       }));
       await refreshPhotoPreview(updatedTreatment);
       flashPhotoSuccess(kind);
@@ -551,6 +553,45 @@ export default function DesignerTreatmentInputScreen() {
 
       setPhotoUploadStatus((current) => ({ ...current, [kind]: 'idle' }));
     }
+  };
+
+  const handlePickPhoto = async (kind: TreatmentPhotoKind) => {
+    if (!treatment || photoUploadStatus[kind] === 'uploading') {
+      return;
+    }
+
+    try {
+      const pickedUri = await pickTreatmentPhotoFromLibrary();
+
+      if (!pickedUri) {
+        return;
+      }
+
+      if (Platform.OS === 'web') {
+        setPhotoDraft({ kind, uri: pickedUri });
+        return;
+      }
+
+      await uploadPreparedPhoto(kind, pickedUri);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+
+      if (message === 'PHOTO_TOO_LARGE') {
+        showWarningAlert('사진 용량은 5MB 이하만 업로드할 수 있습니다. 다른 사진을 선택해주세요.', '용량 초과');
+      } else {
+        showErrorAlert(getErrorMessage(error, '사진을 선택하지 못했습니다.'), '사진 선택 실패');
+      }
+    }
+  };
+
+  const handleConfirmPhotoEdit = async (editedUri: string) => {
+    if (!photoDraft) {
+      return;
+    }
+
+    const { kind } = photoDraft;
+    setPhotoDraft(null);
+    await uploadPreparedPhoto(kind, editedUri);
   };
 
   const handleRemovePhoto = (kind: TreatmentPhotoKind) => {
@@ -843,6 +884,15 @@ export default function DesignerTreatmentInputScreen() {
           </View>
         </View>
       </Modal>
+
+      <TreatmentPhotoEditModal
+        imageUri={photoDraft?.uri ?? null}
+        visible={Boolean(photoDraft)}
+        onCancel={() => setPhotoDraft(null)}
+        onConfirm={(editedUri) => {
+          void handleConfirmPhotoEdit(editedUri);
+        }}
+      />
 
       {treatment ? (
         <CustomerInviteModal

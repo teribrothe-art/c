@@ -50,6 +50,15 @@ export function TreatmentPhotoSlot({
               hitSlop={8}
               onPress={(event) => {
                 event.stopPropagation?.();
+                onPress();
+              }}
+              style={styles.editButton}>
+              <Text style={styles.editText}>편집</Text>
+            </Pressable>
+            <Pressable
+              hitSlop={8}
+              onPress={(event) => {
+                event.stopPropagation?.();
                 onRemove();
               }}
               style={styles.removeButton}>
@@ -110,6 +119,22 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 13,
     fontWeight: '700',
+  },
+  editButton: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 194, 168, 0.92)',
+    borderRadius: 8,
+    bottom: 10,
+    justifyContent: 'center',
+    left: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    position: 'absolute',
+  },
+  editText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
   },
   removeButton: {
     alignItems: 'center',

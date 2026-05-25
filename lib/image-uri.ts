@@ -42,3 +42,14 @@ export function imagePickerOptions(extra?: { aspect?: [number, number] }): Image
     ...extra,
   };
 }
+
+/** 시술 Before/After — Android 4:3 크롭, iOS·Android 네이티브 편집 UI (웹은 별도 편집 모달) */
+export function treatmentPhotoPickerOptions(): ImagePickerOptions {
+  return {
+    mediaTypes: ['images'],
+    allowsEditing: Platform.OS !== 'web',
+    aspect: Platform.OS === 'android' ? ([4, 3] as [number, number]) : undefined,
+    quality: Platform.OS === 'web' ? 0.75 : 0.85,
+    base64: Platform.OS === 'web',
+  };
+}

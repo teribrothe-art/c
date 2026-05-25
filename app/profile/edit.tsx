@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { showErrorAlert, showSuccessAlert } from '../../lib/alerts';
 import { getErrorMessage } from '../../lib/errors';
-import { imagePickerOptions } from '../../lib/image-uri';
+import { imagePickerOptions, normalizePickerAssetUri } from '../../lib/image-uri';
 import { prepareImageForUpload } from '../../lib/prepare-upload-image';
 import { getProfileAvatarUri, updateProfile } from '../../lib/profile-update';
 import { getProfileScreenData } from '../../lib/profile';
@@ -60,7 +60,7 @@ export default function ProfileEditScreen() {
       const result = await ImagePicker.launchImageLibraryAsync(imagePickerOptions({ aspect: [1, 1] }));
 
       if (!result.canceled && result.assets[0]) {
-        const preparedUri = await prepareImageForUpload(result.assets[0].uri);
+        const preparedUri = await prepareImageForUpload(normalizePickerAssetUri(result.assets[0]));
         setAvatarUri(preparedUri);
       }
     } catch (error) {

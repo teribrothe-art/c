@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
-import { imagePickerOptions, isDisplayableImageUri } from './image-uri';
+import { isDisplayableImageUri, normalizePickerAssetUri, treatmentPhotoPickerOptions } from './image-uri';
 import { prepareImageForUpload } from './prepare-upload-image';
 import { supabase } from './supabase';
 import { Treatment, updateTreatment } from './treatments';
@@ -60,7 +60,7 @@ export async function pickTreatmentPhotoFromLibrary() {
     throw new Error('갤러리 접근 권한이 필요합니다.');
   }
 
-  const result = await ImagePicker.launchImageLibraryAsync(imagePickerOptions());
+  const result = await ImagePicker.launchImageLibraryAsync(treatmentPhotoPickerOptions());
 
   if (result.canceled || !result.assets[0]?.uri) {
     return null;
@@ -72,7 +72,13 @@ export async function pickTreatmentPhotoFromLibrary() {
     throw new Error('PHOTO_TOO_LARGE');
   }
 
-  return prepareImageForUpload(asset.uri);
+  const normalizedUri = normalizePickerAssetUri(asset);
+
+  if (Platform.OS === 'web') {
+    return normalizedUri;
+  }
+
+  return prepareImageForUpload(normalizedUri);
 }
 
 export async function uploadTreatmentPhoto(
