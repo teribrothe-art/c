@@ -18,6 +18,7 @@ import {
   CustomerInvitation,
 } from '../../lib/customer-invitations';
 import { getErrorMessage } from '../../lib/errors';
+import { formatPhoneInput } from '../../lib/phone-input';
 import { colors } from '../../lib/theme';
 
 type CustomerInviteModalProps = {
@@ -107,7 +108,8 @@ export function CustomerInviteModal({ visible, treatmentId, onClose }: CustomerI
                 placeholderTextColor="#9CA3AF"
                 style={styles.input}
                 value={customerPhone}
-                onChangeText={setCustomerPhone}
+                onChangeText={(text) => setCustomerPhone(formatPhoneInput(text))}
+                maxLength={13}
               />
 
               <Pressable
