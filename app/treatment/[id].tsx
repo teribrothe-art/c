@@ -185,7 +185,7 @@ export default function TreatmentDetailScreen() {
             </SectionCard>
 
             <Text style={styles.footerNotice}>
-              * 사용 약품 등 시술 세부사항은 디자이너의 전문 정보입니다.
+              * 일부 시술 세부 정보는 디자이너 전용으로 관리됩니다.
             </Text>
           </>
         )}

@@ -1,4 +1,5 @@
 import { withRetry } from './payment-retry';
+import { AI_NO_PRODUCT_INSTRUCTION } from './treatment-privacy';
 import { Treatment } from './treatments';
 
 export type AiProvider = 'openai' | 'anthropic' | 'placeholder';
@@ -73,6 +74,8 @@ function buildSystemPrompt(treatments: Treatment[]) {
 
   return `당신은 헤어 다이어리 앱의 AI 헤어 케어 상담사입니다. 한국어로 답변하세요.
 고객의 시술 이력 JSON을 참고해 실용적이고 짧은 조언을 제공합니다. 의료 진단이 아닌 일반 케어 조언 수준으로 답하세요.
+
+${AI_NO_PRODUCT_INSTRUCTION}
 
 시술 이력:
 ${contextJson}`;

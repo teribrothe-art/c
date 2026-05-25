@@ -1,6 +1,7 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
 import type { PaymentStatus } from './payment-status';
+import { sanitizeTreatmentsForCustomer, sanitizeTreatmentForCustomer } from './treatment-privacy';
 import { supabase } from './supabase';
 
 export type Treatment = {
@@ -132,21 +133,29 @@ export async function getTreatments() {
     return { user: null, treatments: [] as Treatment[] };
   }
 
+  let treatments: Treatment[];
+
   if (isDemoAuthMode || !supabase) {
-    return { user, treatments: demoTreatments };
+    treatments = demoTreatments;
+  } else {
+    const { data, error } = await supabase
+      .from('treatments')
+      .select(treatmentSelectFields)
+      .or(`customer_id.eq.${user.id},designer_id.eq.${user.id}`)
+      .order('treatment_date', { ascending: false });
+
+    if (error) {
+      throw toAppError(error);
+    }
+
+    treatments = (data ?? []) as Treatment[];
   }
 
-  const { data, error } = await supabase
-    .from('treatments')
-    .select(treatmentSelectFields)
-    .or(`customer_id.eq.${user.id},designer_id.eq.${user.id}`)
-    .order('treatment_date', { ascending: false });
-
-  if (error) {
-    throw toAppError(error);
+  if (user.role === 'customer') {
+    return { user, treatments: sanitizeTreatmentsForCustomer(treatments) };
   }
 
-  return { user, treatments: (data ?? []) as Treatment[] };
+  return { user, treatments };
 }
 
 export async function getTreatmentById(id: string) {
@@ -156,24 +165,29 @@ export async function getTreatmentById(id: string) {
     return { user: null, treatment: null as Treatment | null };
   }
 
+  let treatment: Treatment | null;
+
   if (isDemoAuthMode || !supabase) {
-    return {
-      user,
-      treatment: demoTreatments.find((treatment) => treatment.id === id) ?? null,
-    };
+    treatment = demoTreatments.find((item) => item.id === id) ?? null;
+  } else {
+    const { data, error } = await supabase
+      .from('treatments')
+      .select(treatmentSelectFields)
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      throw toAppError(error);
+    }
+
+    treatment = data as Treatment | null;
   }
 
-  const { data, error } = await supabase
-    .from('treatments')
-    .select(treatmentSelectFields)
-    .eq('id', id)
-    .maybeSingle();
-
-  if (error) {
-    throw toAppError(error);
+  if (user.role === 'customer' && treatment) {
+    return { user, treatment: sanitizeTreatmentForCustomer(treatment) };
   }
 
-  return { user, treatment: data as Treatment | null };
+  return { user, treatment };
 }
 
 export async function getDesignerTreatments() {

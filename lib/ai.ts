@@ -5,6 +5,7 @@ import { buildTreatmentContext, generatePlaceholderAiResponse } from './ai-conve
 import { isDemoAuthMode } from './auth';
 import { getAnthropicApiKey, getOpenAiApiKey, isAnthropicConfigured, isOpenAiConfigured } from './ai-providers';
 import { toAppError } from './errors';
+import { AI_NO_PRODUCT_INSTRUCTION } from './treatment-privacy';
 import { supabase } from './supabase';
 import { getTreatments } from './treatments';
 
@@ -14,7 +15,9 @@ const WHISPER_MODEL = 'whisper-1';
 const SYSTEM_PROMPT = `당신은 헤어 케어 AI 어시스턴트입니다.
 사용자의 시술 이력을 참고해서 개인화된 답변을 제공하세요.
 답변은 친근하고 전문적이게, 한국어로 2-3문장 이내로 짧게.
-손상도, 시술 주기, 홈케어 등 구체적 조언 포함.`;
+손상도, 시술 주기, 홈케어 등 구체적 조언 포함.
+
+${AI_NO_PRODUCT_INSTRUCTION}`;
 
 export type UserAiContext = {
   user_id: string;
