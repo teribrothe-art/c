@@ -11,7 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import QRCode from 'react-native-qrcode-svg';
+import { InviteQrCode } from './invite-qr-code';
 
 import { showErrorAlert, showSuccessAlert } from '../../lib/alerts';
 import {
@@ -254,7 +254,10 @@ export function CustomerInviteModal({
                     <Text style={styles.code}>{invitation.invite_code}</Text>
 
                     <View style={styles.qrWrap}>
-                      <QRCode size={200} value={buildInviteQrPayload(invitation.invite_code)} />
+                      <InviteQrCode
+                        size={200}
+                        value={buildInviteQrPayload(invitation.invite_code)}
+                      />
                     </View>
 
                     <Text style={styles.expiry}>7일 후 만료 · 가입 시 코드 입력 또는 QR 스캔</Text>
