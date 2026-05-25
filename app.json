@@ -1,10 +1,15 @@
 {
   "expo": {
-    "name": "hair-diary-app",
+    "name": "헤어 다이어리",
     "slug": "hair-diary-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
+    "splash": {
+      "image": "./assets/images/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FAFAFC"
+    },
     "scheme": "hairdiaryapp",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -28,10 +33,18 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "image": "./assets/images/icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#FAFAFC",
           "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
+            "image": "./assets/images/icon.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#FAFAFC"
+          },
+          "ios": {
+            "image": "./assets/images/icon.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#FAFAFC"
           }
         }
       ],
