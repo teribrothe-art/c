@@ -2,6 +2,8 @@ import Constants from 'expo-constants';
 import { loadTossPayments } from '@tosspayments/payment-sdk';
 import { Platform } from 'react-native';
 
+import { isDemoAuthMode } from './auth';
+
 const APP_SCHEME = 'hairdiaryapp';
 
 export type TossPaymentParams = {
@@ -217,7 +219,7 @@ export function shouldUseInAppDemoPayment() {
     return false;
   }
 
-  if (!isTossConfigured()) {
+  if (isDemoAuthMode || !isTossConfigured()) {
     return true;
   }
 

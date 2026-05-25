@@ -20,6 +20,7 @@ import {
 import { withRetry } from './payment-retry';
 import { normalizePaymentStatus } from './payment-status';
 import { supabase } from './supabase';
+import { resolveTreatmentCustomerForPayment } from './payment-customer';
 import { createTossOrderId, isTossConfigured as isTossKeyConfigured } from './toss';
 import { isDesignerSettlementInputComplete } from './treatment-settlement';
 import { getTreatmentById, Treatment, updateTreatment } from './treatments';
@@ -49,12 +50,12 @@ function assertDesignerOwnership(treatment: Treatment, designerId: string) {
 }
 
 function assertCustomerOwnership(treatment: Treatment, customerId: string) {
-  if (isDemoAuthMode) {
-    return;
-  }
+  if (treatment.customer_id && treatment.customer_id !== customerId) {
+    if (isDemoAuthMode) {
+      return;
+    }
 
-  if (treatment.customer_id !== customerId) {
-    throw new Error('권한이 없습니다');
+    throw new Error('이 시술은 다른 고객 계정에 연결되어 있어요.');
   }
 }
 
@@ -129,12 +130,7 @@ export async function requestCustomerPayment(treatmentId: string) {
 export async function preparePaymentSession(treatmentId: string) {
   await assertCanPayTreatment(treatmentId);
 
-  const { treatment } = await getTreatmentById(treatmentId);
-
-  if (!treatment) {
-    throw new Error('시술 기록을 찾을 수 없습니다.');
-  }
-
+  const treatment = await resolveTreatmentCustomerForPayment(treatmentId);
   const orderId = createTossOrderId(treatmentId);
 
   await withRetry(() => ensurePaymentRecordForTreatment(treatmentId), { maxAttempts: 3 });
@@ -159,11 +155,7 @@ export async function handleTossPaymentSuccess(
 
   await assertCanPayTreatment(treatmentId);
 
-  const { treatment } = await getTreatmentById(treatmentId);
-
-  if (!treatment) {
-    throw new Error('시술 기록을 찾을 수 없습니다.');
-  }
+  const treatment = await resolveTreatmentCustomerForPayment(treatmentId);
 
   assertCustomerOwnership(treatment, user.id);
 
@@ -205,7 +197,7 @@ export async function handleTossPaymentSuccess(
     const payment = await getPaymentByTreatmentId(treatmentId);
 
     if (payment) {
-      await notifyDesignerPaymentCompleted(updatedTreatment, payment);
+      await notifyDesignerPaymentCompleted(updatedTreatment, payment).catch(() => undefined);
     }
 
     return updatedTreatment;

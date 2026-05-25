@@ -52,9 +52,18 @@ function formatWon(value: number) {
   return `${value.toLocaleString('ko-KR')}원`;
 }
 
+function normalizeRouteParam(value?: string | string[]) {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+
+  return value;
+}
+
 export default function CustomerPaymentScreen() {
   const insets = useSafeAreaInsets();
-  const { treatmentId } = useLocalSearchParams<{ treatmentId?: string }>();
+  const { treatmentId: treatmentIdParam } = useLocalSearchParams<{ treatmentId?: string | string[] }>();
+  const treatmentId = normalizeRouteParam(treatmentIdParam);
   const [treatment, setTreatment] = useState<Treatment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPaying, setIsPaying] = useState(false);
