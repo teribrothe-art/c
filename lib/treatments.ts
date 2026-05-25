@@ -431,7 +431,7 @@ export async function createDesignerTreatment(input: CreateDesignerTreatmentInpu
 
   const treatmentTitle = input.treatmentTitle?.trim() || defaultTreatmentTitle(treatmentType);
   const treatmentDate = new Date().toISOString().slice(0, 10);
-  const price = input.price && input.price > 0 ? Math.round(input.price) : 150000;
+  const price = input.price && input.price > 0 ? Math.round(input.price) : null;
   const products =
     input.products?.map((item) => item.trim()).filter(Boolean).length
       ? input.products.map((item) => item.trim()).filter(Boolean)

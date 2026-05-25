@@ -33,7 +33,7 @@ export default function DesignerInputScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedType, setSelectedType] = useState('');
   const [customerName, setCustomerName] = useState('');
-  const [priceText, setPriceText] = useState('150000');
+  const [priceText, setPriceText] = useState('');
   const [duration, setDuration] = useState(DEFAULT_TREATMENT_DURATION);
   const [treatmentTitle, setTreatmentTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -42,6 +42,7 @@ export default function DesignerInputScreen() {
     setSelectedType(type);
     setDuration(DEFAULT_TREATMENT_DURATION);
     setTreatmentTitle(defaultTreatmentTitle(type));
+    setPriceText('');
     setModalVisible(true);
   };
 
@@ -164,7 +165,7 @@ export default function DesignerInputScreen() {
 
             <Text style={styles.label}>시술 금액</Text>
             <WonAmountInput
-              placeholder="150,000"
+              placeholder="금액 입력"
               style={styles.priceInput}
               value={priceText}
               onChangeValue={setPriceText}

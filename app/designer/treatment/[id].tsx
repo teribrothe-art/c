@@ -991,7 +991,7 @@ export default function DesignerTreatmentInputScreen() {
               />
             ) : activeField === 'price' ? (
               <WonAmountInput
-                placeholder="150,000"
+                placeholder="금액 입력"
                 style={styles.modalPriceInput}
                 value={inputValue}
                 onChangeValue={setInputValue}
