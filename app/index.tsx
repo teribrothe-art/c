@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 
+import { getPostAuthRoute } from '../lib/auth-redirect';
 import { DEMO_LOGIN_HINT, isDemoAuthMode, signInWithEmail } from '../lib/auth';
 import { showLoginFailureAlert } from '../lib/alerts';
 import { getErrorMessage } from '../lib/errors';
@@ -48,7 +49,8 @@ export default function LoginScreen() {
       setIsLoading(true);
       setLoginError(null);
       await signInWithEmail({ email: trimmedEmail, password });
-      router.replace('/home');
+      const nextRoute = await getPostAuthRoute();
+      router.replace(nextRoute);
     } catch (error) {
       const message = getErrorMessage(error, '이메일 또는 비밀번호가 올바르지 않습니다.');
       setLoginError(message);

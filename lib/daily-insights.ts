@@ -1,10 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { Href } from 'expo-router';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
-import { buildDailyCareContent, DailyCareSnapshot, DailyInsightType } from './daily-care';
+import { buildInsightPayload, getDamageAccentColor, getDamageHeadline, getTimeOfDayGreeting } from './insight-content';
+import { getProfileScreenData } from './profile';
 import { toAppError } from './errors';
 import { supabase } from './supabase';
-import { Treatment } from './treatments';
+import { getTreatments, Treatment } from './treatments';
 
 const DEMO_STORAGE_KEY = 'hair-diary-daily-insights';
 
@@ -12,12 +14,33 @@ export type DailyInsight = {
   id: string;
   user_id: string;
   insight_date: string;
-  insight_type: DailyInsightType | string;
+  insight_type: string;
   insight_message: string;
   damage_level: number | null;
   recommendation: string | null;
   viewed_at: string | null;
   dismissed: boolean;
+};
+
+export type DailyInsightScreenData = {
+  insightId: string;
+  userName: string;
+  timeGreeting: string;
+  damageLevel: number | null;
+  damageScoreLabel: string;
+  damageHeadline: string;
+  insightMessage: string;
+  recommendation: string | null;
+  accentColor: string;
+};
+
+export type DailyCareSnapshot = {
+  damageLevel: number | null;
+  message: string;
+  latestTreatmentId: string | null;
+  insightType: string;
+  recommendation: string | null;
+  insightId?: string;
 };
 
 const selectFields =
@@ -33,20 +56,6 @@ export function toLocalDateString(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-function toDailyCareSnapshot(
-  insight: DailyInsight,
-  latestTreatmentId: string | null,
-): DailyCareSnapshot {
-  return {
-    insightId: insight.id,
-    damageLevel: insight.damage_level,
-    message: insight.insight_message,
-    latestTreatmentId,
-    insightType: insight.insight_type as DailyInsightType,
-    recommendation: insight.recommendation,
-  };
-}
-
 async function readDemoStore(): Promise<DailyInsight[]> {
   const raw = await AsyncStorage.getItem(DEMO_STORAGE_KEY);
   return raw ? (JSON.parse(raw) as DailyInsight[]) : [...memoryStore];
@@ -58,7 +67,7 @@ async function writeDemoStore(items: DailyInsight[]) {
   await AsyncStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(items));
 }
 
-async function findTodayInsightRecord(userId: string, insightDate: string) {
+export async function findTodayInsightRecord(userId: string, insightDate: string) {
   if (isDemoAuthMode || !supabase) {
     const items = await readDemoStore();
     return items.find((item) => item.user_id === userId && item.insight_date === insightDate) ?? null;
@@ -78,18 +87,16 @@ async function findTodayInsightRecord(userId: string, insightDate: string) {
   return (data as DailyInsight | null) ?? null;
 }
 
-async function upsertTodayInsight(
-  userId: string,
-  insightDate: string,
-  content: ReturnType<typeof buildDailyCareContent>,
-) {
-  const payload = {
+async function upsertTodayInsight(userId: string, insightDate: string, treatments: Treatment[]) {
+  const payload = buildInsightPayload(treatments);
+
+  const recordPayload = {
     user_id: userId,
     insight_date: insightDate,
-    insight_type: content.insightType,
-    insight_message: content.message,
-    damage_level: content.damageLevel,
-    recommendation: content.recommendation,
+    insight_type: payload.insightType,
+    insight_message: payload.insightMessage,
+    damage_level: payload.damageLevel,
+    recommendation: payload.recommendation,
     viewed_at: new Date().toISOString(),
     dismissed: false,
   };
@@ -101,8 +108,7 @@ async function upsertTodayInsight(
     );
     const record: DailyInsight = {
       id: existingIndex >= 0 ? items[existingIndex].id : `demo-insight-${insightDate}`,
-      ...payload,
-      viewed_at: payload.viewed_at,
+      ...recordPayload,
     };
 
     if (existingIndex >= 0) {
@@ -117,7 +123,7 @@ async function upsertTodayInsight(
 
   const { data, error } = await supabase
     .from('daily_insights')
-    .upsert(payload, { onConflict: 'user_id,insight_date' })
+    .upsert(recordPayload, { onConflict: 'user_id,insight_date' })
     .select(selectFields)
     .single();
 
@@ -146,10 +152,91 @@ async function touchViewed(insight: DailyInsight) {
   await supabase.from('daily_insights').update({ viewed_at: viewedAt }).eq('id', insight.id);
 }
 
-/**
- * 오늘 인사이트 1건 조회. 없으면 시술 기록 기준으로 생성·저장.
- * dismissed=true 인 날은 null (카드 숨김).
- */
+function toDailyCareSnapshot(insight: DailyInsight, treatments: Treatment[]): DailyCareSnapshot | null {
+  if (insight.dismissed) {
+    return null;
+  }
+
+  const sorted = [...treatments].sort((a, b) => b.treatment_date.localeCompare(a.treatment_date));
+  const firstLine = insight.insight_message.split('\n')[0] ?? insight.insight_message;
+
+  return {
+    insightId: insight.id,
+    damageLevel: insight.damage_level,
+    message: firstLine,
+    latestTreatmentId: sorted[0]?.id ?? null,
+    insightType: insight.insight_type,
+    recommendation: insight.recommendation,
+  };
+}
+
+function toInsightScreenData(insight: DailyInsight, userName: string): DailyInsightScreenData {
+  return {
+    insightId: insight.id,
+    userName,
+    timeGreeting: getTimeOfDayGreeting(),
+    damageLevel: insight.damage_level,
+    damageScoreLabel:
+      typeof insight.damage_level === 'number' ? `손상도 ${insight.damage_level}/10` : '손상도 기록 없음',
+    damageHeadline: getDamageHeadline(insight.damage_level),
+    insightMessage: insight.insight_message,
+    recommendation: insight.recommendation,
+    accentColor: getDamageAccentColor(insight.damage_level),
+  };
+}
+
+/** 로그인 후 고객 이동 경로: /insight 또는 /home */
+export async function resolveCustomerPostLoginRoute(): Promise<Href> {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return '/';
+  }
+
+  const insightDate = toLocalDateString();
+  const existing = await findTodayInsightRecord(user.id, insightDate);
+
+  if (existing?.dismissed) {
+    return '/home';
+  }
+
+  const { treatments } = await getTreatments();
+
+  if (!existing) {
+    await upsertTodayInsight(user.id, insightDate, treatments);
+    return '/insight';
+  }
+
+  return '/insight';
+}
+
+export async function loadInsightScreenData(): Promise<DailyInsightScreenData | null> {
+  const user = await getCurrentUser();
+
+  if (!user || user.role === 'designer') {
+    return null;
+  }
+
+  const insightDate = toLocalDateString();
+  let insight = await findTodayInsightRecord(user.id, insightDate);
+
+  if (!insight) {
+    const { treatments } = await getTreatments();
+    insight = await upsertTodayInsight(user.id, insightDate, treatments);
+  }
+
+  if (insight.dismissed) {
+    return null;
+  }
+
+  await touchViewed(insight);
+
+  const profile = await getProfileScreenData();
+  const userName = profile?.profile.name?.trim() || '고객';
+
+  return toInsightScreenData(insight, userName);
+}
+
 export async function getTodayDailyCare(treatments: Treatment[]): Promise<DailyCareSnapshot | null> {
   const user = await getCurrentUser();
 
@@ -157,15 +244,7 @@ export async function getTodayDailyCare(treatments: Treatment[]): Promise<DailyC
     return null;
   }
 
-  if (treatments.length === 0) {
-    return null;
-  }
-
   const insightDate = toLocalDateString();
-  const latestTreatmentId =
-    [...treatments].sort((a, b) => b.treatment_date.localeCompare(a.treatment_date))[0]?.id ??
-    null;
-
   const existing = await findTodayInsightRecord(user.id, insightDate);
 
   if (existing?.dismissed) {
@@ -175,13 +254,16 @@ export async function getTodayDailyCare(treatments: Treatment[]): Promise<DailyC
   let insight = existing;
 
   if (!insight) {
-    const content = buildDailyCareContent(treatments);
-    insight = await upsertTodayInsight(user.id, insightDate, content);
+    if (treatments.length === 0) {
+      return null;
+    }
+
+    insight = await upsertTodayInsight(user.id, insightDate, treatments);
   } else {
     await touchViewed(insight);
   }
 
-  return toDailyCareSnapshot(insight, latestTreatmentId);
+  return toDailyCareSnapshot(insight, treatments);
 }
 
 export async function dismissTodayDailyInsight(insightId: string) {

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { signUpWithEmail, UserRole } from '../lib/auth';
+import { getPostAuthRoute } from '../lib/auth-redirect';
 import { showErrorAlert } from '../lib/alerts';
 import { getErrorMessage } from '../lib/errors';
 import { colors, disabledButtonStyle } from '../lib/theme';
@@ -68,7 +69,11 @@ export default function SignupScreen() {
         name,
         role,
       });
-      router.replace(role === 'designer' ? '/designer/clients' : '/home');
+      if (role === 'designer') {
+        router.replace('/designer/clients');
+      } else {
+        router.replace(await getPostAuthRoute());
+      }
     } catch (error) {
       showErrorAlert(getErrorMessage(error), '회원가입 실패');
     } finally {
