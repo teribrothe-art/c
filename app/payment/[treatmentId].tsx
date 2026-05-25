@@ -30,6 +30,7 @@ import {
   requestTossPaymentOnWeb,
   shouldShowTossTestCardGuide,
   shouldUseInAppDemoPayment,
+  shouldUseWebViewPaymentSimulator,
   TOSS_TEST_CARD,
   shouldUsePaymentWebView,
 } from '../../lib/toss';
@@ -224,7 +225,7 @@ export default function CustomerPaymentScreen() {
           orderName,
           treatmentId,
           clientKey: clientKey || 'test_ck_demo',
-          useDemoSimulator: false,
+          useDemoSimulator: shouldUseWebViewPaymentSimulator(),
         });
         setWebViewHtml(html);
         setWebViewVisible(true);
@@ -379,8 +380,8 @@ export default function CustomerPaymentScreen() {
           <View style={styles.testCardBox}>
             <Text style={styles.testCardTitle}>테스트 결제 모드</Text>
             <Text style={styles.demoHint}>
-              Expo Go·데모 환경에서는 아래 버튼으로 즉시 결제 완료 처리됩니다. 실제 카드 결제는
-              개발 빌드(앱스킴 등록)에서 test_ck 키로 테스트하세요.
+              아래 「테스트 결제하기」를 누르면 샌드박스(test_ck) 기준으로 즉시 결제 완료됩니다.
+              실제 카드·최종 결제는 live 키 + 개발 빌드(앱스킴 등록)에서 진행하세요.
             </Text>
           </View>
         ) : null}

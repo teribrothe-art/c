@@ -213,7 +213,17 @@ export function shouldUsePaymentWebView() {
   return Platform.OS !== 'web';
 }
 
-/** Expo Go 등 네이티브 앱스킴·Intent 미등록 환경 — WebView 대신 앱 내 데모 결제 */
+function isExpoGoRuntime() {
+  return (
+    Constants.executionEnvironment === 'storeClient' ||
+    Constants.appOwnership === 'expo'
+  );
+}
+
+/**
+ * WebView 토스 결제 대신 앱 버튼 한 번으로 테스트·데모 결제 완료.
+ * test_ck 샌드박스는 RN WebView에서 카드 결제·리다이렉트가 자주 막혀 무반응처럼 보입니다.
+ */
 export function shouldUseInAppDemoPayment() {
   if (Platform.OS === 'web') {
     return false;
@@ -223,5 +233,14 @@ export function shouldUseInAppDemoPayment() {
     return true;
   }
 
-  return Constants.executionEnvironment === 'storeClient';
+  if (isTossTestKey()) {
+    return true;
+  }
+
+  return isExpoGoRuntime();
+}
+
+/** WebView 결제창 HTML — 샌드박스·Expo Go는 시뮬레이터(테스트 결제 완료 버튼) 사용 */
+export function shouldUseWebViewPaymentSimulator() {
+  return shouldUseInAppDemoPayment() || isTossTestKey() || !isTossConfigured();
 }
