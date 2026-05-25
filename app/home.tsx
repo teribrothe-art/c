@@ -30,6 +30,7 @@ import { getTreatments, Treatment } from '../lib/treatments';
 import { EmptyState } from '../src/components/empty-state';
 import { LoadingState } from '../src/components/loading-state';
 import { OnboardingModal } from '../src/components/onboarding-modal';
+import { AiConsultQuickCard } from '../src/components/ai-consult-quick-card';
 import { TodayCareCard } from '../src/components/today-care-card';
 import { TreatmentDiaryCard } from '../src/components/treatment-diary-card';
 
@@ -152,12 +153,17 @@ export default function DiaryHomeScreen() {
           </Pressable>
         ) : null}
 
-        {!isLoading && !errorMessage && dailyCare ? (
-          <TodayCareCard
-            care={dailyCare}
-            onViewDiary={handleViewDiaryFromCare}
-            onAiConsult={() => router.push('/voice')}
-          />
+        {!isLoading && !errorMessage ? (
+          <View style={styles.topSection}>
+            <AiConsultQuickCard onPress={() => router.push('/voice')} />
+            {dailyCare ? (
+              <TodayCareCard
+                care={dailyCare}
+                onViewDiary={handleViewDiaryFromCare}
+                onAiConsult={() => router.push('/voice')}
+              />
+            ) : null}
+          </View>
         ) : null}
 
         <View style={styles.header}>
@@ -288,6 +294,10 @@ const styles = StyleSheet.create({
     color: '#C7C7D1',
     fontSize: 13,
     fontWeight: '600',
+  },
+  topSection: {
+    gap: 0,
+    marginBottom: 8,
   },
   header: {
     alignItems: 'center',
