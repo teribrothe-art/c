@@ -10,11 +10,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TreatmentPhotoCarousel } from '../../src/components/treatment-photo-carousel';
+import { TreatmentRecordNav } from '../../src/components/treatment-record-nav';
 import { getErrorMessage } from '../../lib/errors';
 import { getCustomerPaymentBadge, type CustomerPaymentBadge } from '../../lib/payment-status';
 import { normalizePaymentStatus } from '../../lib/payment-status';
 import { getPaymentByTreatmentId } from '../../lib/payments';
-import { getTreatmentById, Treatment } from '../../lib/treatments';
+import { getTreatmentNavigation } from '../../lib/treatment-navigation';
+import { getTreatmentById, getTreatments, Treatment } from '../../lib/treatments';
 import { LoadingState } from '../../src/components/loading-state';
 
 function formatDate(date?: string) {
@@ -61,6 +63,7 @@ export default function TreatmentDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [paymentBadge, setPaymentBadge] = useState<CustomerPaymentBadge>({ label: '결제 대기', variant: 'pending' });
+  const [recordNav, setRecordNav] = useState<ReturnType<typeof getTreatmentNavigation>>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -71,7 +74,12 @@ export default function TreatmentDetailScreen() {
           throw new Error('시술 ID를 찾을 수 없습니다.');
         }
 
-        const { user, treatment: nextTreatment } = await getTreatmentById(id);
+        setIsLoading(true);
+
+        const [{ user, treatment: nextTreatment }, { treatments }] = await Promise.all([
+          getTreatmentById(id),
+          getTreatments(),
+        ]);
 
         if (!isMounted) {
           return;
@@ -84,10 +92,12 @@ export default function TreatmentDetailScreen() {
 
         if (!nextTreatment) {
           setErrorMessage('시술 기록을 찾을 수 없습니다.');
+          setRecordNav(null);
           return;
         }
 
         setTreatment(nextTreatment);
+        setRecordNav(getTreatmentNavigation(treatments, id));
         const payment = await getPaymentByTreatmentId(id);
         setPaymentBadge(getCustomerPaymentBadge(nextTreatment.payment_status, payment?.status ?? null));
         setErrorMessage('');
@@ -146,7 +156,15 @@ export default function TreatmentDetailScreen() {
           </View>
         ) : (
           <>
-            
+            {recordNav && recordNav.total > 1 ? (
+              <TreatmentRecordNav
+                newerId={recordNav.newerId}
+                olderId={recordNav.olderId}
+                onNavigate={(targetId) => router.replace(`/treatment/${targetId}`)}
+                positionLabel={`${recordNav.index + 1} / ${recordNav.total}`}
+              />
+            ) : null}
+
             {normalizePaymentStatus(treatment.payment_status) === 'payment_requested' ? (
               <Pressable
                 style={styles.payCta}

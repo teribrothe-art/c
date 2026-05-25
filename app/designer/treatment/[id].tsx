@@ -71,7 +71,12 @@ import {
   canGenerateTreatmentAiInsight,
   generateAndSaveTreatmentAiInsight,
 } from '../../../lib/treatment-ai-insight';
-import { getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
+import {
+  filterTreatmentsForSameCustomer,
+  getTreatmentNavigation,
+} from '../../../lib/treatment-navigation';
+import { getDesignerTreatments, getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
+import { TreatmentRecordNav } from '../../../src/components/treatment-record-nav';
 
 type EditableField =
   | 'technique'
@@ -194,6 +199,7 @@ export default function DesignerTreatmentInputScreen() {
     label: string;
   } | null>(null);
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
+  const [recordNav, setRecordNav] = useState<ReturnType<typeof getTreatmentNavigation>>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -204,7 +210,10 @@ export default function DesignerTreatmentInputScreen() {
           throw new Error('시술 ID가 없습니다.');
         }
 
-        const { user, treatment: nextTreatment } = await getTreatmentById(id);
+        setIsLoading(true);
+
+        const [{ user, treatment: nextTreatment }, { treatments: designerTreatments }] =
+          await Promise.all([getTreatmentById(id), getDesignerTreatments()]);
 
         if (!isMounted) {
           return;
@@ -222,6 +231,7 @@ export default function DesignerTreatmentInputScreen() {
 
         if (!nextTreatment) {
           setErrorMessage('시술 기록을 찾을 수 없습니다.');
+          setRecordNav(null);
           return;
         }
 
@@ -232,6 +242,11 @@ export default function DesignerTreatmentInputScreen() {
           loadedTreatment = await updateTreatment(id, { feedback_completed: true });
         }
 
+        const sameCustomerTreatments = filterTreatmentsForSameCustomer(
+          designerTreatments,
+          loadedTreatment,
+        );
+        setRecordNav(getTreatmentNavigation(sameCustomerTreatments, id));
         setTreatment(loadedTreatment);
         setPaymentRecord(payment);
         const [beforePreview, afterPreview] = await Promise.all([
@@ -751,6 +766,15 @@ export default function DesignerTreatmentInputScreen() {
           </View>
         ) : (
           <>
+            {recordNav && recordNav.total > 1 ? (
+              <TreatmentRecordNav
+                newerId={recordNav.newerId}
+                olderId={recordNav.olderId}
+                onNavigate={(targetId) => router.replace(`/designer/treatment/${targetId}`)}
+                positionLabel={`${recordNav.index + 1} / ${recordNav.total}`}
+              />
+            ) : null}
+
             <View
               style={[
                 styles.linkStatusCard,
