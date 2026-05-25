@@ -33,6 +33,31 @@ type LoginInput = {
 const DEMO_USERS_KEY = 'hair-diary-demo-users';
 const DEMO_SESSION_KEY = 'hair-diary-demo-session';
 
+/** 웹·데모에서 바로 로그인 테스트용 (시술 더미 데이터와 ID 일치) */
+const SEEDED_DEMO_USERS: DemoUser[] = [
+  {
+    id: 'demo-customer-kim-jiwon',
+    email: 'demo@hair.app',
+    name: '김지원',
+    password: 'demo1234',
+    role: 'customer',
+  },
+  {
+    id: 'demo-designer-local',
+    email: 'designer@hair.app',
+    name: '김미용 디자이너',
+    password: 'demo1234',
+    role: 'designer',
+  },
+];
+
+export const DEMO_LOGIN_HINT = {
+  customerEmail: 'demo@hair.app',
+  customerPassword: 'demo1234',
+  designerEmail: 'designer@hair.app',
+  designerPassword: 'demo1234',
+} as const;
+
 export const isDemoAuthMode = !isSupabaseConfigured || !supabase;
 
 function normalizeEmail(email: string) {
@@ -47,9 +72,38 @@ function toAuthUser(user: DemoUser): AuthUser {
   };
 }
 
-async function getDemoUsers() {
+async function readDemoUsersFromStorage() {
   const rawUsers = await AsyncStorage.getItem(DEMO_USERS_KEY);
   return rawUsers ? (JSON.parse(rawUsers) as DemoUser[]) : [];
+}
+
+async function ensureDemoUsersSeeded() {
+  const existing = await readDemoUsersFromStorage();
+
+  if (existing.length === 0) {
+    await saveDemoUsers(SEEDED_DEMO_USERS);
+    return SEEDED_DEMO_USERS;
+  }
+
+  const byEmail = new Map(existing.map((user) => [user.email, user]));
+  let changed = false;
+
+  for (const seeded of SEEDED_DEMO_USERS) {
+    if (!byEmail.has(seeded.email)) {
+      existing.push(seeded);
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    await saveDemoUsers(existing);
+  }
+
+  return existing;
+}
+
+async function getDemoUsers() {
+  return ensureDemoUsersSeeded();
 }
 
 async function saveDemoUsers(users: DemoUser[]) {
@@ -181,6 +235,8 @@ export async function signInWithEmail({ email, password }: LoginInput) {
       throw new Error('로그인한 사용자 정보를 확인할 수 없습니다.');
     }
 
+    await supabase.auth.getSession();
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
@@ -207,11 +263,13 @@ export async function signInWithEmail({ email, password }: LoginInput) {
 
 export async function getCurrentUser() {
   if (!isDemoAuthMode && supabase) {
-    const { data, error } = await supabase.auth.getUser();
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
-    if (error || !data.user) {
+    if (sessionError || !sessionData.session?.user) {
       return null;
     }
+
+    const data = { user: sessionData.session.user };
 
     const { data: profile } = await supabase
       .from('profiles')

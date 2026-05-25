@@ -10,8 +10,9 @@ import {
   View,
 } from 'react-native';
 
-import { signInWithEmail } from '../lib/auth';
+import { DEMO_LOGIN_HINT, isDemoAuthMode, signInWithEmail } from '../lib/auth';
 import { showLoginFailureAlert } from '../lib/alerts';
+import { getErrorMessage } from '../lib/errors';
 import { colors, disabledButtonStyle } from '../lib/theme';
 import { validateEmail } from '../lib/validation';
 import { InlineFieldError } from '../src/components/inline-field-error';
@@ -22,6 +23,7 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   const isSubmitDisabled = isLoading;
 
@@ -44,10 +46,13 @@ export default function LoginScreen() {
 
     try {
       setIsLoading(true);
+      setLoginError(null);
       await signInWithEmail({ email: trimmedEmail, password });
       router.replace('/home');
-    } catch {
-      showLoginFailureAlert();
+    } catch (error) {
+      const message = getErrorMessage(error, '이메일 또는 비밀번호가 올바르지 않습니다.');
+      setLoginError(message);
+      showLoginFailureAlert(message);
     } finally {
       setIsLoading(false);
     }
@@ -97,15 +102,28 @@ export default function LoginScreen() {
                 if (passwordError) {
                   setPasswordError(null);
                 }
+                if (loginError) {
+                  setLoginError(null);
+                }
               }}
+              onSubmitEditing={() => void handleLogin()}
               placeholder="비밀번호"
               placeholderTextColor="#A0A0A0"
+              returnKeyType="go"
               secureTextEntry
               style={[styles.input, inputBorder.password]}
               value={password}
             />
             <InlineFieldError message={passwordError} />
           </View>
+
+          <InlineFieldError message={loginError} />
+
+          {isDemoAuthMode ? (
+            <Text style={styles.demoHint}>
+              데모 로그인: {DEMO_LOGIN_HINT.customerEmail} / {DEMO_LOGIN_HINT.customerPassword}
+            </Text>
+          ) : null}
 
           <Pressable
             disabled={isSubmitDisabled}
@@ -192,5 +210,11 @@ const styles = StyleSheet.create({
     color: colors.coral,
     fontSize: 16,
     fontWeight: '600',
+  },
+  demoHint: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
   },
 });

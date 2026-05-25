@@ -1,14 +1,44 @@
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
+
+function showWebAlert(title: string, message: string) {
+  if (typeof window !== 'undefined') {
+    window.alert(message ? `${title}\n\n${message}` : title);
+  }
+}
+
+function showWebConfirm(title: string, message: string) {
+  if (typeof window !== 'undefined') {
+    return window.confirm(message ? `${title}\n\n${message}` : title);
+  }
+
+  return false;
+}
 
 export function showErrorAlert(message: string, title = '오류') {
+  if (Platform.OS === 'web') {
+    showWebAlert(title, message);
+    return;
+  }
+
   Alert.alert(title, message);
 }
 
 export function showSuccessAlert(message: string, onConfirm?: () => void) {
+  if (Platform.OS === 'web') {
+    showWebAlert('완료', message);
+    onConfirm?.();
+    return;
+  }
+
   Alert.alert('완료', message, [{ text: '확인', onPress: onConfirm }]);
 }
 
 export function showWarningAlert(message: string, title = '안내') {
+  if (Platform.OS === 'web') {
+    showWebAlert(title, message);
+    return;
+  }
+
   Alert.alert(title, message, [{ text: '확인' }]);
 }
 
@@ -27,6 +57,19 @@ export function showConfirmAlert({
   destructive?: boolean;
   onConfirm: () => void;
 }) {
+  if (Platform.OS === 'web') {
+    const confirmed = showWebConfirm(
+      title,
+      `${message}\n\n[${destructive ? '주의' : '확인'}] ${confirmLabel} / [취소] ${cancelLabel}`,
+    );
+
+    if (confirmed) {
+      onConfirm();
+    }
+
+    return;
+  }
+
   Alert.alert(title, message, [
     { text: cancelLabel, style: 'cancel' },
     {
@@ -37,6 +80,11 @@ export function showConfirmAlert({
   ]);
 }
 
-export function showLoginFailureAlert() {
-  Alert.alert('로그인 실패', '이메일 또는 비밀번호가 올바르지 않습니다');
+export function showLoginFailureAlert(message = '이메일 또는 비밀번호가 올바르지 않습니다') {
+  if (Platform.OS === 'web') {
+    showWebAlert('로그인 실패', message);
+    return;
+  }
+
+  Alert.alert('로그인 실패', message);
 }
