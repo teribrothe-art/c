@@ -62,6 +62,8 @@
     "web:clear": "CI=1 expo start --web --port 8081 --clear",
     "check:dev": "node scripts/check-dev-server.mjs",
     "check:phone": "node scripts/check-phone-bundle.mjs",
+    "qr": "node scripts/generate-expo-qr.mjs",
+    "qr:html": "node scripts/generate-expo-qr.mjs --html",
     "lint": "expo lint",
     "beta:smoke": "node scripts/beta-smoke-demo.mjs",
     "beta:e2e": "node scripts/beta-e2e-ten-users.mjs",

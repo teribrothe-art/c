@@ -29,6 +29,16 @@ npm run start:phone
 
 1. 터미널에 **QR 코드**가 나올 때까지 대기 (첫 실행 30–60초)  
 2. iPhone/Android **Expo Go** 앱으로 QR 스캔 (카메라 앱이 아님)  
+
+**QR을 파일/터미널로 다시 만들기** (Metro가 이미 떠 있을 때, 다른 터미널):
+
+```sh
+npm run qr
+```
+
+- 터미널에 ASCII QR 출력 + 프로젝트 루트에 `expo-go-qr.png` 저장  
+- 브라우저에서 보기: `npm run qr:html` → `expo-go-qr.html` 열기  
+
 3. Metro가 떠 있는 **같은 PC**에서 번들 확인:
 
 ```sh
