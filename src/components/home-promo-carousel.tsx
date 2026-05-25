@@ -20,7 +20,7 @@ type HomePromoCarouselProps = {
   onPressSlide: (slide: HomePromoSlide) => void;
 };
 
-const AUTO_SCROLL_MS = 4200;
+const AUTO_SCROLL_MS = 1000;
 const FOOTER_HEIGHT = 44;
 
 function normalizeSlideIndex(index: number, length: number) {
