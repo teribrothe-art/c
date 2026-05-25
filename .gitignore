@@ -9,6 +9,8 @@ dist/
 web-build/
 expo-go-qr.png
 expo-go-qr.html
+expo-go-share.txt
+expo-go-share.html
 expo-env.d.ts
 
 # Native

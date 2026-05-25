@@ -14,45 +14,28 @@ import { fileURLToPath } from 'node:url';
 
 import QRCode from 'qrcode';
 
+import { resolveExpoGoShareUrl } from './lib/expo-go-share.mjs';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
 
-const port = Number(process.env.PORT || 8081);
-const host = process.env.HOST || '127.0.0.1';
 const platform = process.env.PLATFORM || 'ios';
 const outFile = process.env.OUT || path.join(projectRoot, 'expo-go-qr.png');
 const saveHtml = process.argv.includes('--html');
 const htmlPath = path.join(projectRoot, 'expo-go-qr.html');
-
-async function fetchExpoGoUrl() {
-  const openUrl = `http://${host}:${port}/_expo/open`;
-  const response = await fetch(openUrl);
-
-  if (!response.ok) {
-    throw new Error(`Metro responded HTTP ${response.status} at ${openUrl}`);
-  }
-
-  const data = await response.json();
-  const fromPlatform = data.platforms?.[platform]?.url;
-  const url = fromPlatform || data.url;
-
-  if (!url || !url.startsWith('exp://')) {
-    throw new Error(`No exp:// URL in Metro response: ${JSON.stringify(data).slice(0, 400)}`);
-  }
-
-  return { url, openUrl, allPlatforms: data.platforms };
-}
 
 async function main() {
   console.log('Expo Go 접속 QR 생성 중...\n');
 
   let url;
   let allPlatforms;
+  let classification;
 
   try {
-    const result = await fetchExpoGoUrl();
+    const result = await resolveExpoGoShareUrl(platform);
     url = result.url;
     allPlatforms = result.allPlatforms;
+    classification = result.classification;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
@@ -122,13 +105,11 @@ async function main() {
     console.log(`HTML 저장: ${htmlPath}`);
   }
 
-  if (url.includes('127.0.0.1') || url.includes('localhost')) {
-    console.log('\nWARN: URL이 localhost입니다. 휴대폰에서는 접속되지 않습니다.');
-    console.log('  → npm run start:phone 또는 start:lan 으로 Metro를 다시 시작하세요.');
-  }
-
-  if (url.match(/^exp:\/\/172\.|^exp:\/\/10\.|^exp:\/\/192\.168\./)) {
-    console.log('\nTIP: 폰과 PC가 다른 Wi‑Fi면 연결이 안 될 수 있습니다 → npm run start:phone');
+  if (!classification?.shareable) {
+    console.log('\nWARN: 이 URL은 폰에서 접속되지 않을 수 있습니다.');
+    console.log('  → PC에서 npm run start:phone (터널) 후 npm run share');
+  } else if (classification.mode === 'lan') {
+    console.log('\nTIP: 같은 Wi‑Fi에서만 접속됩니다. 다른 네트워크면 npm run start:phone');
   }
 
   console.log(`\n생성 시각: ${new Date().toLocaleString()}`);

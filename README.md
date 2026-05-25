@@ -10,34 +10,50 @@ cp .env.example .env
 npm start
 ```
 
-## 휴대폰에서 접속 (Expo Go)
+## 휴대폰에서 접속 (Expo Go) — PC 공유
 
-**브라우저용** `npm run web` / `web:clear` 만 켜 두면 휴대폰 QR이 안 보이거나 접속이 실패할 수 있습니다.  
-폰에서는 아래 중 하나로 Metro를 띄운 뒤 QR을 스캔하세요.
+**브라우저용** `npm run web` / `web:clear` 만 켜 두면 휴대폰 QR이 안 보이거나 접속이 실패할 수 있습니다.
 
-PC와 **같은 Wi‑Fi**이면:
+### PC에서 공유 주소 받기 (권장 순서)
 
-```sh
-npm run start:lan
-```
-
-다른 네트워크·LTE·회사망 분리 Wi‑Fi일 때 (터널, 권장):
+**터미널 1** — Metro 터널 (이 창을 닫지 않음):
 
 ```sh
 npm run start:phone
 ```
 
-1. 터미널에 **QR 코드**가 나올 때까지 대기 (첫 실행 30–60초)  
-2. iPhone/Android **Expo Go** 앱으로 QR 스캔 (카메라 앱이 아님)  
+**터미널 2** — 공유 URL·QR·HTML 생성:
 
-**QR을 파일/터미널로 다시 만들기** (Metro가 이미 떠 있을 때, 다른 터미널):
+```sh
+npm run share
+```
+
+생성 파일:
+
+| 파일 | 용도 |
+|------|------|
+| `expo-go-share.txt` | 카톡·메일로 `exp://…` 주소 복사 |
+| `expo-go-share.html` | 브라우저에서 QR + **주소 복사** 버튼 |
+| `expo-go-qr.png` | Expo Go에서 QR 스캔 |
+
+Windows: `scripts\start-phone-pc.cmd` 실행 후, Metro가 뜨면 `scripts\share-expo-pc.cmd` (HTML 자동 열림).
+
+`npm run share`가 **터널 없음 / 사설 IP**이면 종료 코드 2 — 반드시 `start:phone`으로 터널이 켜졌는지 확인하세요.
+
+### 같은 Wi‑Fi만 쓸 때
+
+```sh
+npm run start:lan
+npm run share
+```
+
+### QR만 다시 만들기
 
 ```sh
 npm run qr
 ```
 
-- 터미널에 ASCII QR 출력 + 프로젝트 루트에 `expo-go-qr.png` 저장  
-- 브라우저에서 보기: `npm run qr:html` → `expo-go-qr.html` 열기  
+- `npm run qr:html` → `expo-go-qr.html`  
 
 3. Metro가 떠 있는 **같은 PC**에서 번들 확인:
 
