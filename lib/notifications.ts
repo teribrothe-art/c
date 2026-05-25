@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { isDemoAuthMode } from './auth';
+import { getCurrentUser, isDemoAuthMode } from './auth';
+import { toAppError } from './errors';
 import { PaymentRecord } from './payment-record';
+import { supabase } from './supabase';
 import { Treatment } from './treatments';
 
 const STORAGE_KEY = 'hair-diary-notifications';
@@ -27,27 +29,74 @@ export type AppNotification = {
 
 const memoryStore: AppNotification[] = [];
 
-async function readStore(): Promise<AppNotification[]> {
-  if (isDemoAuthMode) {
+const selectFields = 'id, user_id, type, title, message, treatment_id, href, read, created_at';
+
+function mapRow(row: Record<string, unknown>): AppNotification {
+  return {
+    id: String(row.id),
+    user_id: String(row.user_id),
+    type: row.type as NotificationType,
+    title: String(row.title ?? ''),
+    message: String(row.message),
+    treatment_id: String(row.treatment_id ?? ''),
+    href: String(row.href ?? ''),
+    created_at: String(row.created_at),
+    read: Boolean(row.read),
+  };
+}
+
+async function readLocalStore(): Promise<AppNotification[]> {
+  if (isDemoAuthMode && memoryStore.length > 0) {
     return [...memoryStore];
   }
 
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
-  return raw ? (JSON.parse(raw) as AppNotification[]) : [];
-}
+  const items = raw ? (JSON.parse(raw) as AppNotification[]) : [];
 
-async function writeStore(items: AppNotification[]) {
   if (isDemoAuthMode) {
     memoryStore.length = 0;
     memoryStore.push(...items);
-    return;
   }
 
+  return items;
+}
+
+async function writeLocalStore(items: AppNotification[]) {
+  memoryStore.length = 0;
+  memoryStore.push(...items);
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 }
 
 export async function addNotification(input: Omit<AppNotification, 'id' | 'created_at' | 'read'>) {
-  const items = await readStore();
+  if (!isDemoAuthMode && supabase) {
+    const user = await getCurrentUser();
+
+    if (!user || user.id !== input.user_id) {
+      throw new Error('알림을 저장할 권한이 없습니다.');
+    }
+
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: input.user_id,
+        type: input.type,
+        title: input.title,
+        message: input.message,
+        treatment_id: input.treatment_id || null,
+        href: input.href || null,
+        read: false,
+      })
+      .select(selectFields)
+      .single();
+
+    if (error) {
+      throw toAppError(error);
+    }
+
+    return mapRow(data as Record<string, unknown>);
+  }
+
+  const items = await readLocalStore();
   const notification: AppNotification = {
     ...input,
     id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -56,7 +105,7 @@ export async function addNotification(input: Omit<AppNotification, 'id' | 'creat
   };
 
   items.unshift(notification);
-  await writeStore(items.slice(0, 50));
+  await writeLocalStore(items.slice(0, 50));
   return notification;
 }
 
@@ -66,7 +115,6 @@ export async function notifyDesignerPaymentCompleted(treatment: Treatment, payme
   }
 
   const customerName = treatment.customer_name || '고객';
-  const payout = (payment.designer_payout ?? 0).toLocaleString('ko-KR');
 
   return addNotification({
     user_id: treatment.designer_id,
@@ -75,6 +123,27 @@ export async function notifyDesignerPaymentCompleted(treatment: Treatment, payme
     message: `🔔 ${customerName} 결제 완료. 피드백 입력 후 정산받으세요`,
     treatment_id: treatment.id,
     href: `/designer/treatment/${treatment.id}`,
+  });
+}
+
+export async function notifyDesignerSettlementCompleted(
+  treatment: Treatment,
+  payment: PaymentRecord,
+) {
+  if (!treatment.designer_id) {
+    return null;
+  }
+
+  const customerName = treatment.customer_name || '고객';
+  const amount = (payment.amount ?? treatment.price ?? 0).toLocaleString('ko-KR');
+
+  return addNotification({
+    user_id: treatment.designer_id,
+    type: 'settlement_completed',
+    title: '정산 완료',
+    message: `${customerName} 시술 정산 완료 - ${amount}원`,
+    treatment_id: treatment.id,
+    href: '/designer/revenue',
   });
 }
 
@@ -130,6 +199,10 @@ export function resolveNotificationHref(
     return item.href;
   }
 
+  if (item.type === 'settlement_completed' && role === 'designer') {
+    return '/designer/revenue';
+  }
+
   if (item.type === 'customer_payment_due') {
     return `/payment/${item.treatment_id}`;
   }
@@ -150,16 +223,44 @@ export function resolveNotificationHref(
 }
 
 export async function getNotificationsForCurrentUser(userId: string) {
-  const items = await readStore();
+  if (!isDemoAuthMode && supabase) {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select(selectFields)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      throw toAppError(error);
+    }
+
+    return (data ?? []).map((row) => mapRow(row as Record<string, unknown>));
+  }
+
+  const items = await readLocalStore();
   return items.filter((item) => item.user_id === userId);
 }
 
 export async function markNotificationRead(notificationId: string) {
-  const items = await readStore();
+  if (!isDemoAuthMode && supabase) {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('id', notificationId);
+
+    if (error) {
+      throw toAppError(error);
+    }
+
+    return;
+  }
+
+  const items = await readLocalStore();
   const next = items.map((item) =>
     item.id === notificationId ? { ...item, read: true } : item,
   );
-  await writeStore(next);
+  await writeLocalStore(next);
 }
 
 export async function getUnreadNotificationCount(userId: string) {

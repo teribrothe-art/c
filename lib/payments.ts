@@ -1,6 +1,6 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
-import { notifyDesignerPaymentCompleted } from './notifications';
+import { notifyDesignerPaymentCompleted, notifyDesignerSettlementCompleted } from './notifications';
 import {
   calculatePaymentFees,
   ensurePaymentRecordForTreatment,
@@ -242,12 +242,20 @@ export async function settleDesignerPayout(treatmentId: string) {
 
   const now = new Date().toISOString();
 
-  await markPaymentCompleted(treatmentId, { receiptUrl: payment.receipt_url });
+  const completedPayment = await markPaymentCompleted(treatmentId, {
+    receiptUrl: payment.receipt_url,
+  });
 
-  return updateTreatment(treatmentId, {
+  const updatedTreatment = await updateTreatment(treatmentId, {
     payment_status: 'completed',
     settled_at: now,
   });
+
+  const paymentForNotify = completedPayment ?? payment;
+
+  await notifyDesignerSettlementCompleted(updatedTreatment, paymentForNotify);
+
+  return updatedTreatment;
 }
 
 export async function isTreatmentPaymentPaid(treatmentId: string) {

@@ -23,6 +23,18 @@ export function showErrorAlert(message: string, title = '오류') {
   Alert.alert(title, message);
 }
 
+export function showSettlementCompleteAlert(customerName: string, onConfirm?: () => void) {
+  const message = `${customerName}님의 시술이 정산 요청되었습니다.\n영업일 기준 2-3일 내 입금됩니다.`;
+
+  if (Platform.OS === 'web') {
+    showWebAlert('정산 요청 완료', message);
+    onConfirm?.();
+    return;
+  }
+
+  Alert.alert('정산 요청 완료', message, [{ text: '확인', onPress: onConfirm }]);
+}
+
 export function showSuccessAlert(message: string, onConfirm?: () => void) {
   if (Platform.OS === 'web') {
     showWebAlert('완료', message);

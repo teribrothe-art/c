@@ -20,7 +20,13 @@ import {
   uploadTreatmentPhoto,
 } from '../../../lib/treatment-photos';
 
-import { showConfirmAlert, showErrorAlert, showSuccessAlert, showWarningAlert } from '../../../lib/alerts';
+import {
+  showConfirmAlert,
+  showErrorAlert,
+  showSettlementCompleteAlert,
+  showSuccessAlert,
+  showWarningAlert,
+} from '../../../lib/alerts';
 import { getErrorMessage } from '../../../lib/errors';
 import { colors, disabledButtonStyle } from '../../../lib/theme';
 import {
@@ -304,11 +310,14 @@ export default function DesignerTreatmentInputScreen() {
       return;
     }
 
+    const customerName = treatment.customer_name || '고객';
+
     try {
       setIsSaving(true);
-      await settleDesignerPayout(treatment.id);
+      const updatedTreatment = await settleDesignerPayout(treatment.id);
+      setTreatment(updatedTreatment);
       setPaymentRecord(await getPaymentByTreatmentId(treatment.id));
-      showSuccessAlert('정산이 요청되었습니다.\n영업일 기준 2-3일 내 입금됩니다.', () => router.back());
+      showSettlementCompleteAlert(customerName, () => router.replace('/designer/revenue'));
     } catch (error) {
       showErrorAlert(getErrorMessage(error, '정산 요청 중 문제가 발생했습니다.'), '정산 실패');
     } finally {
