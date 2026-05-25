@@ -902,7 +902,7 @@ export default function DesignerTreatmentInputScreen() {
             ) : paymentStatus === 'pending' && !isCustomerLinked ? (
               <View style={styles.waitingPaymentBox}>
                 <Text style={styles.waitingPaymentText}>
-                  고객 연결 후 결제 요청이 가능합니다 (고객 초대 → 가입)
+                  고객 연결 후 결제 요청이 가능합니다 (가입 고객 불러오기 또는 신규 초대)
                 </Text>
               </View>
             ) : null}
@@ -927,7 +927,7 @@ export default function DesignerTreatmentInputScreen() {
                   styles.inviteButton,
                   pressed && styles.buttonPressed,
                 ]}>
-                <Text style={styles.inviteButtonText}>고객 초대</Text>
+                <Text style={styles.inviteButtonText}>고객 연결</Text>
               </Pressable>
             ) : null}
 
@@ -1068,6 +1068,10 @@ export default function DesignerTreatmentInputScreen() {
           defaultCustomerName={treatment.customer_name ?? ''}
           visible={inviteModalVisible}
           onClose={() => setInviteModalVisible(false)}
+          onCustomerLinked={(linked) => {
+            setTreatment(linked);
+            setInviteModalVisible(false);
+          }}
         />
       ) : null}
     </View>
