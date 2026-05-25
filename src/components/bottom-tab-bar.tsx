@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const tabs: { href: Href; label: string }[] = [
   { href: '/home', label: '다이어리' },
   { href: '/analysis', label: '분석' },
-  { href: '/ai', label: 'AI 상담' },
+  { href: '/voice', label: 'AI 상담' },
   { href: '/profile', label: '마이' },
 ];
 
