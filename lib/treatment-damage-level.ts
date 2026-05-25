@@ -157,8 +157,11 @@ export async function generateAndSaveTreatmentDamageLevel(treatment: Treatment) 
   return { damageLevel, treatment: updated };
 }
 
-/** 시술 내용 저장 후 손상도 자동 갱신 (이미 값이 있어도 내용 변경 시 재분석) */
+/** 시술 내용 저장 후 손상도 자동 갱신 (손상도가 비어 있을 때만) */
 export async function autoFillTreatmentDamageLevel(treatment: Treatment) {
+  if (typeof treatment.damage_level === 'number') {
+    return treatment;
+  }
   if (!canInferTreatmentDamageLevel(treatment)) {
     return treatment;
   }

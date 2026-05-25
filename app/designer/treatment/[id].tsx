@@ -70,7 +70,9 @@ import { isAiAppUtilizationEnabled } from '../../../lib/ai-edge';
 import {
   autoFillTreatmentDamageLevel,
   canInferTreatmentDamageLevel,
+  generateAndSaveTreatmentDamageLevel,
   isDamageSourceField,
+  saveTreatmentDamageLevel,
 } from '../../../lib/treatment-damage-level';
 import {
   canGenerateTreatmentAiInsight,
@@ -81,6 +83,7 @@ import {
   getTreatmentNavigation,
 } from '../../../lib/treatment-navigation';
 import { getDesignerTreatments, getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
+import { DamageLevelPicker } from '../../../src/components/damage-level-picker';
 import { TreatmentRecordNav } from '../../../src/components/treatment-record-nav';
 
 type EditableField =
@@ -518,6 +521,51 @@ export default function DesignerTreatmentInputScreen() {
     }
   };
 
+  const handleSelectDamageLevel = async (level: number) => {
+    if (!treatment || isSaving || isAnalyzingDamage) {
+      return;
+    }
+
+    if (treatment.damage_level === level) {
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      const updated = await saveTreatmentDamageLevel(treatment.id, level);
+      setTreatment(updated);
+    } catch (error) {
+      showErrorAlert(getErrorMessage(error, '손상도 저장에 실패했습니다.'), '저장 실패');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAiAnalyzeDamage = async () => {
+    if (!treatment || isAnalyzingDamage || isSaving) {
+      return;
+    }
+
+    if (!canInferTreatmentDamageLevel(treatment)) {
+      showWarningAlert('시술 종류·기법 또는 진단을 입력한 뒤 AI 분석을 사용할 수 있어요.');
+      return;
+    }
+
+    try {
+      setIsAnalyzingDamage(true);
+      const { treatment: updated } = await generateAndSaveTreatmentDamageLevel(treatment);
+      setTreatment(updated);
+
+      if (isDesignerSettlementInputComplete(updated) && !updated.ai_insight?.trim()) {
+        void maybeAutoGenerateAiInsight(updated);
+      }
+    } catch (error) {
+      showErrorAlert(getErrorMessage(error, '손상도 AI 분석에 실패했습니다.'), 'AI 분석 실패');
+    } finally {
+      setIsAnalyzingDamage(false);
+    }
+  };
+
   const handleGenerateAiInsight = async () => {
     if (!treatment) {
       return;
@@ -908,17 +956,39 @@ export default function DesignerTreatmentInputScreen() {
             <View style={styles.damageCard}>
               <Text style={styles.damageTitle}>손상도 기록</Text>
               <Text style={styles.damageHint}>
-                시술 내용(기법·진단·홈케어)을 바탕으로 AI가 1~10점을 자동 입력합니다.
+                직접 1~10을 선택하거나, 시술 내용을 바탕으로 AI가 자동 분석할 수 있어요.
               </Text>
               <Text style={styles.damageValue}>
                 {isAnalyzingDamage
                   ? 'AI 분석 중…'
                   : typeof treatment.damage_level === 'number'
                     ? `${treatment.damage_level} / 10`
-                    : canInferTreatmentDamageLevel(treatment)
-                      ? '저장 시 자동 분석'
-                      : '기법 또는 진단 입력 후 자동 분석'}
+                    : '미선택'}
               </Text>
+              <DamageLevelPicker
+                disabled={isSaving || isAnalyzingDamage}
+                value={treatment.damage_level}
+                onSelect={(level) => void handleSelectDamageLevel(level)}
+              />
+              <Pressable
+                disabled={
+                  !canInferTreatmentDamageLevel(treatment) ||
+                  isAnalyzingDamage ||
+                  isSaving
+                }
+                onPress={() => void handleAiAnalyzeDamage()}
+                style={({ pressed }) => [
+                  styles.damageAiButton,
+                  (!canInferTreatmentDamageLevel(treatment) ||
+                    isAnalyzingDamage ||
+                    isSaving) &&
+                    styles.damageAiButtonDisabled,
+                  pressed && styles.buttonPressed,
+                ]}>
+                <Text style={styles.damageAiButtonText}>
+                  {isAnalyzingDamage ? 'AI 분석 중…' : 'AI 자동 분석'}
+                </Text>
+              </Pressable>
             </View>
 
             <View style={styles.aiInsightCard}>
@@ -1263,6 +1333,23 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '900',
     marginTop: 4,
+  },
+  damageAiButton: {
+    alignItems: 'center',
+    backgroundColor: '#F0FBF9',
+    borderColor: '#B8EDE4',
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 4,
+    paddingVertical: 12,
+  },
+  damageAiButtonDisabled: {
+    opacity: 0.55,
+  },
+  damageAiButtonText: {
+    color: '#00A88F',
+    fontSize: 14,
+    fontWeight: '800',
   },
   aiInsightCard: {
     backgroundColor: '#F0FBF9',
