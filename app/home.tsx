@@ -315,13 +315,6 @@ export default function DiaryHomeScreen() {
               </Pressable>
             );
           })}
-          <Pressable
-            accessibilityRole="button"
-            hitSlop={4}
-            onPress={openDiaryYears}
-            style={({ pressed }) => [styles.filterTab, styles.yearChip, pressed && styles.yearChipPressed]}>
-            <Text style={styles.yearChipText}>📅 연도</Text>
-          </Pressable>
         </View>
 
         {isLoading ? (
@@ -453,18 +446,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
     marginBottom: 20,
-  },
-  yearChip: {
-    borderColor: '#FFD4D5',
-    borderWidth: 1,
-  },
-  yearChipPressed: {
-    opacity: 0.85,
-  },
-  yearChipText: {
-    color: '#FF5A5F',
-    fontSize: 14,
-    fontWeight: '800',
   },
   filterTab: {
     borderRadius: 999,
