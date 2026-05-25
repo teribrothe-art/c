@@ -98,6 +98,7 @@ export function HomePromoCarousel({ slides, minHeight, onPressSlide }: HomePromo
     const index = viewableItems[0]?.index;
 
     if (typeof index === 'number') {
+      activeIndexRef.current = index;
       setActiveIndex(index);
     }
   }).current;
