@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomTabBar } from '../src/components/bottom-tab-bar';
+import { buildDailyCareSnapshot } from '../lib/daily-care';
 import { getErrorMessage } from '../lib/errors';
 import { getCustomerPendingPayments } from '../lib/payments';
 import {
@@ -23,6 +24,7 @@ import { getTreatments, Treatment } from '../lib/treatments';
 import { EmptyState } from '../src/components/empty-state';
 import { LoadingState } from '../src/components/loading-state';
 import { OnboardingModal } from '../src/components/onboarding-modal';
+import { TodayCareCard } from '../src/components/today-care-card';
 
 type FilterKey = '전체' | '컷' | '컬러' | '펌';
 
@@ -152,6 +154,20 @@ export default function DiaryHomeScreen() {
     return filterTreatmentsByQuery(byType, searchQuery);
   }, [selectedFilter, treatments, searchQuery]);
 
+  const dailyCare = useMemo(() => buildDailyCareSnapshot(treatments), [treatments]);
+
+  const handleViewDiaryFromCare = () => {
+    if (dailyCare.latestTreatmentId) {
+      detailRouter.push({
+        pathname: '/treatment/[id]',
+        params: { id: dailyCare.latestTreatmentId },
+      });
+      return;
+    }
+
+    router.push('/analysis');
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -168,6 +184,10 @@ export default function DiaryHomeScreen() {
               {pendingPayments[0].designer_name} · {(pendingPayments[0].price ?? 0).toLocaleString()}원 · 결제하기
             </Text>
           </Pressable>
+        ) : null}
+
+        {!isLoading && !errorMessage && treatments.length > 0 ? (
+          <TodayCareCard care={dailyCare} onViewDiary={handleViewDiaryFromCare} />
         ) : null}
 
         <View style={styles.header}>
