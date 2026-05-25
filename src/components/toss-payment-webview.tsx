@@ -1,5 +1,5 @@
-import { useCallback, useRef } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef } from 'react';
+import { BackHandler, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebView, { WebViewNavigation } from 'react-native-webview';
 
@@ -16,6 +16,19 @@ type Props = {
 export function TossPaymentWebView({ visible, html, onClose, onSuccess, onFail }: Props) {
   const insets = useSafeAreaInsets();
   const lastHandledUrl = useRef('');
+
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      onClose();
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, [onClose, visible]);
 
   const handleNavigation = useCallback(
     (navigation: WebViewNavigation) => {
@@ -52,7 +65,12 @@ export function TossPaymentWebView({ visible, html, onClose, onSuccess, onFail }
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <Pressable onPress={onClose} style={styles.closeButton}>
+          <Pressable
+            accessibilityLabel="결제창 닫기"
+            accessibilityRole="button"
+            hitSlop={12}
+            onPress={onClose}
+            style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}>
             <Text style={styles.closeText}>닫기</Text>
           </Pressable>
           <Text style={styles.title}>토스페이먼츠</Text>
@@ -91,7 +109,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   closeButton: {
-    padding: 8,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  closeButtonPressed: {
+    opacity: 0.6,
   },
   closeText: {
     color: '#6B6B7B',

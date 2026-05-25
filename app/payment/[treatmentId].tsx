@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  BackHandler,
   Platform,
   Pressable,
   ScrollView,
@@ -13,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { showErrorAlert } from '../../lib/alerts';
 import { getErrorMessage } from '../../lib/errors';
+import { navigateBackOrReplace } from '../../lib/navigation';
 import { ensurePaymentRecordForTreatment } from '../../lib/payment-record';
 import {
   handleTossPaymentFailure,
@@ -71,6 +73,44 @@ export default function CustomerPaymentScreen() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [webViewHtml, setWebViewHtml] = useState('');
   const [webViewVisible, setWebViewVisible] = useState(false);
+
+  const closePaymentWebView = useCallback(() => {
+    setWebViewVisible(false);
+    setIsPaying(false);
+  }, []);
+
+  const handleBack = useCallback(() => {
+    if (webViewVisible) {
+      closePaymentWebView();
+      return;
+    }
+
+    navigateBackOrReplace('/home');
+  }, [closePaymentWebView, webViewVisible]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleBack();
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, [handleBack]);
+
+  const renderHeader = () => (
+    <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <Pressable
+        accessibilityLabel="뒤로가기"
+        accessibilityRole="button"
+        hitSlop={12}
+        onPress={handleBack}
+        style={({ pressed }) => [styles.headerBack, pressed && styles.headerBackPressed]}>
+        <Text style={styles.headerBackText}>‹</Text>
+      </Pressable>
+      <Text style={styles.headerTitle}>결제</Text>
+      <View style={styles.headerSpacer} />
+    </View>
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -244,23 +284,33 @@ export default function CustomerPaymentScreen() {
   };
 
   if (isLoading) {
-    return <LoadingState message="결제 정보를 불러오는 중..." />;
+    return (
+      <View style={styles.container}>
+        {renderHeader()}
+        <LoadingState message="결제 정보를 불러오는 중..." />
+      </View>
+    );
   }
 
   if (errorMessage) {
     return (
-      <View style={[styles.centered, { paddingTop: insets.top }]}>
-        <Text style={styles.errorText}>{errorMessage}</Text>
-        <Pressable style={styles.backLink} onPress={() => router.back()}>
-          <Text style={styles.backLinkText}>돌아가기</Text>
-        </Pressable>
+      <View style={styles.container}>
+        {renderHeader()}
+        <View style={styles.centeredBody}>
+          <Text style={styles.errorText}>{errorMessage}</Text>
+          <Pressable style={styles.backLink} onPress={handleBack}>
+            <Text style={styles.backLinkText}>돌아가기</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
 
   if (isSuccess) {
     return (
-      <View style={[styles.successContainer, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 }]}>
+      <View style={styles.container}>
+        {renderHeader()}
+        <View style={[styles.successContainer, { paddingBottom: insets.bottom + 24 }]}>
         <Text style={styles.successIcon}>✓</Text>
         <Text style={styles.successTitle}>결제가 완료되었습니다 ✓</Text>
         <Text style={styles.successSub}>디자이너 피드백 입력 후 정산됩니다</Text>
@@ -280,6 +330,7 @@ export default function CustomerPaymentScreen() {
         <Pressable style={styles.confirmSecondary} onPress={() => router.replace('/home')}>
           <Text style={styles.confirmSecondaryText}>다이어리로</Text>
         </Pressable>
+        </View>
       </View>
     );
   }
@@ -292,13 +343,7 @@ export default function CustomerPaymentScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={() => router.back()} style={styles.headerBack}>
-          <Text style={styles.headerBackText}>‹</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>결제</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      {renderHeader()}
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
@@ -393,10 +438,7 @@ export default function CustomerPaymentScreen() {
       <TossPaymentWebView
         visible={webViewVisible}
         html={webViewHtml}
-        onClose={() => {
-          setWebViewVisible(false);
-          setIsPaying(false);
-        }}
+        onClose={closePaymentWebView}
         onSuccess={onWebViewSuccess}
         onFail={onWebViewFail}
       />
@@ -409,10 +451,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FAFAFC',
   },
-  centered: {
-    flex: 1,
+  centeredBody: {
     alignItems: 'center',
-    backgroundColor: '#FAFAFC',
+    flex: 1,
     justifyContent: 'center',
     padding: 24,
   },
@@ -438,9 +479,14 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   headerBack: {
+    alignItems: 'center',
     height: 44,
     justifyContent: 'center',
     width: 44,
+    zIndex: 2,
+  },
+  headerBackPressed: {
+    opacity: 0.6,
   },
   headerBackText: {
     color: '#1A1A2E',
@@ -607,10 +653,10 @@ const styles = StyleSheet.create({
   },
   successContainer: {
     alignItems: 'center',
-    backgroundColor: '#FAFAFC',
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 32,
+    paddingTop: 24,
   },
   successIcon: {
     backgroundColor: MINT,
