@@ -24,6 +24,7 @@
     "expo-status-bar": "~56.0.4",
     "expo-symbols": "~56.0.5",
     "expo-system-ui": "~56.0.5",
+    "expo-updates": "~56.0.16",
     "expo-web-browser": "~56.0.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -49,7 +50,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "update:preview": "eas update --branch preview --message \"베타 v1.0\""
   },
   "private": true
 }
