@@ -79,6 +79,7 @@ type InputItem = {
   label: string;
   value: string;
   complete: boolean;
+  optional?: boolean;
 };
 
 type InputSection = {
@@ -89,8 +90,6 @@ type InputSection = {
 function formatDate(date: string) {
   return date.replaceAll('-', '.');
 }
-
-const TOTAL_ITEMS = 7;
 
 function getDraftValue(treatment: Treatment | null, field: EditableField) {
   if (!treatment) {
@@ -121,21 +120,30 @@ function getDraftValue(treatment: Treatment | null, field: EditableField) {
 }
 
 function FieldCard({ item, onPress }: { item: InputItem; onPress?: () => void }) {
+  const showRequired = !item.complete && !item.optional;
+
   return (
     <Pressable
       disabled={!item.editable}
       onPress={onPress}
       style={({ pressed }) => [
         styles.fieldCard,
-        item.complete ? styles.completeCard : styles.requiredCard,
+        item.complete ? styles.completeCard : showRequired ? styles.requiredCard : styles.optionalCard,
         pressed && styles.fieldCardPressed,
       ]}>
-      <View style={[styles.leftBar, item.complete ? styles.completeBar : styles.requiredBar]} />
+      <View
+        style={[
+          styles.leftBar,
+          item.complete ? styles.completeBar : showRequired ? styles.requiredBar : styles.optionalBar,
+        ]}
+      />
       <View style={styles.fieldContent}>
         <View style={styles.fieldHeader}>
           <Text style={styles.fieldLabel}>{item.label}</Text>
           {item.complete ? (
             <Text style={styles.checkMark}>✓</Text>
+          ) : item.optional ? (
+            <Text style={styles.optionalLabel}>선택</Text>
           ) : (
             <Text style={styles.requiredLabel}>필수</Text>
           )}
@@ -308,10 +316,12 @@ export default function DesignerTreatmentInputScreen() {
   }, [treatment]);
 
   const allItems = sections.flatMap((section) => section.items);
-  const completedCount = allItems.filter((item) => item.complete).length;
-  const requiredItems = allItems.filter((item) => item.editable && !item.complete);
+  const progressItems = allItems.filter((item) => !item.optional);
+  const totalProgressItems = progressItems.length;
+  const completedCount = progressItems.filter((item) => item.complete).length;
+  const requiredItems = progressItems.filter((item) => item.editable && !item.complete);
   const requiredCount = requiredItems.length;
-  const progress = completedCount / TOTAL_ITEMS;
+  const progress = totalProgressItems > 0 ? completedCount / totalProgressItems : 0;
   const paymentStatus = normalizePaymentStatus(treatment?.payment_status);
   const isCustomerLinked = Boolean(treatment?.customer_id);
   const canRequestPayment =
@@ -644,7 +654,9 @@ export default function DesignerTreatmentInputScreen() {
 
             <View style={styles.progressBlock}>
               <View style={styles.progressTopRow}>
-                <Text style={styles.progressText}>완료 {completedCount}/{TOTAL_ITEMS} 항목</Text>
+                <Text style={styles.progressText}>
+                  완료 {completedCount}/{totalProgressItems} 항목
+                </Text>
                 <Text style={styles.remainingText}>
                   {settlementInputComplete
                     ? isPaymentPaid
@@ -1014,6 +1026,9 @@ const styles = StyleSheet.create({
   requiredCard: {
     borderWidth: 1,
     borderColor: '#FFD4D5',
+  },
+  optionalCard: {
+    backgroundColor: '#FFFFFF',
   },
   leftBar: {
     width: 3,
