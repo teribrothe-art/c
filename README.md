@@ -10,6 +10,26 @@ cp .env.example .env
 npm start
 ```
 
+## 휴대폰에서 접속 (Expo Go)
+
+PC와 **같은 Wi‑Fi**이면:
+
+```sh
+npm run start:lan
+```
+
+다른 네트워크·LTE만 쓸 때 (터널):
+
+```sh
+npm run start:phone
+```
+
+1. 터미널에 나온 **QR 코드**를 iPhone/Android **Expo Go** 앱으로 스캔  
+2. 빨간 번들 오류가 나면 캐시 삭제 후 재시작: `npm run start:phone`  
+3. `react-native-svg` / QR 관련 500 오류는 `metro.config.js`의 스텁 설정으로 해결됨 — 의존성 변경 후에는 반드시 `--clear`로 재시작
+
+데모 로그인( Supabase 미설정 시): `demo@hair.app` / `demo1234`, `designer@hair.app` / `demo1234`
+
 `.env` 파일을 만든 뒤 Supabase 값을 입력합니다.
 
 ```sh
