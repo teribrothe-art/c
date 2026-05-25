@@ -15,7 +15,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CustomerInviteModal } from '../../../src/components/customer-invite-modal';
 import { TreatmentPhotoEditModal } from '../../../src/components/treatment-photo-edit-modal';
 import { TreatmentPhotoSlot } from '../../../src/components/treatment-photo-slot';
+import { parseWonAmount, sanitizeWonDigits } from '../../../lib/currency-input';
 import { prepareImageForUpload } from '../../../lib/prepare-upload-image';
+import { WonAmountInput } from '../../../src/components/won-amount-input';
 import {
   getTreatmentPhotoSignedUrl,
   pickTreatmentPhotoFromLibrary,
@@ -100,7 +102,7 @@ function getDraftValue(treatment: Treatment | null, field: EditableField) {
   }
 
   if (field === 'price') {
-    return treatment.price ? String(treatment.price) : '';
+    return treatment.price ? sanitizeWonDigits(String(treatment.price)) : '';
   }
 
   if (field === 'products') {
@@ -377,7 +379,7 @@ export default function DesignerTreatmentInputScreen() {
         return;
       }
     } else if (activeField === 'price') {
-      const priceValue = Number(trimmedValue.replace(/[^0-9]/g, ''));
+      const priceValue = parseWonAmount(inputValue);
 
       if (!priceValue || priceValue <= 0) {
         showWarningAlert('올바른 금액을 입력해주세요.');
@@ -404,8 +406,7 @@ export default function DesignerTreatmentInputScreen() {
       }
     }
 
-    const priceValue =
-      activeField === 'price' ? Number(trimmedValue.replace(/[^0-9]/g, '')) : undefined;
+    const priceValue = activeField === 'price' ? parseWonAmount(inputValue) : undefined;
 
     try {
       setIsSaving(true);
@@ -817,6 +818,13 @@ export default function DesignerTreatmentInputScreen() {
                 value={choiceValue}
                 onChange={setChoiceValue}
               />
+            ) : activeField === 'price' ? (
+              <WonAmountInput
+                placeholder="150,000"
+                style={styles.modalPriceInput}
+                value={inputValue}
+                onChangeValue={setInputValue}
+              />
             ) : (
               <>
                 <TextInput
@@ -826,14 +834,11 @@ export default function DesignerTreatmentInputScreen() {
                       ? MAX_TREATMENT_TITLE_LENGTH
                       : MAX_TREATMENT_NOTE_LENGTH
                   }
-                  keyboardType={activeField === 'price' ? 'number-pad' : 'default'}
                   onChangeText={setInputValue}
                   placeholder={
                     activeField === 'products'
                       ? '예: 웰라 12%, 로레알 (쉼표·줄바꿈으로 구분)'
-                      : activeField === 'price'
-                        ? '금액을 입력하세요'
-                        : '내용을 입력하세요'
+                      : '내용을 입력하세요'
                   }
                   placeholderTextColor="#9B9BA7"
                   style={[
@@ -1275,6 +1280,14 @@ const styles = StyleSheet.create({
   },
   modalInputSingleLine: {
     minHeight: 52,
+  },
+  modalPriceInput: {
+    borderColor: '#E3E3EA',
+    borderRadius: 16,
+    borderWidth: 1,
+    minHeight: 52,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   modalPresetBlock: {
     marginTop: 12,

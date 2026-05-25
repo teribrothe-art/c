@@ -22,9 +22,11 @@ import {
   TREATMENT_TYPE_OPTIONS,
   titlePresetsForType,
 } from '../../lib/treatment-options';
+import { parseWonAmount } from '../../lib/currency-input';
 import { createDesignerTreatment } from '../../lib/treatments';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
 import { TreatmentOptionChips } from '../../src/components/treatment-option-chips';
+import { WonAmountInput } from '../../src/components/won-amount-input';
 
 export default function DesignerInputScreen() {
   const insets = useSafeAreaInsets();
@@ -44,7 +46,7 @@ export default function DesignerInputScreen() {
   };
 
   const handleCreate = async () => {
-    const price = Number(priceText.replace(/[^0-9]/g, ''));
+    const price = parseWonAmount(priceText);
 
     if (!customerName.trim()) {
       showErrorAlert('고객 이름을 입력해주세요.');
@@ -160,14 +162,12 @@ export default function DesignerInputScreen() {
               onChange={setDuration}
             />
 
-            <Text style={styles.label}>시술 금액 (원)</Text>
-            <TextInput
-              keyboardType="number-pad"
-              placeholder="150000"
-              placeholderTextColor="#9CA3AF"
-              style={styles.input}
+            <Text style={styles.label}>시술 금액</Text>
+            <WonAmountInput
+              placeholder="150,000"
+              style={styles.priceInput}
               value={priceText}
-              onChangeText={setPriceText}
+              onChangeValue={setPriceText}
             />
 
             <Pressable
@@ -304,6 +304,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  priceInput: {
+    borderWidth: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
   createButton: {
     alignItems: 'center',
