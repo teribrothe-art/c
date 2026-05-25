@@ -27,6 +27,10 @@ export function TodayCareCard({ care, onViewDiary }: TodayCareCardProps) {
 
         <Text style={styles.quote}>“{care.message}”</Text>
 
+        {care.recommendation ? (
+          <Text style={styles.recommendation}>다음 점검: {care.recommendation}</Text>
+        ) : null}
+
         <Pressable
           onPress={onViewDiary}
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
@@ -74,6 +78,12 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     lineHeight: 26,
+    textAlign: 'center',
+  },
+  recommendation: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: '600',
     textAlign: 'center',
   },
   button: {

@@ -11,7 +11,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomTabBar } from '../src/components/bottom-tab-bar';
-import { buildDailyCareSnapshot } from '../lib/daily-care';
+import type { DailyCareSnapshot } from '../lib/daily-care';
+import { getTodayDailyCare } from '../lib/daily-insights';
 import { getErrorMessage } from '../lib/errors';
 import { getCustomerPendingPayments } from '../lib/payments';
 import {
@@ -87,6 +88,7 @@ export default function DiaryHomeScreen() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [dailyCare, setDailyCare] = useState<DailyCareSnapshot | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -112,6 +114,8 @@ export default function DiaryHomeScreen() {
         setTreatments(nextTreatments);
         const pending = await getCustomerPendingPayments();
         setPendingPayments(pending);
+        const care = await getTodayDailyCare(nextTreatments);
+        setDailyCare(care);
         setErrorMessage('');
         shouldShowOnboarding('customer').then(setShowOnboarding);
       })
@@ -141,10 +145,22 @@ export default function DiaryHomeScreen() {
       .catch(() => setPendingPayments([]));
   }, []);
 
+  const reloadDailyCare = useCallback(() => {
+    if (treatments.length === 0) {
+      setDailyCare(null);
+      return;
+    }
+
+    getTodayDailyCare(treatments)
+      .then(setDailyCare)
+      .catch(() => setDailyCare(null));
+  }, [treatments]);
+
   useFocusEffect(
     useCallback(() => {
       reloadPending();
-    }, [reloadPending]),
+      reloadDailyCare();
+    }, [reloadPending, reloadDailyCare]),
   );
 
   const filteredTreatments = useMemo(() => {
@@ -154,9 +170,11 @@ export default function DiaryHomeScreen() {
     return filterTreatmentsByQuery(byType, searchQuery);
   }, [selectedFilter, treatments, searchQuery]);
 
-  const dailyCare = useMemo(() => buildDailyCareSnapshot(treatments), [treatments]);
-
   const handleViewDiaryFromCare = () => {
+    if (!dailyCare) {
+      return;
+    }
+
     if (dailyCare.latestTreatmentId) {
       detailRouter.push({
         pathname: '/treatment/[id]',
@@ -186,7 +204,7 @@ export default function DiaryHomeScreen() {
           </Pressable>
         ) : null}
 
-        {!isLoading && !errorMessage && treatments.length > 0 ? (
+        {!isLoading && !errorMessage && dailyCare ? (
           <TodayCareCard care={dailyCare} onViewDiary={handleViewDiaryFromCare} />
         ) : null}
 

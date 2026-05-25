@@ -1,10 +1,18 @@
+import { buildCustomerAnalysis } from './customer-analysis';
 import { Treatment } from './treatments';
+
+export type DailyInsightType = 'high_damage' | 'mid_damage' | 'low_damage' | 'unknown_damage';
 
 export type DailyCareSnapshot = {
   damageLevel: number | null;
   message: string;
   latestTreatmentId: string | null;
+  insightType: DailyInsightType;
+  recommendation: string | null;
+  insightId?: string;
 };
+
+export type DailyCareContent = DailyCareSnapshot;
 
 type DamageBand = 'low' | 'mid' | 'high' | 'unknown';
 
@@ -76,18 +84,45 @@ function pickDailyMessage(band: DamageBand, date: Date, homeCare?: string | null
   return base;
 }
 
-export function buildDailyCareSnapshot(
+function bandToInsightType(band: DamageBand): DailyInsightType {
+  if (band === 'high') {
+    return 'high_damage';
+  }
+
+  if (band === 'mid') {
+    return 'mid_damage';
+  }
+
+  if (band === 'low') {
+    return 'low_damage';
+  }
+
+  return 'unknown_damage';
+}
+
+export function buildDailyCareContent(
   treatments: Treatment[],
   date = new Date(),
-): DailyCareSnapshot {
+): DailyCareContent {
   const sorted = [...treatments].sort((a, b) => b.treatment_date.localeCompare(a.treatment_date));
   const latest = sorted[0];
   const damageLevel = latest?.damage_level ?? null;
   const band = getDamageBand(damageLevel);
+  const analysis = buildCustomerAnalysis(treatments);
 
   return {
     damageLevel,
     message: pickDailyMessage(band, date, latest?.home_care),
     latestTreatmentId: latest?.id ?? null,
+    insightType: bandToInsightType(band),
+    recommendation: analysis.hasData ? analysis.nextRecommendation : null,
   };
+}
+
+/** @deprecated use buildDailyCareContent */
+export function buildDailyCareSnapshot(
+  treatments: Treatment[],
+  date = new Date(),
+): DailyCareSnapshot {
+  return buildDailyCareContent(treatments, date);
 }
