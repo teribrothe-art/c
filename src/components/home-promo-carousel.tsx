@@ -23,11 +23,42 @@ type HomePromoCarouselProps = {
 const AUTO_SCROLL_MS = 4200;
 const FOOTER_HEIGHT = 44;
 
+function normalizeSlideIndex(index: number, length: number) {
+  if (length === 0) {
+    return 0;
+  }
+
+  return ((index % length) + length) % length;
+}
+
+/** 마지막↔첫 전환 시 역방향 스크롤 애니메이션을 막아 떨림을 줄입니다. */
+function shouldAnimateCarouselScroll(fromIndex: number, toIndex: number, length: number) {
+  if (length <= 1) {
+    return false;
+  }
+
+  const wrapsForward = fromIndex === length - 1 && toIndex === 0;
+  const wrapsBackward = fromIndex === 0 && toIndex === length - 1;
+
+  return !wrapsForward && !wrapsBackward;
+}
+
 export function HomePromoCarousel({ slides, minHeight, onPressSlide }: HomePromoCarouselProps) {
   const listRef = useRef<FlatList<HomePromoSlide>>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const activeIndexRef = useRef(0);
   const slideWidth = Dimensions.get('window').width - 44;
   const carouselHeight = minHeight ?? Math.max(240, Dimensions.get('window').height * 0.3);
+
+  const scrollToOffsetForIndex = useCallback(
+    (nextIndex: number, fromIndex: number) => {
+      const animated = shouldAnimateCarouselScroll(fromIndex, nextIndex, slides.length);
+      listRef.current?.scrollToOffset({ offset: slideWidth * nextIndex, animated });
+      activeIndexRef.current = nextIndex;
+      setActiveIndex(nextIndex);
+    },
+    [slideWidth, slides.length],
+  );
 
   const scrollToSlide = useCallback(
     (index: number) => {
@@ -35,11 +66,10 @@ export function HomePromoCarousel({ slides, minHeight, onPressSlide }: HomePromo
         return;
       }
 
-      const next = ((index % slides.length) + slides.length) % slides.length;
-      setActiveIndex(next);
-      listRef.current?.scrollToOffset({ offset: slideWidth * next, animated: true });
+      const next = normalizeSlideIndex(index, slides.length);
+      scrollToOffsetForIndex(next, activeIndexRef.current);
     },
-    [slideWidth, slides.length],
+    [scrollToOffsetForIndex, slides.length],
   );
 
   useEffect(() => {
@@ -48,15 +78,13 @@ export function HomePromoCarousel({ slides, minHeight, onPressSlide }: HomePromo
     }
 
     const timer = setInterval(() => {
-      setActiveIndex((current) => {
-        const next = (current + 1) % slides.length;
-        listRef.current?.scrollToOffset({ offset: slideWidth * next, animated: true });
-        return next;
-      });
+      const current = activeIndexRef.current;
+      const next = (current + 1) % slides.length;
+      scrollToOffsetForIndex(next, current);
     }, AUTO_SCROLL_MS);
 
     return () => clearInterval(timer);
-  }, [slideWidth, slides.length]);
+  }, [scrollToOffsetForIndex, slides.length]);
 
   const goToPrevious = () => {
     scrollToSlide(activeIndex - 1);
@@ -101,10 +129,11 @@ export function HomePromoCarousel({ slides, minHeight, onPressSlide }: HomePromo
             offset: slideWidth * index,
             index,
           })}
-          onMomentumScrollEnd={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
-            const index = Math.round(event.nativeEvent.contentOffset.x / slideWidth);
-            setActiveIndex(index);
-          }}
+        onMomentumScrollEnd={(event: NativeSyntheticEvent<NativeScrollEvent>) => {
+          const index = Math.round(event.nativeEvent.contentOffset.x / slideWidth);
+          activeIndexRef.current = index;
+          setActiveIndex(index);
+        }}
           renderItem={({ item }) => (
             <Pressable
               onPress={() => onPressSlide(item)}
