@@ -7,6 +7,7 @@ export type DamageTrendItem = {
 };
 
 export type InsightItem = {
+  treatmentId: string;
   date: string;
   title: string;
   insight: string;
@@ -94,6 +95,7 @@ export function buildCustomerAnalysis(treatments: Treatment[]): CustomerAnalysis
   const insights: InsightItem[] = sorted
     .filter((treatment) => Boolean(treatment.ai_insight?.trim()))
     .map((treatment) => ({
+      treatmentId: treatment.id,
       date: treatment.treatment_date,
       title: treatment.treatment_title,
       insight: treatment.ai_insight!.trim(),

@@ -133,7 +133,9 @@ export default function AnalysisScreen() {
                 <Text style={styles.emptyInsight}>저장된 AI 인사이트가 없습니다.</Text>
               ) : (
                 analysis.insights.map((item, index) => (
-                  <View key={`${item.date}-${item.title}`} style={[styles.insightItem, index === 0 && styles.insightItemFirst]}>
+                  <View
+                    key={item.treatmentId}
+                    style={[styles.insightItem, index === 0 && styles.insightItemFirst]}>
                     <Text style={styles.insightMeta}>
                       {formatDate(item.date)} · {item.title}
                     </Text>
