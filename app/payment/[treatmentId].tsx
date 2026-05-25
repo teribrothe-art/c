@@ -27,6 +27,7 @@ import {
   isTossTestKey,
   requestTossPaymentOnWeb,
   shouldShowTossTestCardGuide,
+  shouldUseInAppDemoPayment,
   TOSS_TEST_CARD,
   shouldUsePaymentWebView,
 } from '../../lib/toss';
@@ -136,7 +137,17 @@ export default function CustomerPaymentScreen() {
   const amount = treatment?.price ?? 0;
 
   const handlePay = async () => {
-    if (!treatment || !treatmentId || isPaying) {
+    if (!treatment || !treatmentId) {
+      showErrorAlert('결제 정보를 불러오지 못했습니다.');
+      return;
+    }
+
+    if (amount <= 0) {
+      showErrorAlert('결제 금액이 설정되지 않았습니다.');
+      return;
+    }
+
+    if (isPaying) {
       return;
     }
 
@@ -146,7 +157,16 @@ export default function CustomerPaymentScreen() {
       const { orderId } = await preparePaymentSession(treatmentId);
       const orderName = `${treatment.treatment_type} · ${treatment.treatment_title}`;
       const clientKey = getTossClientKey();
-      const useDemoSimulator = !isTossConfigured();
+      const useInAppDemo = shouldUseInAppDemoPayment();
+
+      if (useInAppDemo) {
+        await handleTossPaymentSuccess(treatmentId, {
+          paymentKey: `demo_${Date.now()}`,
+          orderId,
+        });
+        setIsSuccess(true);
+        return;
+      }
 
       if (shouldUsePaymentWebView()) {
         const html = buildTossPaymentWebViewHtml({
@@ -155,19 +175,10 @@ export default function CustomerPaymentScreen() {
           orderName,
           treatmentId,
           clientKey: clientKey || 'test_ck_demo',
-          useDemoSimulator,
+          useDemoSimulator: false,
         });
         setWebViewHtml(html);
         setWebViewVisible(true);
-        return;
-      }
-
-      if (useDemoSimulator) {
-        await handleTossPaymentSuccess(treatmentId, {
-          paymentKey: `demo_${Date.now()}`,
-          orderId,
-        });
-        setIsSuccess(true);
         return;
       }
 
@@ -310,7 +321,17 @@ export default function CustomerPaymentScreen() {
           <Text style={styles.noticeSub}>에스크로 방식으로 안전하게 보관됩니다</Text>
         </View>
 
-        {shouldShowTossTestCardGuide() ? (
+        {shouldUseInAppDemoPayment() ? (
+          <View style={styles.testCardBox}>
+            <Text style={styles.testCardTitle}>테스트 결제 모드</Text>
+            <Text style={styles.demoHint}>
+              Expo Go·데모 환경에서는 아래 버튼으로 즉시 결제 완료 처리됩니다. 실제 카드 결제는
+              개발 빌드(앱스킴 등록)에서 test_ck 키로 테스트하세요.
+            </Text>
+          </View>
+        ) : null}
+
+        {shouldShowTossTestCardGuide() && !shouldUseInAppDemoPayment() ? (
           <View style={styles.testCardBox}>
             <Text style={styles.testCardTitle}>토스 테스트 카드 (샌드박스)</Text>
             {!isTossConfigured() ? (
@@ -347,13 +368,15 @@ export default function CustomerPaymentScreen() {
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <Pressable
-          style={[styles.payButton, isPaying && disabledButtonStyle]}
-          disabled={isPaying}
-          onPress={handlePay}>
+          style={[styles.payButton, (isPaying || amount <= 0) && disabledButtonStyle]}
+          disabled={isPaying || amount <= 0}
+          onPress={() => void handlePay()}>
           {isPaying ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.payButtonText}>{formatWon(amount)} 결제하기</Text>
+            <Text style={styles.payButtonText}>
+              {shouldUseInAppDemoPayment() ? `${formatWon(amount)} 테스트 결제하기` : `${formatWon(amount)} 결제하기`}
+            </Text>
           )}
         </Pressable>
       </View>

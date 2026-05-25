@@ -1,8 +1,9 @@
+import { useCallback, useRef } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebView, { WebViewNavigation } from 'react-native-webview';
 
-import { parseTossFailUrl, parseTossSuccessUrl } from '../../lib/toss';
+import { resolveTossWebViewNavigation } from '../../lib/toss-webview-navigation';
 
 type Props = {
   visible: boolean;
@@ -14,25 +15,38 @@ type Props = {
 
 export function TossPaymentWebView({ visible, html, onClose, onSuccess, onFail }: Props) {
   const insets = useSafeAreaInsets();
+  const lastHandledUrl = useRef('');
 
-  const handleNavigation = (navigation: WebViewNavigation) => {
-    const url = navigation.url;
-    const success = parseTossSuccessUrl(url);
+  const handleNavigation = useCallback(
+    (navigation: WebViewNavigation) => {
+      const url = navigation.url;
 
-    if (success) {
-      onSuccess(success);
-      return false;
-    }
+      if (!url || lastHandledUrl.current === url) {
+        return true;
+      }
 
-    const failure = parseTossFailUrl(url);
+      const result = resolveTossWebViewNavigation(url);
 
-    if (failure) {
-      onFail({ code: failure.code, message: failure.message });
-      return false;
-    }
+      if (result.action === 'success') {
+        lastHandledUrl.current = url;
+        onSuccess(result.payload);
+        return false;
+      }
 
-    return true;
-  };
+      if (result.action === 'fail') {
+        lastHandledUrl.current = url;
+        onFail({ code: result.payload.code, message: result.payload.message });
+        return false;
+      }
+
+      if (result.action === 'block') {
+        return false;
+      }
+
+      return true;
+    },
+    [onFail, onSuccess],
+  );
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -48,6 +62,11 @@ export function TossPaymentWebView({ visible, html, onClose, onSuccess, onFail }
           originWhitelist={['*']}
           source={{ html }}
           onShouldStartLoadWithRequest={(request) => handleNavigation(request)}
+          onNavigationStateChange={(navigation) => {
+            void handleNavigation(navigation);
+          }}
+          setSupportMultipleWindows
+          javaScriptCanOpenWindowsAutomatically
           startInLoadingState
           javaScriptEnabled
           domStorageEnabled

@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { loadTossPayments } from '@tosspayments/payment-sdk';
 import { Platform } from 'react-native';
 
@@ -208,4 +209,17 @@ export async function requestTossPaymentOnWeb(params: TossPaymentParams) {
 
 export function shouldUsePaymentWebView() {
   return Platform.OS !== 'web';
+}
+
+/** Expo Go 등 네이티브 앱스킴·Intent 미등록 환경 — WebView 대신 앱 내 데모 결제 */
+export function shouldUseInAppDemoPayment() {
+  if (Platform.OS === 'web') {
+    return false;
+  }
+
+  if (!isTossConfigured()) {
+    return true;
+  }
+
+  return Constants.executionEnvironment === 'storeClient';
 }
