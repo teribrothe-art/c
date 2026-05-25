@@ -15,17 +15,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { showErrorAlert } from '../../lib/alerts';
 import { getErrorMessage } from '../../lib/errors';
 import { colors } from '../../lib/theme';
+import {
+  DEFAULT_TREATMENT_DURATION,
+  defaultTreatmentTitle,
+  DURATION_OPTIONS,
+  TREATMENT_TYPE_OPTIONS,
+  titlePresetsForType,
+} from '../../lib/treatment-options';
 import { createDesignerTreatment } from '../../lib/treatments';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
-
-const quickInputs = [
-  { icon: '✂️', label: '컷' },
-  { icon: '🎨', label: '컬러' },
-  { icon: '💫', label: '펌' },
-  { icon: '✨', label: '탈색' },
-  { icon: '💧', label: '트리트먼트' },
-  { icon: '🪄', label: '매직' },
-];
+import { TreatmentOptionChips } from '../../src/components/treatment-option-chips';
 
 export default function DesignerInputScreen() {
   const insets = useSafeAreaInsets();
@@ -33,10 +32,14 @@ export default function DesignerInputScreen() {
   const [selectedType, setSelectedType] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [priceText, setPriceText] = useState('150000');
+  const [duration, setDuration] = useState(DEFAULT_TREATMENT_DURATION);
+  const [treatmentTitle, setTreatmentTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
   const openCreateModal = (type: string) => {
     setSelectedType(type);
+    setDuration(DEFAULT_TREATMENT_DURATION);
+    setTreatmentTitle(defaultTreatmentTitle(type));
     setModalVisible(true);
   };
 
@@ -58,6 +61,8 @@ export default function DesignerInputScreen() {
       const treatment = await createDesignerTreatment({
         customerName,
         treatmentType: selectedType,
+        treatmentTitle: treatmentTitle.trim() || defaultTreatmentTitle(selectedType),
+        duration,
         price,
       });
 
@@ -89,7 +94,7 @@ export default function DesignerInputScreen() {
         </View>
 
         <View style={styles.grid}>
-          {quickInputs.map((item) => (
+          {TREATMENT_TYPE_OPTIONS.map((item) => (
             <Pressable
               key={item.label}
               disabled={isCreating}
@@ -116,6 +121,43 @@ export default function DesignerInputScreen() {
               style={styles.input}
               value={customerName}
               onChangeText={setCustomerName}
+            />
+
+            <Text style={styles.label}>시술 종류</Text>
+            <TreatmentOptionChips
+              options={TREATMENT_TYPE_OPTIONS}
+              value={selectedType}
+              onChange={(type) => {
+                setSelectedType(type);
+                setTreatmentTitle((prev) =>
+                  !prev.trim() || prev === defaultTreatmentTitle(selectedType)
+                    ? defaultTreatmentTitle(type)
+                    : prev,
+                );
+              }}
+            />
+
+            <Text style={styles.label}>시술명</Text>
+            <TextInput
+              placeholder={defaultTreatmentTitle(selectedType)}
+              placeholderTextColor="#9CA3AF"
+              style={styles.input}
+              value={treatmentTitle}
+              onChangeText={setTreatmentTitle}
+            />
+            {titlePresetsForType(selectedType).length ? (
+              <TreatmentOptionChips
+                options={titlePresetsForType(selectedType)}
+                value={treatmentTitle}
+                onChange={setTreatmentTitle}
+              />
+            ) : null}
+
+            <Text style={styles.label}>소요 시간</Text>
+            <TreatmentOptionChips
+              options={[...DURATION_OPTIONS]}
+              value={duration}
+              onChange={setDuration}
             />
 
             <Text style={styles.label}>시술 금액 (원)</Text>

@@ -4,6 +4,7 @@ import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
 import type { PaymentStatus } from './payment-status';
 import { sanitizeTreatmentsForCustomer, sanitizeTreatmentForCustomer } from './treatment-privacy';
+import { defaultTreatmentTitle, DEFAULT_TREATMENT_DURATION } from './treatment-options';
 import { supabase } from './supabase';
 
 export type Treatment = {
@@ -261,6 +262,7 @@ export type CreateDesignerTreatmentInput = {
   price?: number;
   damageLevel?: number;
   duration?: string;
+  products?: string[];
 };
 
 export type TreatmentUpdateInput = Partial<
@@ -285,6 +287,9 @@ export type TreatmentUpdateInput = Partial<
     | 'price'
     | 'duration'
     | 'damage_level'
+    | 'treatment_type'
+    | 'treatment_title'
+    | 'products'
   >
 >;
 
@@ -307,9 +312,13 @@ export async function createDesignerTreatment(input: CreateDesignerTreatmentInpu
     throw new Error('시술 종류를 선택해주세요.');
   }
 
-  const treatmentTitle = input.treatmentTitle?.trim() || `${treatmentType} 시술`;
+  const treatmentTitle = input.treatmentTitle?.trim() || defaultTreatmentTitle(treatmentType);
   const treatmentDate = new Date().toISOString().slice(0, 10);
   const price = input.price && input.price > 0 ? Math.round(input.price) : 150000;
+  const products =
+    input.products?.map((item) => item.trim()).filter(Boolean).length
+      ? input.products.map((item) => item.trim()).filter(Boolean)
+      : null;
 
   const baseRow = {
     customer_id: null as string | null,
@@ -319,10 +328,10 @@ export async function createDesignerTreatment(input: CreateDesignerTreatmentInpu
     treatment_date: treatmentDate,
     treatment_type: treatmentType,
     treatment_title: treatmentTitle,
-    products: null as string[] | null,
+    products,
     technique: null as string | null,
     damage_level: input.damageLevel ?? 5,
-    duration: input.duration?.trim() || '1시간 30분',
+    duration: input.duration?.trim() || DEFAULT_TREATMENT_DURATION,
     designer_diagnosis: null as string | null,
     home_care: null as string | null,
     ai_insight: null as string | null,

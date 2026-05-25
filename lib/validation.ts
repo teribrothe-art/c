@@ -48,6 +48,26 @@ export function validatePasswordConfirm(password: string, passwordConfirm: strin
   return null;
 }
 
+export const MAX_TREATMENT_TITLE_LENGTH = 80;
+
+export function validateTreatmentTitle(value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return '시술명을 입력해주세요.';
+  }
+
+  if (trimmed.length < 2) {
+    return '시술명을 2자 이상 입력해주세요.';
+  }
+
+  if (trimmed.length > MAX_TREATMENT_TITLE_LENGTH) {
+    return `시술명은 ${MAX_TREATMENT_TITLE_LENGTH}자까지 입력할 수 있습니다.`;
+  }
+
+  return null;
+}
+
 export function validateTreatmentNote(value: string) {
   const trimmed = value.trim();
 

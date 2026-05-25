@@ -31,9 +31,20 @@ import {
 import { getErrorMessage } from '../../../lib/errors';
 import { colors, disabledButtonStyle } from '../../../lib/theme';
 import {
+  DURATION_OPTIONS,
+  formatProductsInput,
+  parseProductsInput,
+  PRODUCT_PRESETS,
+  TREATMENT_TYPE_OPTIONS,
+  titlePresetsForType,
+} from '../../../lib/treatment-options';
+import {
   MAX_TREATMENT_NOTE_LENGTH,
+  MAX_TREATMENT_TITLE_LENGTH,
   validateTreatmentNote,
+  validateTreatmentTitle,
 } from '../../../lib/validation';
+import { TreatmentOptionChips } from '../../../src/components/treatment-option-chips';
 import { LoadingState } from '../../../src/components/loading-state';
 import {
   getPaymentByTreatmentId,
@@ -51,7 +62,17 @@ import {
 } from '../../../lib/treatment-settlement';
 import { getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
 
-type EditableField = 'technique' | 'designer_diagnosis' | 'home_care' | 'price';
+type EditableField =
+  | 'technique'
+  | 'designer_diagnosis'
+  | 'home_care'
+  | 'price'
+  | 'treatment_type'
+  | 'treatment_title'
+  | 'duration'
+  | 'products';
+
+const CHOICE_FIELDS: EditableField[] = ['treatment_type', 'duration'];
 
 type InputItem = {
   editable?: EditableField;
@@ -69,11 +90,7 @@ function formatDate(date: string) {
   return date.replaceAll('-', '.');
 }
 
-const TOTAL_ITEMS = 6;
-
-function joinProducts(products: string[] | null) {
-  return products?.length ? products.join(' · ') : '';
-}
+const TOTAL_ITEMS = 7;
 
 function getDraftValue(treatment: Treatment | null, field: EditableField) {
   if (!treatment) {
@@ -82,6 +99,22 @@ function getDraftValue(treatment: Treatment | null, field: EditableField) {
 
   if (field === 'price') {
     return treatment.price ? String(treatment.price) : '';
+  }
+
+  if (field === 'products') {
+    return formatProductsInput(treatment.products);
+  }
+
+  if (field === 'treatment_type') {
+    return treatment.treatment_type ?? '';
+  }
+
+  if (field === 'treatment_title') {
+    return treatment.treatment_title ?? '';
+  }
+
+  if (field === 'duration') {
+    return treatment.duration ?? '';
   }
 
   return treatment[field] ?? '';
@@ -125,6 +158,7 @@ export default function DesignerTreatmentInputScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [activeField, setActiveField] = useState<EditableField | null>(null);
   const [inputValue, setInputValue] = useState('');
+  const [choiceValue, setChoiceValue] = useState('');
   const [photoPreviews, setPhotoPreviews] = useState<{ before: string | null; after: string | null }>({
     before: null,
     after: null,
@@ -203,7 +237,7 @@ export default function DesignerTreatmentInputScreen() {
     const technique = getDraftValue(treatment, 'technique');
     const diagnosis = getDraftValue(treatment, 'designer_diagnosis');
     const homeCare = getDraftValue(treatment, 'home_care');
-    const products = joinProducts(treatment?.products ?? null);
+    const products = formatProductsInput(treatment?.products ?? null);
 
     return [
       {
@@ -211,13 +245,21 @@ export default function DesignerTreatmentInputScreen() {
         items: [
           {
             label: '시술 종류',
+            value: treatment?.treatment_type ?? '',
+            complete: Boolean(treatment?.treatment_type),
+            editable: 'treatment_type',
+          },
+          {
+            label: '시술명',
             value: treatment?.treatment_title ?? '',
             complete: Boolean(treatment?.treatment_title),
+            editable: 'treatment_title',
           },
           {
             label: '소요 시간',
             value: treatment?.duration ?? '',
             complete: Boolean(treatment?.duration),
+            editable: 'duration',
           },
           {
             label: '시술 금액',
@@ -234,6 +276,8 @@ export default function DesignerTreatmentInputScreen() {
             label: '사용 약품',
             value: products,
             complete: Boolean(products),
+            editable: 'products',
+            optional: true,
           },
           {
             label: '기법·세팅',
@@ -288,12 +332,21 @@ export default function DesignerTreatmentInputScreen() {
 
   const openEditor = (field: EditableField) => {
     setActiveField(field);
+
+    if (CHOICE_FIELDS.includes(field)) {
+      setChoiceValue(getDraftValue(treatment, field));
+      setInputValue('');
+      return;
+    }
+
+    setChoiceValue('');
     setInputValue(getDraftValue(treatment, field));
   };
 
   const closeEditor = () => {
     setActiveField(null);
     setInputValue('');
+    setChoiceValue('');
   };
 
   const handleSaveField = async () => {
@@ -302,8 +355,33 @@ export default function DesignerTreatmentInputScreen() {
     }
 
     const trimmedValue = inputValue.trim();
+    const isChoiceField = CHOICE_FIELDS.includes(activeField);
 
-    if (activeField !== 'price') {
+    if (isChoiceField) {
+      if (!choiceValue.trim()) {
+        showWarningAlert('항목을 선택해주세요.');
+        return;
+      }
+    } else if (activeField === 'price') {
+      const priceValue = Number(trimmedValue.replace(/[^0-9]/g, ''));
+
+      if (!priceValue || priceValue <= 0) {
+        showWarningAlert('올바른 금액을 입력해주세요.');
+        return;
+      }
+    } else if (activeField === 'treatment_title') {
+      const validationError = validateTreatmentTitle(inputValue);
+
+      if (validationError) {
+        showWarningAlert(validationError);
+        return;
+      }
+    } else if (activeField === 'products') {
+      if (trimmedValue.length > MAX_TREATMENT_NOTE_LENGTH) {
+        showWarningAlert(`약품 정보는 ${MAX_TREATMENT_NOTE_LENGTH}자까지 입력할 수 있습니다.`);
+        return;
+      }
+    } else {
       const validationError = validateTreatmentNote(inputValue);
 
       if (validationError) {
@@ -315,17 +393,20 @@ export default function DesignerTreatmentInputScreen() {
     const priceValue =
       activeField === 'price' ? Number(trimmedValue.replace(/[^0-9]/g, '')) : undefined;
 
-    if (activeField === 'price' && (!priceValue || priceValue <= 0)) {
-      showWarningAlert('올바른 금액을 입력해주세요.');
-      return;
-    }
-
     try {
       setIsSaving(true);
-      const patch =
-        activeField === 'price'
-          ? { price: priceValue }
-          : { [activeField]: trimmedValue as string };
+      let patch: Parameters<typeof updateTreatment>[1];
+
+      if (activeField === 'price') {
+        patch = { price: priceValue };
+      } else if (activeField === 'products') {
+        const parsed = parseProductsInput(trimmedValue);
+        patch = { products: parsed.length ? parsed : null };
+      } else if (isChoiceField) {
+        patch = { [activeField]: choiceValue.trim() };
+      } else {
+        patch = { [activeField]: trimmedValue };
+      }
 
       let updatedTreatment = await updateTreatment(treatment.id, patch);
 
@@ -499,6 +580,10 @@ export default function DesignerTreatmentInputScreen() {
   const activeFieldLabel = sections
     .flatMap((section) => section.items)
     .find((item) => item.editable === activeField)?.label;
+  const isChoiceEditor = Boolean(activeField && CHOICE_FIELDS.includes(activeField));
+  const isSingleLineEditor =
+    activeField === 'price' || activeField === 'treatment_title' || activeField === 'products';
+  const titlePresets = titlePresetsForType(treatment?.treatment_type ?? '');
 
   return (
     <View style={styles.container}>
@@ -669,19 +754,72 @@ export default function DesignerTreatmentInputScreen() {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{activeFieldLabel}</Text>
-            <TextInput
-              multiline
-              maxLength={MAX_TREATMENT_NOTE_LENGTH}
-              onChangeText={setInputValue}
-              placeholder="내용을 입력하세요"
-              placeholderTextColor="#9B9BA7"
-              style={styles.modalInput}
-              textAlignVertical="top"
-              value={inputValue}
-            />
-            <Text style={styles.counterText}>
-              {inputValue.length}/{MAX_TREATMENT_NOTE_LENGTH}
-            </Text>
+            {isChoiceEditor ? (
+              <TreatmentOptionChips
+                options={
+                  activeField === 'treatment_type'
+                    ? TREATMENT_TYPE_OPTIONS
+                    : [...DURATION_OPTIONS]
+                }
+                value={choiceValue}
+                onChange={setChoiceValue}
+              />
+            ) : (
+              <>
+                <TextInput
+                  multiline={!isSingleLineEditor}
+                  maxLength={
+                    activeField === 'treatment_title'
+                      ? MAX_TREATMENT_TITLE_LENGTH
+                      : MAX_TREATMENT_NOTE_LENGTH
+                  }
+                  keyboardType={activeField === 'price' ? 'number-pad' : 'default'}
+                  onChangeText={setInputValue}
+                  placeholder={
+                    activeField === 'products'
+                      ? '예: 웰라 12%, 로레알 (쉼표·줄바꿈으로 구분)'
+                      : activeField === 'price'
+                        ? '금액을 입력하세요'
+                        : '내용을 입력하세요'
+                  }
+                  placeholderTextColor="#9B9BA7"
+                  style={[
+                    styles.modalInput,
+                    isSingleLineEditor && styles.modalInputSingleLine,
+                  ]}
+                  textAlignVertical={isSingleLineEditor ? 'center' : 'top'}
+                  value={inputValue}
+                />
+                {activeField === 'treatment_title' && titlePresets.length ? (
+                  <View style={styles.modalPresetBlock}>
+                    <TreatmentOptionChips
+                      options={titlePresets}
+                      value={inputValue}
+                      onChange={setInputValue}
+                    />
+                  </View>
+                ) : null}
+                {activeField === 'products' ? (
+                  <View style={styles.modalPresetBlock}>
+                    <TreatmentOptionChips
+                      options={[...PRODUCT_PRESETS]}
+                      value=""
+                      onChange={(preset) => {
+                        const current = parseProductsInput(inputValue);
+                        if (!current.includes(preset)) {
+                          setInputValue(formatProductsInput([...current, preset]));
+                        }
+                      }}
+                    />
+                  </View>
+                ) : null}
+                {!isSingleLineEditor ? (
+                  <Text style={styles.counterText}>
+                    {inputValue.length}/{MAX_TREATMENT_NOTE_LENGTH}
+                  </Text>
+                ) : null}
+              </>
+            )}
             <View style={styles.modalActions}>
               <Pressable disabled={isSaving} onPress={closeEditor} style={styles.modalCancelButton}>
                 <Text style={styles.modalCancelText}>취소</Text>
@@ -886,6 +1024,15 @@ const styles = StyleSheet.create({
   requiredBar: {
     backgroundColor: '#FF5A5F',
   },
+  optionalBar: {
+    backgroundColor: '#C5C5D2',
+  },
+  optionalLabel: {
+    color: '#6B6B7B',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
   fieldContent: {
     flex: 1,
     paddingHorizontal: 16,
@@ -1060,6 +1207,12 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     paddingHorizontal: 16,
     paddingVertical: 14,
+  },
+  modalInputSingleLine: {
+    minHeight: 52,
+  },
+  modalPresetBlock: {
+    marginTop: 12,
   },
   modalActions: {
     flexDirection: 'row',
