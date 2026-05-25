@@ -72,8 +72,8 @@ const INITIAL_DEMO_TREATMENTS: Treatment[] = [
     designer_name: '박정수 디자이너',
     customer_name: '김지원',
     treatment_date: '2026-03-05',
-    treatment_type: '커트',
-    treatment_title: '레이어드 컷 + 트리트먼트',
+    treatment_type: '컷',
+    treatment_title: '레이어드 컷',
     products: ['로레알 트리트먼트'],
     damage_level: 5,
     duration: '1시간 30분',
@@ -108,13 +108,82 @@ const INITIAL_DEMO_TREATMENTS: Treatment[] = [
     feedback_completed: true,
   },
   {
+    id: 'demo-treatment-5',
+    customer_id: 'demo-customer-kim-jiwon',
+    designer_id: 'demo-designer-local',
+    designer_name: '김미용 디자이너',
+    customer_name: '김지원',
+    treatment_date: '2025-11-08',
+    treatment_type: '펌',
+    treatment_title: '볼륨 디지털 펌',
+    products: ['아모스 펌제'],
+    damage_level: 5,
+    duration: '3시간',
+    designer_diagnosis: '모근부 볼륨이 잘 살아남. 뿌리 펌 강도는 보통.',
+    home_care: '시술 후 48시간 샴푸 금지. 수분 에센스 매일.',
+    ai_insight: '펌 유지 3~4개월. 끝머리 트리트먼트 병행 권장.',
+    price: 220000,
+    payment_status: 'completed',
+    paid_at: '2025-11-08T15:00:00.000Z',
+    settled_at: '2025-11-09T10:00:00.000Z',
+    platform_fee: 22000,
+    designer_payout_amount: 198000,
+    feedback_completed: true,
+  },
+  {
+    id: 'demo-treatment-6',
+    customer_id: 'demo-customer-kim-jiwon',
+    designer_id: 'demo-designer-local',
+    designer_name: '박정수 디자이너',
+    customer_name: '김지원',
+    treatment_date: '2025-09-14',
+    treatment_type: '트리트먼트',
+    treatment_title: '단백질 딥 케어',
+    products: ['로레알 트리트먼트', '츠바키 마스크'],
+    damage_level: 4,
+    duration: '1시간',
+    designer_diagnosis: '건조함 완화. 큐티클 정돈 양호.',
+    home_care: '주 2회 헤어팩. 미온수로 헹굼.',
+    ai_insight: '4주 후 두피·모발 점검 추천.',
+    price: 80000,
+    payment_status: 'completed',
+    paid_at: '2025-09-14T11:00:00.000Z',
+    settled_at: '2025-09-15T10:00:00.000Z',
+    platform_fee: 8000,
+    designer_payout_amount: 72000,
+    feedback_completed: true,
+  },
+  {
+    id: 'demo-treatment-7',
+    customer_id: 'demo-customer-kim-jiwon',
+    designer_id: 'demo-designer-local',
+    designer_name: '김미용 디자이너',
+    customer_name: '김지원',
+    treatment_date: '2025-06-20',
+    treatment_type: '매직',
+    treatment_title: '매직스트레이트',
+    products: ['밀본 매직제'],
+    damage_level: 6,
+    duration: '4시간',
+    designer_diagnosis: '곱슬 완화. 직경 80% 유지 권장.',
+    home_care: '열 차단 필수. 산성 샴푸 사용.',
+    ai_insight: '6개월 후 뿌리 리터치 검토.',
+    price: 280000,
+    payment_status: 'completed',
+    paid_at: '2025-06-20T14:00:00.000Z',
+    settled_at: '2025-06-21T10:00:00.000Z',
+    platform_fee: 28000,
+    designer_payout_amount: 252000,
+    feedback_completed: true,
+  },
+  {
     id: 'demo-treatment-4',
     customer_id: 'demo-customer-park-minji',
     designer_id: 'demo-designer-local',
     designer_name: '디자이너',
     customer_name: '박민지',
     treatment_date: '2026-04-10',
-    treatment_type: '펌',
+    treatment_type: '매직',
     treatment_title: '매직스트레이트',
     products: ['로레알 펌제'],
     damage_level: 6,
@@ -144,6 +213,22 @@ async function hydrateDemoTreatments() {
         const stored = JSON.parse(raw) as Treatment[];
         demoTreatments.length = 0;
         demoTreatments.push(...stored);
+      } else {
+        demoTreatments.length = 0;
+        demoTreatments.push(...INITIAL_DEMO_TREATMENTS.map((item) => ({ ...item })));
+      }
+
+      let merged = false;
+
+      for (const seed of INITIAL_DEMO_TREATMENTS) {
+        if (!demoTreatments.some((item) => item.id === seed.id)) {
+          demoTreatments.push({ ...seed });
+          merged = true;
+        }
+      }
+
+      if (!raw || merged) {
+        await persistDemoTreatments();
       }
     })();
   }

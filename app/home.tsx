@@ -20,6 +20,12 @@ import {
   markOnboardingSeen,
   shouldShowOnboarding,
 } from '../lib/onboarding';
+import {
+  DIARY_FILTER_OPTIONS,
+  DiaryFilterKey,
+  getTreatmentTypeIcon,
+  treatmentMatchesDiaryFilter,
+} from '../lib/diary-filters';
 import { filterTreatmentsByQuery } from '../lib/treatment-search';
 import { getTreatments, Treatment } from '../lib/treatments';
 import { EmptyState } from '../src/components/empty-state';
@@ -27,36 +33,12 @@ import { LoadingState } from '../src/components/loading-state';
 import { OnboardingModal } from '../src/components/onboarding-modal';
 import { TodayCareCard } from '../src/components/today-care-card';
 
-type FilterKey = '전체' | '컷' | '컬러' | '펌';
-
-const filters: FilterKey[] = ['전체', '컷', '컬러', '펌'];
-
 function formatDate(date: string) {
   return date.replaceAll('-', '.');
 }
 
-function matchesFilter(treatmentType: string, selectedFilter: FilterKey) {
-  if (selectedFilter === '전체') {
-    return true;
-  }
-
-  if (selectedFilter === '컷') {
-    return treatmentType.includes('컷') || treatmentType.includes('커트');
-  }
-
-  if (selectedFilter === '컬러') {
-    return (
-      treatmentType.includes('컬러') ||
-      treatmentType.includes('염색') ||
-      treatmentType.includes('탈색') ||
-      treatmentType.includes('토닝')
-    );
-  }
-
-  return treatmentType.includes('펌') || treatmentType.includes('파마');
-}
-
 function TreatmentCard({ onPress, treatment }: { onPress: () => void; treatment: Treatment }) {
+  const typeIcon = getTreatmentTypeIcon(treatment.treatment_type);
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
       <Text style={styles.cardMeta}>
@@ -65,7 +47,9 @@ function TreatmentCard({ onPress, treatment }: { onPress: () => void; treatment:
       <Text style={styles.cardTitle}>{treatment.treatment_title}</Text>
       <View style={styles.tagRow}>
         <View style={[styles.tag, styles.typeTag]}>
-          <Text style={[styles.tagText, styles.typeTagText]}>#{treatment.treatment_type}</Text>
+          <Text style={[styles.tagText, styles.typeTagText]}>
+            {typeIcon} #{treatment.treatment_type}
+          </Text>
         </View>
         {typeof treatment.damage_level === 'number' && (
           <View style={[styles.tag, styles.damageTag]}>
@@ -80,7 +64,7 @@ function TreatmentCard({ onPress, treatment }: { onPress: () => void; treatment:
 export default function DiaryHomeScreen() {
   const insets = useSafeAreaInsets();
   const detailRouter = useRouter();
-  const [selectedFilter, setSelectedFilter] = useState<FilterKey>('전체');
+  const [selectedFilter, setSelectedFilter] = useState<DiaryFilterKey>('전체');
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [pendingPayments, setPendingPayments] = useState<Treatment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -165,7 +149,11 @@ export default function DiaryHomeScreen() {
 
   const filteredTreatments = useMemo(() => {
     const byType = treatments.filter((treatment) =>
-      matchesFilter(treatment.treatment_type, selectedFilter),
+      treatmentMatchesDiaryFilter(
+        treatment.treatment_type,
+        treatment.treatment_title,
+        selectedFilter,
+      ),
     );
     return filterTreatmentsByQuery(byType, searchQuery);
   }, [selectedFilter, treatments, searchQuery]);
@@ -239,16 +227,16 @@ export default function DiaryHomeScreen() {
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.filterScroll}>
-          {filters.map((filter) => {
-            const selected = selectedFilter === filter;
+          {DIARY_FILTER_OPTIONS.map((filter) => {
+            const selected = selectedFilter === filter.key;
 
             return (
               <Pressable
-                key={filter}
-                onPress={() => setSelectedFilter(filter)}
+                key={filter.key}
+                onPress={() => setSelectedFilter(filter.key)}
                 style={[styles.filterTab, selected && styles.filterTabSelected]}>
                 <Text style={[styles.filterText, selected && styles.filterTextSelected]}>
-                  {filter}
+                  {filter.icon} {filter.label}
                 </Text>
               </Pressable>
             );
