@@ -257,6 +257,8 @@ export async function getDesignerTreatments() {
 export type TreatmentUpdateInput = Partial<
   Pick<
     Treatment,
+    | 'customer_id'
+    | 'customer_name'
     | 'technique'
     | 'designer_diagnosis'
     | 'home_care'

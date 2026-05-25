@@ -15,17 +15,21 @@ import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-b
 import { getErrorMessage } from '../../lib/errors';
 import { normalizePaymentStatus } from '../../lib/payment-status';
 import {
+  createCustomerInvitation,
+  DesignerClientListItem,
+  expireInvitation,
+  getDesignerClientListItems,
+} from '../../lib/customer-invitations';
+import {
   DESIGNER_ONBOARDING_SLIDES,
   markOnboardingSeen,
   shouldShowOnboarding,
 } from '../../lib/onboarding';
-import { filterTreatmentsByQuery } from '../../lib/treatment-search';
-import { getDesignerTreatments, Treatment } from '../../lib/treatments';
+import { showErrorAlert, showSuccessAlert } from '../../lib/alerts';
 import { EmptyState } from '../../src/components/empty-state';
 import { LoadingState } from '../../src/components/loading-state';
 import { OnboardingModal } from '../../src/components/onboarding-modal';
-
-type PaymentStatus = NonNullable<Treatment['payment_status']>;
+import { Treatment } from '../../lib/treatments';
 
 function formatDate(date: string) {
   return date.replaceAll('-', '.');
@@ -35,23 +39,30 @@ function getInitial(name?: string | null) {
   return name?.trim().slice(0, 1) || '?';
 }
 
-function isCurrentMonth(date: string) {
-  const treatmentDate = new Date(`${date}T00:00:00`);
-  const now = new Date();
-  return (
-    treatmentDate.getFullYear() === now.getFullYear() &&
-    treatmentDate.getMonth() === now.getMonth()
-  );
+function getInviteBadgeMeta(status?: DesignerClientListItem['inviteStatus']) {
+  if (status === 'active') {
+    return { label: '초대 발송됨', style: styles.inviteActiveBadge, textStyle: styles.inviteActiveText };
+  }
+
+  if (status === 'expired') {
+    return { label: '만료됨', style: styles.inviteExpiredBadge, textStyle: styles.inviteExpiredText };
+  }
+
+  if (status === 'used') {
+    return { label: '가입 완료', style: styles.inviteUsedBadge, textStyle: styles.inviteUsedText };
+  }
+
+  return null;
 }
 
-function getStatusMeta(status?: PaymentStatus | null, treatmentId?: string, paidHint?: boolean) {
-  const normalized = normalizePaymentStatus(status);
+function getPaymentBadge(treatment?: Treatment) {
+  const normalized = normalizePaymentStatus(treatment?.payment_status);
 
   if (normalized === 'completed') {
     return { label: '정산 완료', style: styles.completedBadge, textStyle: styles.completedBadgeText };
   }
 
-  if (paidHint || normalized === 'escrow') {
+  if (normalized === 'escrow') {
     return {
       label: '결제 완료, 피드백 대기',
       style: styles.paidWaitingBadge,
@@ -66,32 +77,49 @@ function getStatusMeta(status?: PaymentStatus | null, treatmentId?: string, paid
   return { label: '결제 대기', style: styles.pendingBadge, textStyle: styles.pendingBadgeText };
 }
 
-function ClientTreatmentCard({ onPress, treatment }: { onPress: () => void; treatment: Treatment }) {
-  const status = getStatusMeta(
-    treatment.payment_status,
-    treatment.id,
-    normalizePaymentStatus(treatment.payment_status) === 'escrow',
-  );
+function DesignerClientCard({
+  item,
+  onPress,
+  onReinvite,
+}: {
+  item: DesignerClientListItem;
+  onPress: () => void;
+  onReinvite?: () => void;
+}) {
+  const inviteBadge = getInviteBadgeMeta(item.inviteStatus);
+  const paymentBadge = item.isRegistered ? getPaymentBadge(item.treatment) : inviteBadge;
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.clientCard, pressed && styles.clientCardPressed]}>
       <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{getInitial(treatment.customer_name)}</Text>
+        <Text style={styles.avatarText}>{getInitial(item.customerName)}</Text>
       </View>
       <View style={styles.clientInfo}>
         <View style={styles.cardTopRow}>
-          <Text style={styles.customerName}>{treatment.customer_name || '고객'}</Text>
-          <View style={[styles.statusBadge, status.style]}>
-            <Text style={[styles.statusText, status.textStyle]}>{status.label}</Text>
-          </View>
+          <Text style={styles.customerName}>{item.customerName}</Text>
+          {paymentBadge ? (
+            <View style={[styles.statusBadge, paymentBadge.style]}>
+              <Text style={[styles.statusText, paymentBadge.textStyle]}>{paymentBadge.label}</Text>
+            </View>
+          ) : null}
         </View>
         <Text style={styles.treatmentMeta}>
-          {formatDate(treatment.treatment_date)} · {treatment.treatment_type}
+          {formatDate(item.treatmentDate)} · {item.treatment?.treatment_type ?? '시술'}
         </Text>
-        <Text style={styles.treatmentTitle}>{treatment.treatment_title}</Text>
-        {typeof treatment.price === 'number' && (
-          <Text style={styles.priceText}>{treatment.price.toLocaleString('ko-KR')}원</Text>
-        )}
+        <Text style={styles.treatmentTitle}>{item.treatmentTitle}</Text>
+        {item.inviteCode && item.inviteStatus === 'active' ? (
+          <Text style={styles.inviteCodeText}>코드 {item.inviteCode}</Text>
+        ) : null}
+        {item.inviteStatus === 'expired' && onReinvite ? (
+          <Pressable
+            onPress={(event) => {
+              event.stopPropagation?.();
+              onReinvite();
+            }}
+            style={styles.reinviteButton}>
+            <Text style={styles.reinviteText}>재초대</Text>
+          </Pressable>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -100,7 +128,7 @@ function ClientTreatmentCard({ onPress, treatment }: { onPress: () => void; trea
 export default function DesignerClientsScreen() {
   const insets = useSafeAreaInsets();
   const detailRouter = useRouter();
-  const [treatments, setTreatments] = useState<Treatment[]>([]);
+  const [clientItems, setClientItems] = useState<DesignerClientListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -110,19 +138,9 @@ export default function DesignerClientsScreen() {
   const loadClients = useCallback(() => {
     setIsLoading(true);
 
-    getDesignerTreatments()
-      .then(({ user, treatments: nextTreatments }) => {
-        if (!user) {
-          router.replace('/');
-          return;
-        }
-
-        if (user.role !== 'designer') {
-          router.replace('/home');
-          return;
-        }
-
-        setTreatments(nextTreatments);
+    getDesignerClientListItems()
+      .then((items) => {
+        setClientItems(items);
         setErrorMessage('');
         shouldShowOnboarding('designer').then(setShowOnboarding);
       })
@@ -138,19 +156,60 @@ export default function DesignerClientsScreen() {
     }, [loadClients]),
   );
 
-  const visibleTreatments = useMemo(
-    () => filterTreatmentsByQuery(treatments, searchQuery, { includeProducts: true }),
-    [treatments, searchQuery],
-  );
+  const visibleItems = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    if (!query) {
+      return clientItems;
+    }
+
+    return clientItems.filter((item) => {
+      const haystack = [
+        item.customerName,
+        item.treatmentTitle,
+        item.treatment?.treatment_type ?? '',
+        item.inviteCode ?? '',
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [clientItems, searchQuery]);
 
   const summary = useMemo(() => {
+    const now = new Date();
+
     return {
-      monthCount: treatments.filter((treatment) => isCurrentMonth(treatment.treatment_date)).length,
-      waitingCount: treatments.filter(
-        (treatment) => normalizePaymentStatus(treatment.payment_status) === 'escrow',
+      monthCount: clientItems.filter((item) => {
+        const date = new Date(`${item.treatmentDate}T00:00:00`);
+        return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+      }).length,
+      waitingCount: clientItems.filter(
+        (item) => item.treatment && normalizePaymentStatus(item.treatment.payment_status) === 'escrow',
       ).length,
     };
-  }, [treatments]);
+  }, [clientItems]);
+
+  const handleReinvite = (item: DesignerClientListItem) => {
+    if (!item.invitationId) {
+      return;
+    }
+
+    Promise.resolve()
+      .then(async () => {
+        await expireInvitation(item.invitationId!);
+        await createCustomerInvitation({
+          treatmentId: item.treatmentId,
+          customerName: item.customerName,
+        });
+        showSuccessAlert('새 초대 코드를 만들었어요.');
+        loadClients();
+      })
+      .catch((error) => {
+        showErrorAlert(getErrorMessage(error, '재초대에 실패했습니다.'));
+      });
+  };
 
   return (
     <View style={styles.container}>
@@ -202,7 +261,7 @@ export default function DesignerClientsScreen() {
             <Text style={styles.stateTitle}>고객 목록을 불러오지 못했어요</Text>
             <Text style={styles.stateText}>{errorMessage}</Text>
           </View>
-        ) : treatments.length === 0 ? (
+        ) : clientItems.length === 0 ? (
           <EmptyState
             actionLabel="첫 시술을 추가해보세요"
             icon="👥"
@@ -210,15 +269,16 @@ export default function DesignerClientsScreen() {
             subtitle="새 시술을 입력하면 고객 목록이 채워집니다"
             title="아직 고객이 없어요"
           />
-        ) : visibleTreatments.length === 0 ? (
+        ) : visibleItems.length === 0 ? (
           <EmptyState icon="🔍" title="검색 결과가 없어요" subtitle="다른 검색어를 시도해보세요" />
         ) : (
           <View style={styles.list}>
-            {visibleTreatments.map((treatment) => (
-              <ClientTreatmentCard
-                key={treatment.id}
-                onPress={() => detailRouter.push(`/designer/treatment/${treatment.id}`)}
-                treatment={treatment}
+            {visibleItems.map((item) => (
+              <DesignerClientCard
+                key={item.key}
+                item={item}
+                onPress={() => detailRouter.push(`/designer/treatment/${item.treatmentId}`)}
+                onReinvite={() => handleReinvite(item)}
               />
             ))}
           </View>
@@ -375,6 +435,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
+  inviteCodeText: {
+    color: '#7B5EE6',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 6,
+  },
+  reinviteButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFD4D5',
+    borderRadius: 8,
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  reinviteText: {
+    color: '#FF5A5F',
+    fontSize: 12,
+    fontWeight: '800',
+  },
   priceText: {
     color: '#6B6B7B',
     fontSize: 13,
@@ -396,11 +475,23 @@ const styles = StyleSheet.create({
   completedBadgeText: {
     color: '#00C2A8',
   },
-  requiredBadge: {
+  inviteActiveBadge: {
+    backgroundColor: '#E0D7FA',
+  },
+  inviteActiveText: {
+    color: '#7B5EE6',
+  },
+  inviteExpiredBadge: {
     backgroundColor: '#FFD4D5',
   },
-  requiredBadgeText: {
+  inviteExpiredText: {
     color: '#FF5A5F',
+  },
+  inviteUsedBadge: {
+    backgroundColor: '#CCF2EC',
+  },
+  inviteUsedText: {
+    color: '#00C2A8',
   },
   paidWaitingBadge: {
     backgroundColor: '#FFE8E9',

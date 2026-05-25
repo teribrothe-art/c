@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CustomerInviteModal } from '../../../src/components/customer-invite-modal';
 import { TreatmentPhotoSlot } from '../../../src/components/treatment-photo-slot';
 import {
   getTreatmentPhotoSignedUrl,
@@ -41,6 +42,7 @@ import {
 } from '../../../lib/payments';
 import { normalizePaymentStatus } from '../../../lib/payment-status';
 import type { PaymentRecord } from '../../../lib/payment-record';
+import { notifyCustomerTreatmentRecorded } from '../../../lib/notifications';
 import { getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
 
 type EditableField = 'technique' | 'designer_diagnosis' | 'home_care';
@@ -121,6 +123,7 @@ export default function DesignerTreatmentInputScreen() {
     before: 'idle' | 'uploading' | 'success';
     after: 'idle' | 'uploading' | 'success';
   }>({ before: 'idle', after: 'idle' });
+  const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -251,6 +254,7 @@ export default function DesignerTreatmentInputScreen() {
     paymentRecord?.status === 'in_escrow' ||
     paymentStatus === 'escrow';
   const canSettle = isPaymentPaid && requiredCount === 0;
+  const canInviteCustomer = requiredCount === 0;
 
   const openEditor = (field: EditableField) => {
     setActiveField(field);
@@ -298,6 +302,10 @@ export default function DesignerTreatmentInputScreen() {
 
       setTreatment(updatedTreatment);
       closeEditor();
+
+      if (updatedTreatment.customer_id) {
+        void notifyCustomerTreatmentRecorded(updatedTreatment).catch(() => undefined);
+      }
     } catch (error) {
       showErrorAlert(getErrorMessage(error, '저장 중 문제가 발생했습니다.'), '저장 실패');
     } finally {
@@ -563,6 +571,18 @@ export default function DesignerTreatmentInputScreen() {
               </View>
             ) : null}
 
+            {canInviteCustomer ? (
+              <Pressable
+                disabled={isSaving}
+                onPress={() => setInviteModalVisible(true)}
+                style={({ pressed }) => [
+                  styles.inviteButton,
+                  pressed && styles.buttonPressed,
+                ]}>
+                <Text style={styles.inviteButtonText}>고객 초대</Text>
+              </Pressable>
+            ) : null}
+
             <Pressable
               disabled={!canSettle || isSaving || !isPaymentPaid}
               onPress={handleRequestSettlement}
@@ -611,6 +631,14 @@ export default function DesignerTreatmentInputScreen() {
           </View>
         </View>
       </Modal>
+
+      {treatment ? (
+        <CustomerInviteModal
+          treatmentId={treatment.id}
+          visible={inviteModalVisible}
+          onClose={() => setInviteModalVisible(false)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -852,6 +880,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  inviteButton: {
+    alignItems: 'center',
+    backgroundColor: colors.coral,
+    borderRadius: 14,
+    marginBottom: 10,
+    paddingVertical: 16,
+  },
+  inviteButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 24,
   },
   settlementButton: {
     alignItems: 'center',

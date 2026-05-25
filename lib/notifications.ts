@@ -13,7 +13,9 @@ export type NotificationType =
   | 'payment_requested'
   | 'settlement_completed'
   | 'customer_payment_due'
-  | 'customer_feedback';
+  | 'customer_feedback'
+  | 'invite_customer_joined'
+  | 'treatment_recorded';
 
 export type AppNotification = {
   id: string;
@@ -71,8 +73,35 @@ export async function addNotification(input: Omit<AppNotification, 'id' | 'creat
   if (!isDemoAuthMode && supabase) {
     const user = await getCurrentUser();
 
-    if (!user || user.id !== input.user_id) {
+    if (!user) {
       throw new Error('알림을 저장할 권한이 없습니다.');
+    }
+
+    if (user.id !== input.user_id) {
+      const { data: notificationId, error } = await supabase.rpc('create_app_notification', {
+        p_user_id: input.user_id,
+        p_type: input.type,
+        p_title: input.title,
+        p_message: input.message,
+        p_treatment_id: input.treatment_id || null,
+        p_href: input.href || null,
+      });
+
+      if (error) {
+        throw toAppError(error);
+      }
+
+      const { data, error: fetchError } = await supabase
+        .from('notifications')
+        .select(selectFields)
+        .eq('id', notificationId)
+        .single();
+
+      if (fetchError) {
+        throw toAppError(fetchError);
+      }
+
+      return mapRow(data as Record<string, unknown>);
     }
 
     const { data, error } = await supabase
@@ -190,6 +219,23 @@ export async function notifyCustomerFeedbackNeeded(treatment: Treatment) {
   });
 }
 
+export async function notifyCustomerTreatmentRecorded(treatment: Treatment) {
+  if (!treatment.customer_id) {
+    return null;
+  }
+
+  const designerName = treatment.designer_name?.trim() || '디자이너';
+
+  return addNotification({
+    user_id: treatment.customer_id,
+    type: 'treatment_recorded',
+    title: '새 시술 기록',
+    message: `💡 ${designerName}님이 새 시술을 기록했어요`,
+    treatment_id: treatment.id,
+    href: `/treatment/${treatment.id}`,
+  });
+}
+
 /** 알림 탭 시 이동 경로 (역할·타입 기준) */
 export function resolveNotificationHref(
   item: AppNotification,
@@ -207,8 +253,12 @@ export function resolveNotificationHref(
     return `/payment/${item.treatment_id}`;
   }
 
-  if (item.type === 'customer_feedback') {
+  if (item.type === 'customer_feedback' || item.type === 'treatment_recorded') {
     return `/treatment/${item.treatment_id}`;
+  }
+
+  if (item.type === 'invite_customer_joined' && role === 'designer') {
+    return '/designer/clients';
   }
 
   if (role === 'customer') {

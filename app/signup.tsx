@@ -1,5 +1,5 @@
-import { Link, router } from 'expo-router';
-import { useState } from 'react';
+import { Link, router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -14,6 +14,11 @@ import {
 import { signUpWithEmail, UserRole } from '../lib/auth';
 import { getPostAuthRoute } from '../lib/auth-redirect';
 import { showErrorAlert } from '../lib/alerts';
+import {
+  normalizeInviteCode,
+  redeemInviteCode,
+  validateInviteCode,
+} from '../lib/customer-invitations';
 import { getErrorMessage } from '../lib/errors';
 import { colors, disabledButtonStyle } from '../lib/theme';
 import {
@@ -29,6 +34,7 @@ const roles: { label: string; value: UserRole }[] = [
 ];
 
 export default function SignupScreen() {
+  const { inviteCode: inviteCodeParam } = useLocalSearchParams<{ inviteCode?: string }>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
@@ -39,6 +45,57 @@ export default function SignupScreen() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordConfirmError, setPasswordConfirmError] = useState<string | null>(null);
   const [roleError, setRoleError] = useState<string | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(Boolean(inviteCodeParam));
+  const [inviteCode, setInviteCode] = useState(inviteCodeParam ? normalizeInviteCode(String(inviteCodeParam)) : '');
+  const [inviteHint, setInviteHint] = useState<string | null>(null);
+  const [inviteValid, setInviteValid] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (inviteCodeParam && role === null) {
+      setRole('customer');
+    }
+  }, [inviteCodeParam, role]);
+
+  useEffect(() => {
+    if (!inviteOpen || role !== 'customer') {
+      setInviteHint(null);
+      setInviteValid(null);
+      return;
+    }
+
+    const code = normalizeInviteCode(inviteCode);
+
+    if (code.length === 0) {
+      setInviteHint(null);
+      setInviteValid(null);
+      return;
+    }
+
+    if (code.length < 6) {
+      setInviteHint('6자리 코드를 입력해주세요');
+      setInviteValid(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      validateInviteCode(code)
+        .then((result) => {
+          if (result.valid) {
+            setInviteValid(true);
+            setInviteHint(`✓ 디자이너 ${result.designerName}의 초대`);
+          } else {
+            setInviteValid(false);
+            setInviteHint(`✗ ${result.message}`);
+          }
+        })
+        .catch(() => {
+          setInviteValid(false);
+          setInviteHint('✗ 코드 확인에 실패했습니다');
+        });
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [inviteCode, inviteOpen, role]);
 
   const validateForm = () => {
     const nextEmailError = validateEmail(email);
@@ -61,19 +118,40 @@ export default function SignupScreen() {
 
     const trimmedEmail = email.trim();
 
+    const code = normalizeInviteCode(inviteCode);
+
+    if (role === 'customer' && inviteOpen && code.length === 6 && inviteValid === false) {
+      showErrorAlert('유효한 초대 코드를 입력해주세요.');
+      return;
+    }
+
     try {
       setIsLoading(true);
-      await signUpWithEmail({
+      const user = await signUpWithEmail({
         email: trimmedEmail,
         password,
         name,
         role,
       });
+
       if (role === 'designer') {
         router.replace('/designer/clients');
-      } else {
-        router.replace(await getPostAuthRoute());
+        return;
       }
+
+      if (inviteOpen && code.length === 6) {
+        const redeemed = await redeemInviteCode(code, user.id);
+        router.replace({
+          pathname: '/invite-welcome',
+          params: {
+            designerName: redeemed.designerName,
+            customerName: redeemed.customerName,
+          },
+        });
+        return;
+      }
+
+      router.replace(await getPostAuthRoute());
     } catch (error) {
       showErrorAlert(getErrorMessage(error), '회원가입 실패');
     } finally {
@@ -158,6 +236,44 @@ export default function SignupScreen() {
             style={styles.input}
             value={name}
           />
+
+          <Pressable
+            disabled={isLoading}
+            onPress={() => setInviteOpen((open) => !open)}
+            style={styles.inviteToggle}>
+            <Text style={styles.inviteToggleText}>초대 코드 있어요?</Text>
+            <Text style={styles.inviteToggleIcon}>{inviteOpen ? '▲' : '▼'}</Text>
+          </Pressable>
+
+          {inviteOpen ? (
+            <View style={styles.inviteBox}>
+              <TextInput
+                autoCapitalize="characters"
+                editable={!isLoading}
+                maxLength={6}
+                onChangeText={(value) => setInviteCode(normalizeInviteCode(value))}
+                placeholder="6자리 코드"
+                placeholderTextColor="#9CA3AF"
+                style={styles.input}
+                value={inviteCode}
+              />
+              <Link href="/scan-invite?returnTo=/signup" asChild>
+                <Pressable style={styles.scanButton}>
+                  <Text style={styles.scanButtonText}>QR 스캔</Text>
+                </Pressable>
+              </Link>
+              {inviteHint ? (
+                <Text
+                  style={[
+                    styles.inviteHint,
+                    inviteValid === true && styles.inviteHintValid,
+                    inviteValid === false && styles.inviteHintInvalid,
+                  ]}>
+                  {inviteHint}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
 
           <View style={styles.roleSection}>
             <Text style={styles.roleTitle}>역할 선택</Text>
@@ -311,5 +427,46 @@ const styles = StyleSheet.create({
     color: colors.coral,
     fontSize: 15,
     fontWeight: '600',
+  },
+  inviteToggle: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  inviteToggleText: {
+    color: colors.purple,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  inviteToggleIcon: {
+    color: colors.purple,
+    fontSize: 12,
+  },
+  inviteBox: {
+    gap: 10,
+  },
+  scanButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.lightPurple,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  scanButtonText: {
+    color: colors.purple,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  inviteHint: {
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  inviteHintValid: {
+    color: colors.mint,
+  },
+  inviteHintInvalid: {
+    color: colors.coral,
   },
 });
