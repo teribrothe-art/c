@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -28,6 +28,19 @@ export function HomePromoCarousel({ slides, minHeight, onPressSlide }: HomePromo
   const slideWidth = Dimensions.get('window').width - 44;
   const carouselHeight = minHeight ?? Math.max(240, Dimensions.get('window').height * 0.3);
 
+  const scrollToSlide = useCallback(
+    (index: number) => {
+      if (slides.length === 0) {
+        return;
+      }
+
+      const next = ((index % slides.length) + slides.length) % slides.length;
+      setActiveIndex(next);
+      listRef.current?.scrollToOffset({ offset: slideWidth * next, animated: true });
+    },
+    [slideWidth, slides.length],
+  );
+
   useEffect(() => {
     if (slides.length <= 1) {
       return;
@@ -36,13 +49,21 @@ export function HomePromoCarousel({ slides, minHeight, onPressSlide }: HomePromo
     const timer = setInterval(() => {
       setActiveIndex((current) => {
         const next = (current + 1) % slides.length;
-        listRef.current?.scrollToIndex({ index: next, animated: true });
+        listRef.current?.scrollToOffset({ offset: slideWidth * next, animated: true });
         return next;
       });
     }, AUTO_SCROLL_MS);
 
     return () => clearInterval(timer);
-  }, [slides.length]);
+  }, [slideWidth, slides.length]);
+
+  const goToPrevious = () => {
+    scrollToSlide(activeIndex - 1);
+  };
+
+  const goToNext = () => {
+    scrollToSlide(activeIndex + 1);
+  };
 
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     const index = viewableItems[0]?.index;
@@ -100,7 +121,32 @@ export function HomePromoCarousel({ slides, minHeight, onPressSlide }: HomePromo
         )}
       />
 
-      <View style={styles.dots}>
+      {slides.length > 1 ? (
+        <>
+          <Pressable
+            accessibilityLabel="이전 배너"
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={goToPrevious}
+            style={({ pressed }) => [styles.navHit, styles.navHitLeft, pressed && styles.navHitPressed]}>
+            <View style={styles.navButton}>
+              <Text style={styles.navButtonText}>‹</Text>
+            </View>
+          </Pressable>
+          <Pressable
+            accessibilityLabel="다음 배너"
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={goToNext}
+            style={({ pressed }) => [styles.navHit, styles.navHitRight, pressed && styles.navHitPressed]}>
+            <View style={styles.navButton}>
+              <Text style={styles.navButtonText}>›</Text>
+            </View>
+          </Pressable>
+        </>
+      ) : null}
+
+      <View style={styles.dots} pointerEvents="none">
         {slides.map((slide, index) => (
           <View
             key={slide.id}
@@ -115,7 +161,45 @@ export function HomePromoCarousel({ slides, minHeight, onPressSlide }: HomePromo
 const styles = StyleSheet.create({
   wrap: {
     marginBottom: 16,
+    position: 'relative',
     width: '100%',
+  },
+  navHit: {
+    alignItems: 'center',
+    bottom: 28,
+    justifyContent: 'center',
+    position: 'absolute',
+    top: 0,
+    width: 52,
+    zIndex: 2,
+  },
+  navHitLeft: {
+    left: 0,
+  },
+  navHitRight: {
+    right: 0,
+  },
+  navHitPressed: {
+    opacity: 0.85,
+  },
+  navButton: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+    borderRadius: 999,
+    height: 36,
+    justifyContent: 'center',
+    shadowColor: '#1A1A2E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    width: 36,
+  },
+  navButtonText: {
+    color: '#1A1A2E',
+    fontSize: 24,
+    fontWeight: '700',
+    lineHeight: 26,
+    marginTop: -2,
   },
   slidePressable: {
     paddingRight: 0,
