@@ -562,7 +562,16 @@ export default function DesignerTreatmentInputScreen() {
     }
   };
 
-  const handlePickPhoto = async (kind: TreatmentPhotoKind) => {
+  const photoKindLabel = (kind: TreatmentPhotoKind) =>
+    kind === 'before' ? 'Before (전)' : 'After (후)';
+
+  const hasTreatmentPhoto = (kind: TreatmentPhotoKind) =>
+    Boolean(
+      (kind === 'before' ? treatment?.before_photo_url : treatment?.after_photo_url) ||
+        photoPreviews[kind],
+    );
+
+  const runPickPhoto = async (kind: TreatmentPhotoKind) => {
     if (!treatment || photoUploadStatus[kind] === 'uploading') {
       return;
     }
@@ -591,14 +600,44 @@ export default function DesignerTreatmentInputScreen() {
     }
   };
 
-  const handleConfirmPhotoEdit = async (editedUri: string) => {
+  const requestPickPhoto = (kind: TreatmentPhotoKind) => {
+    if (!treatment || photoUploadStatus[kind] === 'uploading') {
+      return;
+    }
+
+    const label = photoKindLabel(kind);
+    const isChange = hasTreatmentPhoto(kind);
+
+    showConfirmAlert({
+      title: isChange ? '사진 변경' : '사진 등록',
+      message: isChange
+        ? `${label} 사진을 다른 사진으로 바꿀까요?`
+        : `${label} 사진을 등록할까요?`,
+      confirmLabel: isChange ? '변경' : '등록',
+      onConfirm: () => {
+        void runPickPhoto(kind);
+      },
+    });
+  };
+
+  const handleConfirmPhotoEdit = (editedUri: string) => {
     if (!photoDraft) {
       return;
     }
 
     const { kind } = photoDraft;
-    setPhotoDraft(null);
-    await uploadPreparedPhoto(kind, editedUri);
+    const label = photoKindLabel(kind);
+    const isChange = hasTreatmentPhoto(kind);
+
+    showConfirmAlert({
+      title: isChange ? '사진 변경' : '사진 등록',
+      message: `${label} 사진을 ${isChange ? '변경' : '등록'}할까요?`,
+      confirmLabel: '적용',
+      onConfirm: () => {
+        setPhotoDraft(null);
+        void uploadPreparedPhoto(kind, editedUri);
+      },
+    });
   };
 
   const handleRemovePhoto = (kind: TreatmentPhotoKind) => {
@@ -724,7 +763,7 @@ export default function DesignerTreatmentInputScreen() {
                 uploadStatus={photoUploadStatus.before}
                 label="Before (전)"
                 previewUrl={photoPreviews.before}
-                onAdd={() => handlePickPhoto('before')}
+                onAdd={() => requestPickPhoto('before')}
                 onPreview={() =>
                   photoPreviews.before &&
                   setPhotoPreview({
@@ -733,14 +772,14 @@ export default function DesignerTreatmentInputScreen() {
                     label: 'Before (전)',
                   })
                 }
-                onEdit={() => handlePickPhoto('before')}
+                onEdit={() => requestPickPhoto('before')}
                 onRemove={() => handleRemovePhoto('before')}
               />
               <TreatmentPhotoSlot
                 uploadStatus={photoUploadStatus.after}
                 label="After (후)"
                 previewUrl={photoPreviews.after}
-                onAdd={() => handlePickPhoto('after')}
+                onAdd={() => requestPickPhoto('after')}
                 onPreview={() =>
                   photoPreviews.after &&
                   setPhotoPreview({
@@ -749,7 +788,7 @@ export default function DesignerTreatmentInputScreen() {
                     label: 'After (후)',
                   })
                 }
-                onEdit={() => handlePickPhoto('after')}
+                onEdit={() => requestPickPhoto('after')}
                 onRemove={() => handleRemovePhoto('after')}
               />
             </View>
@@ -924,7 +963,7 @@ export default function DesignerTreatmentInputScreen() {
             ? () => {
                 const kind = photoPreview.kind;
                 setPhotoPreview(null);
-                void handlePickPhoto(kind);
+                requestPickPhoto(kind);
               }
             : undefined
         }
