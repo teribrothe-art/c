@@ -33,7 +33,12 @@ async function readEdgeErrorMessage(error: FunctionsHttpError) {
   return error.message || 'AI 상담 요청에 실패했습니다.';
 }
 
-export type AiEdgeTaskType = 'chat' | 'treatment_insight' | 'daily_care' | 'damage_level';
+export type AiEdgeTaskType =
+  | 'chat'
+  | 'treatment_insight'
+  | 'daily_care'
+  | 'damage_level'
+  | 'weather_hair_care';
 
 type AiEdgeInvokeOptions = {
   taskType?: AiEdgeTaskType;

@@ -1,6 +1,7 @@
 import { Href, router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Dimensions,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -28,15 +29,20 @@ import {
 } from '../lib/diary-filters';
 import { countTreatmentsForDiaryFilter } from '../lib/diary-list';
 import { getDiaryYearSummaries } from '../lib/diary-years';
+import { buildHomePromoSlides } from '../lib/home-promo-slides';
 import { safePush } from '../lib/safe-navigate';
 import { filterTreatmentsByQuery } from '../lib/treatment-search';
 import { getTreatments, Treatment } from '../lib/treatments';
+import { getWeatherHairCareAdvice, type WeatherHairCareAdvice } from '../lib/weather-hair-care';
 import { EmptyState } from '../src/components/empty-state';
 import { LoadingState } from '../src/components/loading-state';
 import { OnboardingModal } from '../src/components/onboarding-modal';
 import { AiConsultQuickCard } from '../src/components/ai-consult-quick-card';
+import { HomePromoCarousel } from '../src/components/home-promo-carousel';
 import { TodayCareCard } from '../src/components/today-care-card';
 import { TreatmentDiaryCard } from '../src/components/treatment-diary-card';
+import { WeatherHairCareCard } from '../src/components/weather-hair-care-card';
+import type { HomePromoSlide } from '../lib/home-promo-slides';
 
 export default function DiaryHomeScreen() {
   const insets = useSafeAreaInsets();
@@ -49,7 +55,14 @@ export default function DiaryHomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [dailyCare, setDailyCare] = useState<DailyCareSnapshot | null>(null);
+  const [weatherCare, setWeatherCare] = useState<WeatherHairCareAdvice | null>(null);
+  const [isWeatherLoading, setIsWeatherLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const promoCarouselHeight = useMemo(
+    () => Math.max(240, Dimensions.get('window').height * 0.32),
+    [],
+  );
 
   const loadDiaryData = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
@@ -76,6 +89,11 @@ export default function DiaryHomeScreen() {
       setPendingPayments(pending);
       const care = await getTodayDailyCare(nextTreatments);
       setDailyCare(care);
+      setIsWeatherLoading(true);
+      getWeatherHairCareAdvice(nextTreatments)
+        .then(setWeatherCare)
+        .catch(() => setWeatherCare(null))
+        .finally(() => setIsWeatherLoading(false));
       setErrorMessage('');
     } catch (error) {
       const message = getErrorMessage(error, '시술 기록을 불러오지 못했습니다.');
@@ -110,14 +128,35 @@ export default function DiaryHomeScreen() {
       .catch(() => setDailyCare(null));
   }, [treatments]);
 
+  const reloadWeatherCare = useCallback(() => {
+    if (treatments.length === 0) {
+      setWeatherCare(null);
+      return;
+    }
+
+    setIsWeatherLoading(true);
+    getWeatherHairCareAdvice(treatments)
+      .then(setWeatherCare)
+      .catch(() => setWeatherCare(null))
+      .finally(() => setIsWeatherLoading(false));
+  }, [treatments]);
+
   useFocusEffect(
     useCallback(() => {
       reloadPending();
       reloadDailyCare();
-    }, [reloadPending, reloadDailyCare]),
+      reloadWeatherCare();
+    }, [reloadPending, reloadDailyCare, reloadWeatherCare]),
   );
 
   const yearSummaries = useMemo(() => getDiaryYearSummaries(treatments), [treatments]);
+  const promoSlides = useMemo(() => buildHomePromoSlides(treatments), [treatments]);
+
+  const handlePromoPress = (slide: HomePromoSlide) => {
+    if (slide.href) {
+      safePush(slide.href);
+    }
+  };
 
   const filteredTreatments = useMemo(() => {
     const byType = treatments.filter((treatment) =>
@@ -203,6 +242,16 @@ export default function DiaryHomeScreen() {
                 onAiConsult={openVoice}
               />
             ) : null}
+            <WeatherHairCareCard
+              advice={weatherCare}
+              isLoading={isWeatherLoading}
+              onAiConsult={openVoice}
+            />
+            <HomePromoCarousel
+              minHeight={promoCarouselHeight}
+              slides={promoSlides}
+              onPressSlide={handlePromoPress}
+            />
           </View>
         ) : null}
 

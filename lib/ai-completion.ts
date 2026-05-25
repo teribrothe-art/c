@@ -10,7 +10,7 @@ import { isSupabaseConfigured } from './supabase';
 const CLAUDE_MODEL = 'claude-haiku-4-5';
 const ANTHROPIC_MESSAGES_URL = 'https://api.anthropic.com/v1/messages';
 
-export type AiCompletionTask = 'treatment_insight' | 'daily_care' | 'damage_level';
+export type AiCompletionTask = 'treatment_insight' | 'daily_care' | 'damage_level' | 'weather_hair_care';
 
 const TASK_SYSTEM_PROMPTS: Record<AiCompletionTask, string> = {
   treatment_insight: `당신은 헤어 살롱 시술 기록용 AI입니다.
@@ -26,6 +26,15 @@ ${AI_NO_PRODUCT_INSTRUCTION}`,
 - 반드시 1~10 사이 정수 하나만 출력 (설명·문장·단위 금지)
 - 의료 진단이 아닌 시술 기록 기반 추정
 - 탈색·강한 펌·염색은 보통 높게, 컷·케어 위주는 낮게
+
+${AI_NO_PRODUCT_INSTRUCTION}`,
+  weather_hair_care: `당신은 헤어 케어 기상 분석 AI입니다.
+오늘의 날씨·기온·습도와 고객의 최근 시술 이력을 바탕으로, 모발에 미칠 수 있는 영향을 미리 짚고 예방 조언을 작성하세요.
+- 한국어 2~3문장
+- 첫 문장: 날씨가 모발·두피에 줄 영향 요약
+- 이후: 오늘 실천할 홈케어·스타일링 팁
+- 의료 진단 금지, 친근·전문 톤
+- 따옴표·제목·불릿 없이 본문만
 
 ${AI_NO_PRODUCT_INSTRUCTION}`,
   daily_care: `당신은 헤어 다이어리 "오늘의 케어" 카피라이터입니다.
@@ -85,7 +94,13 @@ async function completeViaDirectAnthropic(
     {
       model: CLAUDE_MODEL,
       max_tokens:
-        task === 'damage_level' ? 16 : task === 'treatment_insight' ? 220 : 400,
+        task === 'damage_level'
+          ? 16
+          : task === 'weather_hair_care'
+            ? 280
+            : task === 'treatment_insight'
+              ? 220
+              : 400,
       system: TASK_SYSTEM_PROMPTS[task],
       messages: [
         {
