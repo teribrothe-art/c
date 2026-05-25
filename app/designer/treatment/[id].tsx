@@ -68,6 +68,11 @@ import {
 } from '../../../lib/treatment-settlement';
 import { isAiAppUtilizationEnabled } from '../../../lib/ai-edge';
 import {
+  autoFillTreatmentDamageLevel,
+  canInferTreatmentDamageLevel,
+  isDamageSourceField,
+} from '../../../lib/treatment-damage-level';
+import {
   canGenerateTreatmentAiInsight,
   generateAndSaveTreatmentAiInsight,
 } from '../../../lib/treatment-ai-insight';
@@ -199,6 +204,7 @@ export default function DesignerTreatmentInputScreen() {
     label: string;
   } | null>(null);
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
+  const [isAnalyzingDamage, setIsAnalyzingDamage] = useState(false);
   const [recordNav, setRecordNav] = useState<ReturnType<typeof getTreatmentNavigation>>(null);
 
   useEffect(() => {
@@ -247,11 +253,22 @@ export default function DesignerTreatmentInputScreen() {
           loadedTreatment,
         );
         setRecordNav(getTreatmentNavigation(sameCustomerTreatments, id));
-        setTreatment(loadedTreatment);
+        let resolvedTreatment = loadedTreatment;
+
+        if (
+          canInferTreatmentDamageLevel(resolvedTreatment) &&
+          typeof resolvedTreatment.damage_level !== 'number'
+        ) {
+          setIsAnalyzingDamage(true);
+          resolvedTreatment = await autoFillTreatmentDamageLevel(resolvedTreatment);
+          setIsAnalyzingDamage(false);
+        }
+
+        setTreatment(resolvedTreatment);
         setPaymentRecord(payment);
         const [beforePreview, afterPreview] = await Promise.all([
-          getTreatmentPhotoSignedUrl(nextTreatment.before_photo_url),
-          getTreatmentPhotoSignedUrl(nextTreatment.after_photo_url),
+          getTreatmentPhotoSignedUrl(resolvedTreatment.before_photo_url),
+          getTreatmentPhotoSignedUrl(resolvedTreatment.after_photo_url),
         ]);
         setPhotoPreviews({ before: beforePreview, after: afterPreview });
         setErrorMessage('');
@@ -452,23 +469,31 @@ export default function DesignerTreatmentInputScreen() {
 
       let updatedTreatment = await updateTreatment(treatment.id, patch);
 
-      const inputComplete = isDesignerSettlementInputComplete(updatedTreatment);
-
       if (shouldSyncFeedbackCompleted(updatedTreatment)) {
         updatedTreatment = await updateTreatment(treatment.id, {
           feedback_completed: true,
         });
       }
 
-      setTreatment(updatedTreatment);
-      closeEditor();
+      let nextTreatment = updatedTreatment;
 
-      if (updatedTreatment.customer_id && inputComplete) {
-        void notifyCustomerTreatmentRecorded(updatedTreatment).catch(() => undefined);
+      if (activeField && isDamageSourceField(activeField)) {
+        setIsAnalyzingDamage(true);
+        nextTreatment = await autoFillTreatmentDamageLevel(nextTreatment);
+        setIsAnalyzingDamage(false);
       }
 
-      if (inputComplete && !updatedTreatment.ai_insight?.trim()) {
-        void maybeAutoGenerateAiInsight(updatedTreatment);
+      setTreatment(nextTreatment);
+      closeEditor();
+
+      const inputCompleteAfterDamage = isDesignerSettlementInputComplete(nextTreatment);
+
+      if (nextTreatment.customer_id && inputCompleteAfterDamage) {
+        void notifyCustomerTreatmentRecorded(nextTreatment).catch(() => undefined);
+      }
+
+      if (inputCompleteAfterDamage && !nextTreatment.ai_insight?.trim()) {
+        void maybeAutoGenerateAiInsight(nextTreatment);
       }
     } catch (error) {
       showErrorAlert(getErrorMessage(error, '저장 중 문제가 발생했습니다.'), '저장 실패');
@@ -880,6 +905,22 @@ export default function DesignerTreatmentInputScreen() {
               </View>
             ))}
 
+            <View style={styles.damageCard}>
+              <Text style={styles.damageTitle}>손상도 기록</Text>
+              <Text style={styles.damageHint}>
+                시술 내용(기법·진단·홈케어)을 바탕으로 AI가 1~10점을 자동 입력합니다.
+              </Text>
+              <Text style={styles.damageValue}>
+                {isAnalyzingDamage
+                  ? 'AI 분석 중…'
+                  : typeof treatment.damage_level === 'number'
+                    ? `${treatment.damage_level} / 10`
+                    : canInferTreatmentDamageLevel(treatment)
+                      ? '저장 시 자동 분석'
+                      : '기법 또는 진단 입력 후 자동 분석'}
+              </Text>
+            </View>
+
             <View style={styles.aiInsightCard}>
               <Text style={styles.aiInsightTitle}>AI 인사이트</Text>
               <Text style={styles.aiInsightHint}>
@@ -1196,6 +1237,32 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 42,
+  },
+  damageCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 8,
+    marginBottom: 16,
+    padding: 16,
+  },
+  damageTitle: {
+    color: '#1A1A2E',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  damageHint: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  damageValue: {
+    color: '#00C2A8',
+    fontSize: 28,
+    fontWeight: '900',
+    marginTop: 4,
   },
   aiInsightCard: {
     backgroundColor: '#F0FBF9',

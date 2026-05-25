@@ -10,7 +10,7 @@ import { isSupabaseConfigured } from './supabase';
 const CLAUDE_MODEL = 'claude-haiku-4-5';
 const ANTHROPIC_MESSAGES_URL = 'https://api.anthropic.com/v1/messages';
 
-export type AiCompletionTask = 'treatment_insight' | 'daily_care';
+export type AiCompletionTask = 'treatment_insight' | 'daily_care' | 'damage_level';
 
 const TASK_SYSTEM_PROMPTS: Record<AiCompletionTask, string> = {
   treatment_insight: `당신은 헤어 살롱 시술 기록용 AI입니다.
@@ -19,6 +19,13 @@ const TASK_SYSTEM_PROMPTS: Record<AiCompletionTask, string> = {
 - 다음 방문·주기와 홈케어 핵심만
 - 의료 진단 금지, 친근·전문 톤
 - 따옴표·제목·불릿 없이 본문만 출력
+
+${AI_NO_PRODUCT_INSTRUCTION}`,
+  damage_level: `당신은 헤어 살롱 모발 손상도 평가 AI입니다.
+디자이너가 입력한 시술 데이터만 보고 모발 손상도를 1(매우 양호)~10(매우 손상) 정수로 평가하세요.
+- 반드시 1~10 사이 정수 하나만 출력 (설명·문장·단위 금지)
+- 의료 진단이 아닌 시술 기록 기반 추정
+- 탈색·강한 펌·염색은 보통 높게, 컷·케어 위주는 낮게
 
 ${AI_NO_PRODUCT_INSTRUCTION}`,
   daily_care: `당신은 헤어 다이어리 "오늘의 케어" 카피라이터입니다.
@@ -77,7 +84,8 @@ async function completeViaDirectAnthropic(
     ANTHROPIC_MESSAGES_URL,
     {
       model: CLAUDE_MODEL,
-      max_tokens: task === 'treatment_insight' ? 220 : 400,
+      max_tokens:
+        task === 'damage_level' ? 16 : task === 'treatment_insight' ? 220 : 400,
       system: TASK_SYSTEM_PROMPTS[task],
       messages: [
         {

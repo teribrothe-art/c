@@ -447,7 +447,8 @@ export async function createDesignerTreatment(input: CreateDesignerTreatmentInpu
     treatment_title: treatmentTitle,
     products,
     technique: null as string | null,
-    damage_level: input.damageLevel ?? 5,
+    damage_level:
+      input.damageLevel && input.damageLevel > 0 ? Math.round(input.damageLevel) : null,
     duration: input.duration?.trim() || DEFAULT_TREATMENT_DURATION,
     designer_diagnosis: null as string | null,
     home_care: null as string | null,
