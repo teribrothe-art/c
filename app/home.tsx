@@ -23,7 +23,6 @@ import {
 import {
   DIARY_FILTER_OPTIONS,
   DiaryFilterKey,
-  getTreatmentTypeIcon,
   treatmentMatchesDiaryFilter,
 } from '../lib/diary-filters';
 import { filterTreatmentsByQuery } from '../lib/treatment-search';
@@ -32,34 +31,7 @@ import { EmptyState } from '../src/components/empty-state';
 import { LoadingState } from '../src/components/loading-state';
 import { OnboardingModal } from '../src/components/onboarding-modal';
 import { TodayCareCard } from '../src/components/today-care-card';
-
-function formatDate(date: string) {
-  return date.replaceAll('-', '.');
-}
-
-function TreatmentCard({ onPress, treatment }: { onPress: () => void; treatment: Treatment }) {
-  const typeIcon = getTreatmentTypeIcon(treatment.treatment_type);
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
-      <Text style={styles.cardMeta}>
-        {formatDate(treatment.treatment_date)} {treatment.designer_name ?? '담당 디자이너'}
-      </Text>
-      <Text style={styles.cardTitle}>{treatment.treatment_title}</Text>
-      <View style={styles.tagRow}>
-        <View style={[styles.tag, styles.typeTag]}>
-          <Text style={[styles.tagText, styles.typeTagText]}>
-            {typeIcon} #{treatment.treatment_type}
-          </Text>
-        </View>
-        {typeof treatment.damage_level === 'number' && (
-          <View style={[styles.tag, styles.damageTag]}>
-            <Text style={[styles.tagText, styles.damageTagText]}>#손상{treatment.damage_level}</Text>
-          </View>
-        )}
-      </View>
-    </Pressable>
-  );
-}
+import { TreatmentDiaryCard } from '../src/components/treatment-diary-card';
 
 export default function DiaryHomeScreen() {
   const insets = useSafeAreaInsets();
@@ -159,19 +131,7 @@ export default function DiaryHomeScreen() {
   }, [selectedFilter, treatments, searchQuery]);
 
   const handleViewDiaryFromCare = () => {
-    if (!dailyCare) {
-      return;
-    }
-
-    if (dailyCare.latestTreatmentId) {
-      detailRouter.push({
-        pathname: '/treatment/[id]',
-        params: { id: dailyCare.latestTreatmentId },
-      });
-      return;
-    }
-
-    router.push('/analysis');
+    router.push('/diary');
   };
 
   return (
@@ -201,7 +161,12 @@ export default function DiaryHomeScreen() {
         ) : null}
 
         <View style={styles.header}>
-          <Text style={styles.title}>내 다이어리</Text>
+          <View>
+            <Text style={styles.title}>내 다이어리</Text>
+            <Pressable onPress={() => router.push('/diary')} style={styles.yearBrowseLink}>
+              <Text style={styles.yearBrowseText}>연도별 보기 ›</Text>
+            </Pressable>
+          </View>
           <View style={styles.headerActions}>
             <Pressable
               onPress={() => setSearchOpen((open) => !open)}
@@ -269,7 +234,7 @@ export default function DiaryHomeScreen() {
         ) : (
           <View style={styles.timeline}>
             {filteredTreatments.map((treatment) => (
-              <TreatmentCard
+              <TreatmentDiaryCard
                 key={treatment.id}
                 onPress={() =>
                   detailRouter.push({
@@ -335,6 +300,15 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: '800',
   },
+  yearBrowseLink: {
+    marginTop: 6,
+    paddingVertical: 2,
+  },
+  yearBrowseText: {
+    color: '#FF5A5F',
+    fontSize: 14,
+    fontWeight: '700',
+  },
   headerActions: { flexDirection: 'row', gap: 4 },
   iconButton: {
     alignItems: 'center',
@@ -381,57 +355,6 @@ const styles = StyleSheet.create({
   },
   timeline: {
     gap: 16,
-  },
-  card: {
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    shadowColor: '#1A1A2E',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 4,
-  },
-  cardPressed: {
-    opacity: 0.82,
-  },
-  cardMeta: {
-    color: '#6B6B7B',
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 10,
-  },
-  cardTitle: {
-    color: '#1A1A2E',
-    fontSize: 20,
-    fontWeight: '800',
-    marginBottom: 16,
-  },
-  tagRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  tag: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  tagText: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  typeTag: {
-    backgroundColor: '#FFD4D5',
-  },
-  typeTagText: {
-    color: '#FF5A5F',
-  },
-  damageTag: {
-    backgroundColor: '#CCF2EC',
-  },
-  damageTagText: {
-    color: '#00C2A8',
   },
   stateBox: {
     alignItems: 'center',
