@@ -151,8 +151,24 @@ export async function saveAiConversation(input: {
 
 export async function askAiWithContext(userMessage: string) {
   const { treatments } = await getTreatments();
-  const contextUsed = buildTreatmentContext(treatments);
-  const aiResponse = generatePlaceholderAiResponse(userMessage, treatments);
+  const contextUsed: Record<string, unknown> = {
+    ...buildTreatmentContext(treatments),
+  };
+  const { generateAiResponse, getActiveAiProvider } = await import('./ai-providers');
+  const provider = getActiveAiProvider();
+
+  let aiResponse: string;
+
+  try {
+    aiResponse = await generateAiResponse(userMessage, treatments);
+    contextUsed.provider = provider;
+    contextUsed.fallback = false;
+  } catch (error) {
+    aiResponse = generatePlaceholderAiResponse(userMessage, treatments);
+    contextUsed.fallback = true;
+    contextUsed.provider = provider;
+    contextUsed.error = error instanceof Error ? error.message : 'AI API failed';
+  }
 
   return saveAiConversation({
     userMessage,

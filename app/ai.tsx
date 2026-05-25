@@ -19,6 +19,7 @@ import {
   askAiWithContext,
   listAiConversations,
 } from '../lib/ai-conversations';
+import { getActiveAiProvider, getAiProviderLabel } from '../lib/ai-providers';
 import { getErrorMessage } from '../lib/errors';
 import { BottomTabBar } from '../src/components/bottom-tab-bar';
 import { EmptyState } from '../src/components/empty-state';
@@ -95,7 +96,9 @@ export default function AiConsultScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.title}>AI 상담</Text>
-        <Text style={styles.subtitle}>시술 이력 기반 맞춤 조언 (베타)</Text>
+        <Text style={styles.subtitle}>
+          시술 이력 기반 맞춤 조언 · {getAiProviderLabel(getActiveAiProvider())}
+        </Text>
       </View>
 
       <ScrollView

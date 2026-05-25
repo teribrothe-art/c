@@ -56,6 +56,25 @@ EXPO_PUBLIC_TOSS_CLIENT_KEY=test_ck_발급받은_전체_문자열
 
 결제 화면에 샌드박스 **테스트 카드** 안내가 표시됩니다 (카드번호 `4330-1234-1234-1234` 등).
 
+## AI 상담 (OpenAI / Anthropic)
+
+`.env`에 API 키를 넣으면 **AI 상담** 탭에서 실제 모델 응답을 사용합니다. 둘 다 있으면 **OpenAI 우선**입니다.
+
+```sh
+EXPO_PUBLIC_OPENAI_API_KEY=sk-발급받은_키
+EXPO_PUBLIC_ANTHROPIC_API_KEY=sk-ant-발급받은_키
+```
+
+| 우선순위 | 조건 | 모델 |
+|----------|------|------|
+| 1 | `EXPO_PUBLIC_OPENAI_API_KEY` 설정 | `gpt-4o-mini` |
+| 2 | `EXPO_PUBLIC_ANTHROPIC_API_KEY`만 설정 | `claude-3-5-haiku-20241022` |
+| 3 | 둘 다 없음 | 시술 이력 기반 **데모 응답** |
+
+키는 `EXPO_PUBLIC_`로 앱 번들에 포함됩니다. 스토어 배포 전에는 Supabase Edge Function으로 API 호출을 옮기는 것을 권장합니다.
+
+대화는 `ai_conversations` 테이블에 저장됩니다 (`supabase/migrate_ai_conversations.sql` 실행 필요).
+
 ## 다이어리 타임라인
 
 홈 화면(`/home`)은 Supabase의 `treatments` 테이블에서 본인 시술 기록을 최신순으로 불러옵니다. Supabase 설정 전에는 로컬 확인용 시술 카드가 표시됩니다.
