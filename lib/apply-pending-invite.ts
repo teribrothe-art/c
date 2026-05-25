@@ -1,13 +1,23 @@
 import { router } from 'expo-router';
 
-import { getCurrentUser } from './auth';
+import { getCurrentUser, type UserRole } from './auth';
 import { normalizeInviteCode, redeemInviteCode } from './customer-invitations';
 import { consumePendingInviteCode, peekPendingInviteCode } from './pending-invite-code';
 
-export async function redeemInviteForCurrentUser(rawCode?: string) {
-  const user = await getCurrentUser();
+type RedeemInviteOptions = {
+  userId?: string;
+  role?: UserRole | null;
+};
 
-  if (!user || user.role !== 'customer') {
+export async function redeemInviteForCurrentUser(
+  rawCode?: string,
+  options?: RedeemInviteOptions,
+) {
+  const sessionUser = await getCurrentUser();
+  const userId = options?.userId ?? sessionUser?.id;
+  const role = options?.role ?? sessionUser?.role;
+
+  if (!userId || role !== 'customer') {
     return false;
   }
 
@@ -17,7 +27,7 @@ export async function redeemInviteForCurrentUser(rawCode?: string) {
     return false;
   }
 
-  const redeemed = await redeemInviteCode(code, user.id);
+  const redeemed = await redeemInviteCode(code, userId);
   await consumePendingInviteCode();
 
   router.replace({

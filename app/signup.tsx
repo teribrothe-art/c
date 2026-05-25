@@ -16,7 +16,7 @@ import { getPostAuthRoute } from '../lib/auth-redirect';
 import { showErrorAlert } from '../lib/alerts';
 import { redeemInviteForCurrentUser } from '../lib/apply-pending-invite';
 import { normalizeInviteCode, validateInviteCode } from '../lib/customer-invitations';
-import { peekPendingInviteCode } from '../lib/pending-invite-code';
+import { clearPendingInviteCode, peekPendingInviteCode } from '../lib/pending-invite-code';
 import { getErrorMessage } from '../lib/errors';
 import { colors, disabledButtonStyle } from '../lib/theme';
 import {
@@ -63,7 +63,6 @@ export default function SignupScreen() {
       .then((pending) => {
         if (pending.length === 6) {
           setInviteCode(pending);
-          setInviteOpen(true);
           setRole((current) => current ?? 'customer');
         }
       })
@@ -133,17 +132,10 @@ export default function SignupScreen() {
     const trimmedEmail = email.trim();
 
     const code = normalizeInviteCode(inviteCode);
+    const wantsInvite = inviteOpen && code.length === 6;
 
-    const hasInviteFromLink = Boolean(inviteCodeParam && normalizeInviteCode(String(inviteCodeParam)).length === 6);
-
-    if (
-      role === 'customer' &&
-      inviteOpen &&
-      code.length === 6 &&
-      inviteValid === false &&
-      !hasInviteFromLink
-    ) {
-      showErrorAlert('유효한 초대 코드를 입력해주세요.');
+    if (role === 'customer' && wantsInvite && inviteValid === false) {
+      showErrorAlert('초대 코드를 확인하거나 비워두고 가입해주세요.');
       return;
     }
 
@@ -161,9 +153,23 @@ export default function SignupScreen() {
         return;
       }
 
-      if (inviteOpen && code.length === 6) {
-        await redeemInviteForCurrentUser(code);
-        return;
+      if (wantsInvite && inviteValid !== false) {
+        try {
+          const redeemed = await redeemInviteForCurrentUser(code, {
+            userId: user.id,
+            role: 'customer',
+          });
+
+          if (redeemed) {
+            return;
+          }
+        } catch (inviteError) {
+          showErrorAlert(
+            getErrorMessage(inviteError, '초대 연결에 실패했습니다. 일반 가입으로 계속합니다.'),
+          );
+        }
+      } else {
+        await clearPendingInviteCode();
       }
 
       router.replace(await getPostAuthRoute());
@@ -256,7 +262,7 @@ export default function SignupScreen() {
             disabled={isLoading}
             onPress={() => setInviteOpen((open) => !open)}
             style={styles.inviteToggle}>
-            <Text style={styles.inviteToggleText}>초대 코드 있어요?</Text>
+            <Text style={styles.inviteToggleText}>초대 코드 있어요? (선택)</Text>
             <Text style={styles.inviteToggleIcon}>{inviteOpen ? '▲' : '▼'}</Text>
           </Pressable>
 
@@ -267,7 +273,7 @@ export default function SignupScreen() {
                 editable={!isLoading}
                 maxLength={6}
                 onChangeText={(value) => setInviteCode(normalizeInviteCode(value))}
-                placeholder="6자리 코드"
+                placeholder="6자리 코드 (비우면 일반 가입)"
                 placeholderTextColor="#9CA3AF"
                 style={styles.input}
                 value={inviteCode}
