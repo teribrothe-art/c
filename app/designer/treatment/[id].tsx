@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
   Platform,
@@ -70,8 +70,10 @@ import { isAiAppUtilizationEnabled } from '../../../lib/ai-edge';
 import {
   autoFillTreatmentDamageLevel,
   canInferTreatmentDamageLevel,
+  formatDamageLevelLabel,
   generateAndSaveTreatmentDamageLevel,
   isDamageSourceField,
+  restoreTreatmentDamageLevel,
   saveTreatmentDamageLevel,
 } from '../../../lib/treatment-damage-level';
 import {
@@ -208,7 +210,9 @@ export default function DesignerTreatmentInputScreen() {
   } | null>(null);
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
   const [isAnalyzingDamage, setIsAnalyzingDamage] = useState(false);
+  const [damageUndoStack, setDamageUndoStack] = useState<(number | null)[]>([]);
   const [recordNav, setRecordNav] = useState<ReturnType<typeof getTreatmentNavigation>>(null);
+  const treatmentIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     let isMounted = true;
@@ -256,7 +260,17 @@ export default function DesignerTreatmentInputScreen() {
           loadedTreatment,
         );
         setRecordNav(getTreatmentNavigation(sameCustomerTreatments, id));
+
+        if (treatmentIdRef.current !== id) {
+          treatmentIdRef.current = id;
+          setDamageUndoStack([]);
+        }
+
         let resolvedTreatment = loadedTreatment;
+        const damageBeforeAuto =
+          typeof resolvedTreatment.damage_level === 'number'
+            ? resolvedTreatment.damage_level
+            : null;
 
         if (
           canInferTreatmentDamageLevel(resolvedTreatment) &&
@@ -265,6 +279,10 @@ export default function DesignerTreatmentInputScreen() {
           setIsAnalyzingDamage(true);
           resolvedTreatment = await autoFillTreatmentDamageLevel(resolvedTreatment);
           setIsAnalyzingDamage(false);
+
+          if (typeof resolvedTreatment.damage_level === 'number') {
+            setDamageUndoStack([damageBeforeAuto]);
+          }
         }
 
         setTreatment(resolvedTreatment);
@@ -481,9 +499,21 @@ export default function DesignerTreatmentInputScreen() {
       let nextTreatment = updatedTreatment;
 
       if (activeField && isDamageSourceField(activeField)) {
+        const damageBeforeAuto =
+          typeof nextTreatment.damage_level === 'number' ? nextTreatment.damage_level : null;
+
         setIsAnalyzingDamage(true);
-        nextTreatment = await autoFillTreatmentDamageLevel(nextTreatment);
+        const autoFilled = await autoFillTreatmentDamageLevel(nextTreatment);
         setIsAnalyzingDamage(false);
+
+        if (
+          typeof autoFilled.damage_level === 'number' &&
+          autoFilled.damage_level !== damageBeforeAuto
+        ) {
+          pushDamageUndo(damageBeforeAuto);
+        }
+
+        nextTreatment = autoFilled;
       }
 
       setTreatment(nextTreatment);
@@ -521,6 +551,10 @@ export default function DesignerTreatmentInputScreen() {
     }
   };
 
+  const pushDamageUndo = (previous: number | null) => {
+    setDamageUndoStack((stack) => [...stack, previous]);
+  };
+
   const handleSelectDamageLevel = async (level: number) => {
     if (!treatment || isSaving || isAnalyzingDamage) {
       return;
@@ -530,9 +564,13 @@ export default function DesignerTreatmentInputScreen() {
       return;
     }
 
+    const previous =
+      typeof treatment.damage_level === 'number' ? treatment.damage_level : null;
+
     try {
       setIsSaving(true);
       const updated = await saveTreatmentDamageLevel(treatment.id, level);
+      pushDamageUndo(previous);
       setTreatment(updated);
     } catch (error) {
       showErrorAlert(getErrorMessage(error, '손상도 저장에 실패했습니다.'), '저장 실패');
@@ -551,9 +589,13 @@ export default function DesignerTreatmentInputScreen() {
       return;
     }
 
+    const previous =
+      typeof treatment.damage_level === 'number' ? treatment.damage_level : null;
+
     try {
       setIsAnalyzingDamage(true);
       const { treatment: updated } = await generateAndSaveTreatmentDamageLevel(treatment);
+      pushDamageUndo(previous);
       setTreatment(updated);
 
       if (isDesignerSettlementInputComplete(updated) && !updated.ai_insight?.trim()) {
@@ -563,6 +605,25 @@ export default function DesignerTreatmentInputScreen() {
       showErrorAlert(getErrorMessage(error, '손상도 AI 분석에 실패했습니다.'), 'AI 분석 실패');
     } finally {
       setIsAnalyzingDamage(false);
+    }
+  };
+
+  const handleUndoDamageLevel = async () => {
+    if (!treatment || isSaving || isAnalyzingDamage || damageUndoStack.length === 0) {
+      return;
+    }
+
+    const previous = damageUndoStack[damageUndoStack.length - 1];
+
+    try {
+      setIsSaving(true);
+      const updated = await restoreTreatmentDamageLevel(treatment.id, previous);
+      setDamageUndoStack((stack) => stack.slice(0, -1));
+      setTreatment(updated);
+    } catch (error) {
+      showErrorAlert(getErrorMessage(error, '손상도 되돌리기에 실패했습니다.'), '되돌리기 실패');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -970,25 +1031,44 @@ export default function DesignerTreatmentInputScreen() {
                 value={treatment.damage_level}
                 onSelect={(level) => void handleSelectDamageLevel(level)}
               />
-              <Pressable
-                disabled={
-                  !canInferTreatmentDamageLevel(treatment) ||
-                  isAnalyzingDamage ||
-                  isSaving
-                }
-                onPress={() => void handleAiAnalyzeDamage()}
-                style={({ pressed }) => [
-                  styles.damageAiButton,
-                  (!canInferTreatmentDamageLevel(treatment) ||
+              <View style={styles.damageActionRow}>
+                <Pressable
+                  disabled={damageUndoStack.length === 0 || isAnalyzingDamage || isSaving}
+                  onPress={() => void handleUndoDamageLevel()}
+                  style={({ pressed }) => [
+                    styles.damageUndoButton,
+                    (damageUndoStack.length === 0 || isAnalyzingDamage || isSaving) &&
+                      styles.damageAiButtonDisabled,
+                    pressed && styles.buttonPressed,
+                  ]}>
+                  <Text style={styles.damageUndoButtonText}>
+                    {damageUndoStack.length > 0
+                      ? `되돌리기 (${formatDamageLevelLabel(
+                          damageUndoStack[damageUndoStack.length - 1],
+                        )})`
+                      : '되돌리기'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  disabled={
+                    !canInferTreatmentDamageLevel(treatment) ||
                     isAnalyzingDamage ||
-                    isSaving) &&
-                    styles.damageAiButtonDisabled,
-                  pressed && styles.buttonPressed,
-                ]}>
-                <Text style={styles.damageAiButtonText}>
-                  {isAnalyzingDamage ? 'AI 분석 중…' : 'AI 자동 분석'}
-                </Text>
-              </Pressable>
+                    isSaving
+                  }
+                  onPress={() => void handleAiAnalyzeDamage()}
+                  style={({ pressed }) => [
+                    styles.damageAiButton,
+                    (!canInferTreatmentDamageLevel(treatment) ||
+                      isAnalyzingDamage ||
+                      isSaving) &&
+                      styles.damageAiButtonDisabled,
+                    pressed && styles.buttonPressed,
+                  ]}>
+                  <Text style={styles.damageAiButtonText}>
+                    {isAnalyzingDamage ? 'AI 분석 중…' : 'AI 자동 분석'}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
 
             <View style={styles.aiInsightCard}>
@@ -1334,13 +1414,35 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginTop: 4,
   },
+  damageActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  damageUndoButton: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 12,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 12,
+  },
+  damageUndoButtonText: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
   damageAiButton: {
     alignItems: 'center',
     backgroundColor: '#F0FBF9',
     borderColor: '#B8EDE4',
     borderRadius: 12,
     borderWidth: 1,
-    marginTop: 4,
+    flex: 1,
     paddingVertical: 12,
   },
   damageAiButtonDisabled: {

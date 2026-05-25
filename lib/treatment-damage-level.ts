@@ -150,6 +150,25 @@ export async function saveTreatmentDamageLevel(treatmentId: string, damageLevel:
   return updateTreatment(treatmentId, { damage_level: clamped });
 }
 
+export async function restoreTreatmentDamageLevel(
+  treatmentId: string,
+  damageLevel: number | null,
+) {
+  if (damageLevel === null) {
+    return updateTreatment(treatmentId, { damage_level: null });
+  }
+
+  return saveTreatmentDamageLevel(treatmentId, damageLevel);
+}
+
+export function formatDamageLevelLabel(level: number | null | undefined) {
+  if (typeof level === 'number') {
+    return `${level}점`;
+  }
+
+  return '미선택';
+}
+
 export async function generateAndSaveTreatmentDamageLevel(treatment: Treatment) {
   const damageLevel = await generateTreatmentDamageLevel(treatment);
   const updated = await saveTreatmentDamageLevel(treatment.id, damageLevel);
