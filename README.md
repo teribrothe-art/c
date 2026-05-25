@@ -12,23 +12,73 @@ npm start
 
 ## 휴대폰에서 접속 (Expo Go)
 
+**브라우저용** `npm run web` / `web:clear` 만 켜 두면 휴대폰 QR이 안 보이거나 접속이 실패할 수 있습니다.  
+폰에서는 아래 중 하나로 Metro를 띄운 뒤 QR을 스캔하세요.
+
 PC와 **같은 Wi‑Fi**이면:
 
 ```sh
 npm run start:lan
 ```
 
-다른 네트워크·LTE만 쓸 때 (터널):
+다른 네트워크·LTE·회사망 분리 Wi‑Fi일 때 (터널, 권장):
 
 ```sh
 npm run start:phone
 ```
 
-1. 터미널에 나온 **QR 코드**를 iPhone/Android **Expo Go** 앱으로 스캔  
-2. 빨간 번들 오류가 나면 캐시 삭제 후 재시작: `npm run start:phone`  
-3. `react-native-svg` / QR 관련 500 오류는 `metro.config.js`의 스텁 설정으로 해결됨 — 의존성 변경 후에는 반드시 `--clear`로 재시작
+1. 터미널에 **QR 코드**가 나올 때까지 대기 (첫 실행 30–60초)  
+2. iPhone/Android **Expo Go** 앱으로 QR 스캔 (카메라 앱이 아님)  
+3. Metro가 떠 있는 **같은 PC**에서 번들 확인:
+
+```sh
+npm run check:phone
+```
+
+- `check:phone` OK + 폰만 실패 → Wi‑Fi/터널 문제 → `start:phone` 재시도, Expo Go **Reload**(↻)  
+- `check:phone` FAIL → 터미널 빨간 Metro 오류 확인 후 `npm run start:phone`  
+4. 빨간 번들 오류가 나면 캐시 삭제 후 재시작: `npm run start:phone`  
+5. `react-native-svg` / QR 관련 500 오류는 `metro.config.js`의 스텁 설정으로 해결됨 — 의존성 변경 후에는 반드시 `--clear`로 재시작
+
+### 어플(Expo Go)로 접속이 안 될 때
+
+| 증상 | 가장 흔한 원인 | 조치 |
+|------|----------------|------|
+| 연결 자체가 안 됨 / 로딩만 멈춤 | `web:clear`만 실행, 또는 PC·폰 네트워크 불일치 | `npm run start:phone` 후 QR 재스캔 |
+| "Unable to connect" | 방화벽·게스트 Wi‑Fi·VPN | 터널(`start:phone`) 또는 같은 Wi‑Fi + `start:lan` |
+| 파란 화면 "Something went wrong" | Expo Go 구버전 또는 번들 크래시 | Expo Go 업데이트(SDK 56), `start:phone` + Reload |
+| Cursor 원격 VM에서 개발 | QR의 IP가 내 폰에서 안 보임 | **본인 PC**에서 `git clone` 후 `start:phone` 실행 (또는 터널 URL이 폰에서 열리는지 확인) |
 
 데모 로그인( Supabase 미설정 시): `demo@hair.app` / `demo1234`, `designer@hair.app` / `demo1234`
+
+### 브라우저 `http://localhost:8081` — ERR_EMPTY_RESPONSE (-324)
+
+| 순위 | 가장 흔한 원인 |
+|------|----------------|
+| 1 | **Expo/Metro가 안 떠 있음** (8081에 프로세스 없음) |
+| 2 | **첫 접속이 너무 빠름** — 번들링 중이라 응답 없이 끊김 |
+| 3 | **Metro가 번들 중 크래시** — 터미널에 빨간 에러 |
+| 4 | **다른 터미널/PC** — 브라우저 PC와 `expo start` PC가 다름 |
+
+**가장 빠른 확인 (순서대로):**
+
+```sh
+# 1) 서버 실행 (프로젝트 폴더에서)
+npm run web:clear
+
+# 2) 터미널에 "Metro waiting on" / "Web is waiting" 나올 때까지 30~60초 대기
+
+# 3) 같은 PC에서 확인
+npm run check:dev
+# 또는
+curl -I http://127.0.0.1:8081/
+```
+
+- `Connection refused` → 서버 미실행 → 1번부터  
+- `check:dev` OK인데 브라우저만 실패 → **127.0.0.1:8081** 로 다시 열기, 시크릿 창, 확장 프로그램 끄기  
+- Cursor **포트 포워딩** 사용 시 → 워크스페이스 안에서 `npm run web:clear` 실행 중이어야 함  
+
+웹 전용이면 `npm run web` 만으로 충분합니다 (`expo start`만 하고 `w` 안 눌러도 됨).
 
 ### Expo Go에서 "Something went wrong" (파란 화면)
 
