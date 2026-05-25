@@ -303,7 +303,7 @@ export default function DesignerTreatmentInputScreen() {
       setTreatment(updatedTreatment);
       closeEditor();
 
-      if (updatedTreatment.customer_id) {
+      if (updatedTreatment.customer_id && allEditableComplete) {
         void notifyCustomerTreatmentRecorded(updatedTreatment).catch(() => undefined);
       }
     } catch (error) {

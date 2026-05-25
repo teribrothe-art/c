@@ -12,14 +12,14 @@ const DEMO_RELATIONSHIPS_KEY = 'hair-diary-designer-customer-relationships';
 const INVITE_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const INVITE_VALID_DAYS = 7;
 
-export type InvitationStatus = 'active' | 'used' | 'expired';
+export type InvitationStatus = 'pending' | 'used' | 'expired';
 
 export type CustomerInvitation = {
   id: string;
   invite_code: string;
   designer_id: string;
-  treatment_id: string;
-  customer_name: string;
+  treatment_id: string | null;
+  customer_name: string | null;
   customer_phone: string | null;
   status: InvitationStatus;
   expires_at: string;
@@ -32,7 +32,10 @@ export type DesignerCustomerRelationship = {
   id: string;
   designer_id: string;
   customer_id: string;
-  invitation_id: string | null;
+  first_treatment_date: string | null;
+  total_treatments: number;
+  total_amount: number;
+  status: 'active' | 'inactive';
   created_at: string;
 };
 
@@ -120,23 +123,33 @@ function addDaysIso(days: number) {
   return date.toISOString();
 }
 
+function normalizeInvitationRow(row: CustomerInvitation): CustomerInvitation {
+  const rawStatus = row.status as InvitationStatus | 'active';
+  const status: InvitationStatus = rawStatus === 'active' ? 'pending' : rawStatus;
+
+  return { ...row, status };
+}
+
 function resolveInvitationStatus(invitation: CustomerInvitation): InvitationStatus {
-  if (invitation.status === 'used') {
+  const normalized = normalizeInvitationRow(invitation);
+
+  if (normalized.status === 'used') {
     return 'used';
   }
 
-  if (new Date(invitation.expires_at).getTime() < Date.now()) {
+  if (new Date(normalized.expires_at).getTime() < Date.now()) {
     return 'expired';
   }
 
-  return invitation.status === 'expired' ? 'expired' : 'active';
+  return normalized.status === 'expired' ? 'expired' : 'pending';
 }
 
 async function readDemoInvitations() {
   const raw = await AsyncStorage.getItem(DEMO_INVITATIONS_KEY);
   const parsed = raw ? (JSON.parse(raw) as CustomerInvitation[]) : [...demoInvitations];
+  const normalized = parsed.map((item) => normalizeInvitationRow(item));
   demoInvitations.length = 0;
-  demoInvitations.push(...parsed);
+  demoInvitations.push(...normalized);
   return demoInvitations;
 }
 
@@ -168,13 +181,18 @@ async function applyInvitationUsedSideEffects(invitation: CustomerInvitation, cu
       id: `demo-rel-${Date.now()}`,
       designer_id: invitation.designer_id,
       customer_id: customerId,
-      invitation_id: invitation.id,
+      first_treatment_date: null,
+      total_treatments: 0,
+      total_amount: 0,
+      status: 'active',
       created_at: new Date().toISOString(),
     });
     await writeDemoRelationships(relationships);
   }
 
-  await updateTreatment(invitation.treatment_id, { customer_id: customerId });
+  if (invitation.treatment_id) {
+    await updateTreatment(invitation.treatment_id, { customer_id: customerId });
+  }
 }
 
 async function fetchDesignerName(designerId: string) {
@@ -219,7 +237,7 @@ export async function validateInviteCode(rawCode: string): Promise<InviteValidat
     }
 
     const designerName = await fetchDesignerName(invitation.designer_id);
-    return { valid: true, invitation, designerName };
+    return { valid: true, invitation: normalizeInvitationRow(invitation), designerName };
   }
 
   const { data, error } = await supabase
@@ -236,7 +254,7 @@ export async function validateInviteCode(rawCode: string): Promise<InviteValidat
     return { valid: false, reason: 'invalid', message: '코드가 올바르지 않아요' };
   }
 
-  const invitation = data as CustomerInvitation;
+  const invitation = normalizeInvitationRow(data as CustomerInvitation);
   const status = resolveInvitationStatus(invitation);
 
   if (status === 'used') {
@@ -290,7 +308,7 @@ export async function createCustomerInvitation(input: {
       treatment_id: input.treatmentId,
       customer_name: customerName,
       customer_phone: input.customerPhone?.trim() || null,
-      status: 'active',
+      status: 'pending',
       expires_at: expiresAt,
       used_at: null,
       used_by: null,
@@ -318,7 +336,7 @@ export async function createCustomerInvitation(input: {
       treatment_id: input.treatmentId,
       customer_name: customerName,
       customer_phone: input.customerPhone?.trim() || null,
-      status: 'active',
+      status: 'pending',
       expires_at: expiresAt,
     })
     .select(invitationSelect)
@@ -328,10 +346,10 @@ export async function createCustomerInvitation(input: {
     throw toAppError(error);
   }
 
-  return data as CustomerInvitation;
+  return normalizeInvitationRow(data as CustomerInvitation);
 }
 
-export async function getActiveInvitationForTreatment(treatmentId: string) {
+export async function getPendingInvitationForTreatment(treatmentId: string) {
   const user = await getCurrentUser();
 
   if (!user) {
@@ -345,7 +363,7 @@ export async function getActiveInvitationForTreatment(treatmentId: string) {
         (item) =>
           item.treatment_id === treatmentId &&
           item.designer_id === user.id &&
-          resolveInvitationStatus(item) === 'active',
+          resolveInvitationStatus(item) === 'pending',
       ) ?? null
     );
   }
@@ -355,7 +373,7 @@ export async function getActiveInvitationForTreatment(treatmentId: string) {
     .select(invitationSelect)
     .eq('treatment_id', treatmentId)
     .eq('designer_id', user.id)
-    .eq('status', 'active')
+    .eq('status', 'pending')
     .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false })
     .limit(1)
@@ -365,8 +383,11 @@ export async function getActiveInvitationForTreatment(treatmentId: string) {
     throw toAppError(error);
   }
 
-  return (data as CustomerInvitation | null) ?? null;
+  return data ? normalizeInvitationRow(data as CustomerInvitation) : null;
 }
+
+/** @deprecated getPendingInvitationForTreatment 사용 */
+export const getActiveInvitationForTreatment = getPendingInvitationForTreatment;
 
 export async function redeemInviteCode(rawCode: string, customerId: string) {
   const validation = await validateInviteCode(rawCode);
@@ -400,15 +421,15 @@ export async function redeemInviteCode(rawCode: string, customerId: string) {
       user_id: invitation.designer_id,
       type: 'invite_customer_joined',
       title: '고객 가입',
-      message: `🎉 ${invitation.customer_name}님이 가입하셨어요!`,
-      treatment_id: invitation.treatment_id,
+      message: `🎉 ${invitation.customer_name ?? '고객'}님이 가입하셨어요!`,
+      treatment_id: invitation.treatment_id ?? '',
       href: '/designer/clients',
     });
 
     return {
       invitation: items[index],
       designerName: validation.designerName,
-      customerName: invitation.customer_name,
+      customerName: invitation.customer_name ?? '고객',
     };
   }
 
@@ -420,7 +441,7 @@ export async function redeemInviteCode(rawCode: string, customerId: string) {
       used_by: customerId,
     })
     .eq('id', invitation.id)
-    .eq('status', 'active')
+    .eq('status', 'pending')
     .select(invitationSelect)
     .single();
 
@@ -428,12 +449,12 @@ export async function redeemInviteCode(rawCode: string, customerId: string) {
     throw toAppError(error);
   }
 
-  // Supabase: on_invitation_used 트리거가 디자이너 알림을 생성합니다.
+  // Supabase: link_customer_to_designer 트리거가 관계·시술·알림을 처리합니다.
 
   return {
-    invitation: data as CustomerInvitation,
+    invitation: normalizeInvitationRow(data as CustomerInvitation),
     designerName: validation.designerName,
-    customerName: invitation.customer_name,
+    customerName: invitation.customer_name ?? '고객',
   };
 }
 
@@ -463,7 +484,7 @@ export async function getDesignerClientListItems(): Promise<DesignerClientListIt
       throw toAppError(error);
     }
 
-    invitations = (data ?? []) as CustomerInvitation[];
+    invitations = (data ?? []).map((row) => normalizeInvitationRow(row as CustomerInvitation));
   }
 
   const treatmentIdsWithInvite = new Set<string>();
@@ -471,15 +492,20 @@ export async function getDesignerClientListItems(): Promise<DesignerClientListIt
 
   for (const invitation of invitations) {
     const status = resolveInvitationStatus(invitation);
-    const treatment = treatments.find((item) => item.id === invitation.treatment_id);
-    treatmentIdsWithInvite.add(invitation.treatment_id);
+    const treatment = invitation.treatment_id
+      ? treatments.find((item) => item.id === invitation.treatment_id)
+      : undefined;
+
+    if (invitation.treatment_id) {
+      treatmentIdsWithInvite.add(invitation.treatment_id);
+    }
 
     rows.push({
       key: `invite-${invitation.id}`,
-      customerName: invitation.customer_name,
+      customerName: invitation.customer_name ?? '고객',
       treatmentTitle: treatment?.treatment_title ?? '시술',
       treatmentDate: treatment?.treatment_date ?? invitation.created_at.slice(0, 10),
-      treatmentId: invitation.treatment_id,
+      treatmentId: invitation.treatment_id ?? '',
       inviteCode: invitation.invite_code,
       inviteStatus: status,
       invitationId: invitation.id,

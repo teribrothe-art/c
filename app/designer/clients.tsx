@@ -40,7 +40,7 @@ function getInitial(name?: string | null) {
 }
 
 function getInviteBadgeMeta(status?: DesignerClientListItem['inviteStatus']) {
-  if (status === 'active') {
+  if (status === 'pending') {
     return { label: '초대 발송됨', style: styles.inviteActiveBadge, textStyle: styles.inviteActiveText };
   }
 
@@ -107,7 +107,7 @@ function DesignerClientCard({
           {formatDate(item.treatmentDate)} · {item.treatment?.treatment_type ?? '시술'}
         </Text>
         <Text style={styles.treatmentTitle}>{item.treatmentTitle}</Text>
-        {item.inviteCode && item.inviteStatus === 'active' ? (
+        {item.inviteCode && item.inviteStatus === 'pending' ? (
           <Text style={styles.inviteCodeText}>코드 {item.inviteCode}</Text>
         ) : null}
         {item.inviteStatus === 'expired' && onReinvite ? (
