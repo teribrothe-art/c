@@ -12,9 +12,13 @@ import {
 
 import { redeemInviteForCurrentUser } from '../lib/apply-pending-invite';
 import { getPostAuthRoute } from '../lib/auth-redirect';
-import { getCurrentUser } from '../lib/auth';
+import { getCurrentUser, isDemoAuthMode, signInWithEmail } from '../lib/auth';
+import {
+  ACCUMULATED_TEST_DESIGNER,
+  ACCUMULATED_TEST_PASSWORD,
+} from '../lib/demo-accumulated-test-accounts';
+import { ACCUMULATED_DEMO_SEED_STATS } from '../lib/demo-accumulated-test-data';
 import { peekPendingInviteCode } from '../lib/pending-invite-code';
-import { signInWithEmail } from '../lib/auth';
 import { showLoginFailureAlert } from '../lib/alerts';
 import { getErrorMessage } from '../lib/errors';
 import { colors, disabledButtonStyle } from '../lib/theme';
@@ -148,6 +152,32 @@ export default function LoginScreen() {
           </Pressable>
         </View>
 
+        {isDemoAuthMode ? (
+          <View style={styles.demoBox}>
+            <Text style={styles.demoTitle}>데모 · 기능 확인용</Text>
+            <Pressable
+              disabled={isLoading}
+              onPress={() => {
+                setEmail(ACCUMULATED_TEST_DESIGNER.email);
+                setPassword(ACCUMULATED_TEST_PASSWORD);
+                setLoginError(null);
+                setEmailError(null);
+                setPasswordError(null);
+              }}
+              style={({ pressed }) => [styles.demoButton, pressed && styles.demoButtonPressed]}>
+              <Text style={styles.demoButtonText}>3년 누적 테스트 디자이너 로그인</Text>
+            </Pressable>
+            <Text style={styles.demoMeta}>
+              {ACCUMULATED_TEST_DESIGNER.email} / {ACCUMULATED_TEST_PASSWORD}
+            </Text>
+            <Text style={styles.demoMeta}>
+              시술 {ACCUMULATED_DEMO_SEED_STATS.treatmentCount}건 · 고객{' '}
+              {ACCUMULATED_DEMO_SEED_STATS.customerCount}명 ·{' '}
+              {ACCUMULATED_DEMO_SEED_STATS.yearSpanLabel}
+            </Text>
+          </View>
+        ) : null}
+
         <Link href="/signup" asChild>
           <Pressable disabled={isLoading} style={styles.signupLink}>
             <Text style={styles.signupLinkText}>회원가입</Text>
@@ -221,5 +251,38 @@ const styles = StyleSheet.create({
     color: colors.coral,
     fontSize: 16,
     fontWeight: '600',
+  },
+  demoBox: {
+    marginTop: 20,
+    width: '100%',
+    backgroundColor: '#F8F8FC',
+    borderRadius: 14,
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  demoTitle: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  demoButton: {
+    alignItems: 'center',
+    backgroundColor: '#7B5EE6',
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  demoButtonPressed: {
+    opacity: 0.88,
+  },
+  demoButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  demoMeta: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    lineHeight: 17,
   },
 });

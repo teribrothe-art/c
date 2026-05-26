@@ -182,3 +182,14 @@ const generated = buildTreatmentsAndPayments();
 
 export const ACCUMULATED_DEMO_TREATMENTS: AccumulatedDemoTreatment[] = generated.treatments;
 export const ACCUMULATED_DEMO_PAYMENTS: PaymentRecord[] = generated.payments;
+
+export const ACCUMULATED_DEMO_SEED_STATS = {
+  designerId: DESIGNER_ID,
+  designerName: DESIGNER_NAME,
+  customerCount: ACCUMULATED_TEST_CUSTOMERS.length,
+  treatmentCount: ACCUMULATED_DEMO_TREATMENTS.length,
+  paymentCount: ACCUMULATED_DEMO_PAYMENTS.length,
+  yearSpanLabel: '2023~현재',
+  oldestTreatmentDate: ACCUMULATED_DEMO_TREATMENTS.at(-1)?.treatment_date ?? null,
+  newestTreatmentDate: ACCUMULATED_DEMO_TREATMENTS[0]?.treatment_date ?? null,
+} as const;
