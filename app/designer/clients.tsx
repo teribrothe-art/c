@@ -1,5 +1,4 @@
-import { router, useRouter } from 'expo-router';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   Pressable,
@@ -15,11 +14,11 @@ import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-b
 import { getErrorMessage } from '../../lib/errors';
 import { normalizePaymentStatus } from '../../lib/payment-status';
 import {
-  createCustomerInvitation,
   DesignerClientListItem,
-  expireInvitation,
   getDesignerClientListItems,
+  renewCustomerInvitation,
 } from '../../lib/customer-invitations';
+import { groupDesignerClientListItems } from '../../lib/designer-client-groups';
 import {
   DESIGNER_ONBOARDING_SLIDES,
   markOnboardingSeen,
@@ -77,26 +76,90 @@ function getPaymentBadge(treatment?: Treatment) {
   return { label: '결제 대기', style: styles.pendingBadge, textStyle: styles.pendingBadgeText };
 }
 
+function isCurrentMonthTreatmentDate(treatmentDate: string) {
+  const now = new Date();
+  const date = new Date(`${treatmentDate}T00:00:00`);
+
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+}
+
+function SummaryStat({
+  label,
+  value,
+  active,
+  compact = false,
+  valueStyle,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  active?: boolean;
+  compact?: boolean;
+  valueStyle?: object;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.summaryItem,
+        active && styles.summaryItemActive,
+        pressed && styles.summaryItemPressed,
+      ]}>
+      <Text
+        style={[
+          styles.summaryLabel,
+          compact && styles.summaryLabelCompact,
+          active && styles.summaryLabelActive,
+        ]}>
+        {label}
+      </Text>
+      <Text
+        style={[
+          styles.summaryValue,
+          compact && styles.summaryValueCompact,
+          valueStyle,
+          active && styles.summaryValueActive,
+        ]}>
+        {value}
+      </Text>
+    </Pressable>
+  );
+}
+
 function DesignerClientCard({
   item,
   onPress,
   onReinvite,
+  compact = false,
 }: {
   item: DesignerClientListItem;
   onPress: () => void;
   onReinvite?: () => void;
+  compact?: boolean;
 }) {
   const inviteBadge = getInviteBadgeMeta(item.inviteStatus);
   const paymentBadge = item.isRegistered ? getPaymentBadge(item.treatment) : inviteBadge;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.clientCard, pressed && styles.clientCardPressed]}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{getInitial(item.customerName)}</Text>
-      </View>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        compact ? styles.treatmentRow : styles.clientCard,
+        pressed && (compact ? styles.treatmentRowPressed : styles.clientCardPressed),
+      ]}>
+      {!compact ? (
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{getInitial(item.customerName)}</Text>
+        </View>
+      ) : null}
       <View style={styles.clientInfo}>
         <View style={styles.cardTopRow}>
-          <Text style={styles.customerName}>{item.customerName}</Text>
+          <Text style={compact ? styles.treatmentRowTitle : styles.customerName}>
+            {compact ? item.treatmentTitle : item.customerName}
+          </Text>
           {paymentBadge ? (
             <View style={[styles.statusBadge, paymentBadge.style]}>
               <Text style={[styles.statusText, paymentBadge.textStyle]}>{paymentBadge.label}</Text>
@@ -106,18 +169,20 @@ function DesignerClientCard({
         <Text style={styles.treatmentMeta}>
           {formatDate(item.treatmentDate)} · {item.treatment?.treatment_type ?? '시술'}
         </Text>
-        <Text style={styles.treatmentTitle}>{item.treatmentTitle}</Text>
+        {!compact ? <Text style={styles.treatmentTitle}>{item.treatmentTitle}</Text> : null}
         {item.inviteCode && item.inviteStatus === 'pending' ? (
           <Text style={styles.inviteCodeText}>코드 {item.inviteCode}</Text>
         ) : null}
-        {item.inviteStatus === 'expired' && onReinvite ? (
+        {(item.inviteStatus === 'pending' || item.inviteStatus === 'expired') && onReinvite ? (
           <Pressable
             onPress={(event) => {
               event.stopPropagation?.();
               onReinvite();
             }}
             style={styles.reinviteButton}>
-            <Text style={styles.reinviteText}>재초대</Text>
+            <Text style={styles.reinviteText}>
+              {item.inviteStatus === 'pending' ? '초대 다시 보내기' : '재초대'}
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -128,12 +193,19 @@ function DesignerClientCard({
 export default function DesignerClientsScreen() {
   const insets = useSafeAreaInsets();
   const detailRouter = useRouter();
+  const { filter: filterParam } = useLocalSearchParams<{ filter?: string }>();
+  const monthOnly = filterParam === 'month';
+  const escrowOnly = filterParam === 'escrow';
+  const allTreatments =
+    !filterParam || filterParam === 'all' || (!monthOnly && !escrowOnly);
+  const listFilterActive = monthOnly || escrowOnly;
   const [clientItems, setClientItems] = useState<DesignerClientListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [expandedGroupKeys, setExpandedGroupKeys] = useState<Set<string>>(() => new Set());
 
   const loadClients = useCallback(() => {
     setIsLoading(true);
@@ -157,13 +229,26 @@ export default function DesignerClientsScreen() {
   );
 
   const visibleItems = useMemo(() => {
+    let items = clientItems;
+
+    if (monthOnly) {
+      items = items.filter((item) => isCurrentMonthTreatmentDate(item.treatmentDate));
+    }
+
+    if (escrowOnly) {
+      items = items.filter(
+        (item) =>
+          item.treatment && normalizePaymentStatus(item.treatment.payment_status) === 'escrow',
+      );
+    }
+
     const query = searchQuery.trim().toLowerCase();
 
     if (!query) {
-      return clientItems;
+      return items;
     }
 
-    return clientItems.filter((item) => {
+    return items.filter((item) => {
       const haystack = [
         item.customerName,
         item.treatmentTitle,
@@ -175,35 +260,91 @@ export default function DesignerClientsScreen() {
 
       return haystack.includes(query);
     });
-  }, [clientItems, searchQuery]);
+  }, [clientItems, escrowOnly, monthOnly, searchQuery]);
+
+  const clientGroups = useMemo(
+    () => groupDesignerClientListItems(visibleItems),
+    [visibleItems],
+  );
+
+  const searchActive = searchQuery.trim().length > 0;
+
+  const isGroupExpanded = useCallback(
+    (groupKey: string) => searchActive || expandedGroupKeys.has(groupKey),
+    [expandedGroupKeys, searchActive],
+  );
+
+  const toggleGroup = useCallback((groupKey: string) => {
+    if (searchActive) {
+      return;
+    }
+
+    setExpandedGroupKeys((current) => {
+      const next = new Set(current);
+
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+
+      return next;
+    });
+  }, [searchActive]);
 
   const summary = useMemo(() => {
-    const now = new Date();
-
     return {
-      monthCount: clientItems.filter((item) => {
-        const date = new Date(`${item.treatmentDate}T00:00:00`);
-        return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
-      }).length,
+      totalCount: clientItems.length,
+      monthCount: clientItems.filter((item) => isCurrentMonthTreatmentDate(item.treatmentDate)).length,
       waitingCount: clientItems.filter(
         (item) => item.treatment && normalizePaymentStatus(item.treatment.payment_status) === 'escrow',
       ).length,
     };
   }, [clientItems]);
 
+  const allCustomerGroups = useMemo(
+    () => groupDesignerClientListItems(clientItems),
+    [clientItems],
+  );
+
+  const applyListFilter = useCallback(
+    (filter: 'all' | 'month' | 'escrow') => {
+      if (filter === 'all') {
+        setExpandedGroupKeys(new Set());
+        router.setParams({ filter: 'all' });
+        return;
+      }
+
+      if (filterParam === filter) {
+        setExpandedGroupKeys(new Set());
+        router.setParams({ filter: 'all' });
+        return;
+      }
+
+      setExpandedGroupKeys(new Set());
+      router.setParams({ filter });
+    },
+    [filterParam],
+  );
+
+  const clearListFilter = useCallback(() => {
+    setExpandedGroupKeys(new Set());
+    router.setParams({ filter: 'all' });
+  }, []);
+
   const handleReinvite = (item: DesignerClientListItem) => {
-    if (!item.invitationId) {
+    if (!item.invitationId || !item.treatmentId) {
       return;
     }
 
     Promise.resolve()
       .then(async () => {
-        await expireInvitation(item.invitationId!);
-        await createCustomerInvitation({
+        await renewCustomerInvitation({
+          invitationId: item.invitationId!,
           treatmentId: item.treatmentId,
-          customerName: item.customerName,
+          customerName: item.treatment?.customer_name?.trim() || item.customerName,
         });
-        showSuccessAlert('새 초대 코드를 만들었어요.');
+        showSuccessAlert('새 초대 코드를 만들었어요. 이전 코드는 더 이상 사용할 수 없어요.');
         loadClients();
       })
       .catch((error) => {
@@ -217,7 +358,7 @@ export default function DesignerClientsScreen() {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.title}>내 고객들</Text>
+          <Text style={styles.title}>내 자산</Text>
           <View style={styles.headerActions}>
             <Pressable
               onPress={() => setSearchOpen((open) => !open)}
@@ -243,16 +384,47 @@ export default function DesignerClientsScreen() {
         ) : null}
 
         <View style={styles.summaryCard}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>이번 달 시술</Text>
-            <Text style={styles.summaryValue}>{summary.monthCount}건</Text>
-          </View>
+          <SummaryStat
+            active={allTreatments}
+            compact
+            label="전체 시술"
+            value={`${summary.totalCount}건`}
+            onPress={() => applyListFilter('all')}
+          />
           <View style={styles.summaryDivider} />
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>정산 대기</Text>
-            <Text style={[styles.summaryValue, styles.waitingValue]}>{summary.waitingCount}건</Text>
-          </View>
+          <SummaryStat
+            active={monthOnly}
+            compact
+            label="이번 달"
+            value={`${summary.monthCount}건`}
+            onPress={() => applyListFilter('month')}
+          />
+          <View style={styles.summaryDivider} />
+          <SummaryStat
+            active={escrowOnly}
+            compact
+            label="정산 대기"
+            value={`${summary.waitingCount}건`}
+            valueStyle={styles.waitingValue}
+            onPress={() => applyListFilter('escrow')}
+          />
         </View>
+
+        {allTreatments ? (
+          <View style={styles.scopeHintCard}>
+            <Text style={styles.scopeHintTitle}>전체 시술</Text>
+            <Text style={styles.scopeHintText}>
+              고객 {allCustomerGroups.length}명 · 이름을 누르면 시술 내역을 볼 수 있어요
+            </Text>
+          </View>
+        ) : listFilterActive ? (
+          <Pressable onPress={clearListFilter} style={styles.filterBanner}>
+            <Text style={styles.filterBannerText}>
+              {monthOnly ? '이번 달 시술만 보는 중' : '정산 대기만 보는 중'}
+            </Text>
+            <Text style={styles.filterBannerAction}>전체 시술</Text>
+          </Pressable>
+        ) : null}
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -270,17 +442,62 @@ export default function DesignerClientsScreen() {
             title="아직 고객이 없어요"
           />
         ) : visibleItems.length === 0 ? (
-          <EmptyState icon="🔍" title="검색 결과가 없어요" subtitle="다른 검색어를 시도해보세요" />
+          <EmptyState
+            icon={listFilterActive ? '📋' : '🔍'}
+            title={
+              monthOnly
+                ? '이번 달 시술이 없어요'
+                : escrowOnly
+                  ? '정산 대기 시술이 없어요'
+                  : '검색 결과가 없어요'
+            }
+            subtitle={
+              listFilterActive
+                ? '전체 보기로 돌아가거나 다른 조건을 선택해 보세요'
+                : '다른 검색어를 시도해보세요'
+            }
+            actionLabel={listFilterActive ? '전체 시술' : undefined}
+            onAction={listFilterActive ? clearListFilter : undefined}
+          />
         ) : (
           <View style={styles.list}>
-            {visibleItems.map((item) => (
-              <DesignerClientCard
-                key={item.key}
-                item={item}
-                onPress={() => detailRouter.push(`/designer/treatment/${item.treatmentId}`)}
-                onReinvite={() => handleReinvite(item)}
-              />
-            ))}
+            {clientGroups.map((group) => {
+              const expanded = isGroupExpanded(group.key);
+
+              return (
+                <View key={group.key} style={styles.clientGroup}>
+                  <Pressable
+                    onPress={() => toggleGroup(group.key)}
+                    style={({ pressed }) => [
+                      styles.groupHeaderCard,
+                      expanded && styles.groupHeaderCardExpanded,
+                      pressed && styles.groupHeaderCardPressed,
+                    ]}>
+                    <View style={styles.groupAvatar}>
+                      <Text style={styles.groupAvatarText}>{getInitial(group.customerName)}</Text>
+                    </View>
+                    <View style={styles.groupHeaderText}>
+                      <Text style={styles.groupTitle}>{group.customerName}</Text>
+                      <Text style={styles.groupMeta}>시술 {group.items.length}건</Text>
+                    </View>
+                    <Text style={styles.groupChevron}>{expanded ? '▾' : '▸'}</Text>
+                  </Pressable>
+                  {expanded ? (
+                    <View style={styles.groupCards}>
+                      {group.items.map((item) => (
+                        <DesignerClientCard
+                          key={item.key}
+                          compact
+                          item={item}
+                          onPress={() => detailRouter.push(`/designer/treatment/${item.treatmentId}`)}
+                          onReinvite={() => handleReinvite(item)}
+                        />
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -356,17 +573,82 @@ const styles = StyleSheet.create({
   summaryItem: {
     flex: 1,
     alignItems: 'center',
+    borderRadius: 16,
     gap: 6,
+    paddingVertical: 4,
+  },
+  summaryItemActive: {
+    backgroundColor: '#FFF5F5',
+  },
+  summaryItemPressed: {
+    opacity: 0.88,
   },
   summaryLabel: {
     color: '#6B6B7B',
     fontSize: 13,
     fontWeight: '700',
   },
+  summaryLabelCompact: {
+    fontSize: 12,
+  },
+  summaryLabelActive: {
+    color: '#FF5A5F',
+  },
   summaryValue: {
     color: '#1A1A2E',
     fontSize: 26,
     fontWeight: '900',
+  },
+  summaryValueCompact: {
+    fontSize: 22,
+  },
+  summaryValueActive: {
+    color: '#FF5A5F',
+  },
+  scopeHintCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
+    marginBottom: 12,
+    marginTop: -8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  scopeHintTitle: {
+    color: '#1A1A2E',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  scopeHintText: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  filterBanner: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFD4D5',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+    marginTop: -8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  filterBannerText: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  filterBannerAction: {
+    color: '#FF5A5F',
+    fontSize: 13,
+    fontWeight: '800',
   },
   waitingValue: {
     color: '#FF5A5F',
@@ -377,7 +659,87 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFEFF4',
   },
   list: {
-    gap: 14,
+    gap: 12,
+  },
+  clientGroup: {
+    gap: 8,
+  },
+  groupHeaderCard: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    shadowColor: '#1A1A2E',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 3,
+  },
+  groupHeaderCardExpanded: {
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+  },
+  groupHeaderCardPressed: {
+    opacity: 0.88,
+  },
+  groupAvatar: {
+    alignItems: 'center',
+    backgroundColor: '#FFD4D5',
+    borderRadius: 20,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  groupAvatarText: {
+    color: '#FF5A5F',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  groupHeaderText: {
+    flex: 1,
+    gap: 2,
+  },
+  groupTitle: {
+    color: '#1A1A2E',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  groupMeta: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  groupChevron: {
+    color: '#9CA3AF',
+    fontSize: 18,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  groupCards: {
+    gap: 8,
+    paddingLeft: 8,
+  },
+  treatmentRow: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EFEFF4',
+    borderLeftColor: '#FFD4D5',
+    borderLeftWidth: 3,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  treatmentRowPressed: {
+    opacity: 0.85,
+  },
+  treatmentRowTitle: {
+    color: '#1A1A2E',
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '800',
   },
   clientCard: {
     alignItems: 'flex-start',

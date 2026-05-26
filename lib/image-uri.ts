@@ -10,6 +10,8 @@ export function isDisplayableImageUri(uri: string | null | undefined) {
   return (
     uri.startsWith('file://') ||
     uri.startsWith('content://') ||
+    uri.startsWith('ph://') ||
+    uri.startsWith('assets-library://') ||
     uri.startsWith('http://') ||
     uri.startsWith('https://') ||
     uri.startsWith('data:') ||

@@ -114,9 +114,17 @@ export function buildInviteDeepLink(code: string) {
   return `hairdiaryapp://invite/${normalizeInviteCode(code)}`;
 }
 
-/** QR 스캔용 — 6자리 코드만 인코딩 (카메라·앱 모두 인식) */
+/** QR 스캔용 — 딥링크(권장) 또는 6자리 코드 */
 export function buildInviteQrPayload(code: string) {
-  return normalizeInviteCode(code);
+  const normalized = normalizeInviteCode(code);
+
+  return normalized ? buildInviteDeepLink(normalized) : '';
+}
+
+function extractInviteCodeSegment(segment: string) {
+  const cleaned = segment.split(/[?#]/)[0]?.replace(/[^A-HJ-NP-Z2-9]/gi, '') ?? '';
+
+  return sanitizeInviteCode(cleaned);
 }
 
 export function parseInviteCodeFromQrPayload(payload: string) {
@@ -126,31 +134,97 @@ export function parseInviteCodeFromQrPayload(payload: string) {
     return '';
   }
 
+  const compact = trimmed.replace(/\s+/g, '');
+
+  const deepLinkMatch = compact.match(/hairdiaryapp:\/\/invite\/([A-HJ-NP-Z2-9]{6})/i);
+
+  if (deepLinkMatch?.[1]) {
+    return sanitizeInviteCode(deepLinkMatch[1]);
+  }
+
+  if (compact.includes('invite/')) {
+    const part = compact.split(/invite\//i)[1] ?? '';
+    const fromPath = extractInviteCodeSegment(part);
+
+    if (fromPath) {
+      return fromPath;
+    }
+  }
+
   try {
     if (trimmed.startsWith('hairdiaryapp://')) {
       const url = new URL(trimmed);
       const segment = url.pathname.replace(/^\//, '').split('/');
 
       if (segment[0] === 'invite' && segment[1]) {
-        return sanitizeInviteCode(segment[1]);
+        return extractInviteCodeSegment(segment[1]);
       }
-
-      return '';
-    }
-
-    if (trimmed.includes('invite/')) {
-      const part = trimmed.split('invite/')[1]?.split(/[?#]/)[0] ?? '';
-      return sanitizeInviteCode(part);
     }
   } catch {
-    return '';
+    // URL 파싱 실패 시 아래 패턴으로 재시도
   }
 
-  if (/^[A-HJ-NP-Z2-9]{6}$/i.test(trimmed)) {
-    return sanitizeInviteCode(trimmed);
+  const inlineMatch = compact.match(/(?:^|[^A-HJ-NP-Z2-9])([A-HJ-NP-Z2-9]{6})(?:[^A-HJ-NP-Z2-9]|$)/i);
+
+  if (inlineMatch?.[1]) {
+    return sanitizeInviteCode(inlineMatch[1]);
+  }
+
+  if (/^[A-HJ-NP-Z2-9]{6}$/i.test(compact)) {
+    return sanitizeInviteCode(compact);
   }
 
   return '';
+}
+
+type ValidateInviteCodeRpcResult = {
+  valid: boolean;
+  reason?: 'invalid' | 'expired' | 'used';
+  message?: string;
+  designer_name?: string;
+  invitation?: CustomerInvitation;
+};
+
+async function validateInviteCodeViaRpc(code: string): Promise<InviteValidationResult | null> {
+  if (!supabase) {
+    return null;
+  }
+
+  const { data, error } = await supabase.rpc('validate_invite_code', { p_code: code });
+
+  if (error) {
+    const message = error.message ?? '';
+
+    if (message.includes('validate_invite_code') || message.includes('Could not find the function')) {
+      return null;
+    }
+
+    throw toAppError(error);
+  }
+
+  const result = data as ValidateInviteCodeRpcResult | null;
+
+  if (!result || typeof result.valid !== 'boolean') {
+    return null;
+  }
+
+  if (!result.valid) {
+    return {
+      valid: false,
+      reason: result.reason ?? 'invalid',
+      message: result.message ?? '코드가 올바르지 않아요',
+    };
+  }
+
+  if (!result.invitation) {
+    return { valid: false, reason: 'invalid', message: '코드가 올바르지 않아요' };
+  }
+
+  return {
+    valid: true,
+    invitation: normalizeInvitationRow(result.invitation),
+    designerName: result.designer_name?.trim() || '디자이너',
+  };
 }
 
 export function generateInviteCodeLocal(existing: Set<string>) {
@@ -265,12 +339,25 @@ export async function validateInviteCode(rawCode: string): Promise<InviteValidat
     return { valid: false, reason: 'invalid', message: '코드가 올바르지 않아요' };
   }
 
+  if (!isDemoAuthMode && supabase) {
+    const rpcResult = await validateInviteCodeViaRpc(code);
+
+    if (rpcResult) {
+      return rpcResult;
+    }
+  }
+
   if (isDemoAuthMode || !supabase) {
     const items = await readDemoInvitations();
     const invitation = items.find((item) => item.invite_code === code);
 
     if (!invitation) {
-      return { valid: false, reason: 'invalid', message: '코드가 올바르지 않아요' };
+      return {
+        valid: false,
+        reason: 'invalid',
+        message:
+          '등록되지 않은 코드예요. 디자이너가 방금 만든 QR인지 확인하거나, Supabase 연결 후 다시 시도해주세요.',
+      };
     }
 
     const status = resolveInvitationStatus(invitation);
@@ -289,6 +376,12 @@ export async function validateInviteCode(rawCode: string): Promise<InviteValidat
 
     const designerName = await fetchDesignerName(invitation.designer_id);
     return { valid: true, invitation: normalizeInvitationRow(invitation), designerName };
+  }
+
+  const rpcFallback = await validateInviteCodeViaRpc(code);
+
+  if (rpcFallback) {
+    return rpcFallback;
   }
 
   const { data, error } = await supabase
@@ -603,6 +696,39 @@ export async function getDesignerClientListItems(): Promise<DesignerClientListIt
   }
 
   return rows.sort((a, b) => b.treatmentDate.localeCompare(a.treatmentDate));
+}
+
+export async function renewCustomerInvitation(input: {
+  invitationId: string;
+  treatmentId: string;
+  customerName?: string;
+  customerPhone?: string;
+}) {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== 'designer') {
+    throw new Error('디자이너만 초대 코드를 다시 발급할 수 있습니다.');
+  }
+
+  const { treatment } = await getTreatmentById(input.treatmentId);
+
+  if (!treatment || treatment.designer_id !== user.id) {
+    throw new Error('시술 기록을 찾을 수 없습니다.');
+  }
+
+  const customerName = (input.customerName?.trim() || treatment.customer_name?.trim() || '').trim();
+
+  if (!customerName) {
+    throw new Error('고객 이름을 입력해주세요.');
+  }
+
+  await expireInvitation(input.invitationId);
+
+  return createCustomerInvitation({
+    treatmentId: input.treatmentId,
+    customerName,
+    customerPhone: input.customerPhone,
+  });
 }
 
 export async function expireInvitation(invitationId: string) {
