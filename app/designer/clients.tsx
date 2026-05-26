@@ -80,25 +80,32 @@ function DesignerClientCard({
   item,
   onPress,
   onReinvite,
-  showCustomerName = true,
+  compact = false,
 }: {
   item: DesignerClientListItem;
   onPress: () => void;
   onReinvite?: () => void;
-  showCustomerName?: boolean;
+  compact?: boolean;
 }) {
   const inviteBadge = getInviteBadgeMeta(item.inviteStatus);
   const paymentBadge = item.isRegistered ? getPaymentBadge(item.treatment) : inviteBadge;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.clientCard, pressed && styles.clientCardPressed]}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{getInitial(item.customerName)}</Text>
-      </View>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        compact ? styles.treatmentRow : styles.clientCard,
+        pressed && (compact ? styles.treatmentRowPressed : styles.clientCardPressed),
+      ]}>
+      {!compact ? (
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{getInitial(item.customerName)}</Text>
+        </View>
+      ) : null}
       <View style={styles.clientInfo}>
         <View style={styles.cardTopRow}>
-          <Text style={styles.customerName}>
-            {showCustomerName ? item.customerName : item.treatmentTitle}
+          <Text style={compact ? styles.treatmentRowTitle : styles.customerName}>
+            {compact ? item.treatmentTitle : item.customerName}
           </Text>
           {paymentBadge ? (
             <View style={[styles.statusBadge, paymentBadge.style]}>
@@ -109,7 +116,7 @@ function DesignerClientCard({
         <Text style={styles.treatmentMeta}>
           {formatDate(item.treatmentDate)} · {item.treatment?.treatment_type ?? '시술'}
         </Text>
-        {showCustomerName ? <Text style={styles.treatmentTitle}>{item.treatmentTitle}</Text> : null}
+        {!compact ? <Text style={styles.treatmentTitle}>{item.treatmentTitle}</Text> : null}
         {item.inviteCode && item.inviteStatus === 'pending' ? (
           <Text style={styles.inviteCodeText}>코드 {item.inviteCode}</Text>
         ) : null}
@@ -141,6 +148,7 @@ export default function DesignerClientsScreen() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [expandedGroupKeys, setExpandedGroupKeys] = useState<Set<string>>(() => new Set());
 
   const loadClients = useCallback(() => {
     setIsLoading(true);
@@ -197,6 +205,31 @@ export default function DesignerClientsScreen() {
     () => groupDesignerClientListItems(visibleItems),
     [visibleItems],
   );
+
+  const searchActive = searchQuery.trim().length > 0;
+
+  const isGroupExpanded = useCallback(
+    (groupKey: string) => searchActive || expandedGroupKeys.has(groupKey),
+    [expandedGroupKeys, searchActive],
+  );
+
+  const toggleGroup = useCallback((groupKey: string) => {
+    if (searchActive) {
+      return;
+    }
+
+    setExpandedGroupKeys((current) => {
+      const next = new Set(current);
+
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+
+      return next;
+    });
+  }, [searchActive]);
 
   const summary = useMemo(() => {
     const now = new Date();
@@ -294,30 +327,43 @@ export default function DesignerClientsScreen() {
           <EmptyState icon="🔍" title="검색 결과가 없어요" subtitle="다른 검색어를 시도해보세요" />
         ) : (
           <View style={styles.list}>
-            {clientGroups.map((group) => (
-              <View key={group.key} style={styles.clientGroup}>
-                <View style={styles.groupHeader}>
-                  <View style={styles.groupAvatar}>
-                    <Text style={styles.groupAvatarText}>{getInitial(group.customerName)}</Text>
-                  </View>
-                  <View style={styles.groupHeaderText}>
-                    <Text style={styles.groupTitle}>{group.customerName}</Text>
-                    <Text style={styles.groupMeta}>시술 {group.items.length}건</Text>
-                  </View>
+            {clientGroups.map((group) => {
+              const expanded = isGroupExpanded(group.key);
+
+              return (
+                <View key={group.key} style={styles.clientGroup}>
+                  <Pressable
+                    onPress={() => toggleGroup(group.key)}
+                    style={({ pressed }) => [
+                      styles.groupHeaderCard,
+                      expanded && styles.groupHeaderCardExpanded,
+                      pressed && styles.groupHeaderCardPressed,
+                    ]}>
+                    <View style={styles.groupAvatar}>
+                      <Text style={styles.groupAvatarText}>{getInitial(group.customerName)}</Text>
+                    </View>
+                    <View style={styles.groupHeaderText}>
+                      <Text style={styles.groupTitle}>{group.customerName}</Text>
+                      <Text style={styles.groupMeta}>시술 {group.items.length}건</Text>
+                    </View>
+                    <Text style={styles.groupChevron}>{expanded ? '▾' : '▸'}</Text>
+                  </Pressable>
+                  {expanded ? (
+                    <View style={styles.groupCards}>
+                      {group.items.map((item) => (
+                        <DesignerClientCard
+                          key={item.key}
+                          compact
+                          item={item}
+                          onPress={() => detailRouter.push(`/designer/treatment/${item.treatmentId}`)}
+                          onReinvite={() => handleReinvite(item)}
+                        />
+                      ))}
+                    </View>
+                  ) : null}
                 </View>
-                <View style={styles.groupCards}>
-                  {group.items.map((item) => (
-                    <DesignerClientCard
-                      key={item.key}
-                      item={item}
-                      showCustomerName={false}
-                      onPress={() => detailRouter.push(`/designer/treatment/${item.treatmentId}`)}
-                      onReinvite={() => handleReinvite(item)}
-                    />
-                  ))}
-                </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -414,16 +460,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFEFF4',
   },
   list: {
-    gap: 22,
+    gap: 12,
   },
   clientGroup: {
-    gap: 10,
+    gap: 8,
   },
-  groupHeader: {
+  groupHeaderCard: {
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     flexDirection: 'row',
     gap: 12,
-    paddingHorizontal: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    shadowColor: '#1A1A2E',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 3,
+  },
+  groupHeaderCardExpanded: {
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+  },
+  groupHeaderCardPressed: {
+    opacity: 0.88,
   },
   groupAvatar: {
     alignItems: 'center',
@@ -452,8 +513,34 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  groupChevron: {
+    color: '#9CA3AF',
+    fontSize: 18,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
   groupCards: {
-    gap: 10,
+    gap: 8,
+    paddingLeft: 8,
+  },
+  treatmentRow: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EFEFF4',
+    borderLeftColor: '#FFD4D5',
+    borderLeftWidth: 3,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  treatmentRowPressed: {
+    opacity: 0.85,
+  },
+  treatmentRowTitle: {
+    color: '#1A1A2E',
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '800',
   },
   clientCard: {
     alignItems: 'flex-start',
