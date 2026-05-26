@@ -6,7 +6,7 @@ import type { PaymentStatus } from './payment-status';
 import { filterTreatmentsForCustomerUser, sortTreatmentsForDiaryList } from './diary-list';
 import { sanitizeTreatmentsForCustomer, sanitizeTreatmentForCustomer } from './treatment-privacy';
 import { defaultTreatmentTitle, DEFAULT_TREATMENT_DURATION } from './treatment-options';
-import { mergeAccumulatedDesignerRelationships } from './demo-accumulated-test-data';
+import { mergeAccumulatedDesignerRelationships } from './demo-accumulated-relationships';
 import { INITIAL_DEMO_TREATMENTS } from './demo-initial-treatments';
 import { ALL_DEMO_TREATMENT_SEEDS } from './demo-treatment-seeds';
 import { supabase } from './supabase';

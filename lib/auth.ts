@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { BETA_CUSTOMERS, BETA_DESIGNERS } from './beta-test-accounts';
-import { ACCUMULATED_TEST_ACCOUNTS } from './demo-accumulated-test-data';
+import { ACCUMULATED_TEST_ACCOUNTS } from './demo-accumulated-test-accounts';
 import { isSupabaseConfigured, supabase } from './supabase';
 
 export type UserRole = 'customer' | 'designer';

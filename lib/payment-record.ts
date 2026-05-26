@@ -1,42 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
+import { ACCUMULATED_DEMO_PAYMENTS } from './demo-accumulated-test-seeds';
 import { toAppError } from './errors';
+import { calculatePaymentFees, PLATFORM_FEE_RATE } from './payment-fees';
 import { getPaymentPartyIds, resolveTreatmentCustomerForPayment } from './payment-customer';
+import type { PaymentRecord, PaymentRecordStatus } from './payment-types';
 import { supabase } from './supabase';
-import { ACCUMULATED_DEMO_PAYMENTS } from './demo-accumulated-test-data';
 import { getTreatmentById, Treatment } from './treatments';
 
-/** DB `payments.fee_rate` 기본값(0.04)과 동일 */
-export const PLATFORM_FEE_RATE = 0.04;
-
-export type PaymentRecordStatus =
-  | 'pending'
-  | 'paid'
-  | 'in_escrow'
-  | 'completed'
-  | 'refunded';
-
-export type PaymentRecord = {
-  id: string;
-  treatment_id: string;
-  customer_id: string;
-  designer_id: string;
-  amount: number;
-  fee_rate: number;
-  fee_amount: number | null;
-  designer_payout: number | null;
-  status: PaymentRecordStatus;
-  toss_payment_key: string | null;
-  toss_order_id: string | null;
-  paid_at: string | null;
-  settled_at: string | null;
-  created_at: string;
-  receipt_url: string | null;
-  refund_amount: number;
-  refund_reason: string | null;
-  refunded_at: string | null;
-};
+export { calculatePaymentFees, PLATFORM_FEE_RATE } from './payment-fees';
+export type { PaymentRecord, PaymentRecordStatus } from './payment-types';
 
 const paymentSelectFields =
   'id, treatment_id, customer_id, designer_id, amount, fee_rate, fee_amount, designer_payout, status, toss_payment_key, toss_order_id, paid_at, settled_at, created_at, receipt_url, refund_amount, refund_reason, refunded_at';
@@ -135,17 +109,6 @@ function withSettledFees(payment: PaymentRecord) {
 
 function requireTreatmentParties(treatment: Treatment, customerId: string) {
   return getPaymentPartyIds(treatment, customerId);
-}
-
-export function calculatePaymentFees(amount: number, feeRate = PLATFORM_FEE_RATE) {
-  const feeAmount = Math.round(amount * feeRate);
-  const designerPayout = amount - feeAmount;
-
-  return {
-    feeRate,
-    feeAmount,
-    designerPayout,
-  };
 }
 
 export async function getPaymentByTreatmentId(treatmentId: string) {

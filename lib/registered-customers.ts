@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { BETA_CUSTOMERS } from './beta-test-accounts';
-import { ACCUMULATED_TEST_CUSTOMERS } from './demo-accumulated-test-data';
+import { ACCUMULATED_TEST_CUSTOMERS } from './demo-accumulated-test-accounts';
 import { expireInvitation, getPendingInvitationForTreatment } from './customer-invitations';
 import { toAppError } from './errors';
 import { addNotification } from './notifications';
