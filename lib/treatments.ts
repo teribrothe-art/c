@@ -6,7 +6,11 @@ import type { PaymentStatus } from './payment-status';
 import { filterTreatmentsForCustomerUser, sortTreatmentsForDiaryList } from './diary-list';
 import { sanitizeTreatmentsForCustomer, sanitizeTreatmentForCustomer } from './treatment-privacy';
 import { defaultTreatmentTitle, DEFAULT_TREATMENT_DURATION } from './treatment-options';
-import { ACCUMULATED_TEST_DESIGNER } from './demo-accumulated-test-accounts';
+import {
+  mergeAccumulatedTreatmentsIntoStore,
+  shouldHydrateAccumulatedDemoDataForUser,
+  stripAccumulatedTreatmentsFromStore,
+} from './demo-accumulated-demo-hydrate';
 import { mergeAccumulatedDesignerRelationships } from './demo-accumulated-relationships';
 import { INITIAL_DEMO_TREATMENTS } from './demo-initial-treatments';
 import { ALL_DEMO_TREATMENT_SEEDS } from './demo-treatment-seeds';
@@ -53,6 +57,18 @@ const demoTreatments: Treatment[] = (INITIAL_DEMO_TREATMENTS ?? []).map((item) =
 
 let demoHydratePromise: Promise<void> | null = null;
 
+async function ensureAccumulatedDemoTreatmentsForCurrentUser() {
+  const user = await getCurrentUser();
+
+  if (!shouldHydrateAccumulatedDemoDataForUser(user)) {
+    return;
+  }
+
+  if (mergeAccumulatedTreatmentsIntoStore(demoTreatments)) {
+    await persistDemoTreatments();
+  }
+}
+
 async function hydrateDemoTreatments() {
   if (!demoHydratePromise) {
     demoHydratePromise = (async () => {
@@ -69,14 +85,7 @@ async function hydrateDemoTreatments() {
 
       let merged = false;
 
-      const withoutStaleAccumulated = demoTreatments.filter(
-        (item) =>
-          !(
-            item.designer_id === ACCUMULATED_TEST_DESIGNER.id &&
-            typeof item.id === 'string' &&
-            item.id.startsWith('accum-treatment-')
-          ),
-      );
+      const withoutStaleAccumulated = stripAccumulatedTreatmentsFromStore(demoTreatments);
 
       if (withoutStaleAccumulated.length !== demoTreatments.length) {
         demoTreatments.length = 0;
@@ -136,6 +145,7 @@ export async function getTreatments() {
 
   if (isDemoAuthMode || !supabase) {
     await hydrateDemoTreatments();
+    await ensureAccumulatedDemoTreatmentsForCurrentUser();
     treatments = [...demoTreatments];
   } else {
     const { data, error } = await supabase
@@ -172,6 +182,7 @@ export async function getTreatmentById(id: string) {
 
   if (isDemoAuthMode || !supabase) {
     await hydrateDemoTreatments();
+    await ensureAccumulatedDemoTreatmentsForCurrentUser();
     treatment = demoTreatments.find((item) => item.id === id) ?? null;
   } else {
     const { data, error } = await supabase
@@ -207,6 +218,7 @@ export async function getDesignerTreatments() {
 
   if (isDemoAuthMode || !supabase) {
     await hydrateDemoTreatments();
+    await ensureAccumulatedDemoTreatmentsForCurrentUser();
     return {
       user,
       treatments: demoTreatments

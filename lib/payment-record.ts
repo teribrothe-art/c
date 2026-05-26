@@ -1,7 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
-import { ACCUMULATED_DEMO_PAYMENTS } from './demo-accumulated-test-seeds';
+import {
+  mergeAccumulatedPaymentsIntoStore,
+  shouldHydrateAccumulatedDemoDataForUser,
+  stripAccumulatedPaymentsFromStore,
+} from './demo-accumulated-demo-hydrate';
 import { toAppError } from './errors';
 import { calculatePaymentFees, PLATFORM_FEE_RATE } from './payment-fees';
 import { getPaymentPartyIds, resolveTreatmentCustomerForPayment } from './payment-customer';
@@ -40,14 +44,28 @@ const INITIAL_DEMO_PAYMENTS: PaymentRecord[] = [
   },
 ];
 
-const ALL_DEMO_PAYMENT_SEEDS: PaymentRecord[] = [
-  ...(INITIAL_DEMO_PAYMENTS ?? []),
-  ...(ACCUMULATED_DEMO_PAYMENTS ?? []),
-];
+const ALL_DEMO_PAYMENT_SEEDS: PaymentRecord[] = [...(INITIAL_DEMO_PAYMENTS ?? [])];
 
 const demoPayments: PaymentRecord[] = INITIAL_DEMO_PAYMENTS.map((item) => ({ ...item }));
 
 let demoPaymentsHydratePromise: Promise<void> | null = null;
+
+async function ensureAccumulatedDemoPaymentsForCurrentUser() {
+  const user = await getCurrentUser();
+
+  if (!shouldHydrateAccumulatedDemoDataForUser(user)) {
+    return;
+  }
+
+  if (mergeAccumulatedPaymentsIntoStore(demoPayments)) {
+    await persistDemoPayments();
+  }
+}
+
+async function prepareDemoPayments() {
+  await hydrateDemoPayments();
+  await ensureAccumulatedDemoPaymentsForCurrentUser();
+}
 
 async function hydrateDemoPayments() {
   if (!isDemoAuthMode) {
@@ -69,9 +87,7 @@ async function hydrateDemoPayments() {
 
       let merged = false;
 
-      const withoutStaleAccumulated = demoPayments.filter(
-        (payment) => !payment.id.startsWith('accum-payment-'),
-      );
+      const withoutStaleAccumulated = stripAccumulatedPaymentsFromStore(demoPayments);
 
       if (withoutStaleAccumulated.length !== demoPayments.length) {
         demoPayments.length = 0;
@@ -123,7 +139,7 @@ function requireTreatmentParties(treatment: Treatment, customerId: string) {
 
 export async function getPaymentByTreatmentId(treatmentId: string) {
   if (isDemoAuthMode || !supabase) {
-    await hydrateDemoPayments();
+    await prepareDemoPayments();
     return demoPayments.find((payment) => payment.treatment_id === treatmentId) ?? null;
   }
 
@@ -166,7 +182,7 @@ export async function ensurePaymentRecordForTreatment(treatmentId: string) {
   const now = new Date().toISOString();
 
   if (isDemoAuthMode || !supabase) {
-    await hydrateDemoPayments();
+    await prepareDemoPayments();
     const record: PaymentRecord = {
       id: `demo-payment-${treatmentId}`,
       treatment_id: treatmentId,
@@ -219,7 +235,7 @@ export async function upsertDemoPaymentOnRequest(treatment: Treatment, tossOrder
     return;
   }
 
-  await hydrateDemoPayments();
+  await prepareDemoPayments();
 
   const customerId = treatment.customer_id;
 
@@ -266,7 +282,7 @@ export async function upsertDemoPaymentOnRequest(treatment: Treatment, tossOrder
 
 export async function updatePaymentOrderId(treatmentId: string, tossOrderId: string) {
   if (isDemoAuthMode || !supabase) {
-    await hydrateDemoPayments();
+    await prepareDemoPayments();
     let index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
 
     if (index < 0) {
@@ -308,7 +324,7 @@ export async function markPaymentPaid(
   await ensurePaymentRecordForTreatment(treatmentId);
 
   if (isDemoAuthMode || !supabase) {
-    await hydrateDemoPayments();
+    await prepareDemoPayments();
     const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
 
     if (index < 0) {
@@ -355,7 +371,7 @@ export async function markPaymentPaid(
 /** 결제 실패 시 pending으로 되돌립니다 (스키마에 failed 없음) */
 export async function markPaymentFailed(treatmentId: string) {
   if (isDemoAuthMode || !supabase) {
-    await hydrateDemoPayments();
+    await prepareDemoPayments();
     const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
     if (index < 0) {
       return null;
@@ -398,7 +414,7 @@ export async function markPaymentCompleted(
   const now = new Date().toISOString();
 
   if (isDemoAuthMode || !supabase) {
-    await hydrateDemoPayments();
+    await prepareDemoPayments();
     const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
 
     if (index < 0) {
@@ -451,7 +467,7 @@ export async function recordPaymentRefund(
   const now = new Date().toISOString();
 
   if (isDemoAuthMode || !supabase) {
-    await hydrateDemoPayments();
+    await prepareDemoPayments();
     const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
     if (index < 0) {
       return null;
