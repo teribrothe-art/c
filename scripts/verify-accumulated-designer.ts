@@ -49,6 +49,10 @@ function main() {
       ACCUMULATED_DEMO_SEED_STATS.oldestTreatmentDate >= '2023-05-01',
     '가장 오래된 시술이 2023년대',
   );
+  assert(
+    ACCUMULATED_DEMO_TREATMENTS.length >= 950 && ACCUMULATED_DEMO_TREATMENTS.length <= 1050,
+    '시술 약 1,000건 시드',
+  );
 
   console.log('=== 3년 누적 테스트 디자이너 ===\n');
   console.log('로그인 (데모 모드 · Supabase 미설정)');
@@ -63,7 +67,9 @@ function main() {
   console.log(
     `  기간: ${ACCUMULATED_DEMO_SEED_STATS.oldestTreatmentDate} ~ ${ACCUMULATED_DEMO_SEED_STATS.newestTreatmentDate}`,
   );
-  console.log(`  (${ACCUMULATED_DEMO_SEED_STATS.yearSpanLabel})\n`);
+  console.log(`  (${ACCUMULATED_DEMO_SEED_STATS.yearSpanLabel})`);
+  console.log(`  패턴: ${ACCUMULATED_DEMO_SEED_STATS.weeklyTreatmentsLabel}`);
+  console.log(`  영업일 평균: ${ACCUMULATED_DEMO_SEED_STATS.avgDailyTreatments}건/일\n`);
 
   console.log('앱에서 확인할 화면');
   console.log('  1. 로그인 → 「3년 누적 테스트 디자이너 로그인」 버튼');

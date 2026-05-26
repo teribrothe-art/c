@@ -6,6 +6,7 @@ import type { PaymentStatus } from './payment-status';
 import { filterTreatmentsForCustomerUser, sortTreatmentsForDiaryList } from './diary-list';
 import { sanitizeTreatmentsForCustomer, sanitizeTreatmentForCustomer } from './treatment-privacy';
 import { defaultTreatmentTitle, DEFAULT_TREATMENT_DURATION } from './treatment-options';
+import { ACCUMULATED_TEST_DESIGNER } from './demo-accumulated-test-accounts';
 import { mergeAccumulatedDesignerRelationships } from './demo-accumulated-relationships';
 import { INITIAL_DEMO_TREATMENTS } from './demo-initial-treatments';
 import { ALL_DEMO_TREATMENT_SEEDS } from './demo-treatment-seeds';
@@ -67,6 +68,21 @@ async function hydrateDemoTreatments() {
       }
 
       let merged = false;
+
+      const withoutStaleAccumulated = demoTreatments.filter(
+        (item) =>
+          !(
+            item.designer_id === ACCUMULATED_TEST_DESIGNER.id &&
+            typeof item.id === 'string' &&
+            item.id.startsWith('accum-treatment-')
+          ),
+      );
+
+      if (withoutStaleAccumulated.length !== demoTreatments.length) {
+        demoTreatments.length = 0;
+        demoTreatments.push(...withoutStaleAccumulated);
+        merged = true;
+      }
 
       for (const seed of ALL_DEMO_TREATMENT_SEEDS) {
         const existingIndex = demoTreatments.findIndex((item) => item.id === seed.id);

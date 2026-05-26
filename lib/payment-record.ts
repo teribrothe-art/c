@@ -69,6 +69,16 @@ async function hydrateDemoPayments() {
 
       let merged = false;
 
+      const withoutStaleAccumulated = demoPayments.filter(
+        (payment) => !payment.id.startsWith('accum-payment-'),
+      );
+
+      if (withoutStaleAccumulated.length !== demoPayments.length) {
+        demoPayments.length = 0;
+        demoPayments.push(...withoutStaleAccumulated);
+        merged = true;
+      }
+
       for (const seed of ALL_DEMO_PAYMENT_SEEDS) {
         if (!demoPayments.some((payment) => payment.id === seed.id)) {
           demoPayments.push({ ...seed });
