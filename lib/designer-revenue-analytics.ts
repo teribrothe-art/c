@@ -174,14 +174,14 @@ export async function fetchDesignerRevenueAnalytics(
   if (!user || user.role !== 'designer') {
     const month = selectedMonthKey ?? fallbackMonth;
 
-    const emptyWeekStart = `${month}-01`;
+    const emptyWeekStart = getWeekStartMonday(`${month}-01`);
     const emptyDays = buildWeeklyRevenueWeeks([], month)[0]?.days ?? [];
 
     return {
       months: [emptyMonth(month)],
       selectedMonthKey: month,
       selectedMonth: emptyMonth(month),
-      weeklyWeeks: [],
+      weeklyWeeks: buildWeeklyRevenueWeeks([], month),
       selectedWeekKey: emptyWeekStart,
       selectedWeek: {
         weekKey: emptyWeekStart,

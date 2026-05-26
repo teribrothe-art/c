@@ -1,8 +1,38 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
+import { toLocalDateString } from './designer-revenue-weekly';
 import { toAppError } from './errors';
 import { calculatePaymentFees, getPaymentByTreatmentId, PaymentRecord } from './payment-record';
 import { supabase } from './supabase';
 import { getDesignerTreatments, Treatment } from './treatments';
+
+export function getCurrentSettlementMonthKey() {
+  return toLocalDateString().slice(0, 7);
+}
+
+function settlementDateOf(payment: PaymentRecord): string | null {
+  const raw = payment.settled_at ?? payment.paid_at ?? payment.created_at;
+
+  if (!raw) {
+    return null;
+  }
+
+  const parsed = new Date(raw);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return toLocalDateString(parsed);
+}
+
+function settlementMonthKey(payment: PaymentRecord) {
+  const date = settlementDateOf(payment);
+  return date ? date.slice(0, 7) : '';
+}
+
+function isTreatmentInCurrentMonth(treatmentDate: string) {
+  return treatmentDate.slice(0, 7) === getCurrentSettlementMonthKey();
+}
 
 export type SettlementListItem = {
   paymentId: string;
@@ -23,12 +53,6 @@ export type DesignerPaymentDashboard = {
   pendingPayoutCount: number;
   recentSettlements: SettlementListItem[];
 };
-
-function isCurrentMonth(isoOrDate: string) {
-  const d = new Date(isoOrDate.includes('T') ? isoOrDate : `${isoOrDate}T00:00:00`);
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-}
 
 function isAwaitingSettlement(status: PaymentRecord['status']) {
   return status === 'paid' || status === 'in_escrow';
@@ -81,7 +105,7 @@ export async function fetchDesignerPaymentDashboard(): Promise<DesignerPaymentDa
   const payments = await loadDesignerPayments(user.id);
 
   const completedThisMonth = payments.filter(
-    (p) => p.status === 'completed' && p.settled_at && isCurrentMonth(p.settled_at),
+    (p) => p.status === 'completed' && settlementMonthKey(p) === getCurrentSettlementMonthKey(),
   );
 
   const monthRevenue = completedThisMonth.reduce((sum, p) => sum + (p.designer_payout ?? 0), 0);
@@ -93,7 +117,7 @@ export async function fetchDesignerPaymentDashboard(): Promise<DesignerPaymentDa
     0,
   );
 
-  const monthTreatments = treatments.filter((t) => isCurrentMonth(t.treatment_date));
+  const monthTreatments = treatments.filter((t) => isTreatmentInCurrentMonth(t.treatment_date));
   const priced = monthTreatments.filter((t) => (t.price ?? 0) > 0);
   const averageTreatmentPrice =
     priced.length > 0
@@ -136,12 +160,18 @@ export type MonthlySettlementTotal = {
 };
 
 export function formatMonthSettlementLabel(monthKey: string) {
-  const [, month] = monthKey.split('-');
-  return `${Number(month)}월 정산 총액`;
-}
+  const [year, month] = monthKey.split('-');
+  const currentKey = getCurrentSettlementMonthKey();
 
-function settlementMonthKey(payment: PaymentRecord) {
-  return (payment.settled_at ?? '').slice(0, 7);
+  if (monthKey === currentKey) {
+    return '이번 달 정산 총액';
+  }
+
+  if (year === currentKey.slice(0, 4)) {
+    return `${Number(month)}월 정산 총액`;
+  }
+
+  return `${year}년 ${Number(month)}월 정산 총액`;
 }
 
 function buildMonthlySettlementTotals(
@@ -151,11 +181,11 @@ function buildMonthlySettlementTotals(
   const map = new Map<string, { amount: number; settlementCount: number }>();
 
   for (const payment of completed) {
-    if (!payment.settled_at) {
+    const monthKey = settlementMonthKey(payment);
+
+    if (!monthKey) {
       continue;
     }
-
-    const monthKey = settlementMonthKey(payment);
     const current = map.get(monthKey) ?? { amount: 0, settlementCount: 0 };
     current.amount += payoutOf(payment);
     current.settlementCount += 1;
@@ -201,9 +231,6 @@ export async function fetchDesignerProfilePaymentStats(): Promise<DesignerProfil
     p.designer_payout ?? calculatePaymentFees(p.amount).designerPayout;
 
   const totalSettlementAmount = completed.reduce((sum, p) => sum + payoutOf(p), 0);
-  const monthSettlementAmount = completed
-    .filter((p) => p.settled_at && isCurrentMonth(p.settled_at))
-    .reduce((sum, p) => sum + payoutOf(p), 0);
   const pendingSettlementCount = payments.filter((p) => isAwaitingSettlement(p.status)).length;
 
   const recentSettlements = payments
@@ -225,6 +252,9 @@ export async function fetchDesignerProfilePaymentStats(): Promise<DesignerProfil
     });
 
   const monthlySettlementTotals = buildMonthlySettlementTotals(completed, payoutOf);
+  const monthSettlementAmount =
+    monthlySettlementTotals.find((month) => month.monthKey === getCurrentSettlementMonthKey())
+      ?.amount ?? 0;
 
   return {
     totalSettlementAmount,
