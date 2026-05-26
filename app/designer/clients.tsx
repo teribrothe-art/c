@@ -1,5 +1,4 @@
-import { router, useRouter } from 'expo-router';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   Pressable,
@@ -129,6 +128,8 @@ function DesignerClientCard({
 export default function DesignerClientsScreen() {
   const insets = useSafeAreaInsets();
   const detailRouter = useRouter();
+  const { filter: filterParam } = useLocalSearchParams<{ filter?: string }>();
+  const escrowOnly = filterParam === 'escrow';
   const [clientItems, setClientItems] = useState<DesignerClientListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -158,13 +159,22 @@ export default function DesignerClientsScreen() {
   );
 
   const visibleItems = useMemo(() => {
+    let items = clientItems;
+
+    if (escrowOnly) {
+      items = items.filter(
+        (item) =>
+          item.treatment && normalizePaymentStatus(item.treatment.payment_status) === 'escrow',
+      );
+    }
+
     const query = searchQuery.trim().toLowerCase();
 
     if (!query) {
-      return clientItems;
+      return items;
     }
 
-    return clientItems.filter((item) => {
+    return items.filter((item) => {
       const haystack = [
         item.customerName,
         item.treatmentTitle,
@@ -176,7 +186,7 @@ export default function DesignerClientsScreen() {
 
       return haystack.includes(query);
     });
-  }, [clientItems, searchQuery]);
+  }, [clientItems, escrowOnly, searchQuery]);
 
   const summary = useMemo(() => {
     const now = new Date();

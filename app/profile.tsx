@@ -39,6 +39,11 @@ function formatCurrency(amount: number) {
   return `${amount.toLocaleString('ko-KR')}원`;
 }
 
+function currentMonthKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
 function getDisplayName(profile: ProfileData) {
   return profile.name?.trim() || profile.email.split('@')[0] || '사용자';
 }
@@ -95,69 +100,122 @@ function SettingsRow({
   );
 }
 
-function ActivityCard({
-  stats,
-  onPressTreatmentCount,
-  onPressDesigners,
-}: {
-  stats: ProfileStats;
-  onPressTreatmentCount?: () => void;
-  onPressDesigners?: () => void;
-}) {
+function ActivityCard({ stats }: { stats: ProfileStats }) {
+  if (stats.kind === 'customer') {
+    return (
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>📊 내 활동</Text>
+        <StatRow
+          label="누적 시술 횟수"
+          value={`${stats.treatmentCount}회`}
+          onPress={() => router.push('/home')}
+        />
+        <StatRow
+          label="최근 시술일"
+          value={formatDate(stats.latestTreatmentDate)}
+          onPress={
+            stats.latestTreatmentId
+              ? () =>
+                  router.push({
+                    pathname: '/treatment/[id]',
+                    params: { id: stats.latestTreatmentId! },
+                  })
+              : undefined
+          }
+        />
+        <StatRow
+          label="함께한 디자이너"
+          value={`${stats.designerCount}명`}
+          onPress={() => router.push('/profile/designers')}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>📊 내 활동</Text>
-      {stats.kind === 'customer' ? (
-        <>
-          <StatRow
-            label="누적 시술 횟수"
-            value={`${stats.treatmentCount}회`}
-            onPress={onPressTreatmentCount}
-          />
-          <StatRow label="최근 시술일" value={formatDate(stats.latestTreatmentDate)} />
-          <StatRow
-            label="함께한 디자이너"
-            value={`${stats.designerCount}명`}
-            onPress={onPressDesigners}
-          />
-        </>
+      <StatRow
+        label="누적 시술 건수"
+        value={`${stats.treatmentCount}건`}
+        onPress={() => router.push('/designer/clients')}
+      />
+      <StatRow
+        label="누적 정산 총액"
+        value={formatCurrency(stats.totalSettlementAmount)}
+        onPress={() => router.push('/designer/revenue')}
+      />
+      <StatRow
+        label="이번 달 정산"
+        value={formatCurrency(stats.monthSettlementAmount)}
+        onPress={() =>
+          router.push({
+            pathname: '/designer/revenue',
+            params: { month: currentMonthKey() },
+          })
+        }
+      />
+      {stats.monthlySettlementTotals.length > 0 ? (
+        <View style={styles.monthlySettlementBlock}>
+          {stats.monthlySettlementTotals.map((month) => (
+            <StatRow
+              key={month.monthKey}
+              label={month.label}
+              value={formatCurrency(month.amount)}
+              onPress={() =>
+                router.push({
+                  pathname: '/designer/revenue',
+                  params: { month: month.monthKey },
+                })
+              }
+            />
+          ))}
+        </View>
+      ) : null}
+      <StatRow
+        label="정산 대기"
+        value={`${stats.pendingSettlementCount}건`}
+        onPress={() =>
+          router.push({
+            pathname: '/designer/clients',
+            params: { filter: 'escrow' },
+          })
+        }
+      />
+      <StatRow
+        label="단골 고객"
+        value={`${stats.regularCustomerCount}명`}
+        onPress={() => router.push('/designer/clients')}
+      />
+      {stats.recentSettlements.length ? (
+        <View style={styles.activityList}>
+          <Text style={styles.activityListTitle}>최근 정산</Text>
+          {stats.recentSettlements.map((item) => (
+            <Pressable
+              key={item.paymentId}
+              accessibilityRole="button"
+              onPress={() =>
+                router.push({
+                  pathname: '/designer/treatment/[id]',
+                  params: { id: item.treatmentId },
+                })
+              }
+              style={({ pressed }) => [styles.activityRow, pressed && styles.statRowPressed]}>
+              <View style={styles.activityRowMain}>
+                <Text style={styles.activityRowTitle}>
+                  {item.customerName} · {item.treatmentTitle}
+                </Text>
+                <Text style={styles.activityRowDate}>{formatDate(item.date)}</Text>
+              </View>
+              <View style={styles.statValueWrap}>
+                <Text style={styles.activityRowAmount}>+{formatCurrency(item.payout)}</Text>
+                <Text style={styles.statChevron}>›</Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
       ) : (
-        <>
-          <StatRow label="누적 시술 건수" value={`${stats.treatmentCount}건`} />
-          <StatRow label="누적 정산 총액" value={formatCurrency(stats.totalSettlementAmount)} />
-          <StatRow label="이번 달 정산" value={formatCurrency(stats.monthSettlementAmount)} />
-          {stats.monthlySettlementTotals.length > 0 ? (
-            <View style={styles.monthlySettlementBlock}>
-              {stats.monthlySettlementTotals.map((month) => (
-                <StatRow
-                  key={month.monthKey}
-                  label={month.label}
-                  value={formatCurrency(month.amount)}
-                />
-              ))}
-            </View>
-          ) : null}
-          <StatRow label="정산 대기" value={`${stats.pendingSettlementCount}건`} />
-          <StatRow label="단골 고객" value={`${stats.regularCustomerCount}명`} />
-          {stats.recentSettlements.length ? (
-            <View style={styles.activityList}>
-              <Text style={styles.activityListTitle}>최근 정산</Text>
-              {stats.recentSettlements.map((item) => (
-                <View key={item.paymentId} style={styles.activityRow}>
-                  <View style={styles.activityRowMain}>
-                    <Text style={styles.activityRowTitle}>
-                      {item.customerName} · {item.treatmentTitle}
-                    </Text>
-                    <Text style={styles.activityRowDate}>{formatDate(item.date)}</Text>
-                  </View>
-                  <Text style={styles.activityRowAmount}>+{formatCurrency(item.payout)}</Text>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <Text style={styles.activityEmpty}>정산 완료 내역이 여기에 표시됩니다.</Text>
-          )}
-        </>
+        <Text style={styles.activityEmpty}>정산 완료 내역이 여기에 표시됩니다.</Text>
       )}
     </View>
   );
@@ -277,15 +335,7 @@ export default function ProfileScreen() {
               </View>
             </View>
 
-            <ActivityCard
-              stats={stats}
-              onPressTreatmentCount={
-                stats.kind === 'customer' ? () => router.push('/home') : undefined
-              }
-              onPressDesigners={
-                stats.kind === 'customer' ? () => router.push('/profile/designers') : undefined
-              }
-            />
+            <ActivityCard stats={stats} />
 
             {!isDesigner ? (
               <Pressable
