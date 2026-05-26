@@ -81,6 +81,8 @@ import {
 } from '../../../lib/treatment-damage-level';
 import {
   canGenerateTreatmentAiInsight,
+  canRegenerateTreatmentAiInsight,
+  canUseTreatmentAiInsightAction,
   generateAndSaveTreatmentAiInsight,
 } from '../../../lib/treatment-ai-insight';
 import {
@@ -645,7 +647,11 @@ export default function DesignerTreatmentInputScreen() {
 
     const isRegenerate = Boolean(treatment.ai_insight?.trim());
 
-    if (!canGenerateTreatmentAiInsight(treatment)) {
+    const canRun = isRegenerate
+      ? canRegenerateTreatmentAiInsight(treatment)
+      : canGenerateTreatmentAiInsight(treatment);
+
+    if (!canRun) {
       showWarningAlert(
         isRegenerate
           ? '진단·홈케어를 입력한 뒤 다시 생성할 수 있어요.'
@@ -658,6 +664,7 @@ export default function DesignerTreatmentInputScreen() {
       setIsGeneratingInsight(true);
       const { treatment: saved } = await generateAndSaveTreatmentAiInsight(treatment, {
         regenerate: isRegenerate,
+        variantSeed: Date.now(),
       });
       setTreatment(saved);
       showSuccessAlert(
@@ -1115,14 +1122,14 @@ export default function DesignerTreatmentInputScreen() {
               </Text>
               <Pressable
                 disabled={
-                  !canGenerateTreatmentAiInsight(treatment) ||
+                  !canUseTreatmentAiInsightAction(treatment) ||
                   isGeneratingInsight ||
                   isSaving
                 }
                 onPress={() => void handleGenerateAiInsight()}
                 style={({ pressed }) => [
                   styles.aiInsightButton,
-                  (!canGenerateTreatmentAiInsight(treatment) ||
+                  (!canUseTreatmentAiInsightAction(treatment) ||
                     isGeneratingInsight ||
                     isSaving) &&
                     styles.aiInsightButtonDisabled,
