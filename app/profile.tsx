@@ -15,6 +15,7 @@ import { showConfirmAlert, showErrorAlert, showWarningAlert } from '../lib/alert
 import { getErrorMessage } from '../lib/errors';
 import { LoadingState } from '../src/components/loading-state';
 import { getProfileAvatarUri } from '../lib/profile-update';
+import { getCurrentSettlementMonthKey } from '../lib/designer-payment-stats';
 import { getProfileScreenData, ProfileData, ProfileStats } from '../lib/profile';
 import { BottomTabBar } from '../src/components/bottom-tab-bar';
 import { DesignerBottomTabBar } from '../src/components/designer-bottom-tab-bar';
@@ -37,11 +38,6 @@ function formatDate(date?: string | null) {
 
 function formatCurrency(amount: number) {
   return `${amount.toLocaleString('ko-KR')}원`;
-}
-
-function currentMonthKey() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function getDisplayName(profile: ProfileData) {
@@ -132,6 +128,11 @@ function ActivityCard({ stats }: { stats: ProfileStats }) {
     );
   }
 
+  const currentMonthKey = getCurrentSettlementMonthKey();
+  const pastMonthlyTotals = stats.monthlySettlementTotals.filter(
+    (month) => month.monthKey !== currentMonthKey,
+  );
+
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>📊 내 활동</Text>
@@ -151,13 +152,13 @@ function ActivityCard({ stats }: { stats: ProfileStats }) {
         onPress={() =>
           router.push({
             pathname: '/designer/revenue',
-            params: { month: currentMonthKey() },
+            params: { month: currentMonthKey },
           })
         }
       />
-      {stats.monthlySettlementTotals.length > 0 ? (
+      {pastMonthlyTotals.length > 0 ? (
         <View style={styles.monthlySettlementBlock}>
-          {stats.monthlySettlementTotals.map((month) => (
+          {pastMonthlyTotals.map((month) => (
             <StatRow
               key={month.monthKey}
               label={month.label}
