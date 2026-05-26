@@ -18,6 +18,7 @@ import {
   getDesignerClientListItems,
   renewCustomerInvitation,
 } from '../../lib/customer-invitations';
+import { groupDesignerClientListItems } from '../../lib/designer-client-groups';
 import {
   DESIGNER_ONBOARDING_SLIDES,
   markOnboardingSeen,
@@ -79,10 +80,12 @@ function DesignerClientCard({
   item,
   onPress,
   onReinvite,
+  showCustomerName = true,
 }: {
   item: DesignerClientListItem;
   onPress: () => void;
   onReinvite?: () => void;
+  showCustomerName?: boolean;
 }) {
   const inviteBadge = getInviteBadgeMeta(item.inviteStatus);
   const paymentBadge = item.isRegistered ? getPaymentBadge(item.treatment) : inviteBadge;
@@ -94,7 +97,9 @@ function DesignerClientCard({
       </View>
       <View style={styles.clientInfo}>
         <View style={styles.cardTopRow}>
-          <Text style={styles.customerName}>{item.customerName}</Text>
+          <Text style={styles.customerName}>
+            {showCustomerName ? item.customerName : item.treatmentTitle}
+          </Text>
           {paymentBadge ? (
             <View style={[styles.statusBadge, paymentBadge.style]}>
               <Text style={[styles.statusText, paymentBadge.textStyle]}>{paymentBadge.label}</Text>
@@ -104,7 +109,7 @@ function DesignerClientCard({
         <Text style={styles.treatmentMeta}>
           {formatDate(item.treatmentDate)} · {item.treatment?.treatment_type ?? '시술'}
         </Text>
-        <Text style={styles.treatmentTitle}>{item.treatmentTitle}</Text>
+        {showCustomerName ? <Text style={styles.treatmentTitle}>{item.treatmentTitle}</Text> : null}
         {item.inviteCode && item.inviteStatus === 'pending' ? (
           <Text style={styles.inviteCodeText}>코드 {item.inviteCode}</Text>
         ) : null}
@@ -187,6 +192,11 @@ export default function DesignerClientsScreen() {
       return haystack.includes(query);
     });
   }, [clientItems, escrowOnly, searchQuery]);
+
+  const clientGroups = useMemo(
+    () => groupDesignerClientListItems(visibleItems),
+    [visibleItems],
+  );
 
   const summary = useMemo(() => {
     const now = new Date();
@@ -284,13 +294,29 @@ export default function DesignerClientsScreen() {
           <EmptyState icon="🔍" title="검색 결과가 없어요" subtitle="다른 검색어를 시도해보세요" />
         ) : (
           <View style={styles.list}>
-            {visibleItems.map((item) => (
-              <DesignerClientCard
-                key={item.key}
-                item={item}
-                onPress={() => detailRouter.push(`/designer/treatment/${item.treatmentId}`)}
-                onReinvite={() => handleReinvite(item)}
-              />
+            {clientGroups.map((group) => (
+              <View key={group.key} style={styles.clientGroup}>
+                <View style={styles.groupHeader}>
+                  <View style={styles.groupAvatar}>
+                    <Text style={styles.groupAvatarText}>{getInitial(group.customerName)}</Text>
+                  </View>
+                  <View style={styles.groupHeaderText}>
+                    <Text style={styles.groupTitle}>{group.customerName}</Text>
+                    <Text style={styles.groupMeta}>시술 {group.items.length}건</Text>
+                  </View>
+                </View>
+                <View style={styles.groupCards}>
+                  {group.items.map((item) => (
+                    <DesignerClientCard
+                      key={item.key}
+                      item={item}
+                      showCustomerName={false}
+                      onPress={() => detailRouter.push(`/designer/treatment/${item.treatmentId}`)}
+                      onReinvite={() => handleReinvite(item)}
+                    />
+                  ))}
+                </View>
+              </View>
             ))}
           </View>
         )}
@@ -388,7 +414,46 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFEFF4',
   },
   list: {
-    gap: 14,
+    gap: 22,
+  },
+  clientGroup: {
+    gap: 10,
+  },
+  groupHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 4,
+  },
+  groupAvatar: {
+    alignItems: 'center',
+    backgroundColor: '#FFD4D5',
+    borderRadius: 20,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  groupAvatarText: {
+    color: '#FF5A5F',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  groupHeaderText: {
+    flex: 1,
+    gap: 2,
+  },
+  groupTitle: {
+    color: '#1A1A2E',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  groupMeta: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  groupCards: {
+    gap: 10,
   },
   clientCard: {
     alignItems: 'flex-start',
