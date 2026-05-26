@@ -177,12 +177,6 @@ export default function PaymentReceiptScreen() {
           <Row label="결제 수단" value={`카드 ****${maskCardLast4(payment.toss_payment_key)}`} />
           <Row label="거래 ID" value={payment.toss_payment_key || payment.toss_order_id || '-'} small />
         </View>
-
-        {(payment.fee_amount ?? 0) > 0 ? (
-          <Text style={styles.feeNote}>
-            플랫폼 수수료 {payment.fee_amount?.toLocaleString('ko-KR')}원 포함
-          </Text>
-        ) : null}
       </ScrollView>
     </View>
   );
@@ -238,7 +232,6 @@ const styles = StyleSheet.create({
   rowValue: { color: '#1A1A2E', fontSize: 16, fontWeight: '700' },
   rowHighlight: { color: MINT, fontSize: 20, fontWeight: '900' },
   rowSmall: { fontSize: 12, fontWeight: '600' },
-  feeNote: { color: '#9CA3AF', fontSize: 12, marginTop: 16, textAlign: 'center' },
   error: { color: '#FF5A5F', marginBottom: 12 },
   link: { color: PURPLE, fontWeight: '700' },
 });
