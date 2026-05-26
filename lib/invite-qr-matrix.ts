@@ -1,9 +1,9 @@
-import { create as createQrCode } from 'qrcode/lib/core/qrcode';
+import { create as createQrCode } from 'qrcode';
 
-export type QrMatrix = {
+interface QrMatrix {
   size: number;
   cells: boolean[][];
-};
+}
 
 export function buildInviteQrMatrix(value: string): QrMatrix | null {
   const trimmed = value.trim();
