@@ -4,6 +4,7 @@ import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
 import { getPaymentPartyIds, resolveTreatmentCustomerForPayment } from './payment-customer';
 import { supabase } from './supabase';
+import { ACCUMULATED_DEMO_PAYMENTS } from './demo-accumulated-test-data';
 import { getTreatmentById, Treatment } from './treatments';
 
 /** DB `payments.fee_rate` 기본값(0.04)과 동일 */
@@ -65,6 +66,11 @@ const INITIAL_DEMO_PAYMENTS: PaymentRecord[] = [
   },
 ];
 
+const ALL_DEMO_PAYMENT_SEEDS: PaymentRecord[] = [
+  ...INITIAL_DEMO_PAYMENTS,
+  ...ACCUMULATED_DEMO_PAYMENTS,
+];
+
 const demoPayments: PaymentRecord[] = INITIAL_DEMO_PAYMENTS.map((item) => ({ ...item }));
 
 let demoPaymentsHydratePromise: Promise<void> | null = null;
@@ -82,12 +88,23 @@ async function hydrateDemoPayments() {
         const stored = JSON.parse(raw) as PaymentRecord[];
         demoPayments.length = 0;
         demoPayments.push(...stored);
-        return;
+      } else {
+        demoPayments.length = 0;
+        demoPayments.push(...ALL_DEMO_PAYMENT_SEEDS.map((item) => ({ ...item })));
       }
 
-      demoPayments.length = 0;
-      demoPayments.push(...INITIAL_DEMO_PAYMENTS.map((item) => ({ ...item })));
-      await AsyncStorage.setItem(DEMO_PAYMENTS_KEY, JSON.stringify(demoPayments));
+      let merged = false;
+
+      for (const seed of ALL_DEMO_PAYMENT_SEEDS) {
+        if (!demoPayments.some((payment) => payment.id === seed.id)) {
+          demoPayments.push({ ...seed });
+          merged = true;
+        }
+      }
+
+      if (!raw || merged) {
+        await AsyncStorage.setItem(DEMO_PAYMENTS_KEY, JSON.stringify(demoPayments));
+      }
     })();
   }
 

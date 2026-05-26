@@ -6,6 +6,10 @@ import type { PaymentStatus } from './payment-status';
 import { filterTreatmentsForCustomerUser, sortTreatmentsForDiaryList } from './diary-list';
 import { sanitizeTreatmentsForCustomer, sanitizeTreatmentForCustomer } from './treatment-privacy';
 import { defaultTreatmentTitle, DEFAULT_TREATMENT_DURATION } from './treatment-options';
+import {
+  ACCUMULATED_DEMO_TREATMENTS,
+  mergeAccumulatedDesignerRelationships,
+} from './demo-accumulated-test-data';
 import { supabase } from './supabase';
 
 export type Treatment = {
@@ -209,6 +213,11 @@ const INITIAL_DEMO_TREATMENTS: Treatment[] = [
   },
 ];
 
+const ALL_DEMO_TREATMENT_SEEDS: Treatment[] = [
+  ...INITIAL_DEMO_TREATMENTS,
+  ...ACCUMULATED_DEMO_TREATMENTS,
+];
+
 const demoTreatments: Treatment[] = INITIAL_DEMO_TREATMENTS.map((item) => ({ ...item }));
 
 let demoHydratePromise: Promise<void> | null = null;
@@ -224,12 +233,12 @@ async function hydrateDemoTreatments() {
         demoTreatments.push(...stored);
       } else {
         demoTreatments.length = 0;
-        demoTreatments.push(...INITIAL_DEMO_TREATMENTS.map((item) => ({ ...item })));
+        demoTreatments.push(...ALL_DEMO_TREATMENT_SEEDS.map((item) => ({ ...item })));
       }
 
       let merged = false;
 
-      for (const seed of INITIAL_DEMO_TREATMENTS) {
+      for (const seed of ALL_DEMO_TREATMENT_SEEDS) {
         const existingIndex = demoTreatments.findIndex((item) => item.id === seed.id);
 
         if (existingIndex < 0) {
@@ -258,6 +267,8 @@ async function hydrateDemoTreatments() {
       if (!raw || merged) {
         await persistDemoTreatments();
       }
+
+      await mergeAccumulatedDesignerRelationships();
     })();
   }
 
