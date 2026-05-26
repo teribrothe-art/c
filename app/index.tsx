@@ -13,10 +13,7 @@ import {
 import { redeemInviteForCurrentUser } from '../lib/apply-pending-invite';
 import { getPostAuthRoute } from '../lib/auth-redirect';
 import { getCurrentUser, isDemoAuthMode, signInWithEmail } from '../lib/auth';
-import {
-  ACCUMULATED_TEST_DESIGNER,
-  ACCUMULATED_TEST_PASSWORD,
-} from '../lib/demo-accumulated-test-accounts';
+import { ACCUMULATED_TEST_DESIGNER_PUBLIC } from '../lib/demo-accumulated-test-accounts';
 import { ACCUMULATED_DEMO_SEED_STATS } from '../lib/demo-accumulated-test-data';
 import { peekPendingInviteCode } from '../lib/pending-invite-code';
 import { showLoginFailureAlert } from '../lib/alerts';
@@ -158,8 +155,8 @@ export default function LoginScreen() {
             <Pressable
               disabled={isLoading}
               onPress={() => {
-                setEmail(ACCUMULATED_TEST_DESIGNER.email);
-                setPassword(ACCUMULATED_TEST_PASSWORD);
+                setEmail(ACCUMULATED_TEST_DESIGNER_PUBLIC.email);
+                setPassword(ACCUMULATED_TEST_DESIGNER_PUBLIC.password);
                 setLoginError(null);
                 setEmailError(null);
                 setPasswordError(null);
@@ -168,7 +165,10 @@ export default function LoginScreen() {
               <Text style={styles.demoButtonText}>3년 누적 테스트 디자이너 로그인</Text>
             </Pressable>
             <Text style={styles.demoMeta}>
-              {ACCUMULATED_TEST_DESIGNER.email} / {ACCUMULATED_TEST_PASSWORD}
+              ID {ACCUMULATED_TEST_DESIGNER_PUBLIC.id}
+            </Text>
+            <Text style={styles.demoMeta}>
+              {ACCUMULATED_TEST_DESIGNER_PUBLIC.email} / {ACCUMULATED_TEST_DESIGNER_PUBLIC.password}
             </Text>
             <Text style={styles.demoMeta}>
               시술 {ACCUMULATED_DEMO_SEED_STATS.treatmentCount}건 · 고객{' '}

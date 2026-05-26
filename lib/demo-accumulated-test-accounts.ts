@@ -38,12 +38,16 @@ export const ACCUMULATED_TEST_ACCOUNTS: BetaTestAccount[] = [
   ...ACCUMULATED_TEST_CUSTOMERS,
 ];
 
+/** 문서·로그인 화면에 공개하는 3년 누적 테스트 디자이너 계정 */
+export const ACCUMULATED_TEST_DESIGNER_PUBLIC = {
+  id: ACCUMULATED_TEST_DESIGNER.id,
+  email: ACCUMULATED_TEST_DESIGNER.email,
+  password: ACCUMULATED_TEST_PASSWORD,
+  name: ACCUMULATED_TEST_DESIGNER.name,
+} as const;
+
 export const ACCUMULATED_TEST_LOGIN_SUMMARY = {
-  designer: {
-    email: ACCUMULATED_TEST_DESIGNER.email,
-    password: ACCUMULATED_TEST_PASSWORD,
-    name: ACCUMULATED_TEST_DESIGNER.name,
-  },
+  designer: ACCUMULATED_TEST_DESIGNER_PUBLIC,
   customers: ACCUMULATED_TEST_CUSTOMERS.map((customer) => ({
     email: customer.email,
     password: ACCUMULATED_TEST_PASSWORD,

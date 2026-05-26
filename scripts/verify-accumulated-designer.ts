@@ -7,7 +7,7 @@
 import {
   ACCUMULATED_TEST_CUSTOMERS,
   ACCUMULATED_TEST_DESIGNER,
-  ACCUMULATED_TEST_PASSWORD,
+  ACCUMULATED_TEST_DESIGNER_PUBLIC,
 } from '../lib/demo-accumulated-test-accounts';
 import {
   ACCUMULATED_DEMO_PAYMENTS,
@@ -52,9 +52,9 @@ function main() {
 
   console.log('=== 3년 누적 테스트 디자이너 ===\n');
   console.log('로그인 (데모 모드 · Supabase 미설정)');
-  console.log(`  이메일: ${ACCUMULATED_TEST_DESIGNER.email}`);
-  console.log(`  비밀번호: ${ACCUMULATED_TEST_PASSWORD}`);
-  console.log(`  ID: ${designerId}\n`);
+  console.log(`  ID: ${ACCUMULATED_TEST_DESIGNER_PUBLIC.id}`);
+  console.log(`  이메일: ${ACCUMULATED_TEST_DESIGNER_PUBLIC.email}`);
+  console.log(`  비밀번호: ${ACCUMULATED_TEST_DESIGNER_PUBLIC.password}\n`);
 
   console.log('시드 검증 OK');
   console.log(`  고객: ${ACCUMULATED_DEMO_SEED_STATS.customerCount}명`);
