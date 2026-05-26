@@ -14,6 +14,46 @@ import { LoadingState } from '../../../src/components/loading-state';
 
 const MINT = '#00C2A8';
 const PURPLE = '#7B5EE6';
+const CORAL = '#FF5A5F';
+const INK = '#1A1A2E';
+const MUTED = '#6B6B7B';
+
+type ReceiptRowVariant = 'amount' | 'datetime' | 'treatment' | 'method' | 'orderId';
+
+function rowVariantStyles(variant: ReceiptRowVariant) {
+  switch (variant) {
+    case 'amount':
+      return {
+        row: styles.rowAmount,
+        label: styles.rowLabelAmount,
+        value: styles.rowValueAmount,
+      };
+    case 'datetime':
+      return {
+        row: styles.rowDatetime,
+        label: styles.rowLabelDatetime,
+        value: styles.rowValueDatetime,
+      };
+    case 'treatment':
+      return {
+        row: styles.rowTreatment,
+        label: styles.rowLabelTreatment,
+        value: styles.rowValueTreatment,
+      };
+    case 'method':
+      return {
+        row: styles.rowMethod,
+        label: styles.rowLabelMethod,
+        value: styles.rowValueMethod,
+      };
+    default:
+      return {
+        row: styles.rowOrder,
+        label: styles.rowLabelOrder,
+        value: styles.rowValueOrder,
+      };
+  }
+}
 
 async function getPaymentById(paymentId: string): Promise<PaymentRecord | null> {
   if (isDemoAuthMode || !supabase) {
@@ -171,11 +211,23 @@ export default function PaymentReceiptScreen() {
         <Text style={styles.merchant}>{treatment?.designer_name || '헤어 다이어리'} · 강남점</Text>
 
         <View style={styles.block}>
-          <Row label="결제 일시" value={paidAtLabel} />
-          <Row label="시술 내역" value={treatment?.treatment_title || '-'} />
-          <Row label="결제 금액" value={`${payment.amount.toLocaleString('ko-KR')}원`} highlight />
-          <Row label="결제 수단" value={`카드 ****${maskCardLast4(payment.toss_payment_key)}`} />
-          <Row label="거래 ID" value={payment.toss_payment_key || payment.toss_order_id || '-'} small />
+          <Row label="결제 일시" value={paidAtLabel} variant="datetime" />
+          <Row label="시술 내역" value={treatment?.treatment_title || '-'} variant="treatment" />
+          <Row
+            label="결제 금액"
+            value={`${payment.amount.toLocaleString('ko-KR')}원`}
+            variant="amount"
+          />
+          <Row
+            label="결제 수단"
+            value={`카드 ****${maskCardLast4(payment.toss_payment_key)}`}
+            variant="method"
+          />
+          <Row
+            label="거래 ID"
+            value={payment.toss_payment_key || payment.toss_order_id || '-'}
+            variant="orderId"
+          />
         </View>
       </ScrollView>
     </View>
@@ -185,18 +237,18 @@ export default function PaymentReceiptScreen() {
 function Row({
   label,
   value,
-  highlight,
-  small,
+  variant,
 }: {
   label: string;
   value: string;
-  highlight?: boolean;
-  small?: boolean;
+  variant: ReceiptRowVariant;
 }) {
+  const tone = rowVariantStyles(variant);
+
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={[styles.rowValue, highlight && styles.rowHighlight, small && styles.rowSmall]}>
+    <View style={[styles.row, tone.row]}>
+      <Text style={[styles.rowLabel, tone.label]}>{label}</Text>
+      <Text style={[styles.rowValue, tone.value]} numberOfLines={2}>
         {value}
       </Text>
     </View>
@@ -224,14 +276,61 @@ const styles = StyleSheet.create({
   block: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    gap: 14,
-    padding: 18,
+    gap: 8,
+    padding: 12,
   },
-  row: { gap: 4 },
-  rowLabel: { color: '#6B6B7B', fontSize: 13, fontWeight: '600' },
-  rowValue: { color: '#1A1A2E', fontSize: 16, fontWeight: '700' },
-  rowHighlight: { color: MINT, fontSize: 20, fontWeight: '900' },
-  rowSmall: { fontSize: 12, fontWeight: '600' },
+  row: {
+    alignItems: 'center',
+    borderRadius: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  rowAmount: {
+    backgroundColor: '#FFF0F0',
+    borderLeftColor: CORAL,
+    borderLeftWidth: 3,
+  },
+  rowDatetime: {
+    backgroundColor: '#F3F0FF',
+    borderLeftColor: PURPLE,
+    borderLeftWidth: 3,
+  },
+  rowTreatment: {
+    backgroundColor: '#FAFAFC',
+    borderLeftColor: '#C5C5D2',
+    borderLeftWidth: 3,
+  },
+  rowMethod: {
+    backgroundColor: '#FFF8E8',
+    borderLeftColor: '#FFB627',
+    borderLeftWidth: 3,
+  },
+  rowOrder: {
+    backgroundColor: '#E8FAF7',
+    borderLeftColor: MINT,
+    borderLeftWidth: 3,
+  },
+  rowLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  rowLabelAmount: { color: CORAL },
+  rowLabelDatetime: { color: PURPLE },
+  rowLabelTreatment: { color: MUTED },
+  rowLabelMethod: { color: '#D97706' },
+  rowLabelOrder: { color: '#00A88F' },
+  rowValue: {
+    flex: 1,
+    textAlign: 'right',
+  },
+  rowValueAmount: { color: CORAL, fontSize: 20, fontWeight: '900' },
+  rowValueDatetime: { color: INK, fontSize: 14, fontWeight: '800' },
+  rowValueTreatment: { color: INK, fontSize: 15, fontWeight: '700' },
+  rowValueMethod: { color: INK, fontSize: 14, fontWeight: '700' },
+  rowValueOrder: { color: MUTED, fontSize: 12, fontWeight: '700' },
   error: { color: '#FF5A5F', marginBottom: 12 },
   link: { color: PURPLE, fontWeight: '700' },
 });
