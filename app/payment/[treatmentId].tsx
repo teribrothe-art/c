@@ -252,8 +252,12 @@ export default function CustomerPaymentScreen() {
     paymentKey: string;
     orderId: string;
     amount: number;
+    treatmentId?: string;
   }) => {
-    if (!treatmentId) {
+    const resolvedTreatmentId = result.treatmentId ?? treatmentId;
+
+    if (!resolvedTreatmentId) {
+      showErrorAlert('결제 정보를 확인하지 못했습니다.');
       return;
     }
 
@@ -261,13 +265,13 @@ export default function CustomerPaymentScreen() {
     setIsPaying(true);
 
     try {
-      await handleTossPaymentSuccess(treatmentId, {
+      await handleTossPaymentSuccess(resolvedTreatmentId, {
         paymentKey: result.paymentKey,
         orderId: result.orderId,
       });
       setIsSuccess(true);
     } catch (error) {
-      await handleTossPaymentFailure(treatmentId).catch(() => undefined);
+      await handleTossPaymentFailure(resolvedTreatmentId).catch(() => undefined);
       showErrorAlert(getErrorMessage(error, '결제에 실패했어요'), '결제 실패');
     } finally {
       setIsPaying(false);

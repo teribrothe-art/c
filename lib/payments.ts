@@ -169,6 +169,8 @@ export async function handleTossPaymentSuccess(
   }
 
   try {
+    await withRetry(() => ensurePaymentRecordForTreatment(treatmentId), { maxAttempts: 3 });
+
     await withRetry(
       async () => {
         await markPaymentPaid(treatmentId, {

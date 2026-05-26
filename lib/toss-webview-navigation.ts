@@ -1,6 +1,12 @@
 import * as Linking from 'expo-linking';
 
-import { parseTossFailUrl, parseTossSuccessUrl, type TossPaymentFailure, type TossPaymentSuccess } from './toss';
+import {
+  isHairDiaryPaymentUrl,
+  parseTossFailUrl,
+  parseTossSuccessUrl,
+  type TossPaymentFailure,
+  type TossPaymentSuccess,
+} from './toss';
 
 export type TossWebViewNavigationResult =
   | { action: 'success'; payload: TossPaymentSuccess }
@@ -38,6 +44,22 @@ export function resolveTossWebViewNavigation(url: string): TossWebViewNavigation
 
   if (!trimmed) {
     return { action: 'allow' };
+  }
+
+  if (isHairDiaryPaymentUrl(trimmed)) {
+    const success = parseTossSuccessUrl(trimmed);
+
+    if (success) {
+      return { action: 'success', payload: success };
+    }
+
+    const failure = parseTossFailUrl(trimmed);
+
+    if (failure) {
+      return { action: 'fail', payload: failure };
+    }
+
+    return { action: 'block' };
   }
 
   const success = parseTossSuccessUrl(trimmed);

@@ -315,12 +315,14 @@ export async function markPaymentPaid(
   const { feeRate, feeAmount, designerPayout } = calculatePaymentFees(amount);
   const now = new Date().toISOString();
 
+  await ensurePaymentRecordForTreatment(treatmentId);
+
   if (isDemoAuthMode || !supabase) {
     await hydrateDemoPayments();
     const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
+
     if (index < 0) {
-      await ensurePaymentRecordForTreatment(treatmentId);
-      return markPaymentPaid(treatmentId, input);
+      throw new Error('결제 내역을 찾을 수 없습니다. 잠시 후 다시 시도해 주세요.');
     }
     demoPayments[index] = {
       ...demoPayments[index],

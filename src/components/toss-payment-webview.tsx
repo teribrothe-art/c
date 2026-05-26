@@ -1,3 +1,4 @@
+import * as Linking from 'expo-linking';
 import { useCallback, useEffect, useRef } from 'react';
 import { BackHandler, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,7 +10,12 @@ type Props = {
   visible: boolean;
   html: string;
   onClose: () => void;
-  onSuccess: (result: { paymentKey: string; orderId: string; amount: number }) => void;
+  onSuccess: (result: {
+    paymentKey: string;
+    orderId: string;
+    amount: number;
+    treatmentId?: string;
+  }) => void;
   onFail: (result: { code: string; message: string }) => void;
 };
 
@@ -19,6 +25,7 @@ export function TossPaymentWebView({ visible, html, onClose, onSuccess, onFail }
 
   useEffect(() => {
     if (!visible) {
+      lastHandledUrl.current = '';
       return;
     }
 
@@ -30,12 +37,10 @@ export function TossPaymentWebView({ visible, html, onClose, onSuccess, onFail }
     return () => subscription.remove();
   }, [onClose, visible]);
 
-  const handleNavigation = useCallback(
-    (navigation: WebViewNavigation) => {
-      const url = navigation.url;
-
+  const handleUrl = useCallback(
+    (url: string) => {
       if (!url || lastHandledUrl.current === url) {
-        return true;
+        return 'allow' as const;
       }
 
       const result = resolveTossWebViewNavigation(url);
@@ -43,22 +48,39 @@ export function TossPaymentWebView({ visible, html, onClose, onSuccess, onFail }
       if (result.action === 'success') {
         lastHandledUrl.current = url;
         onSuccess(result.payload);
-        return false;
+        return 'block' as const;
       }
 
       if (result.action === 'fail') {
         lastHandledUrl.current = url;
         onFail({ code: result.payload.code, message: result.payload.message });
-        return false;
+        return 'block' as const;
       }
 
       if (result.action === 'block') {
-        return false;
+        return 'block' as const;
       }
 
-      return true;
+      return 'allow' as const;
     },
     [onFail, onSuccess],
+  );
+
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+
+    const subscription = Linking.addEventListener('url', (event) => {
+      handleUrl(event.url);
+    });
+
+    return () => subscription.remove();
+  }, [handleUrl, visible]);
+
+  const handleNavigation = useCallback(
+    (navigation: WebViewNavigation) => handleUrl(navigation.url) !== 'block',
+    [handleUrl],
   );
 
   return (
@@ -80,6 +102,9 @@ export function TossPaymentWebView({ visible, html, onClose, onSuccess, onFail }
           originWhitelist={['*']}
           source={{ html }}
           onShouldStartLoadWithRequest={(request) => handleNavigation(request)}
+          onLoadStart={(event) => {
+            handleUrl(event.nativeEvent.url);
+          }}
           onNavigationStateChange={(navigation) => {
             void handleNavigation(navigation);
           }}
