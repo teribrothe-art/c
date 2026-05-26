@@ -214,8 +214,8 @@ const INITIAL_DEMO_TREATMENTS: Treatment[] = [
 ];
 
 const ALL_DEMO_TREATMENT_SEEDS: Treatment[] = [
-  ...INITIAL_DEMO_TREATMENTS,
-  ...ACCUMULATED_DEMO_TREATMENTS,
+  ...(INITIAL_DEMO_TREATMENTS ?? []),
+  ...(ACCUMULATED_DEMO_TREATMENTS ?? []),
 ];
 
 const demoTreatments: Treatment[] = INITIAL_DEMO_TREATMENTS.map((item) => ({ ...item }));

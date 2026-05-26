@@ -67,8 +67,8 @@ const INITIAL_DEMO_PAYMENTS: PaymentRecord[] = [
 ];
 
 const ALL_DEMO_PAYMENT_SEEDS: PaymentRecord[] = [
-  ...INITIAL_DEMO_PAYMENTS,
-  ...ACCUMULATED_DEMO_PAYMENTS,
+  ...(INITIAL_DEMO_PAYMENTS ?? []),
+  ...(ACCUMULATED_DEMO_PAYMENTS ?? []),
 ];
 
 const demoPayments: PaymentRecord[] = INITIAL_DEMO_PAYMENTS.map((item) => ({ ...item }));
