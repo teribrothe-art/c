@@ -395,7 +395,7 @@ export default function DesignerClientsScreen() {
           <SummaryStat
             active={monthOnly}
             compact
-            label="이번 달"
+            label="이번 달 시술"
             value={`${summary.monthCount}건`}
             onPress={() => applyListFilter('month')}
           />
@@ -418,12 +418,23 @@ export default function DesignerClientsScreen() {
             </Text>
           </View>
         ) : listFilterActive ? (
-          <Pressable onPress={clearListFilter} style={styles.filterBanner}>
-            <Text style={styles.filterBannerText}>
-              {monthOnly ? '이번 달 시술만 보는 중' : '정산 대기만 보는 중'}
-            </Text>
-            <Text style={styles.filterBannerAction}>전체 시술</Text>
-          </Pressable>
+          <>
+            <Pressable onPress={clearListFilter} style={styles.filterBanner}>
+              <Text style={styles.filterBannerText}>
+                {monthOnly ? '이번 달 시술만 보는 중' : '정산 대기만 보는 중'}
+              </Text>
+              <Text style={styles.filterBannerAction}>전체 시술</Text>
+            </Pressable>
+            <View style={styles.scopeHintCard}>
+              <Text style={styles.scopeHintTitle}>
+                {monthOnly ? '이번 달 시술' : '정산 대기'}
+              </Text>
+              <Text style={styles.scopeHintText}>
+                고객 {clientGroups.length}명 · 시술 {visibleItems.length}건 · 이름을 누르면
+                내역을 볼 수 있어요
+              </Text>
+            </View>
+          </>
         ) : null}
 
         {isLoading ? (

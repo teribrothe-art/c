@@ -143,6 +143,16 @@ function ActivityCard({ stats }: { stats: ProfileStats }) {
         onPress={() => router.push('/designer/clients')}
       />
       <StatRow
+        label="이번 달 시술"
+        value={`${stats.monthTreatmentCount}건`}
+        onPress={() =>
+          router.push({
+            pathname: '/designer/clients',
+            params: { filter: 'month' },
+          })
+        }
+      />
+      <StatRow
         label="누적 정산 총액"
         value={formatCurrency(stats.totalSettlementAmount)}
         onPress={() => safeNavigate('/designer/revenue')}
@@ -157,23 +167,6 @@ function ActivityCard({ stats }: { stats: ProfileStats }) {
           })
         }
       />
-      {pastMonthlyTotals.length > 0 ? (
-        <View style={styles.monthlySettlementBlock}>
-          {pastMonthlyTotals.map((month) => (
-            <StatRow
-              key={month.monthKey}
-              label={month.label}
-              value={formatCurrency(month.amount)}
-              onPress={() =>
-                safeNavigate({
-                  pathname: '/designer/revenue',
-                  params: { month: month.monthKey },
-                })
-              }
-            />
-          ))}
-        </View>
-      ) : null}
       <StatRow
         label="정산 대기"
         value={`${stats.pendingSettlementCount}건`}
@@ -219,6 +212,24 @@ function ActivityCard({ stats }: { stats: ProfileStats }) {
       ) : (
         <Text style={styles.activityEmpty}>정산 완료 내역이 여기에 표시됩니다.</Text>
       )}
+      {pastMonthlyTotals.length > 0 ? (
+        <View style={styles.monthlySettlementBlock}>
+          <Text style={styles.monthlySettlementTitle}>월별 정산 총액</Text>
+          {pastMonthlyTotals.map((month) => (
+            <StatRow
+              key={month.monthKey}
+              label={month.label}
+              value={formatCurrency(month.amount)}
+              onPress={() =>
+                safeNavigate({
+                  pathname: '/designer/revenue',
+                  params: { month: month.monthKey },
+                })
+              }
+            />
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -511,8 +522,14 @@ const styles = StyleSheet.create({
     borderTopColor: '#EFEFF4',
     borderTopWidth: 1,
     marginBottom: 4,
-    marginTop: 4,
-    paddingTop: 10,
+    marginTop: 12,
+    paddingTop: 14,
+  },
+  monthlySettlementTitle: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 6,
   },
   activityList: {
     borderTopColor: '#EFEFF4',
