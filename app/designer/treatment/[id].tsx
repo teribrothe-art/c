@@ -20,10 +20,11 @@ import { parseWonAmount, sanitizeWonDigits } from '../../../lib/currency-input';
 import { prepareImageForUpload } from '../../../lib/prepare-upload-image';
 import { WonAmountInput } from '../../../src/components/won-amount-input';
 import {
-  pickTreatmentPhotoFromLibrary,
+  pickTreatmentPhoto,
   resolveTreatmentPhotoPreviewUrl,
   removeTreatmentPhoto,
   TreatmentPhotoKind,
+  TreatmentPhotoPickSource,
   uploadTreatmentPhoto,
 } from '../../../lib/treatment-photos';
 
@@ -32,6 +33,7 @@ import {
   showErrorAlert,
   showSettlementCompleteAlert,
   showSuccessAlert,
+  showTreatmentPhotoSourceAlert,
   showWarningAlert,
 } from '../../../lib/alerts';
 import { getErrorMessage } from '../../../lib/errors';
@@ -780,13 +782,13 @@ export default function DesignerTreatmentInputScreen() {
         photoPreviews[kind],
     );
 
-  const runPickPhoto = async (kind: TreatmentPhotoKind) => {
+  const runPickPhoto = async (kind: TreatmentPhotoKind, source: TreatmentPhotoPickSource) => {
     if (!treatment || photoUploadStatus[kind] === 'uploading') {
       return;
     }
 
     try {
-      const pickedUri = await pickTreatmentPhotoFromLibrary();
+      const pickedUri = await pickTreatmentPhoto(source);
 
       if (!pickedUri) {
         return;
@@ -805,7 +807,10 @@ export default function DesignerTreatmentInputScreen() {
       if (message === 'PHOTO_TOO_LARGE') {
         showWarningAlert('사진 용량은 5MB 이하만 업로드할 수 있습니다. 다른 사진을 선택해주세요.', '용량 초과');
       } else {
-        showErrorAlert(getErrorMessage(error, '사진을 선택하지 못했습니다.'), '사진 선택 실패');
+        showErrorAlert(
+          getErrorMessage(error, '사진을 가져오지 못했습니다.'),
+          source === 'camera' ? '촬영 실패' : '사진 선택 실패',
+        );
       }
     }
   };
@@ -818,14 +823,14 @@ export default function DesignerTreatmentInputScreen() {
     const label = photoKindLabel(kind);
     const isChange = hasTreatmentPhoto(kind);
 
-    showConfirmAlert({
+    showTreatmentPhotoSourceAlert({
       title: isChange ? '사진 변경' : '사진 등록',
-      message: isChange
-        ? `${label} 사진을 다른 사진으로 바꿀까요?`
-        : `${label} 사진을 등록할까요?`,
-      confirmLabel: isChange ? '변경' : '등록',
-      onConfirm: () => {
-        void runPickPhoto(kind);
+      message: `${label} 사진을 추가하는 방법을 선택하세요.`,
+      onLibrary: () => {
+        void runPickPhoto(kind, 'library');
+      },
+      onCamera: () => {
+        void runPickPhoto(kind, 'camera');
       },
     });
   };

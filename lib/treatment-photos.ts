@@ -76,15 +76,11 @@ export async function getTreatmentPhotoSignedUrl(
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
-export async function pickTreatmentPhotoFromLibrary() {
-  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+export type TreatmentPhotoPickSource = 'library' | 'camera';
 
-  if (!permission.granted) {
-    throw new Error('갤러리 접근 권한이 필요합니다.');
-  }
-
-  const result = await ImagePicker.launchImageLibraryAsync(treatmentPhotoPickerOptions());
-
+async function processTreatmentPhotoPickerResult(
+  result: ImagePicker.ImagePickerResult,
+): Promise<string | null> {
   if (result.canceled || !result.assets[0]?.uri) {
     return null;
   }
@@ -102,6 +98,40 @@ export async function pickTreatmentPhotoFromLibrary() {
   }
 
   return prepareImageForUpload(normalizedUri);
+}
+
+export async function pickTreatmentPhotoFromLibrary() {
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+  if (!permission.granted) {
+    throw new Error('갤러리 접근 권한이 필요합니다.');
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync(treatmentPhotoPickerOptions());
+
+  return processTreatmentPhotoPickerResult(result);
+}
+
+export async function captureTreatmentPhotoWithCamera() {
+  if (Platform.OS === 'web') {
+    throw new Error('웹에서는 카메라 촬영을 지원하지 않습니다. 앨범에서 선택해주세요.');
+  }
+
+  const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+  if (!permission.granted) {
+    throw new Error('카메라 접근 권한이 필요합니다.');
+  }
+
+  const result = await ImagePicker.launchCameraAsync(treatmentPhotoPickerOptions());
+
+  return processTreatmentPhotoPickerResult(result);
+}
+
+export async function pickTreatmentPhoto(source: TreatmentPhotoPickSource) {
+  return source === 'camera'
+    ? captureTreatmentPhotoWithCamera()
+    : pickTreatmentPhotoFromLibrary();
 }
 
 export async function uploadTreatmentPhoto(
