@@ -643,16 +643,28 @@ export default function DesignerTreatmentInputScreen() {
       return;
     }
 
+    const isRegenerate = Boolean(treatment.ai_insight?.trim());
+
     if (!canGenerateTreatmentAiInsight(treatment)) {
-      showWarningAlert('기법·진단·홈케어를 모두 입력한 뒤 생성할 수 있어요.');
+      showWarningAlert(
+        isRegenerate
+          ? '진단·홈케어를 입력한 뒤 다시 생성할 수 있어요.'
+          : '기법·진단·홈케어를 모두 입력한 뒤 생성할 수 있어요.',
+      );
       return;
     }
 
     try {
       setIsGeneratingInsight(true);
-      const { treatment: saved } = await generateAndSaveTreatmentAiInsight(treatment);
+      const { treatment: saved } = await generateAndSaveTreatmentAiInsight(treatment, {
+        regenerate: isRegenerate,
+      });
       setTreatment(saved);
-      showSuccessAlert('고객 다이어리에 AI 인사이트가 반영됐어요.');
+      showSuccessAlert(
+        isRegenerate
+          ? 'AI 인사이트를 새로 작성해 고객 다이어리에 반영했어요.'
+          : '고객 다이어리에 AI 인사이트가 반영됐어요.',
+      );
     } catch (error) {
       showErrorAlert(getErrorMessage(error, 'AI 인사이트 생성에 실패했습니다.'), '생성 실패');
     } finally {

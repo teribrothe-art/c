@@ -19,6 +19,7 @@ export type AccumulatedDemoTreatment = {
   products: string[];
   damage_level: number;
   duration: string;
+  technique?: string | null;
   designer_diagnosis: string;
   home_care: string;
   ai_insight: string;
@@ -125,6 +126,7 @@ function buildTreatmentsAndPayments() {
         products: ['로레알', '아모스'],
         damage_level: 4 + (visitIndex % 4),
         duration: template.duration,
+        technique: `${template.type} 시술 기법 (테스트)`,
         designer_diagnosis: `${customer.name}님 ${template.type} 시술 기록 (테스트 데이터)`,
         home_care: '정기 케어와 수분 관리를 권장합니다.',
         ai_insight: '다음 방문 전 홈케어 루틴을 유지해 주세요.',
