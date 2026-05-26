@@ -358,7 +358,7 @@ export default function DesignerClientsScreen() {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.title}>내 고객들</Text>
+          <Text style={styles.title}>내 자산</Text>
           <View style={styles.headerActions}>
             <Pressable
               onPress={() => setSearchOpen((open) => !open)}
