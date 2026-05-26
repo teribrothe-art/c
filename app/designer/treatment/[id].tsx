@@ -35,7 +35,7 @@ import {
   showWarningAlert,
 } from '../../../lib/alerts';
 import { getErrorMessage } from '../../../lib/errors';
-import { colors, disabledButtonStyle } from '../../../lib/theme';
+import { colors, disabledButtonStyle, formTextInputStyle } from '../../../lib/theme';
 import {
   DURATION_OPTIONS,
   formatProductsInput,
@@ -148,6 +148,8 @@ function getDraftValue(treatment: Treatment | null, field: EditableField) {
 
 function FieldCard({ item, onPress }: { item: InputItem; onPress?: () => void }) {
   const showRequired = !item.complete && !item.optional;
+  const displayValue = item.value.trim() || '빈 칸';
+  const isEmpty = !item.value.trim();
 
   return (
     <Pressable
@@ -175,8 +177,13 @@ function FieldCard({ item, onPress }: { item: InputItem; onPress?: () => void })
             <Text style={styles.requiredLabel}>필수</Text>
           )}
         </View>
-        <Text style={[styles.fieldValue, !item.complete && styles.emptyValue]}>
-          {item.value || '빈 칸'}
+        <Text
+          style={[
+            styles.fieldValue,
+            isEmpty && styles.emptyValue,
+            item.complete && !isEmpty && styles.fieldValueOnComplete,
+          ]}>
+          {displayValue}
         </Text>
       </View>
     </Pressable>
@@ -314,10 +321,10 @@ export default function DesignerTreatmentInputScreen() {
     };
   }, [id]);
   const sections = useMemo<InputSection[]>(() => {
-    const technique = getDraftValue(treatment, 'technique');
-    const diagnosis = getDraftValue(treatment, 'designer_diagnosis');
-    const homeCare = getDraftValue(treatment, 'home_care');
-    const products = formatProductsInput(treatment?.products ?? null);
+    const technique = getDraftValue(treatment, 'technique').trim();
+    const diagnosis = getDraftValue(treatment, 'designer_diagnosis').trim();
+    const homeCare = getDraftValue(treatment, 'home_care').trim();
+    const products = formatProductsInput(treatment?.products ?? null).trim();
 
     return [
       {
@@ -1220,8 +1227,10 @@ export default function DesignerTreatmentInputScreen() {
                   onChangeText={setInputValue}
                   placeholder="내용을 입력하세요"
                   placeholderTextColor="#9B9BA7"
+                  keyboardAppearance="light"
                   style={[
                     styles.modalInput,
+                    formTextInputStyle,
                     isSingleLineEditor && styles.modalInputSingleLine,
                   ]}
                   textAlignVertical={isSingleLineEditor ? 'center' : 'top'}
@@ -1629,8 +1638,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 21,
   },
+  fieldValueOnComplete: {
+    color: '#0F172A',
+  },
   emptyValue: {
     color: '#6B6B7B',
+    fontWeight: '600',
   },
   paymentRequestButton: {
     alignItems: 'center',
@@ -1763,7 +1776,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E3E3EA',
     borderRadius: 16,
-    color: '#1A1A2E',
     fontSize: 16,
     fontWeight: '600',
     lineHeight: 24,

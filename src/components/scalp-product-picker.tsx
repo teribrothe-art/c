@@ -6,7 +6,7 @@ import {
   SCALP_PRODUCT_GROUPS,
 } from '../../lib/scalp-product-presets';
 import { formatProductsInput, parseProductsInput } from '../../lib/treatment-options';
-import { colors } from '../../lib/theme';
+import { colors, formTextInputStyle } from '../../lib/theme';
 
 type ScalpProductPickerProps = {
   treatmentType: string;
@@ -104,10 +104,11 @@ export function ScalpProductPicker({
 
       <TextInput
         multiline
+        keyboardAppearance="light"
         onChangeText={onChange}
         placeholder="직접 입력 (쉼표·줄바꿈으로 구분)"
         placeholderTextColor="#9CA3AF"
-        style={styles.customInput}
+        style={[styles.customInput, formTextInputStyle]}
         textAlignVertical="top"
         value={value}
       />
