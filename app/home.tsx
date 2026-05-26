@@ -1,4 +1,4 @@
-import { Href, router, useFocusEffect } from 'expo-router';
+import { Href, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Dimensions,
@@ -46,6 +46,10 @@ import type { HomePromoSlide } from '../lib/home-promo-slides';
 
 export default function DiaryHomeScreen() {
   const insets = useSafeAreaInsets();
+  const { designerId, designerName } = useLocalSearchParams<{
+    designerId?: string | string[];
+    designerName?: string | string[];
+  }>();
   const [selectedFilter, setSelectedFilter] = useState<DiaryFilterKey>('전체');
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [pendingPayments, setPendingPayments] = useState<Treatment[]>([]);
@@ -158,8 +162,45 @@ export default function DiaryHomeScreen() {
     }
   };
 
+  const designerFilterId = useMemo(
+    () => (Array.isArray(designerId) ? designerId[0] : designerId)?.trim() || '',
+    [designerId],
+  );
+  const designerFilterName = useMemo(
+    () => (Array.isArray(designerName) ? designerName[0] : designerName)?.trim() || '',
+    [designerName],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!designerFilterName) {
+        return;
+      }
+
+      setSelectedFilter('전체');
+      setSearchOpen(true);
+      setSearchQuery(designerFilterName);
+    }, [designerFilterName]),
+  );
+
   const filteredTreatments = useMemo(() => {
-    const byType = treatments.filter((treatment) =>
+    let scoped = treatments;
+
+    if (designerFilterId || designerFilterName) {
+      scoped = scoped.filter((treatment) => {
+        if (designerFilterId && treatment.designer_id) {
+          return treatment.designer_id === designerFilterId;
+        }
+
+        if (designerFilterName) {
+          return (treatment.designer_name ?? '').trim() === designerFilterName;
+        }
+
+        return true;
+      });
+    }
+
+    const byType = scoped.filter((treatment) =>
       treatmentMatchesDiaryFilter(
         treatment.treatment_type,
         treatment.treatment_title,
@@ -167,7 +208,7 @@ export default function DiaryHomeScreen() {
       ),
     );
     return filterTreatmentsByQuery(byType, searchQuery);
-  }, [selectedFilter, treatments, searchQuery]);
+  }, [designerFilterId, designerFilterName, selectedFilter, treatments, searchQuery]);
 
   const handleViewDiaryFromCare = () => {
     safePush('/diary');

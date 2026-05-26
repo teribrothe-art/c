@@ -48,12 +48,36 @@ function getInitial(profile: ProfileData) {
   return source.charAt(0).toUpperCase();
 }
 
-function StatRow({ label, value }: { label: string; value: string }) {
-  return (
+function StatRow({
+  label,
+  value,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  onPress?: () => void;
+}) {
+  const content = (
     <View style={styles.statRow}>
       <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
+      <View style={styles.statValueWrap}>
+        <Text style={styles.statValue}>{value}</Text>
+        {onPress ? <Text style={styles.statChevron}>›</Text> : null}
+      </View>
     </View>
+  );
+
+  if (!onPress) {
+    return content;
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [pressed && styles.statRowPressed]}>
+      {content}
+    </Pressable>
   );
 }
 
@@ -71,15 +95,31 @@ function SettingsRow({
   );
 }
 
-function ActivityCard({ stats }: { stats: ProfileStats }) {
+function ActivityCard({
+  stats,
+  onPressTreatmentCount,
+  onPressDesigners,
+}: {
+  stats: ProfileStats;
+  onPressTreatmentCount?: () => void;
+  onPressDesigners?: () => void;
+}) {
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>📊 내 활동</Text>
       {stats.kind === 'customer' ? (
         <>
-          <StatRow label="누적 시술 횟수" value={`${stats.treatmentCount}회`} />
+          <StatRow
+            label="누적 시술 횟수"
+            value={`${stats.treatmentCount}회`}
+            onPress={onPressTreatmentCount}
+          />
           <StatRow label="최근 시술일" value={formatDate(stats.latestTreatmentDate)} />
-          <StatRow label="함께한 디자이너" value={`${stats.designerCount}명`} />
+          <StatRow
+            label="함께한 디자이너"
+            value={`${stats.designerCount}명`}
+            onPress={onPressDesigners}
+          />
         </>
       ) : (
         <>
@@ -237,7 +277,15 @@ export default function ProfileScreen() {
               </View>
             </View>
 
-            <ActivityCard stats={stats} />
+            <ActivityCard
+              stats={stats}
+              onPressTreatmentCount={
+                stats.kind === 'customer' ? () => router.push('/home') : undefined
+              }
+              onPressDesigners={
+                stats.kind === 'customer' ? () => router.push('/profile/designers') : undefined
+              }
+            />
 
             {!isDesigner ? (
               <Pressable
@@ -389,10 +437,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  statValueWrap: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
   statValue: {
     color: '#1A1A2E',
     fontSize: 14,
     fontWeight: '800',
+  },
+  statChevron: {
+    color: '#9CA3AF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  statRowPressed: {
+    opacity: 0.75,
   },
   monthlySettlementBlock: {
     borderTopColor: '#EFEFF4',
