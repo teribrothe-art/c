@@ -87,12 +87,14 @@ function SummaryStat({
   label,
   value,
   active,
+  compact = false,
   valueStyle,
   onPress,
 }: {
   label: string;
   value: string;
   active?: boolean;
+  compact?: boolean;
   valueStyle?: object;
   onPress: () => void;
 }) {
@@ -106,8 +108,23 @@ function SummaryStat({
         active && styles.summaryItemActive,
         pressed && styles.summaryItemPressed,
       ]}>
-      <Text style={[styles.summaryLabel, active && styles.summaryLabelActive]}>{label}</Text>
-      <Text style={[styles.summaryValue, valueStyle, active && styles.summaryValueActive]}>{value}</Text>
+      <Text
+        style={[
+          styles.summaryLabel,
+          compact && styles.summaryLabelCompact,
+          active && styles.summaryLabelActive,
+        ]}>
+        {label}
+      </Text>
+      <Text
+        style={[
+          styles.summaryValue,
+          compact && styles.summaryValueCompact,
+          valueStyle,
+          active && styles.summaryValueActive,
+        ]}>
+        {value}
+      </Text>
     </Pressable>
   );
 }
@@ -179,6 +196,8 @@ export default function DesignerClientsScreen() {
   const { filter: filterParam } = useLocalSearchParams<{ filter?: string }>();
   const monthOnly = filterParam === 'month';
   const escrowOnly = filterParam === 'escrow';
+  const allTreatments =
+    !filterParam || filterParam === 'all' || (!monthOnly && !escrowOnly);
   const listFilterActive = monthOnly || escrowOnly;
   const [clientItems, setClientItems] = useState<DesignerClientListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -275,6 +294,7 @@ export default function DesignerClientsScreen() {
 
   const summary = useMemo(() => {
     return {
+      totalCount: clientItems.length,
       monthCount: clientItems.filter((item) => isCurrentMonthTreatmentDate(item.treatmentDate)).length,
       waitingCount: clientItems.filter(
         (item) => item.treatment && normalizePaymentStatus(item.treatment.payment_status) === 'escrow',
@@ -282,20 +302,34 @@ export default function DesignerClientsScreen() {
     };
   }, [clientItems]);
 
+  const allCustomerGroups = useMemo(
+    () => groupDesignerClientListItems(clientItems),
+    [clientItems],
+  );
+
   const applyListFilter = useCallback(
-    (filter: 'month' | 'escrow') => {
-      if (filterParam === filter) {
-        router.setParams({ filter: '' });
+    (filter: 'all' | 'month' | 'escrow') => {
+      if (filter === 'all') {
+        setExpandedGroupKeys(new Set());
+        router.setParams({ filter: 'all' });
         return;
       }
 
+      if (filterParam === filter) {
+        setExpandedGroupKeys(new Set());
+        router.setParams({ filter: 'all' });
+        return;
+      }
+
+      setExpandedGroupKeys(new Set());
       router.setParams({ filter });
     },
     [filterParam],
   );
 
   const clearListFilter = useCallback(() => {
-    router.setParams({ filter: '' });
+    setExpandedGroupKeys(new Set());
+    router.setParams({ filter: 'all' });
   }, []);
 
   const handleReinvite = (item: DesignerClientListItem) => {
@@ -351,14 +385,24 @@ export default function DesignerClientsScreen() {
 
         <View style={styles.summaryCard}>
           <SummaryStat
+            active={allTreatments}
+            compact
+            label="전체 시술"
+            value={`${summary.totalCount}건`}
+            onPress={() => applyListFilter('all')}
+          />
+          <View style={styles.summaryDivider} />
+          <SummaryStat
             active={monthOnly}
-            label="이번 달 시술"
+            compact
+            label="이번 달"
             value={`${summary.monthCount}건`}
             onPress={() => applyListFilter('month')}
           />
           <View style={styles.summaryDivider} />
           <SummaryStat
             active={escrowOnly}
+            compact
             label="정산 대기"
             value={`${summary.waitingCount}건`}
             valueStyle={styles.waitingValue}
@@ -366,12 +410,19 @@ export default function DesignerClientsScreen() {
           />
         </View>
 
-        {listFilterActive ? (
+        {allTreatments ? (
+          <View style={styles.scopeHintCard}>
+            <Text style={styles.scopeHintTitle}>전체 시술</Text>
+            <Text style={styles.scopeHintText}>
+              고객 {allCustomerGroups.length}명 · 이름을 누르면 시술 내역을 볼 수 있어요
+            </Text>
+          </View>
+        ) : listFilterActive ? (
           <Pressable onPress={clearListFilter} style={styles.filterBanner}>
             <Text style={styles.filterBannerText}>
               {monthOnly ? '이번 달 시술만 보는 중' : '정산 대기만 보는 중'}
             </Text>
-            <Text style={styles.filterBannerAction}>전체 보기</Text>
+            <Text style={styles.filterBannerAction}>전체 시술</Text>
           </Pressable>
         ) : null}
 
@@ -405,7 +456,7 @@ export default function DesignerClientsScreen() {
                 ? '전체 보기로 돌아가거나 다른 조건을 선택해 보세요'
                 : '다른 검색어를 시도해보세요'
             }
-            actionLabel={listFilterActive ? '전체 보기' : undefined}
+            actionLabel={listFilterActive ? '전체 시술' : undefined}
             onAction={listFilterActive ? clearListFilter : undefined}
           />
         ) : (
@@ -537,6 +588,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  summaryLabelCompact: {
+    fontSize: 12,
+  },
   summaryLabelActive: {
     color: '#FF5A5F',
   },
@@ -545,8 +599,33 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '900',
   },
+  summaryValueCompact: {
+    fontSize: 22,
+  },
   summaryValueActive: {
     color: '#FF5A5F',
+  },
+  scopeHintCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
+    marginBottom: 12,
+    marginTop: -8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  scopeHintTitle: {
+    color: '#1A1A2E',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  scopeHintText: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
   },
   filterBanner: {
     alignItems: 'center',
