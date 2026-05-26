@@ -76,6 +76,42 @@ function getPaymentBadge(treatment?: Treatment) {
   return { label: '결제 대기', style: styles.pendingBadge, textStyle: styles.pendingBadgeText };
 }
 
+function isCurrentMonthTreatmentDate(treatmentDate: string) {
+  const now = new Date();
+  const date = new Date(`${treatmentDate}T00:00:00`);
+
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+}
+
+function SummaryStat({
+  label,
+  value,
+  active,
+  valueStyle,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  active?: boolean;
+  valueStyle?: object;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.summaryItem,
+        active && styles.summaryItemActive,
+        pressed && styles.summaryItemPressed,
+      ]}>
+      <Text style={[styles.summaryLabel, active && styles.summaryLabelActive]}>{label}</Text>
+      <Text style={[styles.summaryValue, valueStyle, active && styles.summaryValueActive]}>{value}</Text>
+    </Pressable>
+  );
+}
+
 function DesignerClientCard({
   item,
   onPress,
@@ -141,7 +177,9 @@ export default function DesignerClientsScreen() {
   const insets = useSafeAreaInsets();
   const detailRouter = useRouter();
   const { filter: filterParam } = useLocalSearchParams<{ filter?: string }>();
+  const monthOnly = filterParam === 'month';
   const escrowOnly = filterParam === 'escrow';
+  const listFilterActive = monthOnly || escrowOnly;
   const [clientItems, setClientItems] = useState<DesignerClientListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -174,6 +212,10 @@ export default function DesignerClientsScreen() {
   const visibleItems = useMemo(() => {
     let items = clientItems;
 
+    if (monthOnly) {
+      items = items.filter((item) => isCurrentMonthTreatmentDate(item.treatmentDate));
+    }
+
     if (escrowOnly) {
       items = items.filter(
         (item) =>
@@ -199,7 +241,7 @@ export default function DesignerClientsScreen() {
 
       return haystack.includes(query);
     });
-  }, [clientItems, escrowOnly, searchQuery]);
+  }, [clientItems, escrowOnly, monthOnly, searchQuery]);
 
   const clientGroups = useMemo(
     () => groupDesignerClientListItems(visibleItems),
@@ -207,14 +249,15 @@ export default function DesignerClientsScreen() {
   );
 
   const searchActive = searchQuery.trim().length > 0;
+  const autoExpandGroups = searchActive || listFilterActive;
 
   const isGroupExpanded = useCallback(
-    (groupKey: string) => searchActive || expandedGroupKeys.has(groupKey),
-    [expandedGroupKeys, searchActive],
+    (groupKey: string) => autoExpandGroups || expandedGroupKeys.has(groupKey),
+    [autoExpandGroups, expandedGroupKeys],
   );
 
   const toggleGroup = useCallback((groupKey: string) => {
-    if (searchActive) {
+    if (autoExpandGroups) {
       return;
     }
 
@@ -229,21 +272,32 @@ export default function DesignerClientsScreen() {
 
       return next;
     });
-  }, [searchActive]);
+  }, [autoExpandGroups]);
 
   const summary = useMemo(() => {
-    const now = new Date();
-
     return {
-      monthCount: clientItems.filter((item) => {
-        const date = new Date(`${item.treatmentDate}T00:00:00`);
-        return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
-      }).length,
+      monthCount: clientItems.filter((item) => isCurrentMonthTreatmentDate(item.treatmentDate)).length,
       waitingCount: clientItems.filter(
         (item) => item.treatment && normalizePaymentStatus(item.treatment.payment_status) === 'escrow',
       ).length,
     };
   }, [clientItems]);
+
+  const applyListFilter = useCallback(
+    (filter: 'month' | 'escrow') => {
+      if (filterParam === filter) {
+        router.setParams({ filter: '' });
+        return;
+      }
+
+      router.setParams({ filter });
+    },
+    [filterParam],
+  );
+
+  const clearListFilter = useCallback(() => {
+    router.setParams({ filter: '' });
+  }, []);
 
   const handleReinvite = (item: DesignerClientListItem) => {
     if (!item.invitationId || !item.treatmentId) {
@@ -297,16 +351,30 @@ export default function DesignerClientsScreen() {
         ) : null}
 
         <View style={styles.summaryCard}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>이번 달 시술</Text>
-            <Text style={styles.summaryValue}>{summary.monthCount}건</Text>
-          </View>
+          <SummaryStat
+            active={monthOnly}
+            label="이번 달 시술"
+            value={`${summary.monthCount}건`}
+            onPress={() => applyListFilter('month')}
+          />
           <View style={styles.summaryDivider} />
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>정산 대기</Text>
-            <Text style={[styles.summaryValue, styles.waitingValue]}>{summary.waitingCount}건</Text>
-          </View>
+          <SummaryStat
+            active={escrowOnly}
+            label="정산 대기"
+            value={`${summary.waitingCount}건`}
+            valueStyle={styles.waitingValue}
+            onPress={() => applyListFilter('escrow')}
+          />
         </View>
+
+        {listFilterActive ? (
+          <Pressable onPress={clearListFilter} style={styles.filterBanner}>
+            <Text style={styles.filterBannerText}>
+              {monthOnly ? '이번 달 시술만 보는 중' : '정산 대기만 보는 중'}
+            </Text>
+            <Text style={styles.filterBannerAction}>전체 보기</Text>
+          </Pressable>
+        ) : null}
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -324,7 +392,23 @@ export default function DesignerClientsScreen() {
             title="아직 고객이 없어요"
           />
         ) : visibleItems.length === 0 ? (
-          <EmptyState icon="🔍" title="검색 결과가 없어요" subtitle="다른 검색어를 시도해보세요" />
+          <EmptyState
+            icon={listFilterActive ? '📋' : '🔍'}
+            title={
+              monthOnly
+                ? '이번 달 시술이 없어요'
+                : escrowOnly
+                  ? '정산 대기 시술이 없어요'
+                  : '검색 결과가 없어요'
+            }
+            subtitle={
+              listFilterActive
+                ? '전체 보기로 돌아가거나 다른 조건을 선택해 보세요'
+                : '다른 검색어를 시도해보세요'
+            }
+            actionLabel={listFilterActive ? '전체 보기' : undefined}
+            onAction={listFilterActive ? clearListFilter : undefined}
+          />
         ) : (
           <View style={styles.list}>
             {clientGroups.map((group) => {
@@ -439,17 +523,54 @@ const styles = StyleSheet.create({
   summaryItem: {
     flex: 1,
     alignItems: 'center',
+    borderRadius: 16,
     gap: 6,
+    paddingVertical: 4,
+  },
+  summaryItemActive: {
+    backgroundColor: '#FFF5F5',
+  },
+  summaryItemPressed: {
+    opacity: 0.88,
   },
   summaryLabel: {
     color: '#6B6B7B',
     fontSize: 13,
     fontWeight: '700',
   },
+  summaryLabelActive: {
+    color: '#FF5A5F',
+  },
   summaryValue: {
     color: '#1A1A2E',
     fontSize: 26,
     fontWeight: '900',
+  },
+  summaryValueActive: {
+    color: '#FF5A5F',
+  },
+  filterBanner: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFD4D5',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+    marginTop: -8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  filterBannerText: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  filterBannerAction: {
+    color: '#FF5A5F',
+    fontSize: 13,
+    fontWeight: '800',
   },
   waitingValue: {
     color: '#FF5A5F',
