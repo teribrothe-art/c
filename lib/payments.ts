@@ -21,7 +21,8 @@ import { withRetry } from './payment-retry';
 import { normalizePaymentStatus } from './payment-status';
 import { supabase } from './supabase';
 import { resolveTreatmentCustomerForPayment } from './payment-customer';
-import { createTossOrderId, isTossConfigured as isTossKeyConfigured } from './toss';
+import { isLocalPaymentSimulation } from './payment-config';
+import { createTossOrderId } from './toss';
 import { isDesignerSettlementInputComplete } from './treatment-settlement';
 import { getTreatmentById, Treatment, updateTreatment } from './treatments';
 
@@ -51,12 +52,22 @@ function assertDesignerOwnership(treatment: Treatment, designerId: string) {
 
 function assertCustomerOwnership(treatment: Treatment, customerId: string) {
   if (treatment.customer_id && treatment.customer_id !== customerId) {
-    if (isDemoAuthMode) {
+    if (isDemoAuthMode || isLocalPaymentSimulation()) {
       return;
     }
 
     throw new Error('이 시술은 다른 고객 계정에 연결되어 있어요.');
   }
+}
+
+/** 결제 서버 없이 테스트 — 버튼 한 번으로 결제·에스크로까지 반영 */
+export async function completeLocalTestPayment(treatmentId: string, orderId?: string) {
+  const resolvedOrderId = orderId ?? createTossOrderId(treatmentId);
+
+  return handleTossPaymentSuccess(treatmentId, {
+    paymentKey: `local_test_${Date.now()}`,
+    orderId: resolvedOrderId,
+  });
 }
 
 export async function assertCanPayTreatment(treatmentId: string) {
@@ -162,11 +173,9 @@ export async function handleTossPaymentSuccess(
   const amount = treatment.price ?? 0;
   const { platformFee, designerPayout } = calculatePayout(amount);
   const now = new Date().toISOString();
-  const receiptUrl = buildTossReceiptUrl(input.paymentKey);
-
-  if (!isDemoAuthMode && supabase && isTossKeyConfigured()) {
-    // TODO: Edge Function에서 paymentKey 승인 후 receiptUrl 갱신
-  }
+  const receiptUrl = isLocalPaymentSimulation()
+    ? null
+    : buildTossReceiptUrl(input.paymentKey);
 
   try {
     await withRetry(() => ensurePaymentRecordForTreatment(treatmentId), { maxAttempts: 3 });
@@ -214,6 +223,10 @@ export async function handleTossPaymentFailure(treatmentId: string) {
 }
 
 export async function completeCustomerPayment(treatmentId: string, tossPaymentKey?: string) {
+  if (isLocalPaymentSimulation()) {
+    return completeLocalTestPayment(treatmentId);
+  }
+
   const orderId = createTossOrderId(treatmentId);
   return handleTossPaymentSuccess(treatmentId, {
     paymentKey: tossPaymentKey ?? `demo-payment-${Date.now()}`,

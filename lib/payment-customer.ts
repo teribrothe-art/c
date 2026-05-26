@@ -1,4 +1,5 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
+import { isLocalPaymentSimulation } from './payment-config';
 import { getTreatmentById, Treatment, updateTreatment } from './treatments';
 
 /** 결제 시 고객 ID를 확정하고, 필요 시 시술에 고객을 연결합니다. */
@@ -32,10 +33,10 @@ export async function resolveTreatmentCustomerForPayment(treatmentId: string) {
     return treatment;
   }
 
-  if (isDemoAuthMode) {
+  if (isDemoAuthMode || isLocalPaymentSimulation()) {
     const updated = await updateTreatment(treatmentId, {
       customer_id: user.id,
-      customer_name: treatment.customer_name?.trim() || undefined,
+      customer_name: treatment.customer_name?.trim() || user.email,
     });
 
     return updated;

@@ -3,6 +3,7 @@ import { loadTossPayments } from '@tosspayments/payment-sdk';
 import { Platform } from 'react-native';
 
 import { isDemoAuthMode } from './auth';
+import { isLocalPaymentSimulation } from './payment-config';
 
 const APP_SCHEME = 'hairdiaryapp';
 
@@ -276,6 +277,10 @@ function isExpoGoRuntime() {
  * test_ck 샌드박스는 RN WebView에서 카드 결제·리다이렉트가 자주 막혀 무반응처럼 보입니다.
  */
 export function shouldUseInAppDemoPayment() {
+  if (isLocalPaymentSimulation()) {
+    return true;
+  }
+
   if (Platform.OS === 'web') {
     return false;
   }

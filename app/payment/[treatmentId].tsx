@@ -15,8 +15,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { showErrorAlert } from '../../lib/alerts';
 import { getErrorMessage } from '../../lib/errors';
 import { navigateBackOrReplace } from '../../lib/navigation';
+import { isLocalPaymentSimulation } from '../../lib/payment-config';
 import { ensurePaymentRecordForTreatment } from '../../lib/payment-record';
 import {
+  completeLocalTestPayment,
   handleTossPaymentFailure,
   handleTossPaymentSuccess,
   preparePaymentSession,
@@ -205,18 +207,15 @@ export default function CustomerPaymentScreen() {
       setIsPaying(true);
 
       const { orderId } = await preparePaymentSession(treatmentId);
-      const orderName = `${treatment.treatment_type} · ${treatment.treatment_title}`;
-      const clientKey = getTossClientKey();
-      const useInAppDemo = shouldUseInAppDemoPayment();
 
-      if (useInAppDemo) {
-        await handleTossPaymentSuccess(treatmentId, {
-          paymentKey: `demo_${Date.now()}`,
-          orderId,
-        });
+      if (shouldUseInAppDemoPayment()) {
+        await completeLocalTestPayment(treatmentId, orderId);
         setIsSuccess(true);
         return;
       }
+
+      const orderName = `${treatment.treatment_type} · ${treatment.treatment_title}`;
+      const clientKey = getTossClientKey();
 
       if (shouldUsePaymentWebView()) {
         const html = buildTossPaymentWebViewHtml({
@@ -380,12 +379,19 @@ export default function CustomerPaymentScreen() {
           <Text style={styles.noticeSub}>에스크로 방식으로 안전하게 보관됩니다</Text>
         </View>
 
-        {shouldUseInAppDemoPayment() ? (
+        {isLocalPaymentSimulation() ? (
           <View style={styles.testCardBox}>
             <Text style={styles.testCardTitle}>테스트 결제 모드</Text>
             <Text style={styles.demoHint}>
-              아래 「테스트 결제하기」를 누르면 샌드박스(test_ck) 기준으로 즉시 결제 완료됩니다.
-              실제 카드·최종 결제는 live 키 + 개발 빌드(앱스킴 등록)에서 진행하세요.
+              결제 서버 연동 없이 앱 안에서만 진행됩니다. 「결제하기」를 누르면 결제 완료 → 에스크로
+              보관 → 디자이너 정산까지 이어집니다. 실제 토스 연동은 나중에 설정에서 켤 수 있습니다.
+            </Text>
+          </View>
+        ) : shouldUseInAppDemoPayment() ? (
+          <View style={styles.testCardBox}>
+            <Text style={styles.testCardTitle}>샌드박스 테스트</Text>
+            <Text style={styles.demoHint}>
+              test_ck · Expo Go에서는 「테스트 결제하기」로 즉시 완료됩니다.
             </Text>
           </View>
         ) : null}
@@ -434,7 +440,9 @@ export default function CustomerPaymentScreen() {
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <Text style={styles.payButtonText}>
-              {shouldUseInAppDemoPayment() ? `${formatWon(amount)} 테스트 결제하기` : `${formatWon(amount)} 결제하기`}
+              {shouldUseInAppDemoPayment()
+                ? `${formatWon(amount)} ${isLocalPaymentSimulation() ? '결제하기' : '테스트 결제하기'}`
+                : `${formatWon(amount)} 결제하기`}
             </Text>
           )}
         </Pressable>
