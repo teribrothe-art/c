@@ -85,6 +85,7 @@ import {
 } from '../../../lib/treatment-ai-insight';
 import {
   filterTreatmentsForSameCustomer,
+  formatTreatmentPositionLabel,
   getTreatmentNavigation,
 } from '../../../lib/treatment-navigation';
 import { getDesignerTreatments, getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
@@ -923,7 +924,7 @@ export default function DesignerTreatmentInputScreen() {
                 newerId={recordNav.newerId}
                 olderId={recordNav.olderId}
                 onNavigate={(targetId) => router.replace(`/designer/treatment/${targetId}`)}
-                positionLabel={`${recordNav.index + 1} / ${recordNav.total}`}
+                positionLabel={formatTreatmentPositionLabel(recordNav.index, recordNav.total)}
               />
             ) : null}
 
