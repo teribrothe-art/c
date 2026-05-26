@@ -249,15 +249,14 @@ export default function DesignerClientsScreen() {
   );
 
   const searchActive = searchQuery.trim().length > 0;
-  const autoExpandGroups = searchActive || listFilterActive;
 
   const isGroupExpanded = useCallback(
-    (groupKey: string) => autoExpandGroups || expandedGroupKeys.has(groupKey),
-    [autoExpandGroups, expandedGroupKeys],
+    (groupKey: string) => searchActive || expandedGroupKeys.has(groupKey),
+    [expandedGroupKeys, searchActive],
   );
 
   const toggleGroup = useCallback((groupKey: string) => {
-    if (autoExpandGroups) {
+    if (searchActive) {
       return;
     }
 
@@ -272,7 +271,7 @@ export default function DesignerClientsScreen() {
 
       return next;
     });
-  }, [autoExpandGroups]);
+  }, [searchActive]);
 
   const summary = useMemo(() => {
     return {
