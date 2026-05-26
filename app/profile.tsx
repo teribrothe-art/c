@@ -17,6 +17,7 @@ import { LoadingState } from '../src/components/loading-state';
 import { getProfileAvatarUri } from '../lib/profile-update';
 import { getCurrentSettlementMonthKey } from '../lib/designer-payment-stats';
 import { getProfileScreenData, ProfileData, ProfileStats } from '../lib/profile';
+import { safeNavigate } from '../lib/safe-navigate';
 import { BottomTabBar } from '../src/components/bottom-tab-bar';
 import { DesignerBottomTabBar } from '../src/components/designer-bottom-tab-bar';
 
@@ -144,13 +145,13 @@ function ActivityCard({ stats }: { stats: ProfileStats }) {
       <StatRow
         label="누적 정산 총액"
         value={formatCurrency(stats.totalSettlementAmount)}
-        onPress={() => router.push('/designer/revenue')}
+        onPress={() => safeNavigate('/designer/revenue')}
       />
       <StatRow
         label="이번 달 정산"
         value={formatCurrency(stats.monthSettlementAmount)}
         onPress={() =>
-          router.push({
+          safeNavigate({
             pathname: '/designer/revenue',
             params: { month: currentMonthKey },
           })
@@ -164,7 +165,7 @@ function ActivityCard({ stats }: { stats: ProfileStats }) {
               label={month.label}
               value={formatCurrency(month.amount)}
               onPress={() =>
-                router.push({
+                safeNavigate({
                   pathname: '/designer/revenue',
                   params: { month: month.monthKey },
                 })

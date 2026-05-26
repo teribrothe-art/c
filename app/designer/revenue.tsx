@@ -1,5 +1,5 @@
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -52,9 +52,18 @@ export default function DesignerRevenueScreen() {
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const selectedMonthKeyRef = useRef<string | undefined>(undefined);
+  const selectedWeekKeyRef = useRef<string | undefined>(undefined);
+  const routeMonthHandledRef = useRef<string | null>(null);
+  const hasLoadedOnceRef = useRef(false);
+
+  selectedMonthKeyRef.current = selectedMonthKey;
+  selectedWeekKeyRef.current = selectedWeekKey;
 
   const loadRevenue = useCallback((monthKey?: string, weekKey?: string) => {
-    setIsLoading(true);
+    if (!hasLoadedOnceRef.current) {
+      setIsLoading(true);
+    }
 
     fetchDesignerRevenueAnalytics(monthKey, weekKey)
       .then((data) => {
@@ -77,6 +86,7 @@ export default function DesignerRevenueScreen() {
           return withRevenue?.date ?? data.selectedWeek.days[0]?.date ?? null;
         });
         setErrorMessage('');
+        hasLoadedOnceRef.current = true;
       })
       .catch((error) => {
         setErrorMessage(getErrorMessage(error, '매출 데이터를 불러오지 못했습니다.'));
@@ -89,6 +99,11 @@ export default function DesignerRevenueScreen() {
       const monthFromRoute = typeof monthParam === 'string' ? monthParam.trim() : '';
 
       if (monthFromRoute) {
+        if (routeMonthHandledRef.current === monthFromRoute) {
+          return;
+        }
+
+        routeMonthHandledRef.current = monthFromRoute;
         setSelectedMonthKey(monthFromRoute);
         setSelectedWeekKey(undefined);
         setSelectedDayDate(null);
@@ -96,8 +111,9 @@ export default function DesignerRevenueScreen() {
         return;
       }
 
-      loadRevenue(selectedMonthKey, selectedWeekKey);
-    }, [loadRevenue, monthParam, selectedMonthKey, selectedWeekKey]),
+      routeMonthHandledRef.current = null;
+      loadRevenue(selectedMonthKeyRef.current, selectedWeekKeyRef.current);
+    }, [loadRevenue, monthParam]),
   );
 
   const monthlyChartPoints = useMemo(
@@ -159,6 +175,12 @@ export default function DesignerRevenueScreen() {
   const handleSelectMonth = (monthKey: string) => {
     if (monthKey === selectedMonthKey) {
       return;
+    }
+
+    routeMonthHandledRef.current = monthKey;
+
+    if (typeof monthParam === 'string' && monthParam.trim()) {
+      router.setParams({ month: '' });
     }
 
     setSelectedMonthKey(monthKey);
