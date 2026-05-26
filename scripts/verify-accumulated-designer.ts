@@ -73,8 +73,8 @@ function main() {
 
   console.log('앱에서 확인할 화면');
   console.log('  1. 로그인 → 「3년 누적 테스트 디자이너 로그인」 버튼');
-  console.log('  2. 마이 → 내 활동 (누적·월별 정산)');
-  console.log('  3. 고객 탭 (10명·시술 목록)');
+  console.log('  2. 정산 탭 (누적·월별 정산)');
+  console.log('  3. 자산 탭 (10명·시술 목록)');
   console.log('  4. 매출 탭 (월별 차트)');
   console.log('  5. 시술 상세 → 결제·정산 상태\n');
 

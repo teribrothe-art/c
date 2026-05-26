@@ -94,7 +94,7 @@ export default function DesignerInputScreen() {
           { paddingTop: insets.top + 20, paddingBottom: Math.max(insets.bottom, 20) + 100 },
         ]}
         showsVerticalScrollIndicator={false}>
-        <Text style={styles.pageTitle}>새 시술 입력</Text>
+        <Text style={styles.pageTitle}>시술</Text>
 
         <View style={styles.heroCard}>
           <Text style={styles.heroTitle}>어떤 시술을 추가할까요?</Text>

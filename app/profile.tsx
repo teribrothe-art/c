@@ -136,7 +136,7 @@ function ActivityCard({ stats }: { stats: ProfileStats }) {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>📊 내 활동</Text>
+      <Text style={styles.cardTitle}>📊 정산</Text>
       <StatRow
         label="누적 시술 건수"
         value={`${stats.treatmentCount}건`}
