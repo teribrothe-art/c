@@ -1,7 +1,6 @@
 import * as Linking from 'expo-linking';
 import { useRootNavigationState, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { InteractionManager } from 'react-native';
 
 import { redeemInviteForCurrentUser } from '../../lib/apply-pending-invite';
 import { getCurrentUser } from '../../lib/auth';
@@ -53,10 +52,12 @@ export function InviteDeepLinkHandler() {
 
     handledInitial.current = true;
 
-    const task = InteractionManager.runAfterInteractions(() => {
+    let cancelled = false;
+
+    const timeout = setTimeout(() => {
       Linking.getInitialURL()
         .then((url) => {
-          if (!url) {
+          if (cancelled || !url) {
             return;
           }
 
@@ -64,9 +65,12 @@ export function InviteDeepLinkHandler() {
           return routeInviteCode(code, router);
         })
         .catch(() => undefined);
-    });
+    }, 0);
 
-    return () => task.cancel();
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
   }, [navigationReady, router]);
 
   useEffect(() => {

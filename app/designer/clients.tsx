@@ -1,5 +1,4 @@
-import { router, useRouter } from 'expo-router';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   Pressable,
@@ -15,11 +14,11 @@ import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-b
 import { getErrorMessage } from '../../lib/errors';
 import { normalizePaymentStatus } from '../../lib/payment-status';
 import {
-  createCustomerInvitation,
   DesignerClientListItem,
-  expireInvitation,
   getDesignerClientListItems,
+  renewCustomerInvitation,
 } from '../../lib/customer-invitations';
+import { groupDesignerClientListItems } from '../../lib/designer-client-groups';
 import {
   DESIGNER_ONBOARDING_SLIDES,
   markOnboardingSeen,
@@ -81,10 +80,12 @@ function DesignerClientCard({
   item,
   onPress,
   onReinvite,
+  showCustomerName = true,
 }: {
   item: DesignerClientListItem;
   onPress: () => void;
   onReinvite?: () => void;
+  showCustomerName?: boolean;
 }) {
   const inviteBadge = getInviteBadgeMeta(item.inviteStatus);
   const paymentBadge = item.isRegistered ? getPaymentBadge(item.treatment) : inviteBadge;
@@ -96,7 +97,9 @@ function DesignerClientCard({
       </View>
       <View style={styles.clientInfo}>
         <View style={styles.cardTopRow}>
-          <Text style={styles.customerName}>{item.customerName}</Text>
+          <Text style={styles.customerName}>
+            {showCustomerName ? item.customerName : item.treatmentTitle}
+          </Text>
           {paymentBadge ? (
             <View style={[styles.statusBadge, paymentBadge.style]}>
               <Text style={[styles.statusText, paymentBadge.textStyle]}>{paymentBadge.label}</Text>
@@ -106,18 +109,20 @@ function DesignerClientCard({
         <Text style={styles.treatmentMeta}>
           {formatDate(item.treatmentDate)} · {item.treatment?.treatment_type ?? '시술'}
         </Text>
-        <Text style={styles.treatmentTitle}>{item.treatmentTitle}</Text>
+        {showCustomerName ? <Text style={styles.treatmentTitle}>{item.treatmentTitle}</Text> : null}
         {item.inviteCode && item.inviteStatus === 'pending' ? (
           <Text style={styles.inviteCodeText}>코드 {item.inviteCode}</Text>
         ) : null}
-        {item.inviteStatus === 'expired' && onReinvite ? (
+        {(item.inviteStatus === 'pending' || item.inviteStatus === 'expired') && onReinvite ? (
           <Pressable
             onPress={(event) => {
               event.stopPropagation?.();
               onReinvite();
             }}
             style={styles.reinviteButton}>
-            <Text style={styles.reinviteText}>재초대</Text>
+            <Text style={styles.reinviteText}>
+              {item.inviteStatus === 'pending' ? '초대 다시 보내기' : '재초대'}
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -128,6 +133,8 @@ function DesignerClientCard({
 export default function DesignerClientsScreen() {
   const insets = useSafeAreaInsets();
   const detailRouter = useRouter();
+  const { filter: filterParam } = useLocalSearchParams<{ filter?: string }>();
+  const escrowOnly = filterParam === 'escrow';
   const [clientItems, setClientItems] = useState<DesignerClientListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -157,13 +164,22 @@ export default function DesignerClientsScreen() {
   );
 
   const visibleItems = useMemo(() => {
+    let items = clientItems;
+
+    if (escrowOnly) {
+      items = items.filter(
+        (item) =>
+          item.treatment && normalizePaymentStatus(item.treatment.payment_status) === 'escrow',
+      );
+    }
+
     const query = searchQuery.trim().toLowerCase();
 
     if (!query) {
-      return clientItems;
+      return items;
     }
 
-    return clientItems.filter((item) => {
+    return items.filter((item) => {
       const haystack = [
         item.customerName,
         item.treatmentTitle,
@@ -175,7 +191,12 @@ export default function DesignerClientsScreen() {
 
       return haystack.includes(query);
     });
-  }, [clientItems, searchQuery]);
+  }, [clientItems, escrowOnly, searchQuery]);
+
+  const clientGroups = useMemo(
+    () => groupDesignerClientListItems(visibleItems),
+    [visibleItems],
+  );
 
   const summary = useMemo(() => {
     const now = new Date();
@@ -192,18 +213,18 @@ export default function DesignerClientsScreen() {
   }, [clientItems]);
 
   const handleReinvite = (item: DesignerClientListItem) => {
-    if (!item.invitationId) {
+    if (!item.invitationId || !item.treatmentId) {
       return;
     }
 
     Promise.resolve()
       .then(async () => {
-        await expireInvitation(item.invitationId!);
-        await createCustomerInvitation({
+        await renewCustomerInvitation({
+          invitationId: item.invitationId!,
           treatmentId: item.treatmentId,
-          customerName: item.customerName,
+          customerName: item.treatment?.customer_name?.trim() || item.customerName,
         });
-        showSuccessAlert('새 초대 코드를 만들었어요.');
+        showSuccessAlert('새 초대 코드를 만들었어요. 이전 코드는 더 이상 사용할 수 없어요.');
         loadClients();
       })
       .catch((error) => {
@@ -217,7 +238,7 @@ export default function DesignerClientsScreen() {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.title}>내 고객들</Text>
+          <Text style={styles.title}>내 자산</Text>
           <View style={styles.headerActions}>
             <Pressable
               onPress={() => setSearchOpen((open) => !open)}
@@ -273,13 +294,29 @@ export default function DesignerClientsScreen() {
           <EmptyState icon="🔍" title="검색 결과가 없어요" subtitle="다른 검색어를 시도해보세요" />
         ) : (
           <View style={styles.list}>
-            {visibleItems.map((item) => (
-              <DesignerClientCard
-                key={item.key}
-                item={item}
-                onPress={() => detailRouter.push(`/designer/treatment/${item.treatmentId}`)}
-                onReinvite={() => handleReinvite(item)}
-              />
+            {clientGroups.map((group) => (
+              <View key={group.key} style={styles.clientGroup}>
+                <View style={styles.groupHeader}>
+                  <View style={styles.groupAvatar}>
+                    <Text style={styles.groupAvatarText}>{getInitial(group.customerName)}</Text>
+                  </View>
+                  <View style={styles.groupHeaderText}>
+                    <Text style={styles.groupTitle}>{group.customerName}</Text>
+                    <Text style={styles.groupMeta}>시술 {group.items.length}건</Text>
+                  </View>
+                </View>
+                <View style={styles.groupCards}>
+                  {group.items.map((item) => (
+                    <DesignerClientCard
+                      key={item.key}
+                      item={item}
+                      showCustomerName={false}
+                      onPress={() => detailRouter.push(`/designer/treatment/${item.treatmentId}`)}
+                      onReinvite={() => handleReinvite(item)}
+                    />
+                  ))}
+                </View>
+              </View>
             ))}
           </View>
         )}
@@ -377,7 +414,46 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFEFF4',
   },
   list: {
-    gap: 14,
+    gap: 22,
+  },
+  clientGroup: {
+    gap: 10,
+  },
+  groupHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 4,
+  },
+  groupAvatar: {
+    alignItems: 'center',
+    backgroundColor: '#FFD4D5',
+    borderRadius: 20,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  groupAvatarText: {
+    color: '#FF5A5F',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  groupHeaderText: {
+    flex: 1,
+    gap: 2,
+  },
+  groupTitle: {
+    color: '#1A1A2E',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  groupMeta: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  groupCards: {
+    gap: 10,
   },
   clientCard: {
     alignItems: 'flex-start',
