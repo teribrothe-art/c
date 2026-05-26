@@ -15,7 +15,10 @@ import { getErrorMessage } from '../../lib/errors';
 import { getCustomerPaymentBadge, type CustomerPaymentBadge } from '../../lib/payment-status';
 import { normalizePaymentStatus } from '../../lib/payment-status';
 import { getPaymentByTreatmentId } from '../../lib/payments';
-import { getTreatmentNavigation } from '../../lib/treatment-navigation';
+import {
+  formatTreatmentPositionLabel,
+  getTreatmentNavigation,
+} from '../../lib/treatment-navigation';
 import { getTreatmentById, getTreatments, Treatment } from '../../lib/treatments';
 import { LoadingState } from '../../src/components/loading-state';
 
@@ -179,7 +182,7 @@ export default function TreatmentDetailScreen() {
                 newerId={recordNav.newerId}
                 olderId={recordNav.olderId}
                 onNavigate={(targetId) => router.replace(`/treatment/${targetId}`)}
-                positionLabel={`${recordNav.index + 1} / ${recordNav.total}`}
+                positionLabel={formatTreatmentPositionLabel(recordNav.index, recordNav.total)}
               />
             ) : null}
 

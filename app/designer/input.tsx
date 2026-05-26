@@ -23,8 +23,10 @@ import {
   titlePresetsForType,
 } from '../../lib/treatment-options';
 import { parseWonAmount } from '../../lib/currency-input';
+import { parseProductsInput } from '../../lib/treatment-options';
 import { createDesignerTreatment } from '../../lib/treatments';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
+import { ScalpProductPicker } from '../../src/components/scalp-product-picker';
 import { TreatmentOptionChips } from '../../src/components/treatment-option-chips';
 import { WonAmountInput } from '../../src/components/won-amount-input';
 
@@ -36,6 +38,7 @@ export default function DesignerInputScreen() {
   const [priceText, setPriceText] = useState('');
   const [duration, setDuration] = useState(DEFAULT_TREATMENT_DURATION);
   const [treatmentTitle, setTreatmentTitle] = useState('');
+  const [productsText, setProductsText] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
   const openCreateModal = (type: string) => {
@@ -43,6 +46,7 @@ export default function DesignerInputScreen() {
     setDuration(DEFAULT_TREATMENT_DURATION);
     setTreatmentTitle(defaultTreatmentTitle(type));
     setPriceText('');
+    setProductsText('');
     setModalVisible(true);
   };
 
@@ -61,12 +65,15 @@ export default function DesignerInputScreen() {
 
     try {
       setIsCreating(true);
+      const products = parseProductsInput(productsText);
+
       const treatment = await createDesignerTreatment({
         customerName,
         treatmentType: selectedType,
         treatmentTitle: treatmentTitle.trim() || defaultTreatmentTitle(selectedType),
         duration,
         price,
+        products: products.length ? products : undefined,
       });
 
       setModalVisible(false);
@@ -114,6 +121,10 @@ export default function DesignerInputScreen() {
 
       <Modal animationType="slide" transparent visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalBackdrop}>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.modalScrollContent}
+            showsVerticalScrollIndicator={false}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{selectedType} 시술 추가</Text>
 
@@ -171,6 +182,14 @@ export default function DesignerInputScreen() {
               onChangeValue={setPriceText}
             />
 
+            <Text style={styles.label}>두피·모발 제품 (선택)</Text>
+            <ScalpProductPicker
+              maxHeight={200}
+              treatmentType={selectedType}
+              value={productsText}
+              onChange={setProductsText}
+            />
+
             <Pressable
               disabled={isCreating}
               onPress={() => void handleCreate()}
@@ -190,6 +209,7 @@ export default function DesignerInputScreen() {
               <Text style={styles.cancelText}>취소</Text>
             </Pressable>
           </View>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -276,6 +296,10 @@ const styles = StyleSheet.create({
   modalBackdrop: {
     backgroundColor: 'rgba(26, 26, 46, 0.45)',
     flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalScrollContent: {
+    flexGrow: 1,
     justifyContent: 'flex-end',
   },
   modalCard: {
