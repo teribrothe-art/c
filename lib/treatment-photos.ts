@@ -25,6 +25,29 @@ export function getTreatmentPhotoColumn(kind: TreatmentPhotoKind) {
   return kind === 'before' ? 'before_photo_url' : 'after_photo_url';
 }
 
+/** 슬롯 미리보기용 — 로컬 URI 우선, Supabase는 signed URL */
+export async function resolveTreatmentPhotoPreviewUrl(
+  storagePath: string | null | undefined,
+  localFallback?: string | null,
+): Promise<string | null> {
+  const fallback = localFallback && isDisplayableImageUri(localFallback) ? localFallback : null;
+
+  if (!storagePath) {
+    return fallback;
+  }
+
+  if (isDisplayableImageUri(storagePath)) {
+    return storagePath;
+  }
+
+  try {
+    const signed = await getTreatmentPhotoSignedUrl(storagePath);
+    return signed ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function getTreatmentPhotoSignedUrl(
   storagePath: string | null | undefined,
 ): Promise<string | null> {
@@ -37,7 +60,7 @@ export async function getTreatmentPhotoSignedUrl(
   }
 
   if (isDemoAuthMode || !supabase) {
-    return null;
+    return isDisplayableImageUri(storagePath) ? storagePath : null;
   }
 
   const { data, error } = await supabase.storage

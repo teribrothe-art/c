@@ -20,8 +20,8 @@ import { parseWonAmount, sanitizeWonDigits } from '../../../lib/currency-input';
 import { prepareImageForUpload } from '../../../lib/prepare-upload-image';
 import { WonAmountInput } from '../../../src/components/won-amount-input';
 import {
-  getTreatmentPhotoSignedUrl,
   pickTreatmentPhotoFromLibrary,
+  resolveTreatmentPhotoPreviewUrl,
   removeTreatmentPhoto,
   TreatmentPhotoKind,
   uploadTreatmentPhoto,
@@ -296,8 +296,8 @@ export default function DesignerTreatmentInputScreen() {
         setTreatment(resolvedTreatment);
         setPaymentRecord(payment);
         const [beforePreview, afterPreview] = await Promise.all([
-          getTreatmentPhotoSignedUrl(resolvedTreatment.before_photo_url),
-          getTreatmentPhotoSignedUrl(resolvedTreatment.after_photo_url),
+          resolveTreatmentPhotoPreviewUrl(resolvedTreatment.before_photo_url),
+          resolveTreatmentPhotoPreviewUrl(resolvedTreatment.after_photo_url),
         ]);
         setPhotoPreviews({ before: beforePreview, after: afterPreview });
         setErrorMessage('');
@@ -720,10 +720,16 @@ export default function DesignerTreatmentInputScreen() {
   };
 
 
-  const refreshPhotoPreview = async (nextTreatment: Treatment) => {
+  const refreshPhotoPreview = async (
+    nextTreatment: Treatment,
+    localFallback?: Partial<Record<TreatmentPhotoKind, string>>,
+  ) => {
     const [before, after] = await Promise.all([
-      getTreatmentPhotoSignedUrl(nextTreatment.before_photo_url),
-      getTreatmentPhotoSignedUrl(nextTreatment.after_photo_url),
+      resolveTreatmentPhotoPreviewUrl(
+        nextTreatment.before_photo_url,
+        localFallback?.before,
+      ),
+      resolveTreatmentPhotoPreviewUrl(nextTreatment.after_photo_url, localFallback?.after),
     ]);
     setPhotoPreviews({ before, after });
   };
@@ -745,14 +751,12 @@ export default function DesignerTreatmentInputScreen() {
     try {
       const preparedUri =
         Platform.OS === 'web' ? await prepareImageForUpload(localUri) : localUri;
+
+      setPhotoPreviews((current) => ({ ...current, [kind]: preparedUri }));
+
       const updatedTreatment = await uploadTreatmentPhoto(treatment.id, kind, preparedUri);
       setTreatment(updatedTreatment);
-      setPhotoPreviews((current) => ({
-        ...current,
-        [kind]:
-          updatedTreatment[kind === 'before' ? 'before_photo_url' : 'after_photo_url'] ?? preparedUri,
-      }));
-      await refreshPhotoPreview(updatedTreatment);
+      await refreshPhotoPreview(updatedTreatment, { [kind]: preparedUri });
       flashPhotoSuccess(kind);
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
@@ -793,6 +797,7 @@ export default function DesignerTreatmentInputScreen() {
         return;
       }
 
+      setPhotoPreviews((current) => ({ ...current, [kind]: pickedUri }));
       await uploadPreparedPhoto(kind, pickedUri);
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
