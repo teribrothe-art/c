@@ -58,8 +58,14 @@ function monthsBetween(from: Date, to: Date) {
 }
 
 const SEED_START_DATE = new Date(2023, 4, 8);
-/** 주 7일 근무 · 주당 6~8건 × 약 3년 ≈ 1,000건 */
-const TARGET_TOTAL_TREATMENTS = 1000;
+/** 2023~현재 매일 6~9건 — 캘린더 전체에 골고루 분포 (총 1,000건 초과 가능) */
+const DAILY_TREATMENTS_MIN = 6;
+const DAILY_TREATMENTS_MAX = 9;
+
+function dailyTreatmentCountForDay(dayIndex: number) {
+  const span = DAILY_TREATMENTS_MAX - DAILY_TREATMENTS_MIN + 1;
+  return DAILY_TREATMENTS_MIN + (dayIndex % span);
+}
 
 function addDays(date: Date, days: number) {
   const next = new Date(date);
@@ -172,30 +178,22 @@ function isoAt(date: string, hour: number) {
 
 function buildTreatmentDateSlots() {
   const endDate = new Date();
-  const startMs = SEED_START_DATE.getTime();
-  const endMs = endDate.getTime();
-  const calendarDays = Math.max(1, Math.floor((endMs - startMs) / 86400000));
   const slots: string[] = [];
-  let treatmentSeq = 0;
-  let burstIndex = 0;
+  let dayIndex = 0;
 
-  while (treatmentSeq < TARGET_TOTAL_TREATMENTS) {
-    const dailyCount = Math.min(6 + (burstIndex % 3), TARGET_TOTAL_TREATMENTS - treatmentSeq);
-    const progress =
-      TARGET_TOTAL_TREATMENTS <= 1 ? 0 : treatmentSeq / (TARGET_TOTAL_TREATMENTS - 1);
-    const dayOffset = Math.min(
-      calendarDays,
-      Math.round(progress * calendarDays),
-    );
-    const day = addDays(SEED_START_DATE, dayOffset);
-    const treatmentDate = formatDate(day > endDate ? endDate : day);
+  for (
+    let day = new Date(SEED_START_DATE);
+    day.getTime() <= endDate.getTime();
+    day = addDays(day, 1)
+  ) {
+    const dailyCount = dailyTreatmentCountForDay(dayIndex);
+    const treatmentDate = formatDate(day);
 
     for (let slot = 0; slot < dailyCount; slot += 1) {
       slots.push(treatmentDate);
-      treatmentSeq += 1;
     }
 
-    burstIndex += 1;
+    dayIndex += 1;
   }
 
   return slots;
@@ -236,7 +234,9 @@ function computeSeedWorkloadStats(treatments: AccumulatedDemoTreatment[]) {
   return {
     activeDays: dailyCounts.length,
     avgDailyTreatments: Math.round(avgDaily * 10) / 10,
-    weeklyTreatmentsLabel: '일 6~8건 · 주 7일',
+    minDailyTreatments: dailyCounts.length > 0 ? Math.min(...dailyCounts) : 0,
+    maxDailyTreatments: dailyCounts.length > 0 ? Math.max(...dailyCounts) : 0,
+    weeklyTreatmentsLabel: '일 6~9건 · 주 7일',
   };
 }
 
@@ -251,7 +251,9 @@ export const ACCUMULATED_DEMO_SEED_STATS = {
   yearSpanLabel: '2023~현재',
   oldestTreatmentDate: ACCUMULATED_DEMO_TREATMENTS.at(-1)?.treatment_date ?? null,
   newestTreatmentDate: ACCUMULATED_DEMO_TREATMENTS[0]?.treatment_date ?? null,
-  targetTreatmentCount: TARGET_TOTAL_TREATMENTS,
-  weeklyTreatmentsLabel: '일 6~8건 · 주 7일',
+  activeDays: workloadStats.activeDays,
+  weeklyTreatmentsLabel: workloadStats.weeklyTreatmentsLabel,
   avgDailyTreatments: workloadStats.avgDailyTreatments,
+  minDailyTreatments: workloadStats.minDailyTreatments,
+  maxDailyTreatments: workloadStats.maxDailyTreatments,
 } as const;

@@ -50,9 +50,16 @@ function main() {
     '가장 오래된 시술이 2023년대',
   );
   assert(
-    ACCUMULATED_DEMO_TREATMENTS.length >= 950 && ACCUMULATED_DEMO_TREATMENTS.length <= 1050,
-    '시술 약 1,000건 시드',
+    ACCUMULATED_DEMO_TREATMENTS.length >= 1000,
+    '시술 1,000건 이상 시드',
   );
+
+  const perDay = new Map<string, number>();
+  for (const treatment of ACCUMULATED_DEMO_TREATMENTS) {
+    perDay.set(treatment.treatment_date, (perDay.get(treatment.treatment_date) ?? 0) + 1);
+  }
+  const dailyCounts = [...perDay.values()];
+  assert(dailyCounts.every((count) => count >= 6 && count <= 9), '매일 6~9건 분포');
 
   console.log('=== 3년 누적 테스트 디자이너 ===\n');
   console.log('로그인 (데모 모드 · Supabase 미설정)');
