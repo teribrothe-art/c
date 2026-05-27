@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -12,9 +13,10 @@ import {
 
 import { redeemInviteForCurrentUser } from '../lib/apply-pending-invite';
 import { getPostAuthRoute } from '../lib/auth-redirect';
-import { getCurrentUser } from '../lib/auth';
+import { getCurrentUser, isDemoAuthMode, signInWithEmail } from '../lib/auth';
+import { ACCUMULATED_TEST_DESIGNERS_PUBLIC } from '../lib/demo-accumulated-test-accounts';
+import { ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE } from '../lib/demo-accumulated-test-data';
 import { peekPendingInviteCode } from '../lib/pending-invite-code';
-import { signInWithEmail } from '../lib/auth';
 import { showLoginFailureAlert } from '../lib/alerts';
 import { getErrorMessage } from '../lib/errors';
 import { colors, disabledButtonStyle } from '../lib/theme';
@@ -75,6 +77,45 @@ export default function LoginScreen() {
     }
   };
 
+  const handleTestDesignerLogin = async (
+    designer: (typeof ACCUMULATED_TEST_DESIGNERS_PUBLIC)[number],
+  ) => {
+    if (isLoading) {
+      return;
+    }
+
+    setEmail(designer.email);
+    setPassword(designer.password);
+    setLoginError(null);
+    setEmailError(null);
+    setPasswordError(null);
+
+    try {
+      setIsLoading(true);
+      await signInWithEmail({ email: designer.email, password: designer.password });
+
+      const user = await getCurrentUser();
+      const pendingInvite = await peekPendingInviteCode();
+
+      if (user?.role === 'customer' && pendingInvite.length === 6) {
+        const redeemed = await redeemInviteForCurrentUser(pendingInvite);
+
+        if (redeemed) {
+          return;
+        }
+      }
+
+      const nextRoute = await getPostAuthRoute();
+      router.replace(nextRoute);
+    } catch (error) {
+      const message = getErrorMessage(error, '이메일 또는 비밀번호가 올바르지 않습니다.');
+      setLoginError(message);
+      showLoginFailureAlert(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const inputBorder = useMemo(
     () => ({
       email: emailError ? styles.inputError : null,
@@ -87,9 +128,13 @@ export default function LoginScreen() {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>AI 헤어 다이어리</Text>
-        <View style={styles.form}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
+        <View style={styles.content}>
+          <Text style={styles.title}>AI 헤어 다이어리</Text>
+          <View style={styles.form}>
           <View>
             <TextInput
               autoCapitalize="none"
@@ -148,12 +193,48 @@ export default function LoginScreen() {
           </Pressable>
         </View>
 
-        <Link href="/signup" asChild>
-          <Pressable disabled={isLoading} style={styles.signupLink}>
-            <Text style={styles.signupLinkText}>회원가입</Text>
-          </Pressable>
-        </Link>
-      </View>
+          {isDemoAuthMode ? (
+            <View style={styles.demoBox}>
+              <Text style={styles.demoTitle}>데모 · 기능 확인용</Text>
+              {ACCUMULATED_TEST_DESIGNERS_PUBLIC.map((designer) => {
+                const stats = ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE[designer.profileKey];
+                const isOneYear = designer.profileKey === '1y';
+
+                return (
+                  <View key={designer.id} style={styles.demoDesignerBlock}>
+                    <Pressable
+                      disabled={isLoading}
+                      onPress={() => void handleTestDesignerLogin(designer)}
+                      style={({ pressed }) => [
+                        styles.demoButton,
+                        isOneYear ? styles.demoButton1y : styles.demoButton2y,
+                        pressed && styles.demoButtonPressed,
+                      ]}>
+                      <Text style={styles.demoButtonText}>{designer.loginLabel} 로그인</Text>
+                    </Pressable>
+                    <Text style={styles.demoMeta}>ID {designer.id}</Text>
+                    <Text style={styles.demoMeta}>
+                      {designer.email} / {designer.password}
+                    </Text>
+                    {stats ? (
+                      <Text style={styles.demoMeta}>
+                        시술 {stats.treatmentCount}건 · 고객 {stats.customerCount}명 ·{' '}
+                        {stats.yearSpanLabel}
+                      </Text>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
+
+          <Link href="/signup" asChild>
+            <Pressable disabled={isLoading} style={styles.signupLink}>
+              <Text style={styles.signupLinkText}>회원가입</Text>
+            </Pressable>
+          </Link>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -163,11 +244,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  content: {
-    flex: 1,
-    alignItems: 'center',
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 28,
+    paddingVertical: 32,
+  },
+  content: {
+    alignItems: 'center',
+    width: '100%',
   },
   title: {
     color: colors.coral,
@@ -221,5 +306,47 @@ const styles = StyleSheet.create({
     color: colors.coral,
     fontSize: 16,
     fontWeight: '600',
+  },
+  demoBox: {
+    marginTop: 20,
+    width: '100%',
+    backgroundColor: '#F8F8FC',
+    borderRadius: 14,
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  demoTitle: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  demoButton: {
+    alignItems: 'center',
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  demoButton2y: {
+    backgroundColor: '#7B5EE6',
+  },
+  demoButton1y: {
+    backgroundColor: '#00C2A8',
+  },
+  demoButtonPressed: {
+    opacity: 0.88,
+  },
+  demoButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  demoDesignerBlock: {
+    gap: 6,
+    marginTop: 4,
+  },
+  demoMeta: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    lineHeight: 17,
   },
 });

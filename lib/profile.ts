@@ -23,12 +23,14 @@ export type CustomerStats = {
   kind: 'customer';
   treatmentCount: number;
   latestTreatmentDate: string | null;
+  latestTreatmentId: string | null;
   designerCount: number;
 };
 
 export type DesignerStats = {
   kind: 'designer';
   treatmentCount: number;
+  monthTreatmentCount: number;
   totalSettlementAmount: number;
   monthSettlementAmount: number;
   monthlySettlementTotals: MonthlySettlementTotal[];
@@ -36,6 +38,13 @@ export type DesignerStats = {
   regularCustomerCount: number;
   recentSettlements: SettlementListItem[];
 };
+
+function isCurrentMonthTreatmentDate(treatmentDate: string) {
+  const now = new Date();
+  const date = new Date(`${treatmentDate}T00:00:00`);
+
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+}
 
 export type ProfileStats = CustomerStats | DesignerStats;
 
@@ -48,17 +57,18 @@ function computeCustomerStats(treatments: Treatment[]): CustomerStats {
     }
   }
 
-  const latestTreatmentDate =
+  const latestTreatment =
     treatments.length > 0
       ? treatments.reduce((latest, treatment) =>
-          treatment.treatment_date > latest ? treatment.treatment_date : latest,
-        treatments[0].treatment_date)
+          treatment.treatment_date > latest.treatment_date ? treatment : latest,
+        )
       : null;
 
   return {
     kind: 'customer',
     treatmentCount: treatments.length,
-    latestTreatmentDate,
+    latestTreatmentDate: latestTreatment?.treatment_date ?? null,
+    latestTreatmentId: latestTreatment?.id ?? null,
     designerCount: designerIds.size,
   };
 }
@@ -74,6 +84,9 @@ function computeDesignerStatsFromTreatments(treatments: Treatment[]): Omit<Desig
 
   return {
     treatmentCount: treatments.length,
+    monthTreatmentCount: treatments.filter((treatment) =>
+      isCurrentMonthTreatmentDate(treatment.treatment_date),
+    ).length,
     totalSettlementAmount: 0,
     monthSettlementAmount: 0,
     monthlySettlementTotals: [],

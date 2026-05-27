@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { formatWonDisplay, sanitizeWonDigits } from '../../lib/currency-input';
+import { formTextInputStyle } from '../../lib/theme';
 
 type WonAmountInputProps = Omit<TextInputProps, 'value' | 'onChangeText' | 'keyboardType'> & {
   value: string;
@@ -18,10 +19,11 @@ export function WonAmountInput({
     <View style={styles.wrap}>
       <TextInput
         {...rest}
+        keyboardAppearance="light"
         keyboardType="number-pad"
         placeholder={placeholder}
         placeholderTextColor="#9CA3AF"
-        style={[styles.input, style]}
+        style={[styles.input, formTextInputStyle, style]}
         value={formatWonDisplay(value)}
         onChangeText={(text) => onChangeValue(sanitizeWonDigits(text))}
       />

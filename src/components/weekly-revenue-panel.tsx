@@ -7,6 +7,12 @@ const CORAL = '#FF5A5F';
 const MINT = '#00C2A8';
 const PURPLE = '#7B5EE6';
 
+function formatDayDateLabel(date: string) {
+  const [, month, day] = date.split('-');
+
+  return `${Number(month)}.${Number(day)}`;
+}
+
 type WeeklyRevenuePanelProps = {
   weekLabel: string;
   days: WeekdayRevenueCell[];
@@ -81,6 +87,9 @@ export function WeeklyRevenuePanel({
               </Text>
               <Text style={[styles.dayCount, selected && styles.dayCountSelected]}>
                 {day.settlementCount}건
+              </Text>
+              <Text style={[styles.dayDate, selected && styles.dayDateSelected]}>
+                {formatDayDateLabel(day.date)}
               </Text>
             </Pressable>
           );
@@ -164,7 +173,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flex: 1,
     gap: 4,
-    minHeight: 88,
+    minHeight: 96,
     paddingVertical: 10,
   },
   dayCellOutsideMonth: {
@@ -203,6 +212,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   dayCountSelected: {
+    color: '#6B6B7B',
+  },
+  dayDate: {
+    color: '#9CA3AF',
+    fontSize: 9,
+    fontWeight: '600',
+  },
+  dayDateSelected: {
     color: '#6B6B7B',
   },
   detailBox: {

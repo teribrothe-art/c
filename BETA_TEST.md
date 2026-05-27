@@ -27,6 +27,27 @@
 
 자동 검증: `npm run beta:e2e`
 
+### 누적 통합 테스트 (디자이너 2 + 고객 각 10)
+
+**일반 데모**(`designer@hair.app` / `demo@hair.app`)는 기존처럼 소량 시술 시드만 사용합니다.
+
+테스트 디자이너로 로그인할 때만 해당 프로필 시술이 **메모리에** 로드됩니다 (AsyncStorage 미저장 · 매일 **1~2건**).
+
+| 프로필 | ID | 이메일 | 기간 |
+|--------|-----|--------|------|
+| 2년 | `test-designer-3y` | test-designer@hair.app | 최근 2년~현재 |
+| 1년 | `test-designer-1y` | test-designer-1y@hair.app | 최근 1년~현재 |
+
+비밀번호 공통: `test1234`
+
+**2년 디자이너 고객** — `test-customer-1@hair.app` … `test-customer-10@hair.app`  
+**1년 디자이너 고객** — `test-1y-customer-1@hair.app` … `test-1y-customer-10@hair.app`
+
+- 로그인 화면 **「2년 / 1년 누적 테스트 디자이너 로그인」** 버튼
+- **정산**, **자산**, **매출** 탭에서 누적 통계 확인
+- **「Row too big…」** 오류 → Expo Go 완전 종료 후 재실행
+- CLI: `npm run verify:accumulated-designer`
+
 ---
 
 ## 시나리오 A — 신규 고객 초대 (핵심)
