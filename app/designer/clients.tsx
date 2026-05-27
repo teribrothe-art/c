@@ -318,13 +318,9 @@ export default function DesignerClientsScreen() {
   const searchActive = searchQuery.trim().length > 0;
 
   const expandedGroupKey = useMemo(() => {
-    if (searchActive) {
-      return null;
-    }
-
     const first = expandedGroupKeys.values().next().value as string | undefined;
     return typeof first === 'string' ? first : null;
-  }, [expandedGroupKeys, searchActive]);
+  }, [expandedGroupKeys]);
 
   const clientGroupRows = useMemo(() => {
     const rows: (typeof clientGroups)[] = [];
@@ -359,8 +355,8 @@ export default function DesignerClientsScreen() {
   );
 
   const isGroupExpanded = useCallback(
-    (groupKey: string) => searchActive || expandedGroupKeys.has(groupKey),
-    [expandedGroupKeys, searchActive],
+    (groupKey: string) => expandedGroupKeys.has(groupKey),
+    [expandedGroupKeys],
   );
 
   const toggleGroup = useCallback((groupKey: string) => {
@@ -373,7 +369,12 @@ export default function DesignerClientsScreen() {
       setPendingScrollGroupKey(groupKey);
       return new Set([groupKey]);
     });
-  }, [searchActive]);
+  }, []);
+
+  useEffect(() => {
+    // 검색어를 바꿀 때 기존 펼침 상태가 필터 결과에 없을 수 있어 UX가 깨집니다.
+    setExpandedGroupKeys(new Set());
+  }, [searchQuery]);
 
   useEffect(() => {
     if (!pendingScrollGroupKey) {
