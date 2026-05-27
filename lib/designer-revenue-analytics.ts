@@ -1,6 +1,6 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
-import { calculatePaymentFees, getPaymentByTreatmentId, PaymentRecord } from './payment-record';
+import { calculatePaymentFees, getDesignerDemoPayments, PaymentRecord } from './payment-record';
 import {
   buildWeeklyRevenueWeeks,
   formatDateWithWeekday,
@@ -40,7 +40,8 @@ export type DesignerRevenueAnalytics = {
   dailyTotals: DailyRevenuePoint[];
   pendingPayoutAmount: number;
   pendingPayoutCount: number;
-  averageTreatmentPrice: number;
+  /** 선택한 달의 시술 기록 건수 (정산 여부 무관) */
+  selectedMonthTreatmentCount: number;
   recentSettlements: {
     paymentId: string;
     customerName: string;
@@ -75,18 +76,7 @@ function monthKeyFromDate(date: string) {
 
 async function loadDesignerPayments(designerId: string): Promise<PaymentRecord[]> {
   if (isDemoAuthMode || !supabase) {
-    const { treatments } = await getDesignerTreatments();
-    const records: PaymentRecord[] = [];
-
-    for (const treatment of treatments) {
-      const payment = await getPaymentByTreatmentId(treatment.id);
-
-      if (payment) {
-        records.push(payment);
-      }
-    }
-
-    return records;
+    return getDesignerDemoPayments(designerId);
   }
 
   const { data, error } = await supabase
@@ -174,14 +164,14 @@ export async function fetchDesignerRevenueAnalytics(
   if (!user || user.role !== 'designer') {
     const month = selectedMonthKey ?? fallbackMonth;
 
-    const emptyWeekStart = `${month}-01`;
+    const emptyWeekStart = getWeekStartMonday(`${month}-01`);
     const emptyDays = buildWeeklyRevenueWeeks([], month)[0]?.days ?? [];
 
     return {
       months: [emptyMonth(month)],
       selectedMonthKey: month,
       selectedMonth: emptyMonth(month),
-      weeklyWeeks: [],
+      weeklyWeeks: buildWeeklyRevenueWeeks([], month),
       selectedWeekKey: emptyWeekStart,
       selectedWeek: {
         weekKey: emptyWeekStart,
@@ -193,7 +183,7 @@ export async function fetchDesignerRevenueAnalytics(
       dailyTotals: [],
       pendingPayoutAmount: 0,
       pendingPayoutCount: 0,
-      averageTreatmentPrice: 0,
+      selectedMonthTreatmentCount: 0,
       recentSettlements: [],
     };
   }
@@ -244,11 +234,7 @@ export async function fetchDesignerRevenueAnalytics(
   const monthTreatments = treatments.filter(
     (treatment) => monthKeyFromDate(treatment.treatment_date) === resolvedMonthKey,
   );
-  const priced = monthTreatments.filter((treatment) => (treatment.price ?? 0) > 0);
-  const averageTreatmentPrice =
-    priced.length > 0
-      ? Math.round(priced.reduce((sum, treatment) => sum + (treatment.price ?? 0), 0) / priced.length)
-      : 0;
+  const selectedMonthTreatmentCount = monthTreatments.length;
 
   const recentSettlements = payments
     .filter((payment) => payment.status === 'completed' && payment.settled_at)
@@ -280,7 +266,7 @@ export async function fetchDesignerRevenueAnalytics(
     dailyTotals,
     pendingPayoutAmount,
     pendingPayoutCount: paidPending.length,
-    averageTreatmentPrice,
+    selectedMonthTreatmentCount,
     recentSettlements,
   };
 }

@@ -6,6 +6,15 @@ import type { PaymentStatus } from './payment-status';
 import { filterTreatmentsForCustomerUser, sortTreatmentsForDiaryList } from './diary-list';
 import { sanitizeTreatmentsForCustomer, sanitizeTreatmentForCustomer } from './treatment-privacy';
 import { defaultTreatmentTitle, DEFAULT_TREATMENT_DURATION } from './treatment-options';
+import {
+  mergeAccumulatedTreatmentsIntoStore,
+  shouldHydrateAccumulatedDemoDataForUser,
+  stripAccumulatedTreatmentsFromStore,
+  treatmentsForDemoPersistence,
+} from './demo-accumulated-demo-hydrate';
+import { mergeAccumulatedDesignerRelationships } from './demo-accumulated-relationships';
+import { INITIAL_DEMO_TREATMENTS } from './demo-initial-treatments';
+import { ALL_DEMO_TREATMENT_SEEDS } from './demo-treatment-seeds';
 import { supabase } from './supabase';
 
 export type Treatment = {
@@ -45,191 +54,60 @@ const treatmentSelectFields =
 
 const DEMO_TREATMENTS_KEY = 'hair-diary-demo-treatments';
 
-const INITIAL_DEMO_TREATMENTS: Treatment[] = [
-  {
-    id: 'demo-treatment-1',
-    customer_id: 'demo-customer-kim-jiwon',
-    designer_id: 'demo-designer-local',
-    designer_name: '김미용 디자이너',
-    customer_name: '김지원',
-    treatment_date: '2026-04-18',
-    treatment_type: '탈색',
-    treatment_title: '탈색 + 애쉬블루 토닝',
-    products: ['웰라 12%', '로레알 디아라이트'],
-    damage_level: 7,
-    duration: '3시간 20분',
-    designer_diagnosis: '손상도 7/10. 한 달간 매직스트레이트 금지. 산성 샴푸 권장.',
-    home_care: '주 2회 헤어 마스크. 드라이 온도 낮게.',
-    ai_insight: '다음 시술은 6주 후 권장. 모이스처 트리트먼트 우선.',
-    price: 250000,
-    payment_status: 'payment_requested',
-    payment_requested_at: '2026-04-18T12:00:00.000Z',
-    feedback_completed: false,
-  },
-  {
-    id: 'demo-treatment-2',
-    customer_id: 'demo-customer-kim-jiwon',
-    designer_id: 'demo-designer-local',
-    designer_name: '박정수 디자이너',
-    customer_name: '김지원',
-    treatment_date: '2026-03-05',
-    treatment_type: '컷',
-    treatment_title: '레이어드 컷',
-    products: ['로레알 트리트먼트'],
-    damage_level: 5,
-    duration: '1시간 30분',
-    designer_diagnosis: '모발 상태 양호. 정기 관리 잘 되고 있음.',
-    home_care: '평소 사용 샴푸 유지. 3개월 후 트리트먼트 권장.',
-    ai_insight: '컷 주기 6-8주 유지 권장.',
-    price: 150000,
-    payment_status: 'completed',
-    paid_at: '2026-03-05T14:00:00.000Z',
-    settled_at: '2026-03-06T10:00:00.000Z',
-    platform_fee: 15000,
-    designer_payout_amount: 135000,
-    feedback_completed: true,
-    before_photo_url:
-      'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=900&q=80',
-    after_photo_url:
-      'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=900&q=80',
-  },
-  {
-    id: 'demo-treatment-3',
-    customer_id: 'demo-customer-kim-jiwon',
-    designer_id: 'demo-designer-local',
-    designer_name: '김미용 디자이너',
-    customer_name: '김지원',
-    treatment_date: '2026-01-22',
-    treatment_type: '컬러',
-    treatment_title: '애쉬그레이 풀 컬러',
-    products: ['로레알 9.1'],
-    damage_level: 6,
-    duration: '2시간 40분',
-    designer_diagnosis: '컬러 시술 후 큐티클 손상. 단백질 보충 필요.',
-    home_care: '단백질 트리트먼트 주 1회. 열기구 사용 자제.',
-    ai_insight: '컬러 유지 위해 4주 후 토닝 권장.',
-    price: 150000,
-    payment_status: 'completed',
-    feedback_completed: true,
-  },
-  {
-    id: 'demo-treatment-5',
-    customer_id: 'demo-customer-kim-jiwon',
-    designer_id: 'demo-designer-local',
-    designer_name: '김미용 디자이너',
-    customer_name: '김지원',
-    treatment_date: '2025-11-08',
-    treatment_type: '펌',
-    treatment_title: '볼륨 디지털 펌',
-    products: ['아모스 펌제'],
-    damage_level: 5,
-    duration: '3시간',
-    designer_diagnosis: '모근부 볼륨이 잘 살아남. 뿌리 펌 강도는 보통.',
-    home_care: '시술 후 48시간 샴푸 금지. 수분 에센스 매일.',
-    ai_insight: '펌 유지 3~4개월. 끝머리 트리트먼트 병행 권장.',
-    price: 220000,
-    payment_status: 'completed',
-    paid_at: '2025-11-08T15:00:00.000Z',
-    settled_at: '2025-11-09T10:00:00.000Z',
-    platform_fee: 22000,
-    designer_payout_amount: 198000,
-    feedback_completed: true,
-  },
-  {
-    id: 'demo-treatment-6',
-    customer_id: 'demo-customer-kim-jiwon',
-    designer_id: 'demo-designer-local',
-    designer_name: '박정수 디자이너',
-    customer_name: '김지원',
-    treatment_date: '2025-09-14',
-    treatment_type: '트리트먼트',
-    treatment_title: '단백질 딥 케어',
-    products: ['로레알 트리트먼트', '츠바키 마스크'],
-    damage_level: 4,
-    duration: '1시간',
-    designer_diagnosis: '건조함 완화. 큐티클 정돈 양호.',
-    home_care: '주 2회 헤어팩. 미온수로 헹굼.',
-    ai_insight: '4주 후 두피·모발 점검 추천.',
-    price: 80000,
-    payment_status: 'completed',
-    paid_at: '2025-09-14T11:00:00.000Z',
-    settled_at: '2025-09-15T10:00:00.000Z',
-    platform_fee: 8000,
-    designer_payout_amount: 72000,
-    feedback_completed: true,
-  },
-  {
-    id: 'demo-treatment-7',
-    customer_id: 'demo-customer-kim-jiwon',
-    designer_id: 'demo-designer-local',
-    designer_name: '김미용 디자이너',
-    customer_name: '김지원',
-    treatment_date: '2025-06-20',
-    treatment_type: '매직',
-    treatment_title: '매직스트레이트',
-    products: ['밀본 매직제'],
-    damage_level: 6,
-    duration: '4시간',
-    designer_diagnosis: '곱슬 완화. 직경 80% 유지 권장.',
-    home_care: '열 차단 필수. 산성 샴푸 사용.',
-    ai_insight: '6개월 후 뿌리 리터치 검토.',
-    price: 280000,
-    payment_status: 'completed',
-    paid_at: '2025-06-20T14:00:00.000Z',
-    settled_at: '2025-06-21T10:00:00.000Z',
-    platform_fee: 28000,
-    designer_payout_amount: 252000,
-    feedback_completed: true,
-  },
-  {
-    id: 'demo-treatment-4',
-    customer_id: 'demo-customer-park-minji',
-    designer_id: 'demo-designer-local',
-    designer_name: '디자이너',
-    customer_name: '박민지',
-    treatment_date: '2026-04-10',
-    treatment_type: '매직',
-    treatment_title: '매직스트레이트',
-    products: ['로레알 펌제'],
-    damage_level: 6,
-    duration: '4시간',
-    designer_diagnosis: '곱슬이 강해 열 보호와 수분 케어가 필요합니다.',
-    home_care: '시술 후 48시간 샴푸를 피하고 보습 트리트먼트를 사용하세요.',
-    ai_insight: '피드백 완료 후 정산 가능합니다.',
-    price: 180000,
-    payment_status: 'escrow',
-    paid_at: '2026-04-10T16:00:00.000Z',
-    platform_fee: 18000,
-    designer_payout_amount: 162000,
-    feedback_completed: false,
-    before_photo_url:
-      'https://images.unsplash.com/photo-1492106087820-71f1a00d2d11?auto=format&fit=crop&w=900&q=80',
-    after_photo_url:
-      'https://images.unsplash.com/photo-1521590839637-31813ae3d58c?auto=format&fit=crop&w=900&q=80',
-  },
-];
-
-const demoTreatments: Treatment[] = INITIAL_DEMO_TREATMENTS.map((item) => ({ ...item }));
+const demoTreatments: Treatment[] = (INITIAL_DEMO_TREATMENTS ?? []).map((item) => ({ ...item }));
 
 let demoHydratePromise: Promise<void> | null = null;
+
+async function ensureAccumulatedDemoTreatmentsForCurrentUser() {
+  const user = await getCurrentUser();
+
+  if (!shouldHydrateAccumulatedDemoDataForUser(user)) {
+    return;
+  }
+
+  mergeAccumulatedTreatmentsIntoStore(demoTreatments, user);
+}
+
+async function readDemoTreatmentsFromStorage() {
+  try {
+    return await AsyncStorage.getItem(DEMO_TREATMENTS_KEY);
+  } catch {
+    await AsyncStorage.removeItem(DEMO_TREATMENTS_KEY);
+    return null;
+  }
+}
 
 async function hydrateDemoTreatments() {
   if (!demoHydratePromise) {
     demoHydratePromise = (async () => {
-      const raw = await AsyncStorage.getItem(DEMO_TREATMENTS_KEY);
+      const raw = await readDemoTreatmentsFromStorage();
 
       if (raw) {
-        const stored = JSON.parse(raw) as Treatment[];
-        demoTreatments.length = 0;
-        demoTreatments.push(...stored);
+        try {
+          const stored = JSON.parse(raw) as Treatment[];
+          demoTreatments.length = 0;
+          demoTreatments.push(...stored);
+        } catch {
+          await AsyncStorage.removeItem(DEMO_TREATMENTS_KEY);
+          demoTreatments.length = 0;
+          demoTreatments.push(...ALL_DEMO_TREATMENT_SEEDS.map((item) => ({ ...item })));
+        }
       } else {
         demoTreatments.length = 0;
-        demoTreatments.push(...INITIAL_DEMO_TREATMENTS.map((item) => ({ ...item })));
+        demoTreatments.push(...ALL_DEMO_TREATMENT_SEEDS.map((item) => ({ ...item })));
       }
 
       let merged = false;
 
-      for (const seed of INITIAL_DEMO_TREATMENTS) {
+      const withoutStaleAccumulated = stripAccumulatedTreatmentsFromStore(demoTreatments);
+
+      if (withoutStaleAccumulated.length !== demoTreatments.length) {
+        demoTreatments.length = 0;
+        demoTreatments.push(...withoutStaleAccumulated);
+        merged = true;
+      }
+
+      for (const seed of ALL_DEMO_TREATMENT_SEEDS) {
         const existingIndex = demoTreatments.findIndex((item) => item.id === seed.id);
 
         if (existingIndex < 0) {
@@ -258,6 +136,8 @@ async function hydrateDemoTreatments() {
       if (!raw || merged) {
         await persistDemoTreatments();
       }
+
+      await mergeAccumulatedDesignerRelationships();
     })();
   }
 
@@ -265,7 +145,8 @@ async function hydrateDemoTreatments() {
 }
 
 async function persistDemoTreatments() {
-  await AsyncStorage.setItem(DEMO_TREATMENTS_KEY, JSON.stringify(demoTreatments));
+  const persistable = treatmentsForDemoPersistence(demoTreatments);
+  await AsyncStorage.setItem(DEMO_TREATMENTS_KEY, JSON.stringify(persistable));
 }
 
 export async function getTreatments() {
@@ -279,6 +160,7 @@ export async function getTreatments() {
 
   if (isDemoAuthMode || !supabase) {
     await hydrateDemoTreatments();
+    await ensureAccumulatedDemoTreatmentsForCurrentUser();
     treatments = [...demoTreatments];
   } else {
     const { data, error } = await supabase
@@ -315,6 +197,7 @@ export async function getTreatmentById(id: string) {
 
   if (isDemoAuthMode || !supabase) {
     await hydrateDemoTreatments();
+    await ensureAccumulatedDemoTreatmentsForCurrentUser();
     treatment = demoTreatments.find((item) => item.id === id) ?? null;
   } else {
     const { data, error } = await supabase
@@ -350,6 +233,7 @@ export async function getDesignerTreatments() {
 
   if (isDemoAuthMode || !supabase) {
     await hydrateDemoTreatments();
+    await ensureAccumulatedDemoTreatmentsForCurrentUser();
     return {
       user,
       treatments: demoTreatments

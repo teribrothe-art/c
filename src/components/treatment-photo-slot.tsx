@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { isDisplayableImageUri } from '../../lib/image-uri';
 import { colors } from '../../lib/theme';
 
 type UploadStatus = 'idle' | 'uploading' | 'success';
@@ -24,7 +25,9 @@ export function TreatmentPhotoSlot({
   onEdit,
   onRemove,
 }: TreatmentPhotoSlotProps) {
-  const hasPhoto = Boolean(previewUrl);
+  const displayUrl =
+    previewUrl && isDisplayableImageUri(previewUrl) ? previewUrl : null;
+  const hasPhoto = Boolean(displayUrl);
   const isUploading = uploadStatus === 'uploading';
   const isSuccess = uploadStatus === 'success';
 
@@ -42,7 +45,13 @@ export function TreatmentPhotoSlot({
           </View>
         ) : isSuccess && hasPhoto ? (
           <>
-            <Image contentFit="cover" source={{ uri: previewUrl! }} style={styles.image} />
+            <Image
+              cachePolicy="memory-disk"
+              contentFit="cover"
+              recyclingKey={displayUrl}
+              source={{ uri: displayUrl! }}
+              style={styles.image}
+            />
             <View style={styles.successBadge}>
               <Text style={styles.successText}>✓</Text>
             </View>
@@ -59,7 +68,13 @@ export function TreatmentPhotoSlot({
           </>
         ) : hasPhoto ? (
           <>
-            <Image contentFit="cover" source={{ uri: previewUrl! }} style={styles.image} />
+            <Image
+              cachePolicy="memory-disk"
+              contentFit="cover"
+              recyclingKey={displayUrl}
+              source={{ uri: displayUrl! }}
+              style={styles.image}
+            />
             <View style={styles.viewHint} pointerEvents="none">
               <Text style={styles.viewHintText}>탭하여 보기</Text>
             </View>
