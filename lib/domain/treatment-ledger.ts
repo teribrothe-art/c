@@ -24,13 +24,13 @@ export function buildTreatmentLedgerEntries(
 ): TreatmentLedgerEntry[] {
   return treatments.map((treatment) => {
     const payment = paymentsByTreatmentId.get(treatment.id) ?? null;
-    const paymentStatus = normalizePaymentStatus(
-      payment?.status === 'completed'
-        ? 'completed'
-        : payment?.status === 'paid' || payment?.status === 'in_escrow'
-          ? 'escrow'
-          : treatment.payment_status,
-    );
+    let paymentStatus = normalizePaymentStatus(treatment.payment_status);
+
+    if (payment?.status === 'completed') {
+      paymentStatus = 'completed';
+    } else if (payment?.status === 'paid' || payment?.status === 'in_escrow') {
+      paymentStatus = 'escrow';
+    }
 
     return {
       treatment,
