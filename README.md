@@ -85,7 +85,7 @@ npm run check:phone
 | 1년 | `test-designer-1y` | test-designer-1y@hair.app | test1234 |
 
 - 로그인 화면 **2년 / 1년 누적 테스트 디자이너** 버튼
-- 각 디자이너는 **본인 시술만** 메모리 로드 (일 2~4건) · 일반 데모는 소량 시드 유지
+- 각 디자이너는 **본인 시술만** 메모리 로드 (일 1~2건) · 일반 데모는 소량 시드 유지
 
 ### 브라우저 `http://localhost:8081` — ERR_EMPTY_RESPONSE (-324)
 

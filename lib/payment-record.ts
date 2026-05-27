@@ -50,6 +50,15 @@ const ALL_DEMO_PAYMENT_SEEDS: PaymentRecord[] = [...(INITIAL_DEMO_PAYMENTS ?? []
 const demoPayments: PaymentRecord[] = INITIAL_DEMO_PAYMENTS.map((item) => ({ ...item }));
 
 let demoPaymentsHydratePromise: Promise<void> | null = null;
+let demoPaymentByTreatmentId = new Map<string, PaymentRecord>();
+
+function syncDemoPaymentIndex() {
+  demoPaymentByTreatmentId = new Map(
+    demoPayments.map((payment) => [payment.treatment_id, payment]),
+  );
+}
+
+syncDemoPaymentIndex();
 
 async function ensureAccumulatedDemoPaymentsForCurrentUser() {
   const user = await getCurrentUser();
@@ -59,6 +68,7 @@ async function ensureAccumulatedDemoPaymentsForCurrentUser() {
   }
 
   mergeAccumulatedPaymentsIntoStore(demoPayments, user);
+  syncDemoPaymentIndex();
 }
 
 async function readDemoPaymentsFromStorage() {
@@ -119,13 +129,23 @@ async function hydrateDemoPayments() {
       if (!raw || merged) {
         await persistDemoPayments();
       }
+
+      syncDemoPaymentIndex();
     })();
   }
 
   await demoPaymentsHydratePromise;
 }
 
+/** 데모 — 디자이너 결제 일괄 조회 (시술별 N회 조회 방지) */
+export async function getDesignerDemoPayments(designerId: string): Promise<PaymentRecord[]> {
+  await prepareDemoPayments();
+  return demoPayments.filter((payment) => payment.designer_id === designerId);
+}
+
 async function persistDemoPayments() {
+  syncDemoPaymentIndex();
+
   if (!isDemoAuthMode) {
     return;
   }
@@ -155,7 +175,7 @@ function requireTreatmentParties(treatment: Treatment, customerId: string) {
 export async function getPaymentByTreatmentId(treatmentId: string) {
   if (isDemoAuthMode || !supabase) {
     await prepareDemoPayments();
-    return demoPayments.find((payment) => payment.treatment_id === treatmentId) ?? null;
+    return demoPaymentByTreatmentId.get(treatmentId) ?? null;
   }
 
   const { data, error } = await supabase

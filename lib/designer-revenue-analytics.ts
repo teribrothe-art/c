@@ -1,6 +1,6 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
-import { calculatePaymentFees, getPaymentByTreatmentId, PaymentRecord } from './payment-record';
+import { calculatePaymentFees, getDesignerDemoPayments, PaymentRecord } from './payment-record';
 import {
   buildWeeklyRevenueWeeks,
   formatDateWithWeekday,
@@ -76,18 +76,7 @@ function monthKeyFromDate(date: string) {
 
 async function loadDesignerPayments(designerId: string): Promise<PaymentRecord[]> {
   if (isDemoAuthMode || !supabase) {
-    const { treatments } = await getDesignerTreatments();
-    const records: PaymentRecord[] = [];
-
-    for (const treatment of treatments) {
-      const payment = await getPaymentByTreatmentId(treatment.id);
-
-      if (payment) {
-        records.push(payment);
-      }
-    }
-
-    return records;
+    return getDesignerDemoPayments(designerId);
   }
 
   const { data, error } = await supabase

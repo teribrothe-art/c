@@ -71,8 +71,8 @@ function verifyProfile(profileKey: '2y' | '1y', minTreatments: number) {
 }
 
 function main() {
-  verifyProfile('2y', 1400);
-  verifyProfile('1y', 650);
+  verifyProfile('2y', 700);
+  verifyProfile('1y', 350);
 
   console.log('\n시드 검증 OK');
   console.log('  · 로그인 화면에서 2년 / 1년 테스트 디자이너 버튼 확인');
