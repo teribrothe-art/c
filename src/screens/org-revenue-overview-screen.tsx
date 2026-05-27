@@ -8,6 +8,7 @@ import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/or
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
+import { VirtualSimulationBanner } from '../components/virtual-simulation-banner';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
@@ -57,6 +58,8 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
         showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>{scope === 'store' ? '매장 매출' : '본사 매출'}</Text>
         <Text style={styles.subtitle}>디자이너 매출·정산 화면과 동일 데이터를 합산합니다.</Text>
+
+        <VirtualSimulationBanner scenario="weekday" />
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />

@@ -4,16 +4,19 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
+import { buildVirtualStoreSummaries } from '../../lib/org-virtual-simulation';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { LoadingState } from '../../src/components/loading-state';
 import { AdminBottomTabBar } from '../../src/components/admin-bottom-tab-bar';
+import { VirtualSimulationBanner } from '../../src/components/virtual-simulation-banner';
 
 export default function AdminHomeScreen() {
   useOrgRoleGuard('admin');
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
+  const [virtualStores, setVirtualStores] = useState<ReturnType<typeof buildVirtualStoreSummaries>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -23,6 +26,7 @@ export default function AdminHomeScreen() {
     fetchOrgDashboardSummary('admin')
       .then((data) => {
         setSummary(data);
+        setVirtualStores(buildVirtualStoreSummaries(data));
         setErrorMessage('');
       })
       .catch((error) => {
@@ -47,7 +51,9 @@ export default function AdminHomeScreen() {
         showsVerticalScrollIndicator={false}>
         <Text style={styles.badge}>ADMIN</Text>
         <Text style={styles.title}>본사</Text>
-        <Text style={styles.subtitle}>전국 매장·디자이너·매출·고객 시술 데이터를 통합 조회합니다.</Text>
+        <Text style={styles.subtitle}>가상 매장 네트워크 시뮬레이션과 실데이터를 함께 봅니다.</Text>
+
+        <VirtualSimulationBanner scenario="weekday" />
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -75,7 +81,23 @@ export default function AdminHomeScreen() {
               </View>
             </View>
 
+            <Text style={styles.sectionTitle}>가상 매장</Text>
+            {virtualStores.map((store) => (
+              <View key={store.id} style={styles.virtualStoreRow}>
+                <Text style={styles.virtualStoreName}>{store.name}</Text>
+                <Text style={styles.virtualStoreMeta}>
+                  {store.region} · 매출 {store.monthRevenue.toLocaleString('ko-KR')}원
+                </Text>
+              </View>
+            ))}
+
             <View style={styles.quickRow}>
+              <Link href="/admin/simulation" asChild>
+                <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
+                  <Text style={styles.quickTitle}>시뮬</Text>
+                  <Text style={styles.quickMeta}>시나리오 전환</Text>
+                </Pressable>
+              </Link>
               <Link href="/admin/designers" asChild>
                 <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
                   <Text style={styles.quickTitle}>디자이너</Text>
@@ -186,8 +208,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
+  virtualStoreRow: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 4,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  virtualStoreName: {
+    color: '#1A1A2E',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  virtualStoreMeta: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   quickRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     marginBottom: 20,
   },

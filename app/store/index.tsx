@@ -4,11 +4,13 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
+import { getVirtualStoreForScope } from '../../lib/org-virtual-simulation';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { LoadingState } from '../../src/components/loading-state';
 import { StoreBottomTabBar } from '../../src/components/store-bottom-tab-bar';
+import { VirtualSimulationBanner } from '../../src/components/virtual-simulation-banner';
 
 export default function StoreHomeScreen() {
   useOrgRoleGuard('store');
@@ -47,7 +49,9 @@ export default function StoreHomeScreen() {
         showsVerticalScrollIndicator={false}>
         <Text style={styles.badge}>STORE</Text>
         <Text style={styles.title}>매장</Text>
-        <Text style={styles.subtitle}>소속 디자이너의 고객·시술·매출·정산을 한곳에서 확인합니다.</Text>
+        <Text style={styles.subtitle}>가상 시뮬레이션과 연동된 매장 운영 화면입니다.</Text>
+
+        <VirtualSimulationBanner scenario="weekday" />
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -75,7 +79,19 @@ export default function StoreHomeScreen() {
               </View>
             </View>
 
+            {getVirtualStoreForScope('store') ? (
+              <Text style={styles.storeHint}>
+                {getVirtualStoreForScope('store')?.name} · {getVirtualStoreForScope('store')?.region}
+              </Text>
+            ) : null}
+
             <View style={styles.quickRow}>
+              <Link href="/store/simulation" asChild>
+                <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
+                  <Text style={styles.quickTitle}>시뮬</Text>
+                  <Text style={styles.quickMeta}>시나리오·타임라인</Text>
+                </Pressable>
+              </Link>
               <Link href="/store/customers" asChild>
                 <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
                   <Text style={styles.quickTitle}>고객</Text>
@@ -185,8 +201,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
+  storeHint: {
+    color: '#0F766E',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
   quickRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     marginBottom: 20,
   },

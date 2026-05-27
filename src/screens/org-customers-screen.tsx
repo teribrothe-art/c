@@ -10,6 +10,7 @@ import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { StoreBottomTabBar } from '../components/store-bottom-tab-bar';
+import { VirtualSimulationBanner } from '../components/virtual-simulation-banner';
 
 type Props = {
   scope: OrgScope;
@@ -106,6 +107,8 @@ export function OrgCustomersScreen({ scope }: Props) {
         ) : null}
         <Text style={styles.title}>{scope === 'store' ? '매장 고객' : '고객·시술'}</Text>
         <Text style={styles.subtitle}>소속 디자이너 고객 데이터와 동일하게 연동됩니다.</Text>
+
+        <VirtualSimulationBanner scenario="weekday" />
 
         <TextInput
           onChangeText={setSearchQuery}
