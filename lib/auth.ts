@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { BETA_CUSTOMERS, BETA_DESIGNERS } from './beta-test-accounts';
+import { ACCUMULATED_TEST_ACCOUNTS } from './demo-accumulated-test-accounts';
 import { isSupabaseConfigured, supabase } from './supabase';
 
 export type UserRole = 'customer' | 'designer';
@@ -89,9 +90,27 @@ async function ensureDemoUsersSeeded() {
   const byEmail = new Map(existing.map((user) => [user.email, user]));
   let changed = false;
 
-  for (const seeded of [...SEEDED_DEMO_USERS, ...BETA_DESIGNERS, ...BETA_CUSTOMERS]) {
-    if (!byEmail.has(seeded.email)) {
+  for (const seeded of [...SEEDED_DEMO_USERS, ...BETA_DESIGNERS, ...BETA_CUSTOMERS, ...ACCUMULATED_TEST_ACCOUNTS]) {
+    const stored = byEmail.get(seeded.email);
+
+    if (!stored) {
       existing.push(seeded);
+      changed = true;
+      continue;
+    }
+
+    if (
+      stored.id !== seeded.id ||
+      stored.role !== seeded.role ||
+      stored.password !== seeded.password ||
+      (seeded.name && stored.name !== seeded.name)
+    ) {
+      Object.assign(stored, {
+        id: seeded.id,
+        role: seeded.role,
+        password: seeded.password,
+        name: seeded.name ?? stored.name,
+      });
       changed = true;
     }
   }
