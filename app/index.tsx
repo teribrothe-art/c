@@ -13,6 +13,7 @@ import {
 
 import { redeemInviteForCurrentUser } from '../lib/apply-pending-invite';
 import { ADMIN_TEST_PUBLIC } from '../lib/admin-test-accounts';
+import { STORE_TEST_PUBLIC } from '../lib/store-test-accounts';
 import { getPostAuthRoute } from '../lib/auth-redirect';
 import { getCurrentUser, isDemoAuthMode, signInWithEmail } from '../lib/auth';
 import { ACCUMULATED_TEST_DESIGNERS_PUBLIC } from '../lib/demo-accumulated-test-accounts';
@@ -204,6 +205,22 @@ export default function LoginScreen() {
               <View style={styles.demoDesignerBlock}>
                 <Pressable
                   disabled={isLoading}
+                  onPress={() => void handleQuickLogin(STORE_TEST_PUBLIC.email, STORE_TEST_PUBLIC.password)}
+                  style={({ pressed }) => [
+                    styles.demoButton,
+                    styles.demoButtonStore,
+                    pressed && styles.demoButtonPressed,
+                  ]}>
+                  <Text style={styles.demoButtonText}>{STORE_TEST_PUBLIC.loginLabel}</Text>
+                </Pressable>
+                <Text style={styles.demoMeta}>ID {STORE_TEST_PUBLIC.id}</Text>
+                <Text style={styles.demoMeta}>
+                  {STORE_TEST_PUBLIC.email} / {STORE_TEST_PUBLIC.password}
+                </Text>
+              </View>
+              <View style={styles.demoDesignerBlock}>
+                <Pressable
+                  disabled={isLoading}
                   onPress={() => void handleQuickLogin(ADMIN_TEST_PUBLIC.email, ADMIN_TEST_PUBLIC.password)}
                   style={({ pressed }) => [
                     styles.demoButton,
@@ -360,6 +377,9 @@ const styles = StyleSheet.create({
   },
   demoButton3y: {
     backgroundColor: '#E85D4C',
+  },
+  demoButtonStore: {
+    backgroundColor: '#0284C7',
   },
   demoButtonAdmin: {
     backgroundColor: '#4B5563',
