@@ -1,5 +1,5 @@
 import { router, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -238,6 +238,7 @@ function DesignerClientCard({
 export default function DesignerClientsScreen() {
   const insets = useSafeAreaInsets();
   const detailRouter = useRouter();
+  const scrollRef = useRef<ScrollView>(null);
   const { filter: filterParam } = useLocalSearchParams<{ filter?: string }>();
   const monthOnly = filterParam === 'month';
   const escrowOnly = filterParam === 'escrow';
@@ -251,6 +252,8 @@ export default function DesignerClientsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [expandedGroupKeys, setExpandedGroupKeys] = useState<Set<string>>(() => new Set());
+  const [pendingScrollGroupKey, setPendingScrollGroupKey] = useState<string | null>(null);
+  const groupLayoutYRef = useRef<Record<string, number>>({});
 
   const loadClients = useCallback(() => {
     setIsLoading(true);
@@ -325,18 +328,37 @@ export default function DesignerClientsScreen() {
   );
 
   const toggleGroup = useCallback((groupKey: string) => {
-    if (searchActive) {
-      return;
-    }
-
     setExpandedGroupKeys((current) => {
       if (current.has(groupKey)) {
+        setPendingScrollGroupKey(null);
         return new Set();
       }
 
+      setPendingScrollGroupKey(groupKey);
       return new Set([groupKey]);
     });
   }, [searchActive]);
+
+  useEffect(() => {
+    if (!pendingScrollGroupKey) {
+      return;
+    }
+
+    if (!expandedGroupKeys.has(pendingScrollGroupKey)) {
+      return;
+    }
+
+    const y = groupLayoutYRef.current[pendingScrollGroupKey];
+
+    if (typeof y !== 'number') {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+      setPendingScrollGroupKey(null);
+    });
+  }, [expandedGroupKeys, pendingScrollGroupKey]);
 
   const summary = useMemo(() => {
     return {
@@ -397,6 +419,7 @@ export default function DesignerClientsScreen() {
   return (
     <View style={styles.container}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
@@ -537,7 +560,12 @@ export default function DesignerClientsScreen() {
               }
 
               return (
-                <View key={`${group.key}-detail`} style={styles.clientGroup}>
+                <View
+                  key={`${group.key}-detail`}
+                  onLayout={(event) => {
+                    groupLayoutYRef.current[group.key] = event.nativeEvent.layout.y;
+                  }}
+                  style={styles.clientGroup}>
                   <View style={styles.groupDetailHeader}>
                     <Text style={styles.groupDetailTitle}>{group.customerName}</Text>
                     <Text style={styles.groupDetailMeta}>시술 {group.items.length}건</Text>
