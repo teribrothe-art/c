@@ -2,6 +2,8 @@
 
 Expo Router와 TypeScript를 사용하는 Expo React Native 프로젝트입니다.
 
+**전체 설계 (10M+ 사용자, 시술·결제·정산 연동):** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+
 ## 시작하기
 
 ```sh

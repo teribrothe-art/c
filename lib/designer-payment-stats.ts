@@ -1,14 +1,7 @@
-import { getCurrentUser, isDemoAuthMode } from './auth';
+import { getCurrentUser } from './auth';
 import { toLocalDateString } from './designer-revenue-weekly';
-import { toAppError } from './errors';
-import {
-  calculatePaymentFees,
-  getDesignerDemoPayments,
-  getPaymentByTreatmentId,
-  PaymentRecord,
-} from './payment-record';
-import { supabase } from './supabase';
-import { getDesignerTreatments, Treatment } from './treatments';
+import { calculatePaymentFees, PaymentRecord } from './payment-record';
+import { fetchDesignerLedger } from './services/designer-ledger-service';
 
 export function getCurrentSettlementMonthKey() {
   return toLocalDateString().slice(0, 7);
@@ -63,43 +56,6 @@ function isAwaitingSettlement(status: PaymentRecord['status']) {
   return status === 'paid' || status === 'in_escrow';
 }
 
-async function loadDesignerPayments(
-  designerId: string,
-  treatments: { id: string }[],
-): Promise<PaymentRecord[]> {
-  if (isDemoAuthMode || !supabase) {
-    let payments = await getDesignerDemoPayments(designerId);
-
-    if (payments.length === 0 && treatments.length > 0) {
-      const records: PaymentRecord[] = [];
-
-      for (const treatment of treatments) {
-        const payment = await getPaymentByTreatmentId(treatment.id);
-
-        if (payment && payment.designer_id === designerId) {
-          records.push(payment);
-        }
-      }
-
-      payments = records;
-    }
-
-    return payments;
-  }
-
-  const { data, error } = await supabase
-    .from('payments')
-    .select('*')
-    .eq('designer_id', designerId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    throw toAppError(error);
-  }
-
-  return (data ?? []) as PaymentRecord[];
-}
-
 export async function fetchDesignerPaymentDashboard(): Promise<DesignerPaymentDashboard> {
   const user = await getCurrentUser();
 
@@ -114,9 +70,10 @@ export async function fetchDesignerPaymentDashboard(): Promise<DesignerPaymentDa
     };
   }
 
-  const { treatments } = await getDesignerTreatments();
-  const treatmentMap = new Map(treatments.map((t) => [t.id, t]));
-  const payments = await loadDesignerPayments(user.id, treatments);
+  const ledger = await fetchDesignerLedger();
+  const treatments = ledger?.treatments ?? [];
+  const treatmentMap = ledger?.treatmentMap ?? new Map();
+  const payments = ledger?.payments ?? [];
 
   const completedThisMonth = payments.filter(
     (p) => p.status === 'completed' && settlementMonthKey(p) === getCurrentSettlementMonthKey(),
@@ -237,9 +194,10 @@ export async function fetchDesignerProfilePaymentStats(): Promise<DesignerProfil
     };
   }
 
-  const { treatments } = await getDesignerTreatments();
-  const treatmentMap = new Map(treatments.map((t) => [t.id, t]));
-  const payments = await loadDesignerPayments(user.id, treatments);
+  const ledger = await fetchDesignerLedger();
+  const treatments = ledger?.treatments ?? [];
+  const treatmentMap = ledger?.treatmentMap ?? new Map();
+  const payments = ledger?.payments ?? [];
   const completed = payments.filter((p) => p.status === 'completed');
   const payoutOf = (p: PaymentRecord) =>
     p.designer_payout ?? calculatePaymentFees(p.amount).designerPayout;

@@ -24,7 +24,14 @@ import { resolveTreatmentCustomerForPayment } from './payment-customer';
 import { isLocalPaymentSimulation } from './payment-config';
 import { createTossOrderId } from './toss';
 import { isDesignerSettlementInputComplete } from './treatment-settlement';
+import { invalidateDesignerLedgerCache } from './services/ledger-cache';
 import { getTreatmentById, Treatment, updateTreatment } from './treatments';
+
+function invalidateLedgerForTreatment(treatment: Treatment) {
+  if (treatment.designer_id) {
+    invalidateDesignerLedgerCache(treatment.designer_id);
+  }
+}
 
 export { PLATFORM_FEE_RATE };
 export { ensurePaymentRecordForTreatment, getPaymentByTreatmentId } from './payment-record';
@@ -211,6 +218,8 @@ export async function handleTossPaymentSuccess(
       await notifyDesignerPaymentCompleted(updatedTreatment, payment).catch(() => undefined);
     }
 
+    invalidateLedgerForTreatment(updatedTreatment);
+
     return updatedTreatment;
   } catch (error) {
     await markPaymentFailed(treatmentId).catch(() => undefined);
@@ -294,6 +303,8 @@ export async function settleDesignerPayout(treatmentId: string) {
   const paymentForNotify = settledPayment;
 
   await notifyDesignerSettlementCompleted(updatedTreatment, paymentForNotify);
+
+  invalidateLedgerForTreatment(updatedTreatment);
 
   return updatedTreatment;
 }

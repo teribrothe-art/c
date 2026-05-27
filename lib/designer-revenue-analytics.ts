@@ -1,11 +1,6 @@
-import { getCurrentUser, isDemoAuthMode } from './auth';
-import { toAppError } from './errors';
-import {
-  calculatePaymentFees,
-  getDesignerDemoPayments,
-  getPaymentByTreatmentId,
-  PaymentRecord,
-} from './payment-record';
+import { getCurrentUser } from './auth';
+import { calculatePaymentFees, PaymentRecord } from './payment-record';
+import { fetchDesignerLedger } from './services/designer-ledger-service';
 import {
   buildWeeklyRevenueWeeks,
   formatDateWithWeekday,
@@ -15,8 +10,7 @@ import {
   type WeeklyRevenueWeek,
   type WeekdayRevenueCell,
 } from './designer-revenue-weekly';
-import { supabase } from './supabase';
-import { getDesignerTreatments, type Treatment } from './treatments';
+import type { Treatment } from './treatments';
 
 export type { WeekdayRevenueCell, WeeklyRevenueWeek };
 export { formatDateWithWeekday };
@@ -89,43 +83,6 @@ function settlementDateOf(payment: PaymentRecord) {
 
 function monthKeyFromDate(date: string) {
   return date.slice(0, 7);
-}
-
-async function loadDesignerPayments(
-  designerId: string,
-  treatments: { id: string }[],
-): Promise<PaymentRecord[]> {
-  if (isDemoAuthMode || !supabase) {
-    let payments = await getDesignerDemoPayments(designerId);
-
-    if (payments.length === 0 && treatments.length > 0) {
-      const records: PaymentRecord[] = [];
-
-      for (const treatment of treatments) {
-        const payment = await getPaymentByTreatmentId(treatment.id);
-
-        if (payment && payment.designer_id === designerId) {
-          records.push(payment);
-        }
-      }
-
-      payments = records;
-    }
-
-    return payments;
-  }
-
-  const { data, error } = await supabase
-    .from('payments')
-    .select('*')
-    .eq('designer_id', designerId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    throw toAppError(error);
-  }
-
-  return (data ?? []) as PaymentRecord[];
 }
 
 function payoutOf(payment: PaymentRecord) {
@@ -305,9 +262,10 @@ export async function fetchDesignerRevenueAnalytics(
     };
   }
 
-  const { treatments } = await getDesignerTreatments();
-  const treatmentMap = new Map(treatments.map((treatment) => [treatment.id, treatment]));
-  const payments = await loadDesignerPayments(user.id, treatments);
+  const ledger = await fetchDesignerLedger();
+  const treatments = ledger?.treatments ?? [];
+  const treatmentMap = ledger?.treatmentMap ?? new Map<string, Treatment>();
+  const payments = ledger?.payments ?? [];
   const completed = payments.filter((payment) => payment.status === 'completed');
 
   let months = buildMonthlyBuckets(completed);
