@@ -311,8 +311,8 @@ export default function DesignerRevenueScreen() {
 
             <View style={styles.metricGrid}>
               <MetricCard
-                label="월 평균 시술가"
-                value={`${analytics.averageTreatmentPrice.toLocaleString('ko-KR')}원`}
+                label="월 총 시술 건수"
+                value={`${analytics.selectedMonthTreatmentCount.toLocaleString('ko-KR')}건`}
               />
               <MetricCard
                 label="정산 대기"
