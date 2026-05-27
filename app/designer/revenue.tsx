@@ -19,6 +19,20 @@ const CORAL = '#FF5A5F';
 const MINT = '#00C2A8';
 const PURPLE = '#7B5EE6';
 
+function formatKoreanMonthDayWeekday(dateStr: string): string {
+  const d = new Date(`${dateStr}T12:00:00`);
+
+  if (Number.isNaN(d.getTime())) {
+    return '';
+  }
+
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  const weekdayKanji = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()];
+
+  return `${month}월 ${day}일 ${weekdayKanji}요일`;
+}
+
 function MetricCard({
   label,
   value,
@@ -188,13 +202,14 @@ export default function DesignerRevenueScreen() {
 
     if (selectedDay) {
       const pending = analytics.pendingPayoutByDate[selectedDay.date] ?? { amount: 0, count: 0 };
+      const dayHeading = formatKoreanMonthDayWeekday(selectedDay.date);
 
       return {
-        treatmentLabel: '선택일 시술',
+        treatmentLabel: dayHeading ? `${dayHeading} 시술` : '선택일 시술',
         treatmentCount: analytics.treatmentCountByDate[selectedDay.date] ?? 0,
         pendingAmount: pending.amount,
         pendingCount: pending.count,
-        periodLabel: '선택일 합계',
+        periodLabel: dayHeading ? `${dayHeading} 합계` : '선택일 합계',
         periodTotal: selectedDay.totalAmount,
       };
     }
