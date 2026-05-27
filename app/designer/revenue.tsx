@@ -182,14 +182,10 @@ export default function DesignerRevenueScreen() {
       return analytics.recentSettlements.filter((item) => item.date === selectedDayDate);
     }
 
-    if (selectedWeekKey && analytics.selectedWeek) {
-      const weekDates = new Set(analytics.selectedWeek.days.map((day) => day.date));
+    const weekDates = new Set(analytics.selectedWeek.days.map((day) => day.date));
 
-      return analytics.recentSettlements.filter((item) => weekDates.has(item.date));
-    }
-
-    return analytics.recentSettlements;
-  }, [analytics, selectedDayDate, selectedWeekKey]);
+    return analytics.recentSettlements.filter((item) => weekDates.has(item.date));
+  }, [analytics, selectedDayDate]);
 
   const settlementSectionTitle = useMemo(() => {
     if (!analytics) {
@@ -466,14 +462,32 @@ export default function DesignerRevenueScreen() {
                 </Text>
               ) : (
                 visibleSettlements.map((item) => (
-                  <View key={item.paymentId} style={styles.settlementRow}>
+                  <Pressable
+                    key={item.paymentId}
+                    accessibilityRole="button"
+                    disabled={!item.treatmentId}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/designer/treatment/[id]',
+                        params: { id: item.treatmentId },
+                      })
+                    }
+                    style={({ pressed }) => [
+                      styles.settlementRow,
+                      pressed && item.treatmentId && styles.settlementRowPressed,
+                    ]}>
                     <View style={styles.settlementInfo}>
                       <Text style={styles.settlementDate}>{item.dateWithWeekdayLabel}</Text>
                       <Text style={styles.settlementCustomer}>{item.customerName}</Text>
                       <Text style={styles.settlementMeta}>{item.treatmentTitle}</Text>
                     </View>
-                    <Text style={styles.settlementPrice}>{item.payout.toLocaleString('ko-KR')}원</Text>
-                  </View>
+                    <View style={styles.settlementValueWrap}>
+                      <Text style={styles.settlementPrice}>
+                        {item.payout.toLocaleString('ko-KR')}원
+                      </Text>
+                      {item.treatmentId ? <Text style={styles.settlementChevron}>›</Text> : null}
+                    </View>
+                  </Pressable>
                 ))
               )}
             </View>
@@ -567,6 +581,7 @@ const styles = StyleSheet.create({
   monthChipMeta: { color: '#6B6B7B', fontSize: 12, fontWeight: '600', marginTop: 2 },
   monthChipMetaSelected: { color: '#6B6B7B' },
   settlementRow: {
+    alignItems: 'center',
     borderTopColor: '#EFEFF4',
     borderTopWidth: 1,
     flexDirection: 'row',
@@ -574,11 +589,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
   },
+  settlementRowPressed: {
+    opacity: 0.85,
+  },
   settlementInfo: { flex: 1, gap: 2 },
   settlementDate: { color: '#9CA3AF', fontSize: 12, fontWeight: '600' },
   settlementCustomer: { color: '#1A1A2E', fontSize: 15, fontWeight: '800' },
   settlementMeta: { color: '#6B6B7B', fontSize: 13, fontWeight: '600' },
+  settlementValueWrap: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
   settlementPrice: { color: CORAL, fontSize: 15, fontWeight: '900' },
+  settlementChevron: {
+    color: '#9CA3AF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
   emptyText: { color: '#6B6B7B', fontSize: 14, fontWeight: '600' },
   stateBox: {
     alignItems: 'center',
