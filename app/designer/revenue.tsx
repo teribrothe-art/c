@@ -436,7 +436,7 @@ export default function DesignerRevenueScreen() {
                   }
                 />
                 <MetricCard
-                  label="정산 대기"
+                  label="대기 총액"
                   labelSub={linkedMetrics.scopeLabel}
                   tone="danger"
                   value={`${linkedMetrics.pendingAmount.toLocaleString('ko-KR')}원`}
