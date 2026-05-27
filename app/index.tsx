@@ -162,7 +162,7 @@ export default function LoginScreen() {
                 setPasswordError(null);
               }}
               style={({ pressed }) => [styles.demoButton, pressed && styles.demoButtonPressed]}>
-              <Text style={styles.demoButtonText}>3년 누적 테스트 디자이너 로그인</Text>
+              <Text style={styles.demoButtonText}>2년 누적 테스트 디자이너 로그인</Text>
             </Pressable>
             <Text style={styles.demoMeta}>
               ID {ACCUMULATED_TEST_DESIGNER_PUBLIC.id}

@@ -57,8 +57,17 @@ function monthsBetween(from: Date, to: Date) {
   return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
 }
 
-const SEED_START_DATE = new Date(2023, 4, 8);
-/** 2023~현재 매일 6~9건 — 캘린더 전체에 골고루 분포 (총 1,000건 초과 가능) */
+const SEED_HISTORY_YEARS = 2;
+
+function getSeedStartDate(reference = new Date()) {
+  const start = new Date(reference);
+  start.setFullYear(start.getFullYear() - SEED_HISTORY_YEARS);
+  start.setHours(12, 0, 0, 0);
+  return start;
+}
+
+const SEED_START_DATE = getSeedStartDate();
+/** 최근 2년~현재 매일 6~9건 — 캘린더 전체에 골고루 분포 */
 const DAILY_TREATMENTS_MIN = 6;
 const DAILY_TREATMENTS_MAX = 9;
 
@@ -248,7 +257,8 @@ export const ACCUMULATED_DEMO_SEED_STATS = {
   customerCount: ACCUMULATED_TEST_CUSTOMERS.length,
   treatmentCount: ACCUMULATED_DEMO_TREATMENTS.length,
   paymentCount: ACCUMULATED_DEMO_PAYMENTS.length,
-  yearSpanLabel: '2023~현재',
+  seedStartDate: formatDate(SEED_START_DATE),
+  yearSpanLabel: `${SEED_START_DATE.getFullYear()}~현재`,
   oldestTreatmentDate: ACCUMULATED_DEMO_TREATMENTS.at(-1)?.treatment_date ?? null,
   newestTreatmentDate: ACCUMULATED_DEMO_TREATMENTS[0]?.treatment_date ?? null,
   activeDays: workloadStats.activeDays,

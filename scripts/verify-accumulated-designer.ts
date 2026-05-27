@@ -1,6 +1,6 @@
 #!/usr/bin/env npx tsx
 /**
- * 3년 누적 테스트 디자이너 시드 검증 (데모 모드)
+ * 2년 누적 테스트 디자이너 시드 검증 (데모 모드)
  * 실행: npm run verify:accumulated-designer
  */
 
@@ -46,8 +46,8 @@ function main() {
 
   assert(
     ACCUMULATED_DEMO_SEED_STATS.oldestTreatmentDate !== null &&
-      ACCUMULATED_DEMO_SEED_STATS.oldestTreatmentDate >= '2023-05-01',
-    '가장 오래된 시술이 2023년대',
+      ACCUMULATED_DEMO_SEED_STATS.oldestTreatmentDate >= ACCUMULATED_DEMO_SEED_STATS.seedStartDate,
+    '가장 오래된 시술이 2년 시드 시작일 이후',
   );
   assert(
     ACCUMULATED_DEMO_TREATMENTS.length >= 1000,
@@ -61,7 +61,7 @@ function main() {
   const dailyCounts = [...perDay.values()];
   assert(dailyCounts.every((count) => count >= 6 && count <= 9), '매일 6~9건 분포');
 
-  console.log('=== 3년 누적 테스트 디자이너 ===\n');
+  console.log('=== 2년 누적 테스트 디자이너 ===\n');
   console.log('로그인 (데모 모드 · Supabase 미설정)');
   console.log(`  ID: ${ACCUMULATED_TEST_DESIGNER_PUBLIC.id}`);
   console.log(`  이메일: ${ACCUMULATED_TEST_DESIGNER_PUBLIC.email}`);
@@ -79,7 +79,7 @@ function main() {
   console.log(`  영업일 평균: ${ACCUMULATED_DEMO_SEED_STATS.avgDailyTreatments}건/일\n`);
 
   console.log('앱에서 확인할 화면');
-  console.log('  1. 로그인 → 「3년 누적 테스트 디자이너 로그인」 버튼');
+  console.log('  1. 로그인 → 「2년 누적 테스트 디자이너 로그인」 버튼');
   console.log('  2. 정산 탭 (누적·월별 정산)');
   console.log('  3. 자산 탭 (10명·시술 목록)');
   console.log('  4. 매출 탭 (월별 차트)');

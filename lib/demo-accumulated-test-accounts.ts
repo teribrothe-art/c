@@ -2,7 +2,7 @@ import type { BetaTestAccount } from './beta-test-accounts';
 
 export const ACCUMULATED_TEST_PASSWORD = 'test1234';
 
-/** 3년 누적 테스트용 디자이너 1명 */
+/** 2년 누적 테스트용 디자이너 1명 */
 export const ACCUMULATED_TEST_DESIGNER: BetaTestAccount = {
   id: 'test-designer-3y',
   email: 'test-designer@hair.app',
@@ -24,7 +24,7 @@ const CUSTOMER_NAMES = [
   '임준서',
 ] as const;
 
-/** 3년 누적 테스트용 고객 10명 */
+/** 2년 누적 테스트용 고객 10명 */
 export const ACCUMULATED_TEST_CUSTOMERS: BetaTestAccount[] = CUSTOMER_NAMES.map((name, index) => ({
   id: `test-customer-${String(index + 1).padStart(2, '0')}`,
   email: `test-customer-${index + 1}@hair.app`,
@@ -38,7 +38,7 @@ export const ACCUMULATED_TEST_ACCOUNTS: BetaTestAccount[] = [
   ...ACCUMULATED_TEST_CUSTOMERS,
 ];
 
-/** 문서·로그인 화면에 공개하는 3년 누적 테스트 디자이너 계정 */
+/** 문서·로그인 화면에 공개하는 2년 누적 테스트 디자이너 계정 */
 export const ACCUMULATED_TEST_DESIGNER_PUBLIC = {
   id: ACCUMULATED_TEST_DESIGNER.id,
   email: ACCUMULATED_TEST_DESIGNER.email,
