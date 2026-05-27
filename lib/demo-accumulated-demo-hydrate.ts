@@ -2,7 +2,7 @@ import { isAccumulatedTestPaymentId, isAccumulatedTestTreatmentId } from './demo
 import { ACCUMULATED_TEST_PROFILES } from './demo-accumulated-test-seeds';
 import { applyAccumulatedTreatmentPatch } from './demo-accumulated-treatment-patches';
 import type { PaymentRecord } from './payment-types';
-import type { Treatment } from './treatments';
+import type { Treatment } from './treatment-types';
 
 export { isAccumulatedTestPaymentId, isAccumulatedTestTreatmentId } from './demo-accumulated-ids';
 

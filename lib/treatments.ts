@@ -2,7 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
-import type { PaymentStatus } from './payment-status';
 import { filterTreatmentsForCustomerUser, sortTreatmentsForDiaryList } from './diary-list';
 import { sanitizeTreatmentsForCustomer, sanitizeTreatmentForCustomer } from './treatment-privacy';
 import { defaultTreatmentTitle, DEFAULT_TREATMENT_DURATION } from './treatment-options';
@@ -24,38 +23,9 @@ import { INITIAL_DEMO_TREATMENTS } from './demo-initial-treatments';
 import { ALL_DEMO_TREATMENT_SEEDS } from './demo-treatment-seeds';
 import { invalidateLedgerCachesForTreatment } from './services/ledger-invalidate';
 import { supabase } from './supabase';
+import type { Treatment } from './treatment-types';
 
-export type Treatment = {
-  id: string;
-  customer_id?: string | null;
-  designer_id?: string | null;
-  designer_name: string | null;
-  customer_name?: string | null;
-  treatment_date: string;
-  treatment_type: string;
-  treatment_title: string;
-  products: string[] | null;
-  technique?: string | null;
-  damage_level: number | null;
-  notes?: string | null;
-  duration?: string | null;
-  designer_diagnosis?: string | null;
-  home_care?: string | null;
-  ai_insight?: string | null;
-  price?: number | null;
-  payment_status?: PaymentStatus | null;
-  feedback_completed?: boolean | null;
-  payment_requested_at?: string | null;
-  paid_at?: string | null;
-  settled_at?: string | null;
-  toss_order_id?: string | null;
-  toss_payment_key?: string | null;
-  platform_fee?: number | null;
-  designer_payout_amount?: number | null;
-  before_photo_url?: string | null;
-  after_photo_url?: string | null;
-  created_at?: string | null;
-};
+export type { Treatment } from './treatment-types';
 
 const treatmentSelectFields =
   'id, customer_id, designer_id, designer_name, customer_name, treatment_date, treatment_type, treatment_title, products, technique, damage_level, notes, duration, designer_diagnosis, home_care, ai_insight, price, payment_status, feedback_completed, payment_requested_at, paid_at, settled_at, toss_order_id, toss_payment_key, platform_fee, designer_payout_amount, before_photo_url, after_photo_url, created_at';

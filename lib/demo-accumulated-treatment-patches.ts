@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import type { Treatment } from './treatments';
+import type { Treatment } from './treatment-types';
 import { isAccumulatedTestTreatmentId } from './demo-accumulated-ids';
 
 const PATCHES_KEY = 'hair-diary-accumulated-treatment-patches';
