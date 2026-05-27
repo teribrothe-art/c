@@ -87,7 +87,7 @@ npm run check:phone
 
 - 데모 모드(Supabase 미설정)에서만 로그인 가능
 - 앱 로그인 화면 **「2년 누적 테스트 디자이너 로그인」** 버튼으로 이메일·비밀번호 자동 입력
-- **테스트 디자이너만** 최근 2년~현재 시술 시드 (`test-designer@hair.app`, 매일 6~9건) · 일반 데모(`designer@hair.app`)는 소량 시드 유지
+- **테스트 디자이너만** 최근 2년~현재 시술 시드 (`test-designer@hair.app`, 매일 2~4건) · 일반 데모(`designer@hair.app`)는 소량 시드 유지
 
 ### 브라우저 `http://localhost:8081` — ERR_EMPTY_RESPONSE (-324)
 

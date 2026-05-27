@@ -67,9 +67,9 @@ function getSeedStartDate(reference = new Date()) {
 }
 
 const SEED_START_DATE = getSeedStartDate();
-/** 최근 2년~현재 매일 6~9건 — 캘린더 전체에 골고루 분포 */
-const DAILY_TREATMENTS_MIN = 6;
-const DAILY_TREATMENTS_MAX = 9;
+/** 최근 2년~현재 매일 2~4건 — 캘린더 전체에 골고루 분포 */
+const DAILY_TREATMENTS_MIN = 2;
+const DAILY_TREATMENTS_MAX = 4;
 
 function dailyTreatmentCountForDay(dayIndex: number) {
   const span = DAILY_TREATMENTS_MAX - DAILY_TREATMENTS_MIN + 1;
@@ -245,7 +245,7 @@ function computeSeedWorkloadStats(treatments: AccumulatedDemoTreatment[]) {
     avgDailyTreatments: Math.round(avgDaily * 10) / 10,
     minDailyTreatments: dailyCounts.length > 0 ? Math.min(...dailyCounts) : 0,
     maxDailyTreatments: dailyCounts.length > 0 ? Math.max(...dailyCounts) : 0,
-    weeklyTreatmentsLabel: '일 6~9건 · 주 7일',
+    weeklyTreatmentsLabel: '일 2~4건 · 주 7일',
   };
 }
 

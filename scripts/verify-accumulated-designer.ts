@@ -50,8 +50,8 @@ function main() {
     '가장 오래된 시술이 2년 시드 시작일 이후',
   );
   assert(
-    ACCUMULATED_DEMO_TREATMENTS.length >= 1000,
-    '시술 1,000건 이상 시드',
+    ACCUMULATED_DEMO_TREATMENTS.length >= 1400,
+    '2년·일 2~4건 기준 시술 1,400건 이상 시드',
   );
 
   const perDay = new Map<string, number>();
@@ -59,7 +59,7 @@ function main() {
     perDay.set(treatment.treatment_date, (perDay.get(treatment.treatment_date) ?? 0) + 1);
   }
   const dailyCounts = [...perDay.values()];
-  assert(dailyCounts.every((count) => count >= 6 && count <= 9), '매일 6~9건 분포');
+  assert(dailyCounts.every((count) => count >= 2 && count <= 4), '매일 2~4건 분포');
 
   console.log('=== 2년 누적 테스트 디자이너 ===\n');
   console.log('로그인 (데모 모드 · Supabase 미설정)');
