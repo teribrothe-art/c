@@ -346,10 +346,13 @@ export default function DesignerRevenueScreen() {
 
             <View style={styles.heroCard}>
               <Text style={styles.heroLabel}>{analytics.selectedMonth.label} 매출</Text>
-              <Text style={styles.heroValue}>
-                {analytics.selectedMonth.revenue.toLocaleString('ko-KR')}
-              </Text>
-              <Text style={styles.heroUnit}>원 · 정산 {analytics.selectedMonth.settlementCount}건</Text>
+              <View style={styles.heroValueRow}>
+                <Text style={styles.heroValue}>
+                  {analytics.selectedMonth.revenue.toLocaleString('ko-KR')}
+                </Text>
+                <Text style={styles.heroValueUnit}>원</Text>
+              </View>
+              <Text style={styles.heroUnit}>정산 {analytics.selectedMonth.settlementCount}건</Text>
             </View>
 
             {linkedMetrics ? (
@@ -442,8 +445,14 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   heroLabel: { color: '#6B6B7B', fontSize: 14, fontWeight: '700', marginBottom: 8 },
+  heroValueRow: {
+    alignItems: 'flex-end',
+    flexDirection: 'row',
+    gap: 6,
+  },
   heroValue: { color: '#1A1A2E', fontSize: 40, fontWeight: '900' },
-  heroUnit: { color: '#6B6B7B', fontSize: 14, fontWeight: '600', marginTop: 4 },
+  heroValueUnit: { color: '#1A1A2E', fontSize: 16, fontWeight: '800', marginBottom: 6 },
+  heroUnit: { color: '#6B6B7B', fontSize: 14, fontWeight: '600', marginTop: 6 },
   metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   metricCard: {
     backgroundColor: '#FFFFFF',
