@@ -2,6 +2,7 @@ import type { PaymentStatus } from './payment-status';
 import { calculatePaymentFees, PLATFORM_FEE_RATE } from './payment-fees';
 import type { PaymentRecord } from './payment-types';
 import type { BetaTestAccount } from './beta-test-accounts';
+import { buildVisitCycleAccumulatedSeedProfile } from './demo-accumulated-visit-seed-builder';
 
 /** treatments.ts Treatment 과 동일한 시드 형태 (순환 import 방지) */
 export type AccumulatedDemoTreatment = {
@@ -40,6 +41,8 @@ export type AccumulatedSeedProfileConfig = {
   dailyMax: number;
   treatmentIdPrefix: string;
   paymentIdPrefix: string;
+  /** 단골 재방문 주기 기반 일정 (dailyMin/Max = 일일 방문 고객 수) */
+  visitCycleMode?: boolean;
 };
 
 export type AccumulatedSeedProfileStats = {
@@ -174,6 +177,10 @@ function computeSeedWorkloadStats(treatments: AccumulatedDemoTreatment[], dailyL
 export function buildAccumulatedSeedProfile(
   config: AccumulatedSeedProfileConfig,
 ): BuiltAccumulatedSeedProfile {
+  if (config.visitCycleMode) {
+    return buildVisitCycleAccumulatedSeedProfile(config);
+  }
+
   const seedStartDate = getSeedStartDate(config.historyYears);
   const dateSlots = buildTreatmentDateSlots(config, seedStartDate);
   const treatments: AccumulatedDemoTreatment[] = [];

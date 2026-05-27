@@ -198,7 +198,12 @@ export default function LoginScreen() {
               <Text style={styles.demoTitle}>데모 · 기능 확인용</Text>
               {ACCUMULATED_TEST_DESIGNERS_PUBLIC.map((designer) => {
                 const stats = ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE[designer.profileKey];
-                const isOneYear = designer.profileKey === '1y';
+                const buttonStyle =
+                  designer.profileKey === '1y'
+                    ? styles.demoButton1y
+                    : designer.profileKey === '3y'
+                      ? styles.demoButton3y
+                      : styles.demoButton2y;
 
                 return (
                   <View key={designer.id} style={styles.demoDesignerBlock}>
@@ -207,7 +212,7 @@ export default function LoginScreen() {
                       onPress={() => void handleTestDesignerLogin(designer)}
                       style={({ pressed }) => [
                         styles.demoButton,
-                        isOneYear ? styles.demoButton1y : styles.demoButton2y,
+                        buttonStyle,
                         pressed && styles.demoButtonPressed,
                       ]}>
                       <Text style={styles.demoButtonText}>{designer.loginLabel} 로그인</Text>
@@ -331,6 +336,9 @@ const styles = StyleSheet.create({
   },
   demoButton1y: {
     backgroundColor: '#00C2A8',
+  },
+  demoButton3y: {
+    backgroundColor: '#E85D4C',
   },
   demoButtonPressed: {
     opacity: 0.88,
