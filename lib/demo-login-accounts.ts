@@ -47,8 +47,8 @@ const BASIC_ACCOUNTS: DemoLoginAccount[] = [
   {
     id: ADMIN_TEST_PUBLIC.id,
     group: '기본',
-    roleLabel: '어드민',
-    loginLabel: '데모 어드민',
+    roleLabel: '본사',
+    loginLabel: '본사 어드민',
     email: ADMIN_TEST_PUBLIC.email,
     password: ADMIN_TEST_PUBLIC.password,
     accent: '#4B5563',

@@ -5,7 +5,7 @@ import type { BetaTestAccount } from './beta-test-accounts';
 export const ADMIN_TEST_ACCOUNT: BetaTestAccount = {
   id: 'hq-admin-test',
   email: 'admin@hair.app',
-  name: '어드민',
+  name: '본사 어드민',
   password: 'admin1234',
   role: 'admin' as UserRole,
 };
@@ -14,5 +14,5 @@ export const ADMIN_TEST_PUBLIC = {
   id: ADMIN_TEST_ACCOUNT.id,
   email: ADMIN_TEST_ACCOUNT.email,
   password: ADMIN_TEST_ACCOUNT.password,
-  loginLabel: '어드민 로그인',
+  loginLabel: '본사 어드민',
 } as const;

@@ -35,7 +35,7 @@ const roles: { label: string; value: UserRole }[] = [
   { label: '고객', value: 'customer' },
   { label: '디자이너', value: 'designer' },
   { label: '매장', value: 'store' },
-  { label: '어드민', value: 'admin' },
+  { label: '본사', value: 'admin' },
 ];
 
 export default function SignupScreen() {
