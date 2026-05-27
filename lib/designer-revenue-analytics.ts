@@ -16,7 +16,7 @@ import {
   type WeekdayRevenueCell,
 } from './designer-revenue-weekly';
 import { supabase } from './supabase';
-import { getDesignerTreatments } from './treatments';
+import { getDesignerTreatments, type Treatment } from './treatments';
 
 export type { WeekdayRevenueCell, WeeklyRevenueWeek };
 export { formatDateWithWeekday };
@@ -43,10 +43,22 @@ export type DesignerRevenueAnalytics = {
   selectedWeekKey: string;
   selectedWeek: WeeklyRevenueWeek;
   dailyTotals: DailyRevenuePoint[];
+  /** @deprecated monthPendingPayoutAmount 사용 */
   pendingPayoutAmount: number;
+  /** @deprecated monthPendingPayoutCount 사용 */
   pendingPayoutCount: number;
   /** 선택한 달의 시술 기록 건수 (정산 여부 무관) */
   selectedMonthTreatmentCount: number;
+  /** 선택한 달 · treatment_date 기준 일별 시술 건수 */
+  treatmentCountByDate: Record<string, number>;
+  /** 선택한 달 · 시술일 기준 정산 대기 */
+  monthPendingPayoutAmount: number;
+  monthPendingPayoutCount: number;
+  /** 선택한 주(월~일) · 시술일 기준 정산 대기 */
+  weekPendingPayoutAmount: number;
+  weekPendingPayoutCount: number;
+  /** 선택한 달 · 시술일 기준 일별 정산 대기 */
+  pendingPayoutByDate: Record<string, { amount: number; count: number }>;
   recentSettlements: {
     paymentId: string;
     customerName: string;
@@ -118,6 +130,81 @@ async function loadDesignerPayments(
 
 function payoutOf(payment: PaymentRecord) {
   return payment.designer_payout ?? calculatePaymentFees(payment.amount).designerPayout;
+}
+
+function isAwaitingSettlement(status: PaymentRecord['status']) {
+  return status === 'paid' || status === 'in_escrow';
+}
+
+function treatmentDateOf(treatment: Treatment | undefined, payment: PaymentRecord) {
+  if (treatment?.treatment_date) {
+    return treatment.treatment_date;
+  }
+
+  return (payment.paid_at ?? payment.created_at).slice(0, 10);
+}
+
+function buildTreatmentCountByDate(treatments: Treatment[], monthKey: string) {
+  const map: Record<string, number> = {};
+
+  for (const treatment of treatments) {
+    if (monthKeyFromDate(treatment.treatment_date) !== monthKey) {
+      continue;
+    }
+
+    map[treatment.treatment_date] = (map[treatment.treatment_date] ?? 0) + 1;
+  }
+
+  return map;
+}
+
+function buildPendingPayoutByDate(
+  payments: PaymentRecord[],
+  treatmentMap: Map<string, Treatment>,
+  monthKey: string,
+) {
+  const map: Record<string, { amount: number; count: number }> = {};
+
+  for (const payment of payments) {
+    if (!isAwaitingSettlement(payment.status)) {
+      continue;
+    }
+
+    const treatment = treatmentMap.get(payment.treatment_id);
+    const date = treatmentDateOf(treatment, payment);
+
+    if (monthKeyFromDate(date) !== monthKey) {
+      continue;
+    }
+
+    const current = map[date] ?? { amount: 0, count: 0 };
+    current.amount += payoutOf(payment);
+    current.count += 1;
+    map[date] = current;
+  }
+
+  return map;
+}
+
+function sumPendingForDates(
+  pendingByDate: Record<string, { amount: number; count: number }>,
+  dates: string[],
+) {
+  return dates.reduce(
+    (acc, date) => {
+      const stats = pendingByDate[date];
+
+      if (!stats) {
+        return acc;
+      }
+
+      acc.amount += stats.amount;
+      acc.count += stats.count;
+
+      return acc;
+    },
+    { amount: 0, count: 0 },
+  );
 }
 
 function buildMonthlyBuckets(completed: PaymentRecord[]): MonthlyRevenueBucket[] {
@@ -208,6 +295,12 @@ export async function fetchDesignerRevenueAnalytics(
       pendingPayoutAmount: 0,
       pendingPayoutCount: 0,
       selectedMonthTreatmentCount: 0,
+      treatmentCountByDate: {},
+      monthPendingPayoutAmount: 0,
+      monthPendingPayoutCount: 0,
+      weekPendingPayoutAmount: 0,
+      weekPendingPayoutCount: 0,
+      pendingPayoutByDate: {},
       recentSettlements: [],
     };
   }
@@ -250,10 +343,13 @@ export async function fetchDesignerRevenueAnalytics(
     };
   const dailyTotals = buildDailyTotals(completed, resolvedMonthKey);
 
-  const paidPending = payments.filter(
-    (payment) => payment.status === 'paid' || payment.status === 'in_escrow',
+  const treatmentCountByDate = buildTreatmentCountByDate(treatments, resolvedMonthKey);
+  const pendingPayoutByDate = buildPendingPayoutByDate(payments, treatmentMap, resolvedMonthKey);
+  const monthPending = sumPendingForDates(pendingPayoutByDate, Object.keys(pendingPayoutByDate));
+  const weekPending = sumPendingForDates(
+    pendingPayoutByDate,
+    selectedWeek.days.map((day) => day.date),
   );
-  const pendingPayoutAmount = paidPending.reduce((sum, payment) => sum + payoutOf(payment), 0);
 
   const monthTreatments = treatments.filter(
     (treatment) => monthKeyFromDate(treatment.treatment_date) === resolvedMonthKey,
@@ -288,9 +384,15 @@ export async function fetchDesignerRevenueAnalytics(
     selectedWeekKey: resolvedWeekKey,
     selectedWeek,
     dailyTotals,
-    pendingPayoutAmount,
-    pendingPayoutCount: paidPending.length,
+    pendingPayoutAmount: monthPending.amount,
+    pendingPayoutCount: monthPending.count,
     selectedMonthTreatmentCount,
+    treatmentCountByDate,
+    monthPendingPayoutAmount: monthPending.amount,
+    monthPendingPayoutCount: monthPending.count,
+    weekPendingPayoutAmount: weekPending.amount,
+    weekPendingPayoutCount: weekPending.count,
+    pendingPayoutByDate,
     recentSettlements,
   };
 }

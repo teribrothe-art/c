@@ -167,9 +167,42 @@ export default function DesignerRevenueScreen() {
     return `${analytics.selectedMonth.label} 정산 상세`;
   }, [analytics, selectedDayDate]);
 
+  const linkedMetrics = useMemo(() => {
+    if (!analytics) {
+      return null;
+    }
+
+    const selectedDay = selectedDayDate
+      ? analytics.selectedWeek.days.find((day) => day.date === selectedDayDate)
+      : null;
+
+    if (selectedDay) {
+      const pending = analytics.pendingPayoutByDate[selectedDay.date] ?? { amount: 0, count: 0 };
+
+      return {
+        treatmentLabel: '선택일 시술',
+        treatmentCount: analytics.treatmentCountByDate[selectedDay.date] ?? 0,
+        pendingAmount: pending.amount,
+        pendingCount: pending.count,
+        periodLabel: '선택일 합계',
+        periodTotal: selectedDay.totalAmount,
+      };
+    }
+
+    return {
+      treatmentLabel: '월 총 시술 건수',
+      treatmentCount: analytics.selectedMonthTreatmentCount,
+      pendingAmount: analytics.monthPendingPayoutAmount,
+      pendingCount: analytics.monthPendingPayoutCount,
+      periodLabel: '선택 주 합계',
+      periodTotal: analytics.selectedWeek.weekTotal,
+    };
+  }, [analytics, selectedDayDate]);
+
   const hasAnyRevenue = Boolean(
     analytics &&
-      (analytics.months.some((month) => month.revenue > 0) || analytics.pendingPayoutCount > 0),
+      (analytics.months.some((month) => month.revenue > 0) ||
+        analytics.monthPendingPayoutCount > 0),
   );
 
   const handleSelectMonth = (monthKey: string) => {
@@ -309,23 +342,29 @@ export default function DesignerRevenueScreen() {
               <Text style={styles.heroUnit}>원 · 정산 {analytics.selectedMonth.settlementCount}건</Text>
             </View>
 
-            <View style={styles.metricGrid}>
-              <MetricCard
-                label="월 총 시술 건수"
-                value={`${analytics.selectedMonthTreatmentCount.toLocaleString('ko-KR')}건`}
-              />
-              <MetricCard
-                label="정산 대기"
-                tone="danger"
-                value={`${analytics.pendingPayoutAmount.toLocaleString('ko-KR')}원`}
-              />
-              <MetricCard label="대기 건수" tone="danger" value={`${analytics.pendingPayoutCount}건`} />
-              <MetricCard
-                label="선택 주 합계"
-                tone="success"
-                value={`${analytics.selectedWeek.weekTotal.toLocaleString('ko-KR')}원`}
-              />
-            </View>
+            {linkedMetrics ? (
+              <View style={styles.metricGrid}>
+                <MetricCard
+                  label={linkedMetrics.treatmentLabel}
+                  value={`${linkedMetrics.treatmentCount.toLocaleString('ko-KR')}건`}
+                />
+                <MetricCard
+                  label="정산 대기"
+                  tone="danger"
+                  value={`${linkedMetrics.pendingAmount.toLocaleString('ko-KR')}원`}
+                />
+                <MetricCard
+                  label="대기 건수"
+                  tone="danger"
+                  value={`${linkedMetrics.pendingCount.toLocaleString('ko-KR')}건`}
+                />
+                <MetricCard
+                  label={linkedMetrics.periodLabel}
+                  tone="success"
+                  value={`${linkedMetrics.periodTotal.toLocaleString('ko-KR')}원`}
+                />
+              </View>
+            ) : null}
 
             <WeeklyRevenuePanel
               canGoNext={weekIndex >= 0 && weekIndex < analytics.weeklyWeeks.length - 1}
