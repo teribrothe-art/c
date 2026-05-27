@@ -58,9 +58,7 @@ async function ensureAccumulatedDemoPaymentsForCurrentUser() {
     return;
   }
 
-  if (mergeAccumulatedPaymentsIntoStore(demoPayments)) {
-    // 누적 시드는 메모리만 — AsyncStorage에 쓰지 않음
-  }
+  mergeAccumulatedPaymentsIntoStore(demoPayments, user);
 }
 
 async function readDemoPaymentsFromStorage() {

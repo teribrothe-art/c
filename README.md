@@ -77,17 +77,15 @@ npm run check:phone
 
 데모 로그인( Supabase 미설정 시): `demo@hair.app` / `demo1234`, `designer@hair.app` / `demo1234`
 
-### 2년 누적 활동 테스트 디자이너 (기능 확인용 · 공개 계정)
+### 누적 테스트 디자이너 (기능 확인용 · 공개 계정)
 
-| 항목 | 값 |
-|------|-----|
-| **ID** | `test-designer-3y` |
-| 이메일 | `test-designer@hair.app` |
-| 비밀번호 | `test1234` |
+| 프로필 | ID | 이메일 | 비밀번호 |
+|--------|-----|--------|----------|
+| 2년 | `test-designer-3y` | test-designer@hair.app | test1234 |
+| 1년 | `test-designer-1y` | test-designer-1y@hair.app | test1234 |
 
-- 데모 모드(Supabase 미설정)에서만 로그인 가능
-- 앱 로그인 화면 **「2년 누적 테스트 디자이너 로그인」** 버튼으로 이메일·비밀번호 자동 입력
-- **테스트 디자이너만** 최근 2년~현재 시술 시드 (`test-designer@hair.app`, 매일 2~4건) · 일반 데모(`designer@hair.app`)는 소량 시드 유지
+- 로그인 화면 **2년 / 1년 누적 테스트 디자이너** 버튼
+- 각 디자이너는 **본인 시술만** 메모리 로드 (일 2~4건) · 일반 데모는 소량 시드 유지
 
 ### 브라우저 `http://localhost:8081` — ERR_EMPTY_RESPONSE (-324)
 

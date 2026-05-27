@@ -65,9 +65,7 @@ async function ensureAccumulatedDemoTreatmentsForCurrentUser() {
     return;
   }
 
-  if (mergeAccumulatedTreatmentsIntoStore(demoTreatments)) {
-    // 누적 시드는 메모리만 — AsyncStorage에 쓰지 않음 (Row too big 방지)
-  }
+  mergeAccumulatedTreatmentsIntoStore(demoTreatments, user);
 }
 
 async function readDemoTreatmentsFromStorage() {

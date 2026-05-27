@@ -13,8 +13,8 @@ import {
 import { redeemInviteForCurrentUser } from '../lib/apply-pending-invite';
 import { getPostAuthRoute } from '../lib/auth-redirect';
 import { getCurrentUser, isDemoAuthMode, signInWithEmail } from '../lib/auth';
-import { ACCUMULATED_TEST_DESIGNER_PUBLIC } from '../lib/demo-accumulated-test-accounts';
-import { ACCUMULATED_DEMO_SEED_STATS } from '../lib/demo-accumulated-test-data';
+import { ACCUMULATED_TEST_DESIGNERS_PUBLIC } from '../lib/demo-accumulated-test-accounts';
+import { ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE } from '../lib/demo-accumulated-test-data';
 import { peekPendingInviteCode } from '../lib/pending-invite-code';
 import { showLoginFailureAlert } from '../lib/alerts';
 import { getErrorMessage } from '../lib/errors';
@@ -152,29 +152,36 @@ export default function LoginScreen() {
         {isDemoAuthMode ? (
           <View style={styles.demoBox}>
             <Text style={styles.demoTitle}>데모 · 기능 확인용</Text>
-            <Pressable
-              disabled={isLoading}
-              onPress={() => {
-                setEmail(ACCUMULATED_TEST_DESIGNER_PUBLIC.email);
-                setPassword(ACCUMULATED_TEST_DESIGNER_PUBLIC.password);
-                setLoginError(null);
-                setEmailError(null);
-                setPasswordError(null);
-              }}
-              style={({ pressed }) => [styles.demoButton, pressed && styles.demoButtonPressed]}>
-              <Text style={styles.demoButtonText}>2년 누적 테스트 디자이너 로그인</Text>
-            </Pressable>
-            <Text style={styles.demoMeta}>
-              ID {ACCUMULATED_TEST_DESIGNER_PUBLIC.id}
-            </Text>
-            <Text style={styles.demoMeta}>
-              {ACCUMULATED_TEST_DESIGNER_PUBLIC.email} / {ACCUMULATED_TEST_DESIGNER_PUBLIC.password}
-            </Text>
-            <Text style={styles.demoMeta}>
-              시술 {ACCUMULATED_DEMO_SEED_STATS.treatmentCount}건 · 고객{' '}
-              {ACCUMULATED_DEMO_SEED_STATS.customerCount}명 ·{' '}
-              {ACCUMULATED_DEMO_SEED_STATS.yearSpanLabel}
-            </Text>
+            {ACCUMULATED_TEST_DESIGNERS_PUBLIC.map((designer) => {
+              const stats = ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE[designer.profileKey];
+
+              return (
+                <View key={designer.id} style={styles.demoDesignerBlock}>
+                  <Pressable
+                    disabled={isLoading}
+                    onPress={() => {
+                      setEmail(designer.email);
+                      setPassword(designer.password);
+                      setLoginError(null);
+                      setEmailError(null);
+                      setPasswordError(null);
+                    }}
+                    style={({ pressed }) => [styles.demoButton, pressed && styles.demoButtonPressed]}>
+                    <Text style={styles.demoButtonText}>{designer.loginLabel} 로그인</Text>
+                  </Pressable>
+                  <Text style={styles.demoMeta}>ID {designer.id}</Text>
+                  <Text style={styles.demoMeta}>
+                    {designer.email} / {designer.password}
+                  </Text>
+                  {stats ? (
+                    <Text style={styles.demoMeta}>
+                      시술 {stats.treatmentCount}건 · 고객 {stats.customerCount}명 ·{' '}
+                      {stats.yearSpanLabel}
+                    </Text>
+                  ) : null}
+                </View>
+              );
+            })}
           </View>
         ) : null}
 
@@ -279,6 +286,10 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
+  },
+  demoDesignerBlock: {
+    gap: 6,
+    marginTop: 4,
   },
   demoMeta: {
     color: '#6B6B7B',

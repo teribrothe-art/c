@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { BETA_CUSTOMERS } from './beta-test-accounts';
-import { ACCUMULATED_TEST_CUSTOMERS } from './demo-accumulated-test-accounts';
+import { ACCUMULATED_TEST_CUSTOMERS, ACCUMULATED_TEST_CUSTOMERS_1Y } from './demo-accumulated-test-accounts';
 import { expireInvitation, getPendingInvitationForTreatment } from './customer-invitations';
 import { toAppError } from './errors';
 import { addNotification } from './notifications';
@@ -69,7 +69,7 @@ async function fetchDemoRegisteredCustomers(
 
   const merged = new Map<string, RegisteredCustomerOption>();
 
-  for (const account of [...BETA_CUSTOMERS, ...ACCUMULATED_TEST_CUSTOMERS]) {
+  for (const account of [...BETA_CUSTOMERS, ...ACCUMULATED_TEST_CUSTOMERS, ...ACCUMULATED_TEST_CUSTOMERS_1Y]) {
     merged.set(account.id, {
       id: account.id,
       name: account.name,

@@ -1,18 +1,16 @@
 #!/usr/bin/env npx tsx
 /**
- * 2년 누적 테스트 디자이너 시드 검증 (데모 모드)
+ * 누적 테스트 디자이너 시드 검증 (데모 모드)
  * 실행: npm run verify:accumulated-designer
  */
 
 import {
-  ACCUMULATED_TEST_CUSTOMERS,
-  ACCUMULATED_TEST_DESIGNER,
-  ACCUMULATED_TEST_DESIGNER_PUBLIC,
+  ACCUMULATED_TEST_DESIGNERS_PUBLIC,
+  ACCUMULATED_TEST_PASSWORD,
 } from '../lib/demo-accumulated-test-accounts';
 import {
-  ACCUMULATED_DEMO_PAYMENTS,
-  ACCUMULATED_DEMO_SEED_STATS,
-  ACCUMULATED_DEMO_TREATMENTS,
+  ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE,
+  ACCUMULATED_TEST_PROFILES,
 } from '../lib/demo-accumulated-test-seeds';
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -21,71 +19,65 @@ function assert(condition: unknown, message: string): asserts condition {
   }
 }
 
-function main() {
-  const designerId = ACCUMULATED_TEST_DESIGNER.id;
-
-  assert(ACCUMULATED_TEST_CUSTOMERS.length === 10, '고객 10명 시드');
-  assert(
-    ACCUMULATED_DEMO_TREATMENTS.length === ACCUMULATED_DEMO_SEED_STATS.treatmentCount,
-    '시술 건수 통계 일치',
-  );
-  assert(
-    ACCUMULATED_DEMO_PAYMENTS.length === ACCUMULATED_DEMO_SEED_STATS.paymentCount,
-    '결제 건수 통계 일치',
-  );
-  assert(
-    ACCUMULATED_DEMO_TREATMENTS.every((t) => t.designer_id === designerId),
-    '모든 시술이 누적 테스트 디자이너 소속',
+function verifyProfile(profileKey: '2y' | '1y', minTreatments: number) {
+  const profile = ACCUMULATED_TEST_PROFILES.find((item) => item.key === profileKey);
+  const stats = ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE[profileKey];
+  const publicAccount = ACCUMULATED_TEST_DESIGNERS_PUBLIC.find(
+    (item) => item.profileKey === profileKey,
   );
 
-  const customerIds = new Set(ACCUMULATED_TEST_CUSTOMERS.map((c) => c.id));
+  assert(profile, `${profileKey} 프로필 존재`);
+  assert(stats, `${profileKey} 통계 존재`);
+  assert(publicAccount, `${profileKey} 공개 계정 존재`);
+  assert(profile.customers.length === 10, `${profileKey} 고객 10명`);
+  assert(profile.treatments.length === stats.treatmentCount, `${profileKey} 시술 건수 일치`);
+  assert(profile.payments.length === stats.paymentCount, `${profileKey} 결제 건수 일치`);
   assert(
-    ACCUMULATED_DEMO_TREATMENTS.every((t) => customerIds.has(t.customer_id)),
-    '시술 고객 ID가 테스트 고객 10명 중 하나',
+    profile.treatments.every((t) => t.designer_id === profile.designer.id),
+    `${profileKey} 시술 디자이너 일치`,
   );
 
+  const customerIds = new Set(profile.customers.map((customer) => customer.id));
   assert(
-    ACCUMULATED_DEMO_SEED_STATS.oldestTreatmentDate !== null &&
-      ACCUMULATED_DEMO_SEED_STATS.oldestTreatmentDate >= ACCUMULATED_DEMO_SEED_STATS.seedStartDate,
-    '가장 오래된 시술이 2년 시드 시작일 이후',
+    profile.treatments.every((t) => customerIds.has(t.customer_id)),
+    `${profileKey} 시술 고객 ID 일치`,
   );
   assert(
-    ACCUMULATED_DEMO_TREATMENTS.length >= 1400,
-    '2년·일 2~4건 기준 시술 1,400건 이상 시드',
+    stats.oldestTreatmentDate !== null &&
+      stats.oldestTreatmentDate >= stats.seedStartDate,
+    `${profileKey} 시작일 이후 시술`,
   );
+  assert(profile.treatments.length >= minTreatments, `${profileKey} 최소 시술 ${minTreatments}건`);
 
   const perDay = new Map<string, number>();
-  for (const treatment of ACCUMULATED_DEMO_TREATMENTS) {
+  for (const treatment of profile.treatments) {
     perDay.set(treatment.treatment_date, (perDay.get(treatment.treatment_date) ?? 0) + 1);
   }
-  const dailyCounts = [...perDay.values()];
-  assert(dailyCounts.every((count) => count >= 2 && count <= 4), '매일 2~4건 분포');
 
-  console.log('=== 2년 누적 테스트 디자이너 ===\n');
-  console.log('로그인 (데모 모드 · Supabase 미설정)');
-  console.log(`  ID: ${ACCUMULATED_TEST_DESIGNER_PUBLIC.id}`);
-  console.log(`  이메일: ${ACCUMULATED_TEST_DESIGNER_PUBLIC.email}`);
-  console.log(`  비밀번호: ${ACCUMULATED_TEST_DESIGNER_PUBLIC.password}\n`);
-
-  console.log('시드 검증 OK');
-  console.log(`  고객: ${ACCUMULATED_DEMO_SEED_STATS.customerCount}명`);
-  console.log(`  시술: ${ACCUMULATED_DEMO_SEED_STATS.treatmentCount}건`);
-  console.log(`  결제: ${ACCUMULATED_DEMO_SEED_STATS.paymentCount}건`);
-  console.log(
-    `  기간: ${ACCUMULATED_DEMO_SEED_STATS.oldestTreatmentDate} ~ ${ACCUMULATED_DEMO_SEED_STATS.newestTreatmentDate}`,
+  assert(
+    [...perDay.values()].every((count) => count >= profile.dailyMin && count <= profile.dailyMax),
+    `${profileKey} 매일 ${profile.dailyMin}~${profile.dailyMax}건`,
   );
-  console.log(`  (${ACCUMULATED_DEMO_SEED_STATS.yearSpanLabel})`);
-  console.log(`  패턴: ${ACCUMULATED_DEMO_SEED_STATS.weeklyTreatmentsLabel}`);
-  console.log(`  영업일 평균: ${ACCUMULATED_DEMO_SEED_STATS.avgDailyTreatments}건/일\n`);
 
-  console.log('앱에서 확인할 화면');
-  console.log('  1. 로그인 → 「2년 누적 테스트 디자이너 로그인」 버튼');
-  console.log('  2. 정산 탭 (누적·월별 정산)');
-  console.log('  3. 자산 탭 (10명·시술 목록)');
-  console.log('  4. 매출 탭 (월별 차트)');
-  console.log('  5. 시술 상세 → 결제·정산 상태\n');
+  console.log(`\n=== ${publicAccount.loginLabel} ===`);
+  console.log(`  ID: ${publicAccount.id}`);
+  console.log(`  이메일: ${publicAccount.email}`);
+  console.log(`  비밀번호: ${ACCUMULATED_TEST_PASSWORD}`);
+  console.log(`  고객: ${stats.customerCount}명`);
+  console.log(`  시술: ${stats.treatmentCount}건`);
+  console.log(`  결제: ${stats.paymentCount}건`);
+  console.log(`  기간: ${stats.oldestTreatmentDate} ~ ${stats.newestTreatmentDate}`);
+  console.log(`  (${stats.yearSpanLabel}) · ${stats.weeklyTreatmentsLabel}`);
+}
 
-  console.log('데이터가 비어 있으면 Expo Go 완전 종료 후 npm run start:phone 으로 재접속');
+function main() {
+  verifyProfile('2y', 1400);
+  verifyProfile('1y', 650);
+
+  console.log('\n시드 검증 OK');
+  console.log('  · 로그인 화면에서 2년 / 1년 테스트 디자이너 버튼 확인');
+  console.log('  · 각 계정은 본인 시드만 메모리 로드 (AsyncStorage 미저장)');
+  console.log('\n데이터가 비어 있으면 Expo Go 완전 종료 후 npm run start:phone 으로 재접속');
 }
 
 main();
