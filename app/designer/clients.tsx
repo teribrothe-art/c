@@ -315,12 +315,48 @@ export default function DesignerClientsScreen() {
     [visibleItems],
   );
 
+  const searchActive = searchQuery.trim().length > 0;
+
+  const expandedGroupKey = useMemo(() => {
+    if (searchActive) {
+      return null;
+    }
+
+    const first = expandedGroupKeys.values().next().value as string | undefined;
+    return typeof first === 'string' ? first : null;
+  }, [expandedGroupKeys, searchActive]);
+
+  const clientGroupRows = useMemo(() => {
+    const rows: (typeof clientGroups)[] = [];
+
+    for (let index = 0; index < clientGroups.length; index += GRID_COLUMNS) {
+      rows.push(clientGroups.slice(index, index + GRID_COLUMNS));
+    }
+
+    return rows;
+  }, [clientGroups]);
+
+  const expandedRowIndex = useMemo(() => {
+    if (!expandedGroupKey) {
+      return null;
+    }
+
+    const index = clientGroups.findIndex((group) => group.key === expandedGroupKey);
+    return index >= 0 ? Math.floor(index / GRID_COLUMNS) : null;
+  }, [clientGroups, expandedGroupKey]);
+
+  const expandedGroup = useMemo(() => {
+    if (!expandedGroupKey) {
+      return null;
+    }
+
+    return clientGroups.find((group) => group.key === expandedGroupKey) ?? null;
+  }, [clientGroups, expandedGroupKey]);
+
   const allCustomerGroups = useMemo(
     () => groupDesignerClientListItems(clientItems),
     [clientItems],
   );
-
-  const searchActive = searchQuery.trim().length > 0;
 
   const isGroupExpanded = useCallback(
     (groupKey: string) => searchActive || expandedGroupKeys.has(groupKey),
@@ -543,47 +579,48 @@ export default function DesignerClientsScreen() {
         ) : (
           <View style={styles.list}>
             <View style={styles.customerGrid}>
-              {clientGroups.map((group) => (
-                <CustomerGridTile
-                  key={group.key}
-                  expanded={isGroupExpanded(group.key)}
-                  group={group}
-                  onPress={() => toggleGroup(group.key)}
-                />
+              {clientGroupRows.map((row, rowIndex) => (
+                <View key={`row-${rowIndex}`} style={styles.customerGridRow}>
+                  {row.map((group) => (
+                    <CustomerGridTile
+                      key={group.key}
+                      expanded={isGroupExpanded(group.key)}
+                      group={group}
+                      onPress={() => toggleGroup(group.key)}
+                    />
+                  ))}
+                  {expandedGroup && expandedRowIndex === rowIndex ? (
+                    <View
+                      onLayout={(event) => {
+                        groupLayoutYRef.current[expandedGroup.key] = event.nativeEvent.layout.y;
+                      }}
+                      style={styles.inlineDetailWrap}>
+                      <View style={styles.clientGroup}>
+                        <View style={styles.groupDetailHeader}>
+                          <Text style={styles.groupDetailTitle}>{expandedGroup.customerName}</Text>
+                          <Text style={styles.groupDetailMeta}>
+                            시술 {expandedGroup.items.length}건
+                          </Text>
+                        </View>
+                        <View style={styles.groupCards}>
+                          {expandedGroup.items.map((item) => (
+                            <DesignerClientCard
+                              key={item.key}
+                              compact
+                              item={item}
+                              onPress={() =>
+                                detailRouter.push(`/designer/treatment/${item.treatmentId}`)
+                              }
+                              onReinvite={() => handleReinvite(item)}
+                            />
+                          ))}
+                        </View>
+                      </View>
+                    </View>
+                  ) : null}
+                </View>
               ))}
             </View>
-            {clientGroups.map((group) => {
-              const expanded = isGroupExpanded(group.key);
-
-              if (!expanded) {
-                return null;
-              }
-
-              return (
-                <View
-                  key={`${group.key}-detail`}
-                  onLayout={(event) => {
-                    groupLayoutYRef.current[group.key] = event.nativeEvent.layout.y;
-                  }}
-                  style={styles.clientGroup}>
-                  <View style={styles.groupDetailHeader}>
-                    <Text style={styles.groupDetailTitle}>{group.customerName}</Text>
-                    <Text style={styles.groupDetailMeta}>시술 {group.items.length}건</Text>
-                  </View>
-                  <View style={styles.groupCards}>
-                    {group.items.map((item) => (
-                      <DesignerClientCard
-                        key={item.key}
-                        compact
-                        item={item}
-                        onPress={() => detailRouter.push(`/designer/treatment/${item.treatmentId}`)}
-                        onReinvite={() => handleReinvite(item)}
-                      />
-                    ))}
-                  </View>
-                </View>
-              );
-            })}
           </View>
         )}
       </ScrollView>
@@ -758,6 +795,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginHorizontal: -4,
+  },
+  customerGridRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    width: '100%',
+  },
+  inlineDetailWrap: {
+    width: '100%',
+    marginTop: 8,
   },
   gridTile: {
     alignItems: 'center',
