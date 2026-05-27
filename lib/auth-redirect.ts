@@ -10,7 +10,7 @@ export async function getPostAuthRoute(): Promise<Href> {
   }
 
   if (user.role === 'designer') {
-    return '/designer/clients';
+    return '/designer/welcome';
   }
 
   return '/today-care';

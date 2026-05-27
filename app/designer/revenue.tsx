@@ -1,5 +1,5 @@
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -45,15 +45,25 @@ function MetricCard({
 
 export default function DesignerRevenueScreen() {
   const insets = useSafeAreaInsets();
+  const { month: monthParam } = useLocalSearchParams<{ month?: string }>();
   const [analytics, setAnalytics] = useState<DesignerRevenueAnalytics | null>(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | undefined>(undefined);
   const [selectedWeekKey, setSelectedWeekKey] = useState<string | undefined>(undefined);
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const selectedMonthKeyRef = useRef<string | undefined>(undefined);
+  const selectedWeekKeyRef = useRef<string | undefined>(undefined);
+  const routeMonthHandledRef = useRef<string | null>(null);
+  const hasLoadedOnceRef = useRef(false);
+
+  selectedMonthKeyRef.current = selectedMonthKey;
+  selectedWeekKeyRef.current = selectedWeekKey;
 
   const loadRevenue = useCallback((monthKey?: string, weekKey?: string) => {
-    setIsLoading(true);
+    if (!hasLoadedOnceRef.current) {
+      setIsLoading(true);
+    }
 
     fetchDesignerRevenueAnalytics(monthKey, weekKey)
       .then((data) => {
@@ -76,6 +86,7 @@ export default function DesignerRevenueScreen() {
           return withRevenue?.date ?? data.selectedWeek.days[0]?.date ?? null;
         });
         setErrorMessage('');
+        hasLoadedOnceRef.current = true;
       })
       .catch((error) => {
         setErrorMessage(getErrorMessage(error, '매출 데이터를 불러오지 못했습니다.'));
@@ -85,8 +96,24 @@ export default function DesignerRevenueScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadRevenue(selectedMonthKey, selectedWeekKey);
-    }, [loadRevenue, selectedMonthKey, selectedWeekKey]),
+      const monthFromRoute = typeof monthParam === 'string' ? monthParam.trim() : '';
+
+      if (monthFromRoute) {
+        if (routeMonthHandledRef.current === monthFromRoute) {
+          return;
+        }
+
+        routeMonthHandledRef.current = monthFromRoute;
+        setSelectedMonthKey(monthFromRoute);
+        setSelectedWeekKey(undefined);
+        setSelectedDayDate(null);
+        loadRevenue(monthFromRoute);
+        return;
+      }
+
+      routeMonthHandledRef.current = null;
+      loadRevenue(selectedMonthKeyRef.current, selectedWeekKeyRef.current);
+    }, [loadRevenue, monthParam]),
   );
 
   const monthlyChartPoints = useMemo(
@@ -117,12 +144,18 @@ export default function DesignerRevenueScreen() {
       return [];
     }
 
-    if (!selectedDayDate) {
-      return analytics.recentSettlements;
+    if (selectedDayDate) {
+      return analytics.recentSettlements.filter((item) => item.date === selectedDayDate);
     }
 
-    return analytics.recentSettlements.filter((item) => item.date === selectedDayDate);
-  }, [analytics, selectedDayDate]);
+    if (selectedWeekKey && analytics.selectedWeek) {
+      const weekDates = new Set(analytics.selectedWeek.days.map((day) => day.date));
+
+      return analytics.recentSettlements.filter((item) => weekDates.has(item.date));
+    }
+
+    return analytics.recentSettlements;
+  }, [analytics, selectedDayDate, selectedWeekKey]);
 
   const settlementSectionTitle = useMemo(() => {
     if (!analytics) {
@@ -137,17 +170,60 @@ export default function DesignerRevenueScreen() {
       }
     }
 
+    if (selectedWeekKey && analytics.selectedWeek.label) {
+      return `${analytics.selectedWeek.label} 정산 상세`;
+    }
+
     return `${analytics.selectedMonth.label} 정산 상세`;
+  }, [analytics, selectedDayDate, selectedWeekKey]);
+
+  const linkedMetrics = useMemo(() => {
+    if (!analytics) {
+      return null;
+    }
+
+    const selectedDay = selectedDayDate
+      ? analytics.selectedWeek.days.find((day) => day.date === selectedDayDate)
+      : null;
+
+    if (selectedDay) {
+      const pending = analytics.pendingPayoutByDate[selectedDay.date] ?? { amount: 0, count: 0 };
+
+      return {
+        treatmentLabel: '선택일 시술',
+        treatmentCount: analytics.treatmentCountByDate[selectedDay.date] ?? 0,
+        pendingAmount: pending.amount,
+        pendingCount: pending.count,
+        periodLabel: '선택일 합계',
+        periodTotal: selectedDay.totalAmount,
+      };
+    }
+
+    return {
+      treatmentLabel: '월 총 시술 건수',
+      treatmentCount: analytics.selectedMonthTreatmentCount,
+      pendingAmount: analytics.monthPendingPayoutAmount,
+      pendingCount: analytics.monthPendingPayoutCount,
+      periodLabel: '선택 주 합계',
+      periodTotal: analytics.selectedWeek.weekTotal,
+    };
   }, [analytics, selectedDayDate]);
 
   const hasAnyRevenue = Boolean(
     analytics &&
-      (analytics.months.some((month) => month.revenue > 0) || analytics.pendingPayoutCount > 0),
+      (analytics.months.some((month) => month.revenue > 0) ||
+        analytics.monthPendingPayoutCount > 0),
   );
 
   const handleSelectMonth = (monthKey: string) => {
     if (monthKey === selectedMonthKey) {
       return;
+    }
+
+    routeMonthHandledRef.current = monthKey;
+
+    if (typeof monthParam === 'string' && monthParam.trim()) {
+      router.setParams({ month: '' });
     }
 
     setSelectedMonthKey(monthKey);
@@ -276,23 +352,29 @@ export default function DesignerRevenueScreen() {
               <Text style={styles.heroUnit}>원 · 정산 {analytics.selectedMonth.settlementCount}건</Text>
             </View>
 
-            <View style={styles.metricGrid}>
-              <MetricCard
-                label="월 평균 시술가"
-                value={`${analytics.averageTreatmentPrice.toLocaleString('ko-KR')}원`}
-              />
-              <MetricCard
-                label="정산 대기"
-                tone="danger"
-                value={`${analytics.pendingPayoutAmount.toLocaleString('ko-KR')}원`}
-              />
-              <MetricCard label="대기 건수" tone="danger" value={`${analytics.pendingPayoutCount}건`} />
-              <MetricCard
-                label="선택 주 합계"
-                tone="success"
-                value={`${analytics.selectedWeek.weekTotal.toLocaleString('ko-KR')}원`}
-              />
-            </View>
+            {linkedMetrics ? (
+              <View style={styles.metricGrid}>
+                <MetricCard
+                  label={linkedMetrics.treatmentLabel}
+                  value={`${linkedMetrics.treatmentCount.toLocaleString('ko-KR')}건`}
+                />
+                <MetricCard
+                  label={linkedMetrics.periodLabel}
+                  tone="success"
+                  value={`${linkedMetrics.periodTotal.toLocaleString('ko-KR')}원`}
+                />
+                <MetricCard
+                  label="대기 건수"
+                  tone="danger"
+                  value={`${linkedMetrics.pendingCount.toLocaleString('ko-KR')}건`}
+                />
+                <MetricCard
+                  label="정산 대기"
+                  tone="danger"
+                  value={`${linkedMetrics.pendingAmount.toLocaleString('ko-KR')}원`}
+                />
+              </View>
+            ) : null}
 
             <WeeklyRevenuePanel
               canGoNext={weekIndex >= 0 && weekIndex < analytics.weeklyWeeks.length - 1}
@@ -311,7 +393,9 @@ export default function DesignerRevenueScreen() {
                 <Text style={styles.emptyText}>
                   {selectedDayDate
                     ? '해당 날짜에 정산 완료 내역이 없습니다.'
-                    : '해당 월 정산 완료 내역이 없습니다.'}
+                    : selectedWeekKey && analytics.selectedWeek.label
+                      ? '해당 주 정산 완료 내역이 없습니다.'
+                      : '해당 월 정산 완료 내역이 없습니다.'}
                 </Text>
               ) : (
                 visibleSettlements.map((item) => (
