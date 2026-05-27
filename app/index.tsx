@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -13,6 +13,7 @@ import {
 
 import { showLoginFailureAlert } from '../lib/alerts';
 import { isDemoAuthMode } from '../lib/auth';
+import { DEMO_LOGIN_GROUP_ORDER } from '../lib/demo-login-accounts';
 import { getErrorMessage } from '../lib/errors';
 import { signInAndNavigate } from '../lib/quick-login-flow';
 import { colors, disabledButtonStyle } from '../lib/theme';
@@ -135,6 +136,33 @@ export default function LoginScreen() {
               ]}>
               <Text style={styles.loginButtonText}>{isLoading ? '로그인 중...' : '로그인'}</Text>
             </Pressable>
+
+            {isDemoAuthMode ? (
+              <View style={styles.testLoginBlock}>
+                <Text style={styles.testLoginHeading}>테스트 계정</Text>
+                <Text style={styles.testLoginHint}>분류별 탭 한 번으로 바로 로그인</Text>
+                <View style={styles.testCategoryRow}>
+                  {DEMO_LOGIN_GROUP_ORDER.map((category) => (
+                    <Pressable
+                      key={category}
+                      disabled={isLoading}
+                      onPress={() => router.push('/test-login')}
+                      style={({ pressed }) => [
+                        styles.testCategoryChip,
+                        pressed && styles.testCategoryChipPressed,
+                      ]}>
+                      <Text style={styles.testCategoryChipText}>{category}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Pressable
+                  disabled={isLoading}
+                  onPress={() => router.push('/test-login')}
+                  style={({ pressed }) => [styles.testLoginButton, pressed && styles.testLoginButtonPressed]}>
+                  <Text style={styles.testLoginButtonText}>테스트 계정 목록 열기</Text>
+                </Pressable>
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.footerLinks}>
@@ -219,6 +247,64 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  testLoginBlock: {
+    backgroundColor: '#FFF8F8',
+    borderColor: '#FFE0E1',
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 10,
+    marginTop: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    width: '100%',
+  },
+  testLoginHeading: {
+    color: '#1A1A2E',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  testLoginHint: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  testCategoryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  testCategoryChip: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#F5C2C4',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  testCategoryChipPressed: {
+    opacity: 0.9,
+  },
+  testCategoryChipText: {
+    color: colors.coral,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  testLoginButton: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: colors.coral,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 11,
+  },
+  testLoginButtonPressed: {
+    opacity: 0.9,
+  },
+  testLoginButtonText: {
+    color: colors.coral,
+    fontSize: 14,
+    fontWeight: '800',
   },
   footerLinks: {
     alignItems: 'center',

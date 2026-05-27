@@ -1,7 +1,11 @@
 import { ADMIN_TEST_PUBLIC } from './admin-test-accounts';
 import { DEMO_LOGIN_HINT } from './auth';
 import { ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE } from './demo-accumulated-test-data';
-import { ACCUMULATED_TEST_DESIGNERS_PUBLIC } from './demo-accumulated-test-accounts';
+import {
+  ACCUMULATED_TEST_CUSTOMERS,
+  ACCUMULATED_TEST_DESIGNERS_PUBLIC,
+  ACCUMULATED_TEST_PASSWORD,
+} from './demo-accumulated-test-accounts';
 import { STORE_TEST_PUBLIC } from './store-test-accounts';
 import { colors } from './theme';
 
@@ -14,6 +18,17 @@ export type DemoLoginAccount = {
   password: string;
   meta?: string;
   accent: string;
+};
+
+/** 테스트 로그인 화면 분류 순서 */
+export const DEMO_LOGIN_GROUP_ORDER = ['기본', '누적 디자이너', '가입 고객 10명'] as const;
+
+export type DemoLoginGroupKey = (typeof DEMO_LOGIN_GROUP_ORDER)[number];
+
+export const DEMO_LOGIN_GROUP_DESCRIPTIONS: Record<DemoLoginGroupKey, string> = {
+  기본: '고객 · 디자이너 · 매장 · 본사 데모 계정',
+  '누적 디자이너': '1년 · 2년 · 3년 누적 시술 데이터 디자이너',
+  '가입 고객 10명': '가입·연동 테스트용 고객 계정 (탭 시 바로 로그인)',
 };
 
 const BASIC_ACCOUNTS: DemoLoginAccount[] = [
@@ -67,7 +82,7 @@ const ACCUMULATED_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_DESIGNERS_PUBL
 
     return {
       id: designer.id,
-      group: '누적 테스트 디자이너',
+      group: '누적 디자이너',
       roleLabel: '디자이너',
       loginLabel: designer.loginLabel,
       email: designer.email,
@@ -80,14 +95,27 @@ const ACCUMULATED_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_DESIGNERS_PUBL
   },
 );
 
+const REGISTERED_CUSTOMER_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_CUSTOMERS.slice(0, 10).map(
+  (customer, index) => ({
+    id: customer.id,
+    group: '가입 고객 10명',
+    roleLabel: '고객',
+    loginLabel: customer.name,
+    email: customer.email,
+    password: ACCUMULATED_TEST_PASSWORD,
+    meta: `가입 고객 ${index + 1}/10 · 비밀번호 ${ACCUMULATED_TEST_PASSWORD}`,
+    accent: colors.coral,
+  }),
+);
+
 export const DEMO_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
   ...BASIC_ACCOUNTS,
   ...ACCUMULATED_ACCOUNTS,
+  ...REGISTERED_CUSTOMER_ACCOUNTS,
 ];
 
-export const DEMO_LOGIN_GROUPS = Array.from(
-  new Set(DEMO_LOGIN_ACCOUNTS.map((account) => account.group)),
-).map((title) => ({
+export const DEMO_LOGIN_GROUPS = DEMO_LOGIN_GROUP_ORDER.map((title) => ({
   title,
+  description: DEMO_LOGIN_GROUP_DESCRIPTIONS[title],
   accounts: DEMO_LOGIN_ACCOUNTS.filter((account) => account.group === title),
 }));

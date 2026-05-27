@@ -67,6 +67,9 @@ export default function TestLoginScreen() {
         {DEMO_LOGIN_GROUPS.map((group) => (
           <View key={group.title} style={styles.group}>
             <Text style={styles.groupTitle}>{group.title}</Text>
+            {group.description ? (
+              <Text style={styles.groupDescription}>{group.description}</Text>
+            ) : null}
             <View style={styles.card}>
               {group.accounts.map((account, index) => {
                 const isLoading = loadingId === account.id;
@@ -143,12 +146,17 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   groupTitle: {
+    color: '#1A1A2E',
+    fontSize: 14,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  groupDescription: {
     color: '#6B6B7B',
     fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.4,
+    fontWeight: '600',
+    lineHeight: 17,
     marginBottom: 8,
-    textTransform: 'uppercase',
   },
   card: {
     backgroundColor: '#F8F8FC',
