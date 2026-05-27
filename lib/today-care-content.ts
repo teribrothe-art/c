@@ -1,27 +1,13 @@
-import { getDamageHeadline } from './insight-content';
+import { getDamageHeadline, getDamageScoreColor } from './damage-headline';
 import { Treatment } from './treatments';
+
+export { getDamageScoreColor } from './damage-headline';
 
 export type TodayCarePayload = {
   damageLevel: number | null;
   headline: string;
   message: string;
 };
-
-export function getDamageScoreColor(damageLevel: number) {
-  if (damageLevel <= 3) {
-    return '#00C2A8';
-  }
-
-  if (damageLevel <= 6) {
-    return '#FFB627';
-  }
-
-  if (damageLevel <= 8) {
-    return '#FF5A5F';
-  }
-
-  return '#C1121F';
-}
 
 function daysSinceTreatmentDate(treatmentDate: string, now = new Date()) {
   const treated = new Date(`${treatmentDate}T12:00:00`);

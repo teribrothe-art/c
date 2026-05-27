@@ -4,9 +4,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const tabs: { href: Href; label: string }[] = [
   { href: '/designer/clients' as Href, label: '고객' },
-  { href: '/designer/input' as Href, label: '입력' },
+  { href: '/designer/input' as Href, label: '시술' },
   { href: '/designer/revenue' as Href, label: '매출' },
-  { href: '/profile' as Href, label: '마이' },
+  { href: '/profile' as Href, label: '정산' },
 ];
 
 export function DesignerBottomTabBar() {

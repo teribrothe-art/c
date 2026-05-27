@@ -49,7 +49,7 @@ export default function TodayCareScreen() {
         }
 
         if (user.role === 'designer') {
-          router.replace('/designer/clients');
+          router.replace('/designer/welcome');
           return;
         }
 

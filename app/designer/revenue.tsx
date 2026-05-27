@@ -1,5 +1,5 @@
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -19,18 +19,37 @@ const CORAL = '#FF5A5F';
 const MINT = '#00C2A8';
 const PURPLE = '#7B5EE6';
 
+function formatKoreanMonthDayWeekday(dateStr: string): string {
+  const d = new Date(`${dateStr}T12:00:00`);
+
+  if (Number.isNaN(d.getTime())) {
+    return '';
+  }
+
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  const weekdayKanji = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()];
+
+  return `${month}월 ${day}일 ${weekdayKanji}요일`;
+}
+
 function MetricCard({
   label,
+  labelSub,
   value,
   tone = 'default',
 }: {
   label: string;
+  labelSub?: string;
   value: string;
   tone?: 'default' | 'danger' | 'success';
 }) {
   return (
     <View style={styles.metricCard}>
-      <Text style={styles.metricLabel}>{label}</Text>
+      <View style={styles.metricLabelBlock}>
+        <Text style={styles.metricLabel}>{label}</Text>
+        {labelSub ? <Text style={styles.metricLabelSub}>{labelSub}</Text> : null}
+      </View>
       <Text
         style={[
           styles.metricValue,
@@ -45,15 +64,25 @@ function MetricCard({
 
 export default function DesignerRevenueScreen() {
   const insets = useSafeAreaInsets();
+  const { month: monthParam } = useLocalSearchParams<{ month?: string }>();
   const [analytics, setAnalytics] = useState<DesignerRevenueAnalytics | null>(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | undefined>(undefined);
   const [selectedWeekKey, setSelectedWeekKey] = useState<string | undefined>(undefined);
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const selectedMonthKeyRef = useRef<string | undefined>(undefined);
+  const selectedWeekKeyRef = useRef<string | undefined>(undefined);
+  const routeMonthHandledRef = useRef<string | null>(null);
+  const hasLoadedOnceRef = useRef(false);
+
+  selectedMonthKeyRef.current = selectedMonthKey;
+  selectedWeekKeyRef.current = selectedWeekKey;
 
   const loadRevenue = useCallback((monthKey?: string, weekKey?: string) => {
-    setIsLoading(true);
+    if (!hasLoadedOnceRef.current) {
+      setIsLoading(true);
+    }
 
     fetchDesignerRevenueAnalytics(monthKey, weekKey)
       .then((data) => {
@@ -76,6 +105,7 @@ export default function DesignerRevenueScreen() {
           return withRevenue?.date ?? data.selectedWeek.days[0]?.date ?? null;
         });
         setErrorMessage('');
+        hasLoadedOnceRef.current = true;
       })
       .catch((error) => {
         setErrorMessage(getErrorMessage(error, '매출 데이터를 불러오지 못했습니다.'));
@@ -85,8 +115,24 @@ export default function DesignerRevenueScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadRevenue(selectedMonthKey, selectedWeekKey);
-    }, [loadRevenue, selectedMonthKey, selectedWeekKey]),
+      const monthFromRoute = typeof monthParam === 'string' ? monthParam.trim() : '';
+
+      if (monthFromRoute) {
+        if (routeMonthHandledRef.current === monthFromRoute) {
+          return;
+        }
+
+        routeMonthHandledRef.current = monthFromRoute;
+        setSelectedMonthKey(monthFromRoute);
+        setSelectedWeekKey(undefined);
+        setSelectedDayDate(null);
+        loadRevenue(monthFromRoute);
+        return;
+      }
+
+      routeMonthHandledRef.current = null;
+      loadRevenue(selectedMonthKeyRef.current, selectedWeekKeyRef.current);
+    }, [loadRevenue, monthParam]),
   );
 
   const monthlyChartPoints = useMemo(
@@ -117,12 +163,18 @@ export default function DesignerRevenueScreen() {
       return [];
     }
 
-    if (!selectedDayDate) {
-      return analytics.recentSettlements;
+    if (selectedDayDate) {
+      return analytics.recentSettlements.filter((item) => item.date === selectedDayDate);
     }
 
-    return analytics.recentSettlements.filter((item) => item.date === selectedDayDate);
-  }, [analytics, selectedDayDate]);
+    if (selectedWeekKey && analytics.selectedWeek) {
+      const weekDates = new Set(analytics.selectedWeek.days.map((day) => day.date));
+
+      return analytics.recentSettlements.filter((item) => weekDates.has(item.date));
+    }
+
+    return analytics.recentSettlements;
+  }, [analytics, selectedDayDate, selectedWeekKey]);
 
   const settlementSectionTitle = useMemo(() => {
     if (!analytics) {
@@ -137,17 +189,65 @@ export default function DesignerRevenueScreen() {
       }
     }
 
+    if (selectedWeekKey && analytics.selectedWeek.label) {
+      return `${analytics.selectedWeek.label} 정산 상세`;
+    }
+
     return `${analytics.selectedMonth.label} 정산 상세`;
+  }, [analytics, selectedDayDate, selectedWeekKey]);
+
+  const linkedMetrics = useMemo(() => {
+    if (!analytics) {
+      return null;
+    }
+
+    const selectedDay = selectedDayDate
+      ? analytics.selectedWeek.days.find((day) => day.date === selectedDayDate)
+      : null;
+
+    if (selectedDay) {
+      const pending = analytics.pendingPayoutByDate[selectedDay.date] ?? { amount: 0, count: 0 };
+      const dayHeading = formatKoreanMonthDayWeekday(selectedDay.date);
+
+      return {
+        treatmentLabel: '시술',
+        treatmentLabelSub: dayHeading || undefined,
+        treatmentCount: analytics.treatmentCountByDate[selectedDay.date] ?? 0,
+        pendingAmount: pending.amount,
+        pendingCount: pending.count,
+        periodLabel: '합계',
+        periodLabelSub: dayHeading || undefined,
+        periodTotal: selectedDay.totalAmount,
+      };
+    }
+
+    return {
+      treatmentLabel: '월 총 시술 건수',
+      treatmentLabelSub: undefined,
+      treatmentCount: analytics.selectedMonthTreatmentCount,
+      pendingAmount: analytics.monthPendingPayoutAmount,
+      pendingCount: analytics.monthPendingPayoutCount,
+      periodLabel: '선택 주 합계',
+      periodLabelSub: undefined,
+      periodTotal: analytics.selectedWeek.weekTotal,
+    };
   }, [analytics, selectedDayDate]);
 
   const hasAnyRevenue = Boolean(
     analytics &&
-      (analytics.months.some((month) => month.revenue > 0) || analytics.pendingPayoutCount > 0),
+      (analytics.months.some((month) => month.revenue > 0) ||
+        analytics.monthPendingPayoutCount > 0),
   );
 
   const handleSelectMonth = (monthKey: string) => {
     if (monthKey === selectedMonthKey) {
       return;
+    }
+
+    routeMonthHandledRef.current = monthKey;
+
+    if (typeof monthParam === 'string' && monthParam.trim()) {
+      router.setParams({ month: '' });
     }
 
     setSelectedMonthKey(monthKey);
@@ -270,28 +370,13 @@ export default function DesignerRevenueScreen() {
 
             <View style={styles.heroCard}>
               <Text style={styles.heroLabel}>{analytics.selectedMonth.label} 매출</Text>
-              <Text style={styles.heroValue}>
-                {analytics.selectedMonth.revenue.toLocaleString('ko-KR')}
-              </Text>
-              <Text style={styles.heroUnit}>원 · 정산 {analytics.selectedMonth.settlementCount}건</Text>
-            </View>
-
-            <View style={styles.metricGrid}>
-              <MetricCard
-                label="월 평균 시술가"
-                value={`${analytics.averageTreatmentPrice.toLocaleString('ko-KR')}원`}
-              />
-              <MetricCard
-                label="정산 대기"
-                tone="danger"
-                value={`${analytics.pendingPayoutAmount.toLocaleString('ko-KR')}원`}
-              />
-              <MetricCard label="대기 건수" tone="danger" value={`${analytics.pendingPayoutCount}건`} />
-              <MetricCard
-                label="선택 주 합계"
-                tone="success"
-                value={`${analytics.selectedWeek.weekTotal.toLocaleString('ko-KR')}원`}
-              />
+              <View style={styles.heroValueRow}>
+                <Text style={styles.heroValue}>
+                  {analytics.selectedMonth.revenue.toLocaleString('ko-KR')}
+                </Text>
+                <Text style={styles.heroValueUnit}>원</Text>
+              </View>
+              <Text style={styles.heroUnit}>정산 {analytics.selectedMonth.settlementCount}건</Text>
             </View>
 
             <WeeklyRevenuePanel
@@ -305,13 +390,41 @@ export default function DesignerRevenueScreen() {
               weekLabel={analytics.selectedWeek.label}
             />
 
+            {linkedMetrics ? (
+              <View style={styles.metricGrid}>
+                <MetricCard
+                  label={linkedMetrics.treatmentLabel}
+                  labelSub={linkedMetrics.treatmentLabelSub}
+                  value={`${linkedMetrics.treatmentCount.toLocaleString('ko-KR')}건`}
+                />
+                <MetricCard
+                  label={linkedMetrics.periodLabel}
+                  labelSub={linkedMetrics.periodLabelSub}
+                  tone="success"
+                  value={`${linkedMetrics.periodTotal.toLocaleString('ko-KR')}원`}
+                />
+                <MetricCard
+                  label="대기 건수"
+                  tone="danger"
+                  value={`${linkedMetrics.pendingCount.toLocaleString('ko-KR')}건`}
+                />
+                <MetricCard
+                  label="정산 대기"
+                  tone="danger"
+                  value={`${linkedMetrics.pendingAmount.toLocaleString('ko-KR')}원`}
+                />
+              </View>
+            ) : null}
+
             <View style={styles.card}>
               <Text style={styles.cardTitle}>{settlementSectionTitle}</Text>
               {visibleSettlements.length === 0 ? (
                 <Text style={styles.emptyText}>
                   {selectedDayDate
                     ? '해당 날짜에 정산 완료 내역이 없습니다.'
-                    : '해당 월 정산 완료 내역이 없습니다.'}
+                    : selectedWeekKey && analytics.selectedWeek.label
+                      ? '해당 주 정산 완료 내역이 없습니다.'
+                      : '해당 월 정산 완료 내역이 없습니다.'}
                 </Text>
               ) : (
                 visibleSettlements.map((item) => (
@@ -358,8 +471,14 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   heroLabel: { color: '#6B6B7B', fontSize: 14, fontWeight: '700', marginBottom: 8 },
+  heroValueRow: {
+    alignItems: 'flex-end',
+    flexDirection: 'row',
+    gap: 6,
+  },
   heroValue: { color: '#1A1A2E', fontSize: 40, fontWeight: '900' },
-  heroUnit: { color: '#6B6B7B', fontSize: 14, fontWeight: '600', marginTop: 4 },
+  heroValueUnit: { color: '#1A1A2E', fontSize: 16, fontWeight: '800', marginBottom: 6 },
+  heroUnit: { color: '#6B6B7B', fontSize: 14, fontWeight: '600', marginTop: 6 },
   metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   metricCard: {
     backgroundColor: '#FFFFFF',
@@ -369,7 +488,12 @@ const styles = StyleSheet.create({
     width: '48%',
     elevation: 3,
   },
-  metricLabel: { color: '#6B6B7B', fontSize: 13, fontWeight: '700', marginBottom: 10 },
+  metricLabelBlock: {
+    gap: 2,
+    marginBottom: 10,
+  },
+  metricLabel: { color: '#6B6B7B', fontSize: 13, fontWeight: '700' },
+  metricLabelSub: { color: '#9CA3AF', fontSize: 11, fontWeight: '600' },
   metricValue: { color: '#1A1A2E', fontSize: 20, fontWeight: '900' },
   metricDanger: { color: CORAL },
   metricSuccess: { color: MINT },
