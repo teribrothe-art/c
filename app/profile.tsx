@@ -50,6 +50,44 @@ function getInitial(profile: ProfileData) {
   return source.charAt(0).toUpperCase();
 }
 
+function MonthlySettlementStatRow({
+  shortYearLabel,
+  monthLabel,
+  value,
+  onPress,
+}: {
+  shortYearLabel: string;
+  monthLabel: string;
+  value: string;
+  onPress?: () => void;
+}) {
+  const content = (
+    <View style={styles.statRow}>
+      <View style={styles.monthlyLabelColumns} accessibilityLabel={`${shortYearLabel} ${monthLabel}`}>
+        <Text style={styles.monthlyYearLabel}>{shortYearLabel}</Text>
+        <Text style={styles.monthlyMonthLabel}>{monthLabel}</Text>
+      </View>
+      <View style={styles.statValueWrap}>
+        <Text style={styles.statValue}>{value}</Text>
+        {onPress ? <Text style={styles.statChevron}>›</Text> : null}
+      </View>
+    </View>
+  );
+
+  if (!onPress) {
+    return content;
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [pressed && styles.statRowPressed]}>
+      {content}
+    </Pressable>
+  );
+}
+
 function StatRow({
   label,
   value,
@@ -216,9 +254,10 @@ function ActivityCard({ stats }: { stats: ProfileStats }) {
         <View style={styles.monthlySettlementBlock}>
           <Text style={styles.monthlySettlementTitle}>월별 정산 총액</Text>
           {pastMonthlyTotals.map((month) => (
-            <StatRow
+            <MonthlySettlementStatRow
               key={month.monthKey}
-              label={month.label}
+              monthLabel={month.monthLabel}
+              shortYearLabel={month.shortYearLabel}
               value={formatCurrency(month.amount)}
               onPress={() =>
                 safeNavigate({
@@ -530,6 +569,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     marginBottom: 6,
+  },
+  monthlyLabelColumns: {
+    alignItems: 'baseline',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  monthlyYearLabel: {
+    color: '#6B6B7B',
+    fontSize: 14,
+    fontWeight: '700',
+    width: 36,
+  },
+  monthlyMonthLabel: {
+    color: '#6B6B7B',
+    fontSize: 14,
+    fontWeight: '700',
+    minWidth: 36,
+    textAlign: 'right',
   },
   activityList: {
     borderTopColor: '#EFEFF4',

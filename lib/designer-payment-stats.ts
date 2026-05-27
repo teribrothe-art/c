@@ -123,23 +123,45 @@ export async function fetchDesignerPaymentDashboard(): Promise<DesignerPaymentDa
   };
 }
 
+export type MonthSettlementLabelParts = {
+  shortYearLabel: string;
+  monthLabel: string;
+};
+
 export type MonthlySettlementTotal = {
   monthKey: string;
   label: string;
+  shortYearLabel: string;
+  monthLabel: string;
   amount: number;
   settlementCount: number;
 };
 
-export function formatMonthSettlementLabel(monthKey: string) {
+export function getMonthSettlementLabelParts(monthKey: string): MonthSettlementLabelParts | null {
   const [year, month] = monthKey.split('-');
   const currentKey = getCurrentSettlementMonthKey();
 
   if (monthKey === currentKey) {
-    return '이번 달 정산 총액';
+    return null;
   }
 
   const shortYear = year.slice(-2);
-  return `${shortYear}년 ${Number(month)}월 정산 총액`;
+  const monthNumber = Number(month);
+
+  return {
+    shortYearLabel: `${shortYear}년`,
+    monthLabel: `${monthNumber}월`,
+  };
+}
+
+export function formatMonthSettlementLabel(monthKey: string) {
+  const parts = getMonthSettlementLabelParts(monthKey);
+
+  if (!parts) {
+    return '이번 달 정산 총액';
+  }
+
+  return `${parts.shortYearLabel} ${parts.monthLabel} 정산 총액`;
 }
 
 function buildMonthlySettlementTotals(
@@ -161,12 +183,18 @@ function buildMonthlySettlementTotals(
   }
 
   return [...map.entries()]
-    .map(([monthKey, stats]) => ({
-      monthKey,
-      label: formatMonthSettlementLabel(monthKey),
-      amount: stats.amount,
-      settlementCount: stats.settlementCount,
-    }))
+    .map(([monthKey, stats]) => {
+      const parts = getMonthSettlementLabelParts(monthKey);
+
+      return {
+        monthKey,
+        label: formatMonthSettlementLabel(monthKey),
+        shortYearLabel: parts?.shortYearLabel ?? '',
+        monthLabel: parts?.monthLabel ?? '',
+        amount: stats.amount,
+        settlementCount: stats.settlementCount,
+      };
+    })
     .sort((a, b) => b.monthKey.localeCompare(a.monthKey));
 }
 
