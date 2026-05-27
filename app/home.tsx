@@ -147,10 +147,8 @@ export default function DiaryHomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      reloadPending();
-      reloadDailyCare();
-      reloadWeatherCare();
-    }, [reloadPending, reloadDailyCare, reloadWeatherCare]),
+      void loadDiaryData({ silent: true });
+    }, [loadDiaryData]),
   );
 
   const yearSummaries = useMemo(() => getDiaryYearSummaries(treatments), [treatments]);

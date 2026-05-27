@@ -15,6 +15,7 @@ import {
 import { mergeAccumulatedDesignerRelationships } from './demo-accumulated-relationships';
 import { INITIAL_DEMO_TREATMENTS } from './demo-initial-treatments';
 import { ALL_DEMO_TREATMENT_SEEDS } from './demo-treatment-seeds';
+import { invalidateLedgerCachesForTreatment } from './services/ledger-invalidate';
 import { supabase } from './supabase';
 
 export type Treatment = {
@@ -405,7 +406,10 @@ export async function updateTreatment(id: string, updates: TreatmentUpdateInput)
 
     await persistDemoTreatments();
 
-    return demoTreatments[index];
+    const updated = demoTreatments[index];
+    invalidateLedgerCachesForTreatment(updated);
+
+    return updated;
   }
 
   let query = supabase.from('treatments').update(updates).eq('id', id);
@@ -422,5 +426,8 @@ export async function updateTreatment(id: string, updates: TreatmentUpdateInput)
     throw toAppError(error);
   }
 
-  return data as Treatment;
+  const updated = data as Treatment;
+  invalidateLedgerCachesForTreatment(updated);
+
+  return updated;
 }

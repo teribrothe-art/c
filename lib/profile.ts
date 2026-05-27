@@ -8,7 +8,8 @@ import {
   SettlementListItem,
 } from './designer-payment-stats';
 import { supabase } from './supabase';
-import { getDesignerTreatments, getTreatments, Treatment } from './treatments';
+import { fetchDesignerLedger } from './services/designer-ledger-service';
+import { getTreatments, Treatment } from './treatments';
 
 const DEMO_USERS_KEY = 'hair-diary-demo-users';
 
@@ -142,7 +143,8 @@ export async function getProfileScreenData() {
   const profile = await fetchProfileDetails(user.id, user.email, user.role);
 
   if (user.role === 'designer') {
-    const { treatments } = await getDesignerTreatments();
+    const ledger = await fetchDesignerLedger();
+    const treatments = ledger?.treatments ?? [];
     const base = computeDesignerStatsFromTreatments(treatments);
     const paymentStats = await fetchDesignerProfilePaymentStats();
 

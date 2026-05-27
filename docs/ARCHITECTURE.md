@@ -105,8 +105,10 @@ lib/
 ├── domain/              # 순수 도메인 (UI·DB 무관)
 │   └── treatment-ledger.ts
 ├── services/            # 화면 간 공유 오케스트레이션
-│   ├── designer-ledger-service.ts   # 시술+결제 일괄 로드
-│   └── ledger-cache.ts              # 45초 메모리 캐시 + 무효화
+│   ├── designer-ledger-service.ts   # 디자이너 시술+결제 일괄 로드
+│   ├── customer-ledger-service.ts   # 고객 시술+결제 일괄 로드
+│   ├── ledger-cache.ts              # 45초 메모리 캐시 + 무효화
+│   └── ledger-invalidate.ts         # 시술 수정·결제 후 캐시 무효화
 ├── treatments.ts        # 시술 Repository (Supabase / Demo)
 ├── payment-record.ts    # 결제 Repository
 ├── payments.ts          # 결제·정산 유스케이스 (쓰기 후 캐시 무효화)
@@ -119,10 +121,10 @@ lib/
 
 | 화면 | 사용 API (목표) | 현재 |
 |------|-----------------|------|
-| 디자이너 자산 | Ledger + 초대 | `getDesignerTreatments` |
+| 디자이너 자산 | Ledger + 초대 | `fetchDesignerLedger` → `getDesignerClientListItems` |
 | 매출 분석 | Ledger → revenue analytics | `fetchDesignerLedger` → `fetchDesignerRevenueAnalytics` |
 | 프로필 정산 | Ledger → payment stats | `fetchDesignerLedger` → `fetchDesignerProfilePaymentStats` |
-| 고객 결제 목록 | Ledger (고객용) | `getTreatments` + N×`getPaymentByTreatmentId` (개선 예정) |
+| 고객 결제 목록 | Ledger (고객용) | `fetchCustomerLedger` → `fetchCustomerPaymentEntries` |
 | 시술 상세 | 단건 treatment + payment | `getTreatmentById` |
 
 **캐시 무효화**: `settleDesignerPayout`, `handleTossPaymentSuccess` 후 `invalidateDesignerLedgerCache(designerId)` 호출.
@@ -177,9 +179,11 @@ Gateway 뒤 **BFF(Backend for Frontend)** 를 두면 앱은 화면별로 여러 
 
 - [x] `TreatmentLedger` 도메인 타입
 - [x] `fetchDesignerLedger` + 캐시
-- [x] 매출·정산 통계가 Ledger 공유
-- [ ] 고객 `customer-ledger-service` + 결제 목록 N+1 제거
-- [ ] `useFocusEffect` 대신 Ledger 훅 + `invalidate` 일원화
+- [x] `fetchCustomerLedger` + 캐시
+- [x] 매출·정산·프로필·자산이 Ledger 공유
+- [x] 고객 결제 목록 N+1 제거
+- [x] 홈·시술 상세 `useFocusEffect` + `invalidateLedgerCachesForTreatment`
+- [ ] React Query 등 공통 fetch 훅 (선택)
 
 ### Phase B — API 분리 준비
 

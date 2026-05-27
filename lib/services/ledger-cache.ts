@@ -1,13 +1,15 @@
+import type { CustomerLedger } from './customer-ledger-service';
 import type { DesignerLedger } from './designer-ledger-service';
 
-const DESIGNER_LEDGER_TTL_MS = 45_000;
+const LEDGER_TTL_MS = 45_000;
 
-type CacheEntry = {
-  ledger: DesignerLedger;
+type CacheEntry<T> = {
+  ledger: T;
   expiresAt: number;
 };
 
-const designerLedgerCache = new Map<string, CacheEntry>();
+const designerLedgerCache = new Map<string, CacheEntry<DesignerLedger>>();
+const customerLedgerCache = new Map<string, CacheEntry<CustomerLedger>>();
 
 export function getCachedDesignerLedger(designerId: string): DesignerLedger | null {
   const entry = designerLedgerCache.get(designerId);
@@ -23,7 +25,25 @@ export function getCachedDesignerLedger(designerId: string): DesignerLedger | nu
 export function setCachedDesignerLedger(designerId: string, ledger: DesignerLedger) {
   designerLedgerCache.set(designerId, {
     ledger,
-    expiresAt: Date.now() + DESIGNER_LEDGER_TTL_MS,
+    expiresAt: Date.now() + LEDGER_TTL_MS,
+  });
+}
+
+export function getCachedCustomerLedger(customerId: string): CustomerLedger | null {
+  const entry = customerLedgerCache.get(customerId);
+
+  if (!entry || entry.expiresAt <= Date.now()) {
+    customerLedgerCache.delete(customerId);
+    return null;
+  }
+
+  return entry.ledger;
+}
+
+export function setCachedCustomerLedger(customerId: string, ledger: CustomerLedger) {
+  customerLedgerCache.set(customerId, {
+    ledger,
+    expiresAt: Date.now() + LEDGER_TTL_MS,
   });
 }
 
@@ -35,4 +55,18 @@ export function invalidateDesignerLedgerCache(designerId?: string) {
   }
 
   designerLedgerCache.clear();
+}
+
+export function invalidateCustomerLedgerCache(customerId?: string) {
+  if (customerId) {
+    customerLedgerCache.delete(customerId);
+    return;
+  }
+
+  customerLedgerCache.clear();
+}
+
+export function invalidateAllLedgerCaches() {
+  designerLedgerCache.clear();
+  customerLedgerCache.clear();
 }

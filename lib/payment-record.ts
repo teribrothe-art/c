@@ -148,6 +148,15 @@ export async function getDesignerDemoPayments(designerId: string): Promise<Payme
   return demoPayments.filter((payment) => payment.designer_id === designerId);
 }
 
+/** 데모 — 고객 결제 일괄 조회 */
+export async function getCustomerDemoPayments(customerId: string): Promise<PaymentRecord[]> {
+  await hydrateDemoPayments();
+  await ensureAccumulatedDemoPaymentsForCurrentUser();
+  syncDemoPaymentIndex();
+
+  return demoPayments.filter((payment) => payment.customer_id === customerId);
+}
+
 async function persistDemoPayments() {
   syncDemoPaymentIndex();
 

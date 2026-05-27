@@ -1,5 +1,5 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Modal,
   Platform,
@@ -90,7 +90,8 @@ import {
   formatTreatmentPositionLabel,
   getTreatmentNavigation,
 } from '../../../lib/treatment-navigation';
-import { getDesignerTreatments, getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
+import { fetchDesignerLedger } from '../../../lib/services/designer-ledger-service';
+import { getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
 import { DamageLevelPicker } from '../../../src/components/damage-level-picker';
 import { TreatmentRecordNav } from '../../../src/components/treatment-record-nav';
 
@@ -227,104 +228,96 @@ export default function DesignerTreatmentInputScreen() {
   const [recordNav, setRecordNav] = useState<ReturnType<typeof getTreatmentNavigation>>(null);
   const treatmentIdRef = useRef<string | undefined>(undefined);
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadTreatmentDetail = useCallback(async () => {
+    if (!id) {
+      setErrorMessage('시술 ID가 없습니다.');
+      return;
+    }
 
-    Promise.resolve()
-      .then(async () => {
-        if (!id) {
-          throw new Error('시술 ID가 없습니다.');
+    setIsLoading(true);
+
+    try {
+      const [{ user, treatment: nextTreatment }, ledger] = await Promise.all([
+        getTreatmentById(id),
+        fetchDesignerLedger(),
+      ]);
+
+      if (!user) {
+        router.replace('/');
+        return;
+      }
+
+      if (user.role !== 'designer') {
+        router.replace('/home');
+        return;
+      }
+
+      if (!nextTreatment) {
+        setErrorMessage('시술 기록을 찾을 수 없습니다.');
+        setRecordNav(null);
+        return;
+      }
+
+      const payment =
+        ledger?.paymentsByTreatmentId.get(id) ?? (await getPaymentByTreatmentId(id));
+      let loadedTreatment = nextTreatment;
+
+      if (shouldSyncFeedbackCompleted(loadedTreatment)) {
+        loadedTreatment = await updateTreatment(id, { feedback_completed: true });
+      }
+
+      const designerTreatments = ledger?.treatments ?? [];
+      const sameCustomerTreatments = filterTreatmentsForSameCustomer(
+        designerTreatments,
+        loadedTreatment,
+      );
+      setRecordNav(getTreatmentNavigation(sameCustomerTreatments, id));
+
+      if (treatmentIdRef.current !== id) {
+        treatmentIdRef.current = id;
+        setDamageUndoStack([]);
+      }
+
+      let resolvedTreatment = loadedTreatment;
+      const damageBeforeAuto =
+        typeof resolvedTreatment.damage_level === 'number'
+          ? resolvedTreatment.damage_level
+          : null;
+
+      if (
+        canInferTreatmentDamageLevel(resolvedTreatment) &&
+        typeof resolvedTreatment.damage_level !== 'number'
+      ) {
+        setIsAnalyzingDamage(true);
+        resolvedTreatment = await autoFillTreatmentDamageLevel(resolvedTreatment);
+        setIsAnalyzingDamage(false);
+
+        if (typeof resolvedTreatment.damage_level === 'number') {
+          setDamageUndoStack([damageBeforeAuto]);
         }
+      }
 
-        setIsLoading(true);
-
-        const [{ user, treatment: nextTreatment }, { treatments: designerTreatments }] =
-          await Promise.all([getTreatmentById(id), getDesignerTreatments()]);
-
-        if (!isMounted) {
-          return;
-        }
-
-        if (!user) {
-          router.replace('/');
-          return;
-        }
-
-        if (user.role !== 'designer') {
-          router.replace('/home');
-          return;
-        }
-
-        if (!nextTreatment) {
-          setErrorMessage('시술 기록을 찾을 수 없습니다.');
-          setRecordNav(null);
-          return;
-        }
-
-        const payment = await getPaymentByTreatmentId(id);
-        let loadedTreatment = nextTreatment;
-
-        if (shouldSyncFeedbackCompleted(loadedTreatment)) {
-          loadedTreatment = await updateTreatment(id, { feedback_completed: true });
-        }
-
-        const sameCustomerTreatments = filterTreatmentsForSameCustomer(
-          designerTreatments,
-          loadedTreatment,
-        );
-        setRecordNav(getTreatmentNavigation(sameCustomerTreatments, id));
-
-        if (treatmentIdRef.current !== id) {
-          treatmentIdRef.current = id;
-          setDamageUndoStack([]);
-        }
-
-        let resolvedTreatment = loadedTreatment;
-        const damageBeforeAuto =
-          typeof resolvedTreatment.damage_level === 'number'
-            ? resolvedTreatment.damage_level
-            : null;
-
-        if (
-          canInferTreatmentDamageLevel(resolvedTreatment) &&
-          typeof resolvedTreatment.damage_level !== 'number'
-        ) {
-          setIsAnalyzingDamage(true);
-          resolvedTreatment = await autoFillTreatmentDamageLevel(resolvedTreatment);
-          setIsAnalyzingDamage(false);
-
-          if (typeof resolvedTreatment.damage_level === 'number') {
-            setDamageUndoStack([damageBeforeAuto]);
-          }
-        }
-
-        setTreatment(resolvedTreatment);
-        setPaymentRecord(payment);
-        const [beforePreview, afterPreview] = await Promise.all([
-          resolveTreatmentPhotoPreviewUrl(resolvedTreatment.before_photo_url),
-          resolveTreatmentPhotoPreviewUrl(resolvedTreatment.after_photo_url),
-        ]);
-        setPhotoPreviews({ before: beforePreview, after: afterPreview });
-        setErrorMessage('');
-      })
-      .catch((error) => {
-        if (!isMounted) {
-          return;
-        }
-
-        const message = getErrorMessage(error, '시술 정보를 불러오지 못했습니다.');
-        setErrorMessage(message);
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
+      setTreatment(resolvedTreatment);
+      setPaymentRecord(payment);
+      const [beforePreview, afterPreview] = await Promise.all([
+        resolveTreatmentPhotoPreviewUrl(resolvedTreatment.before_photo_url),
+        resolveTreatmentPhotoPreviewUrl(resolvedTreatment.after_photo_url),
+      ]);
+      setPhotoPreviews({ before: beforePreview, after: afterPreview });
+      setErrorMessage('');
+    } catch (error) {
+      const message = getErrorMessage(error, '시술 정보를 불러오지 못했습니다.');
+      setErrorMessage(message);
+    } finally {
+      setIsLoading(false);
+    }
   }, [id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadTreatmentDetail();
+    }, [loadTreatmentDetail]),
+  );
   const sections = useMemo<InputSection[]>(() => {
     const technique = getDraftValue(treatment, 'technique').trim();
     const diagnosis = getDraftValue(treatment, 'designer_diagnosis').trim();

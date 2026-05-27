@@ -630,8 +630,9 @@ export async function getDesignerClientListItems(): Promise<DesignerClientListIt
     return [];
   }
 
-  const { getDesignerTreatments } = await import('./treatments');
-  const { treatments } = await getDesignerTreatments();
+  const { fetchDesignerLedger } = await import('./services/designer-ledger-service');
+  const ledger = await fetchDesignerLedger();
+  const treatments = ledger?.treatments ?? [];
 
   let invitations: CustomerInvitation[] = [];
 
