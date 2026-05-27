@@ -1,7 +1,10 @@
+import { isAccumulatedTestPaymentId, isAccumulatedTestTreatmentId } from './demo-accumulated-ids';
 import { ACCUMULATED_TEST_PROFILES } from './demo-accumulated-test-seeds';
 import { applyAccumulatedTreatmentPatch } from './demo-accumulated-treatment-patches';
 import type { PaymentRecord } from './payment-types';
 import type { Treatment } from './treatments';
+
+export { isAccumulatedTestPaymentId, isAccumulatedTestTreatmentId } from './demo-accumulated-ids';
 
 function findProfileForUser(user: { id: string; role?: string | null } | null) {
   if (!user) {
@@ -21,15 +24,6 @@ function findProfileForUser(user: { id: string; role?: string | null } | null) {
   }
 
   return null;
-}
-
-/** 누적 테스트 시드 ID — 전역 데모 저장소와 구분 */
-export function isAccumulatedTestTreatmentId(id: string) {
-  return ACCUMULATED_TEST_PROFILES.some((profile) => id.startsWith(profile.treatmentIdPrefix));
-}
-
-export function isAccumulatedTestPaymentId(id: string) {
-  return ACCUMULATED_TEST_PROFILES.some((profile) => id.startsWith(profile.paymentIdPrefix));
 }
 
 export function shouldHydrateAccumulatedDemoDataForUser(user: {
