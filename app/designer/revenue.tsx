@@ -38,14 +38,16 @@ function MetricCard({
   labelSub,
   value,
   tone = 'default',
+  onPress,
 }: {
   label: string;
   labelSub?: string;
   value: string;
   tone?: 'default' | 'danger' | 'success';
+  onPress?: () => void;
 }) {
-  return (
-    <View style={styles.metricCard}>
+  const content = (
+    <>
       <View style={styles.metricLabelBlock}>
         <Text style={styles.metricLabel}>{label}</Text>
         {labelSub ? <Text style={styles.metricLabelSub}>{labelSub}</Text> : null}
@@ -58,7 +60,20 @@ function MetricCard({
         ]}>
         {value}
       </Text>
-    </View>
+    </>
+  );
+
+  if (!onPress) {
+    return <View style={styles.metricCard}>{content}</View>;
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.metricCard, pressed && styles.metricCardPressed]}>
+      {content}
+    </Pressable>
   );
 }
 
@@ -167,14 +182,10 @@ export default function DesignerRevenueScreen() {
       return analytics.recentSettlements.filter((item) => item.date === selectedDayDate);
     }
 
-    if (selectedWeekKey && analytics.selectedWeek) {
-      const weekDates = new Set(analytics.selectedWeek.days.map((day) => day.date));
+    const weekDates = new Set(analytics.selectedWeek.days.map((day) => day.date));
 
-      return analytics.recentSettlements.filter((item) => weekDates.has(item.date));
-    }
-
-    return analytics.recentSettlements;
-  }, [analytics, selectedDayDate, selectedWeekKey]);
+    return analytics.recentSettlements.filter((item) => weekDates.has(item.date));
+  }, [analytics, selectedDayDate]);
 
   const settlementSectionTitle = useMemo(() => {
     if (!analytics) {
@@ -207,29 +218,31 @@ export default function DesignerRevenueScreen() {
 
     if (selectedDay) {
       const pending = analytics.pendingPayoutByDate[selectedDay.date] ?? { amount: 0, count: 0 };
-      const dayHeading = formatKoreanMonthDayWeekday(selectedDay.date);
+      const scopeLabel = formatKoreanMonthDayWeekday(selectedDay.date);
 
       return {
-        treatmentLabel: '시술',
-        treatmentLabelSub: dayHeading || undefined,
+        scopeLabel: scopeLabel || undefined,
         treatmentCount: analytics.treatmentCountByDate[selectedDay.date] ?? 0,
         pendingAmount: pending.amount,
         pendingCount: pending.count,
-        periodLabel: '합계',
-        periodLabelSub: dayHeading || undefined,
         periodTotal: selectedDay.totalAmount,
+        clientsFilter: 'month' as const,
       };
     }
 
+    const weekDates = analytics.selectedWeek.days.map((day) => day.date);
+    const weekTreatmentCount = weekDates.reduce(
+      (sum, date) => sum + (analytics.treatmentCountByDate[date] ?? 0),
+      0,
+    );
+
     return {
-      treatmentLabel: '월 총 시술 건수',
-      treatmentLabelSub: undefined,
-      treatmentCount: analytics.selectedMonthTreatmentCount,
-      pendingAmount: analytics.monthPendingPayoutAmount,
-      pendingCount: analytics.monthPendingPayoutCount,
-      periodLabel: '선택 주 합계',
-      periodLabelSub: undefined,
+      scopeLabel: analytics.selectedWeek.label || undefined,
+      treatmentCount: weekTreatmentCount,
+      pendingAmount: analytics.weekPendingPayoutAmount,
+      pendingCount: analytics.weekPendingPayoutCount,
       periodTotal: analytics.selectedWeek.weekTotal,
+      clientsFilter: 'month' as const,
     };
   }, [analytics, selectedDayDate]);
 
@@ -394,25 +407,45 @@ export default function DesignerRevenueScreen() {
             {linkedMetrics ? (
               <View style={styles.metricGrid}>
                 <MetricCard
-                  label={linkedMetrics.treatmentLabel}
-                  labelSub={linkedMetrics.treatmentLabelSub}
+                  label="시술"
+                  labelSub={linkedMetrics.scopeLabel}
                   value={`${linkedMetrics.treatmentCount.toLocaleString('ko-KR')}건`}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/designer/clients',
+                      params: { filter: linkedMetrics.clientsFilter },
+                    })
+                  }
                 />
                 <MetricCard
-                  label={linkedMetrics.periodLabel}
-                  labelSub={linkedMetrics.periodLabelSub}
+                  label="합계"
+                  labelSub={linkedMetrics.scopeLabel}
                   tone="success"
                   value={`${linkedMetrics.periodTotal.toLocaleString('ko-KR')}원`}
                 />
                 <MetricCard
-                  label="대기 건수"
+                  label="대기"
+                  labelSub={linkedMetrics.scopeLabel}
                   tone="danger"
                   value={`${linkedMetrics.pendingCount.toLocaleString('ko-KR')}건`}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/designer/clients',
+                      params: { filter: 'escrow' },
+                    })
+                  }
                 />
                 <MetricCard
-                  label="정산 대기"
+                  label="대기 총액"
+                  labelSub={linkedMetrics.scopeLabel}
                   tone="danger"
                   value={`${linkedMetrics.pendingAmount.toLocaleString('ko-KR')}원`}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/designer/clients',
+                      params: { filter: 'escrow' },
+                    })
+                  }
                 />
               </View>
             ) : null}
@@ -429,14 +462,32 @@ export default function DesignerRevenueScreen() {
                 </Text>
               ) : (
                 visibleSettlements.map((item) => (
-                  <View key={item.paymentId} style={styles.settlementRow}>
+                  <Pressable
+                    key={item.paymentId}
+                    accessibilityRole="button"
+                    disabled={!item.treatmentId}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/designer/treatment/[id]',
+                        params: { id: item.treatmentId },
+                      })
+                    }
+                    style={({ pressed }) => [
+                      styles.settlementRow,
+                      pressed && item.treatmentId && styles.settlementRowPressed,
+                    ]}>
                     <View style={styles.settlementInfo}>
                       <Text style={styles.settlementDate}>{item.dateWithWeekdayLabel}</Text>
                       <Text style={styles.settlementCustomer}>{item.customerName}</Text>
                       <Text style={styles.settlementMeta}>{item.treatmentTitle}</Text>
                     </View>
-                    <Text style={styles.settlementPrice}>{item.payout.toLocaleString('ko-KR')}원</Text>
-                  </View>
+                    <View style={styles.settlementValueWrap}>
+                      <Text style={styles.settlementPrice}>
+                        {item.payout.toLocaleString('ko-KR')}원
+                      </Text>
+                      {item.treatmentId ? <Text style={styles.settlementChevron}>›</Text> : null}
+                    </View>
+                  </Pressable>
                 ))
               )}
             </View>
@@ -489,6 +540,9 @@ const styles = StyleSheet.create({
     width: '48%',
     elevation: 3,
   },
+  metricCardPressed: {
+    opacity: 0.88,
+  },
   metricLabelBlock: {
     gap: 2,
     marginBottom: 10,
@@ -527,6 +581,7 @@ const styles = StyleSheet.create({
   monthChipMeta: { color: '#6B6B7B', fontSize: 12, fontWeight: '600', marginTop: 2 },
   monthChipMetaSelected: { color: '#6B6B7B' },
   settlementRow: {
+    alignItems: 'center',
     borderTopColor: '#EFEFF4',
     borderTopWidth: 1,
     flexDirection: 'row',
@@ -534,11 +589,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
   },
+  settlementRowPressed: {
+    opacity: 0.85,
+  },
   settlementInfo: { flex: 1, gap: 2 },
   settlementDate: { color: '#9CA3AF', fontSize: 12, fontWeight: '600' },
   settlementCustomer: { color: '#1A1A2E', fontSize: 15, fontWeight: '800' },
   settlementMeta: { color: '#6B6B7B', fontSize: 13, fontWeight: '600' },
+  settlementValueWrap: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
   settlementPrice: { color: CORAL, fontSize: 15, fontWeight: '900' },
+  settlementChevron: {
+    color: '#9CA3AF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
   emptyText: { color: '#6B6B7B', fontSize: 14, fontWeight: '600' },
   stateBox: {
     alignItems: 'center',

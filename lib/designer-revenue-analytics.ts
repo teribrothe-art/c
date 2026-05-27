@@ -56,6 +56,7 @@ export type DesignerRevenueAnalytics = {
   pendingPayoutByDate: Record<string, { amount: number; count: number }>;
   recentSettlements: {
     paymentId: string;
+    treatmentId: string;
     customerName: string;
     treatmentTitle: string;
     date: string;
@@ -335,6 +336,7 @@ export async function fetchDesignerRevenueAnalytics(
 
       return {
         paymentId: payment.id,
+        treatmentId: payment.treatment_id,
         customerName: treatment?.customer_name || '고객',
         treatmentTitle: treatment?.treatment_title || '시술',
         date,
