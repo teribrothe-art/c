@@ -102,8 +102,15 @@ export default function DesignerWelcomeScreen() {
       ]}>
       <StatusBar style="dark" />
 
-      <Text style={styles.sectionLabel}>✨ 오늘의 메시지</Text>
-      <View style={styles.divider} />
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionLabelRow}>
+          <Text style={styles.sectionEmoji}>✨</Text>
+          <View style={styles.sectionLabelBlock}>
+            <Text style={styles.sectionLabel}>오늘의 메시지</Text>
+            <View style={styles.divider} />
+          </View>
+        </View>
+      </View>
 
       <Text style={styles.greeting}>{greeting}</Text>
       <Text style={styles.lead}>희망을 담은 한마디로 하루를 시작해 보세요</Text>
@@ -129,18 +136,33 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
   },
+  sectionHeader: {
+    alignSelf: 'flex-start',
+  },
+  sectionLabelRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  sectionLabelBlock: {
+    gap: 12,
+  },
+  sectionEmoji: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 1,
+  },
   sectionLabel: {
     color: colors.purple,
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 2,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   divider: {
-    alignSelf: 'center',
+    alignSelf: 'flex-start',
     backgroundColor: colors.purple,
     height: 2,
-    marginTop: 12,
     width: 60,
   },
   greeting: {
