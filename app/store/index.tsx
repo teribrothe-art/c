@@ -4,13 +4,12 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getCurrentUser, signOut } from '../../lib/auth';
-import { ACCUMULATED_TEST_DESIGNERS_PUBLIC } from '../../lib/demo-accumulated-test-accounts';
 import { getErrorMessage } from '../../lib/errors';
 import { showErrorAlert } from '../../lib/alerts';
 import { colors } from '../../lib/theme';
 import { LoadingState } from '../../src/components/loading-state';
 
-export default function AdminHomeScreen() {
+export default function StoreHomeScreen() {
   const insets = useSafeAreaInsets();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -22,7 +21,7 @@ export default function AdminHomeScreen() {
           return;
         }
 
-        if (user.role !== 'admin') {
+        if (user.role !== 'store') {
           router.replace('/');
         }
       });
@@ -50,25 +49,25 @@ export default function AdminHomeScreen() {
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}
         showsVerticalScrollIndicator={false}>
-        <Text style={styles.badge}>ADMIN</Text>
-        <Text style={styles.title}>어드민</Text>
-        <Text style={styles.subtitle}>전국 매장·디자이너·매출을 한곳에서 관리합니다.</Text>
+        <Text style={styles.badge}>STORE</Text>
+        <Text style={styles.title}>매장</Text>
+        <Text style={styles.subtitle}>소속 디자이너·매장 매출·운영 현황을 관리합니다.</Text>
 
         <View style={styles.cardGrid}>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>연결 매장</Text>
-            <Text style={styles.statValue}>1</Text>
-            <Text style={styles.statMeta}>데모 본사</Text>
+            <Text style={styles.statLabel}>소속 디자이너</Text>
+            <Text style={styles.statValue}>3</Text>
+            <Text style={styles.statMeta}>데모 매장</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>테스트 디자이너</Text>
-            <Text style={styles.statValue}>{ACCUMULATED_TEST_DESIGNERS_PUBLIC.length + 1}</Text>
-            <Text style={styles.statMeta}>누적 프로필 포함</Text>
+            <Text style={styles.statLabel}>이번 달 시술</Text>
+            <Text style={styles.statValue}>128</Text>
+            <Text style={styles.statMeta}>전월 대비 +12%</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>역할</Text>
-            <Text style={styles.statValue}>어드민</Text>
-            <Text style={styles.statMeta}>본사 접속</Text>
+            <Text style={styles.statValue}>매장</Text>
+            <Text style={styles.statMeta}>매장 접속</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>상태</Text>
@@ -82,14 +81,14 @@ export default function AdminHomeScreen() {
           <Pressable
             onPress={() => router.push('/designer/clients')}
             style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}>
-            <Text style={styles.menuTitle}>디자이너 자산 화면 미리보기</Text>
-            <Text style={styles.menuMeta}>고객·시술 데이터 확인</Text>
+            <Text style={styles.menuTitle}>고객·시술 현황</Text>
+            <Text style={styles.menuMeta}>소속 디자이너 고객 데이터</Text>
           </Pressable>
           <Pressable
             onPress={() => router.push('/designer/revenue')}
             style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}>
-            <Text style={styles.menuTitle}>매출·정산 화면 미리보기</Text>
-            <Text style={styles.menuMeta}>주간 매출·정산 내역</Text>
+            <Text style={styles.menuTitle}>매출·정산</Text>
+            <Text style={styles.menuMeta}>매장 매출·정산 내역</Text>
           </Pressable>
         </View>
 
@@ -114,9 +113,9 @@ const styles = StyleSheet.create({
   },
   badge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#EDE9FE',
+    backgroundColor: '#E0F2FE',
     borderRadius: 999,
-    color: colors.purple,
+    color: '#0284C7',
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1,

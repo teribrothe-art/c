@@ -34,7 +34,8 @@ import { InlineFieldError } from '../src/components/inline-field-error';
 const roles: { label: string; value: UserRole }[] = [
   { label: '고객', value: 'customer' },
   { label: '디자이너', value: 'designer' },
-  { label: '본사 어드민', value: 'admin' },
+  { label: '매장', value: 'store' },
+  { label: '어드민', value: 'admin' },
 ];
 
 export default function SignupScreen() {
@@ -168,6 +169,11 @@ export default function SignupScreen() {
 
       if (role === 'designer') {
         router.replace('/designer/welcome');
+        return;
+      }
+
+      if (role === 'store') {
+        router.replace('/store');
         return;
       }
 
@@ -431,11 +437,11 @@ const styles = StyleSheet.create({
   },
   roleToggle: {
     flexGrow: 1,
-    flexBasis: '30%',
+    flexBasis: '22%',
     alignItems: 'center',
     borderRadius: 10,
     paddingVertical: 12,
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
   },
   roleToggleSelected: {
     backgroundColor: colors.coral,

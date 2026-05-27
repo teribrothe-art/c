@@ -249,6 +249,10 @@ export function resolveNotificationHref(
     return item.href;
   }
 
+  if (role === 'store') {
+    return '/store';
+  }
+
   if (role === 'admin') {
     return '/admin';
   }
