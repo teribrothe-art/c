@@ -94,6 +94,7 @@ import { fetchDesignerLedger } from '../../../lib/services/designer-ledger-servi
 import { getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
 import { DamageLevelPicker } from '../../../src/components/damage-level-picker';
 import { TreatmentRecordNav } from '../../../src/components/treatment-record-nav';
+import { isDisplayableImageUri } from '../../../lib/image-uri';
 
 type EditableField =
   | 'technique'
@@ -227,6 +228,7 @@ export default function DesignerTreatmentInputScreen() {
   const [damageUndoStack, setDamageUndoStack] = useState<(number | null)[]>([]);
   const [recordNav, setRecordNav] = useState<ReturnType<typeof getTreatmentNavigation>>(null);
   const treatmentIdRef = useRef<string | undefined>(undefined);
+  const photoUploadingRef = useRef({ before: false, after: false });
 
   const loadTreatmentDetail = useCallback(async () => {
     if (!id) {
@@ -303,7 +305,16 @@ export default function DesignerTreatmentInputScreen() {
         resolveTreatmentPhotoPreviewUrl(resolvedTreatment.before_photo_url),
         resolveTreatmentPhotoPreviewUrl(resolvedTreatment.after_photo_url),
       ]);
-      setPhotoPreviews({ before: beforePreview, after: afterPreview });
+      setPhotoPreviews((current) => ({
+        before:
+          photoUploadingRef.current.before && isDisplayableImageUri(current.before)
+            ? current.before
+            : beforePreview || current.before,
+        after:
+          photoUploadingRef.current.after && isDisplayableImageUri(current.after)
+            ? current.after
+            : afterPreview || current.after,
+      }));
       setErrorMessage('');
     } catch (error) {
       const message = getErrorMessage(error, '시술 정보를 불러오지 못했습니다.');
@@ -746,7 +757,10 @@ export default function DesignerTreatmentInputScreen() {
       ),
       resolveTreatmentPhotoPreviewUrl(nextTreatment.after_photo_url, localFallback?.after),
     ]);
-    setPhotoPreviews({ before, after });
+    setPhotoPreviews((current) => ({
+      before: before || current.before,
+      after: after || current.after,
+    }));
   };
 
   const flashPhotoSuccess = (kind: TreatmentPhotoKind) => {
@@ -761,6 +775,7 @@ export default function DesignerTreatmentInputScreen() {
       return;
     }
 
+    photoUploadingRef.current[kind] = true;
     setPhotoUploadStatus((current) => ({ ...current, [kind]: 'uploading' }));
 
     try {
@@ -783,6 +798,8 @@ export default function DesignerTreatmentInputScreen() {
       }
 
       setPhotoUploadStatus((current) => ({ ...current, [kind]: 'idle' }));
+    } finally {
+      photoUploadingRef.current[kind] = false;
     }
   };
 

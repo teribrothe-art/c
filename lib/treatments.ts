@@ -7,11 +7,18 @@ import { filterTreatmentsForCustomerUser, sortTreatmentsForDiaryList } from './d
 import { sanitizeTreatmentsForCustomer, sanitizeTreatmentForCustomer } from './treatment-privacy';
 import { defaultTreatmentTitle, DEFAULT_TREATMENT_DURATION } from './treatment-options';
 import {
+  isAccumulatedTestTreatmentId,
   mergeAccumulatedTreatmentsIntoStore,
   shouldHydrateAccumulatedDemoDataForUser,
   stripAccumulatedTreatmentsFromStore,
   treatmentsForDemoPersistence,
 } from './demo-accumulated-demo-hydrate';
+import {
+  applyAccumulatedTreatmentPatchAsync,
+  ensureAccumulatedTreatmentPatchesLoaded,
+  mergeAccumulatedTreatmentPatch,
+  reapplyAccumulatedTreatmentPatchesInStore,
+} from './demo-accumulated-treatment-patches';
 import { mergeAccumulatedDesignerRelationships } from './demo-accumulated-relationships';
 import { INITIAL_DEMO_TREATMENTS } from './demo-initial-treatments';
 import { ALL_DEMO_TREATMENT_SEEDS } from './demo-treatment-seeds';
@@ -66,7 +73,9 @@ async function ensureAccumulatedDemoTreatmentsForCurrentUser() {
     return;
   }
 
+  await ensureAccumulatedTreatmentPatchesLoaded();
   mergeAccumulatedTreatmentsIntoStore(demoTreatments, user);
+  reapplyAccumulatedTreatmentPatchesInStore(demoTreatments);
 }
 
 async function readDemoTreatmentsFromStorage() {
@@ -200,6 +209,10 @@ export async function getTreatmentById(id: string) {
     await hydrateDemoTreatments();
     await ensureAccumulatedDemoTreatmentsForCurrentUser();
     treatment = demoTreatments.find((item) => item.id === id) ?? null;
+
+    if (treatment && isAccumulatedTestTreatmentId(treatment.id)) {
+      treatment = await applyAccumulatedTreatmentPatchAsync(treatment);
+    }
   } else {
     const { data, error } = await supabase
       .from('treatments')
@@ -399,12 +412,18 @@ export async function updateTreatment(id: string, updates: TreatmentUpdateInput)
       throw new Error('시술 기록을 찾을 수 없습니다.');
     }
 
-    demoTreatments[index] = {
+    const merged = {
       ...demoTreatments[index],
       ...updates,
     };
 
-    await persistDemoTreatments();
+    demoTreatments[index] = merged;
+
+    if (isAccumulatedTestTreatmentId(id)) {
+      await mergeAccumulatedTreatmentPatch(id, updates);
+    } else {
+      await persistDemoTreatments();
+    }
 
     const updated = demoTreatments[index];
     invalidateLedgerCachesForTreatment(updated);

@@ -1,4 +1,5 @@
 import { ACCUMULATED_TEST_PROFILES } from './demo-accumulated-test-seeds';
+import { applyAccumulatedTreatmentPatch } from './demo-accumulated-treatment-patches';
 import type { PaymentRecord } from './payment-types';
 import type { Treatment } from './treatments';
 
@@ -52,7 +53,7 @@ export function mergeAccumulatedTreatmentsIntoStore(
 
   for (const seed of profile.treatments) {
     if (!demoTreatments.some((item) => item.id === seed.id)) {
-      demoTreatments.push({ ...(seed as Treatment) });
+      demoTreatments.push(applyAccumulatedTreatmentPatch({ ...(seed as Treatment) }));
       merged = true;
     }
   }
