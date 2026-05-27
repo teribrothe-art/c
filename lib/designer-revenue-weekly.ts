@@ -68,8 +68,25 @@ function payoutOf(payment: PaymentRecord) {
   return payment.designer_payout ?? calculatePaymentFees(payment.amount).designerPayout;
 }
 
+/** 정산·매출 집계 기준일 (로컬 타임존) */
+export function settlementDateOfPayment(payment: PaymentRecord): string {
+  const raw = payment.settled_at ?? payment.paid_at ?? payment.created_at;
+
+  if (!raw) {
+    return '';
+  }
+
+  const parsed = new Date(raw);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return raw.slice(0, 10);
+  }
+
+  return toLocalDateString(parsed);
+}
+
 function settlementDateOf(payment: PaymentRecord) {
-  return (payment.settled_at ?? payment.paid_at ?? payment.created_at).slice(0, 10);
+  return settlementDateOfPayment(payment);
 }
 
 function buildDayTotals(completed: PaymentRecord[]) {
