@@ -35,16 +35,21 @@ function formatKoreanMonthDayWeekday(dateStr: string): string {
 
 function MetricCard({
   label,
+  labelSub,
   value,
   tone = 'default',
 }: {
   label: string;
+  labelSub?: string;
   value: string;
   tone?: 'default' | 'danger' | 'success';
 }) {
   return (
     <View style={styles.metricCard}>
-      <Text style={styles.metricLabel}>{label}</Text>
+      <View style={styles.metricLabelBlock}>
+        <Text style={styles.metricLabel}>{label}</Text>
+        {labelSub ? <Text style={styles.metricLabelSub}>{labelSub}</Text> : null}
+      </View>
       <Text
         style={[
           styles.metricValue,
@@ -205,21 +210,25 @@ export default function DesignerRevenueScreen() {
       const dayHeading = formatKoreanMonthDayWeekday(selectedDay.date);
 
       return {
-        treatmentLabel: dayHeading ? `${dayHeading} 시술` : '선택일 시술',
+        treatmentLabel: '시술',
+        treatmentLabelSub: dayHeading || undefined,
         treatmentCount: analytics.treatmentCountByDate[selectedDay.date] ?? 0,
         pendingAmount: pending.amount,
         pendingCount: pending.count,
-        periodLabel: dayHeading ? `${dayHeading} 합계` : '선택일 합계',
+        periodLabel: '합계',
+        periodLabelSub: dayHeading || undefined,
         periodTotal: selectedDay.totalAmount,
       };
     }
 
     return {
       treatmentLabel: '월 총 시술 건수',
+      treatmentLabelSub: undefined,
       treatmentCount: analytics.selectedMonthTreatmentCount,
       pendingAmount: analytics.monthPendingPayoutAmount,
       pendingCount: analytics.monthPendingPayoutCount,
       periodLabel: '선택 주 합계',
+      periodLabelSub: undefined,
       periodTotal: analytics.selectedWeek.weekTotal,
     };
   }, [analytics, selectedDayDate]);
@@ -374,10 +383,12 @@ export default function DesignerRevenueScreen() {
               <View style={styles.metricGrid}>
                 <MetricCard
                   label={linkedMetrics.treatmentLabel}
+                  labelSub={linkedMetrics.treatmentLabelSub}
                   value={`${linkedMetrics.treatmentCount.toLocaleString('ko-KR')}건`}
                 />
                 <MetricCard
                   label={linkedMetrics.periodLabel}
+                  labelSub={linkedMetrics.periodLabelSub}
                   tone="success"
                   value={`${linkedMetrics.periodTotal.toLocaleString('ko-KR')}원`}
                 />
@@ -477,7 +488,12 @@ const styles = StyleSheet.create({
     width: '48%',
     elevation: 3,
   },
-  metricLabel: { color: '#6B6B7B', fontSize: 13, fontWeight: '700', marginBottom: 10 },
+  metricLabelBlock: {
+    gap: 2,
+    marginBottom: 10,
+  },
+  metricLabel: { color: '#6B6B7B', fontSize: 13, fontWeight: '700' },
+  metricLabelSub: { color: '#9CA3AF', fontSize: 11, fontWeight: '600' },
   metricValue: { color: '#1A1A2E', fontSize: 20, fontWeight: '900' },
   metricDanger: { color: CORAL },
   metricSuccess: { color: MINT },
