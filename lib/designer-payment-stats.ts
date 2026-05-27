@@ -138,11 +138,8 @@ export function formatMonthSettlementLabel(monthKey: string) {
     return '이번 달 정산 총액';
   }
 
-  if (year === currentKey.slice(0, 4)) {
-    return `${Number(month)}월 정산 총액`;
-  }
-
-  return `${year}년 ${Number(month)}월 정산 총액`;
+  const shortYear = year.slice(-2);
+  return `${shortYear}년 ${Number(month)}월 정산 총액`;
 }
 
 function buildMonthlySettlementTotals(
