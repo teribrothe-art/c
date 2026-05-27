@@ -27,6 +27,34 @@
 
 자동 검증: `npm run beta:e2e`
 
+### 2년 누적 통합 테스트 (디자이너 1 + 고객 10)
+
+**일반 데모**(`designer@hair.app` / `demo@hair.app`)는 기존처럼 소량 시술 시드만 사용합니다.
+
+**2년 테스트 디자이너**(`test-designer@hair.app`)로 로그인할 때만 **최근 2년~현재 시술**(매일 **2~4건**, 캘린더 전체에 골고루 분포)이 로드됩니다.
+
+**디자이너 공개 계정 (데모 모드)**
+
+| 항목 | 값 |
+|------|-----|
+| **ID** | `test-designer-3y` |
+| 이메일 | `test-designer@hair.app` |
+| 비밀번호 | `test1234` |
+
+| 역할 | 이메일 | 비밀번호 | ID |
+|------|--------|----------|-----|
+| 디자이너 | test-designer@hair.app | test1234 | `test-designer-3y` |
+| 고객 1 | test-customer-1@hair.app | test1234 | `test-customer-01` |
+| 고객 2 | test-customer-2@hair.app | test1234 | `test-customer-02` |
+| … | … | … | … |
+| 고객 10 | test-customer-10@hair.app | test1234 | `test-customer-10` |
+
+- 디자이너 로그인 → **정산**, **자산**, **매출** 탭에서 누적 통계·월별 정산·시술 목록 확인
+- 고객 로그인 → **홈/다이어리**에서 본인 시술 이력 확인
+- 기존에 앱을 켠 적이 있어도 다음 실행 시 시드가 병합됨 (데이터가 안 보이면 앱 재시작)
+- **「Row too big to fit into CursorWindow」** 오류가 나면 Expo Go **완전 종료 후 재실행** (누적 시드는 저장소에 쓰지 않도록 수정됨)
+- CLI 검증: `npm run verify:accumulated-designer` (시술·결제 건수·기간 자동 확인)
+
 ---
 
 ## 시나리오 A — 신규 고객 초대 (핵심)

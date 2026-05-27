@@ -40,7 +40,8 @@ export type DesignerRevenueAnalytics = {
   dailyTotals: DailyRevenuePoint[];
   pendingPayoutAmount: number;
   pendingPayoutCount: number;
-  averageTreatmentPrice: number;
+  /** 선택한 달의 시술 기록 건수 (정산 여부 무관) */
+  selectedMonthTreatmentCount: number;
   recentSettlements: {
     paymentId: string;
     customerName: string;
@@ -174,14 +175,14 @@ export async function fetchDesignerRevenueAnalytics(
   if (!user || user.role !== 'designer') {
     const month = selectedMonthKey ?? fallbackMonth;
 
-    const emptyWeekStart = `${month}-01`;
+    const emptyWeekStart = getWeekStartMonday(`${month}-01`);
     const emptyDays = buildWeeklyRevenueWeeks([], month)[0]?.days ?? [];
 
     return {
       months: [emptyMonth(month)],
       selectedMonthKey: month,
       selectedMonth: emptyMonth(month),
-      weeklyWeeks: [],
+      weeklyWeeks: buildWeeklyRevenueWeeks([], month),
       selectedWeekKey: emptyWeekStart,
       selectedWeek: {
         weekKey: emptyWeekStart,
@@ -193,7 +194,7 @@ export async function fetchDesignerRevenueAnalytics(
       dailyTotals: [],
       pendingPayoutAmount: 0,
       pendingPayoutCount: 0,
-      averageTreatmentPrice: 0,
+      selectedMonthTreatmentCount: 0,
       recentSettlements: [],
     };
   }
@@ -244,11 +245,7 @@ export async function fetchDesignerRevenueAnalytics(
   const monthTreatments = treatments.filter(
     (treatment) => monthKeyFromDate(treatment.treatment_date) === resolvedMonthKey,
   );
-  const priced = monthTreatments.filter((treatment) => (treatment.price ?? 0) > 0);
-  const averageTreatmentPrice =
-    priced.length > 0
-      ? Math.round(priced.reduce((sum, treatment) => sum + (treatment.price ?? 0), 0) / priced.length)
-      : 0;
+  const selectedMonthTreatmentCount = monthTreatments.length;
 
   const recentSettlements = payments
     .filter((payment) => payment.status === 'completed' && payment.settled_at)
@@ -280,7 +277,7 @@ export async function fetchDesignerRevenueAnalytics(
     dailyTotals,
     pendingPayoutAmount,
     pendingPayoutCount: paidPending.length,
-    averageTreatmentPrice,
+    selectedMonthTreatmentCount,
     recentSettlements,
   };
 }

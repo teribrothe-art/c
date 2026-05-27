@@ -1,40 +1,21 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
+import {
+  mergeAccumulatedPaymentsIntoStore,
+  shouldHydrateAccumulatedDemoDataForUser,
+  stripAccumulatedPaymentsFromStore,
+  paymentsForDemoPersistence,
+} from './demo-accumulated-demo-hydrate';
 import { toAppError } from './errors';
+import { calculatePaymentFees, PLATFORM_FEE_RATE } from './payment-fees';
+import { getPaymentPartyIds, resolveTreatmentCustomerForPayment } from './payment-customer';
+import type { PaymentRecord, PaymentRecordStatus } from './payment-types';
 import { supabase } from './supabase';
 import { getTreatmentById, Treatment } from './treatments';
 
-/** DB `payments.fee_rate` 기본값(0.04)과 동일 */
-export const PLATFORM_FEE_RATE = 0.04;
-
-export type PaymentRecordStatus =
-  | 'pending'
-  | 'paid'
-  | 'in_escrow'
-  | 'completed'
-  | 'refunded';
-
-export type PaymentRecord = {
-  id: string;
-  treatment_id: string;
-  customer_id: string;
-  designer_id: string;
-  amount: number;
-  fee_rate: number;
-  fee_amount: number | null;
-  designer_payout: number | null;
-  status: PaymentRecordStatus;
-  toss_payment_key: string | null;
-  toss_order_id: string | null;
-  paid_at: string | null;
-  settled_at: string | null;
-  created_at: string;
-  receipt_url: string | null;
-  refund_amount: number;
-  refund_reason: string | null;
-  refunded_at: string | null;
-};
+export { calculatePaymentFees, PLATFORM_FEE_RATE } from './payment-fees';
+export type { PaymentRecord, PaymentRecordStatus } from './payment-types';
 
 const paymentSelectFields =
   'id, treatment_id, customer_id, designer_id, amount, fee_rate, fee_amount, designer_payout, status, toss_payment_key, toss_order_id, paid_at, settled_at, created_at, receipt_url, refund_amount, refund_reason, refunded_at';
@@ -64,9 +45,37 @@ const INITIAL_DEMO_PAYMENTS: PaymentRecord[] = [
   },
 ];
 
+const ALL_DEMO_PAYMENT_SEEDS: PaymentRecord[] = [...(INITIAL_DEMO_PAYMENTS ?? [])];
+
 const demoPayments: PaymentRecord[] = INITIAL_DEMO_PAYMENTS.map((item) => ({ ...item }));
 
 let demoPaymentsHydratePromise: Promise<void> | null = null;
+
+async function ensureAccumulatedDemoPaymentsForCurrentUser() {
+  const user = await getCurrentUser();
+
+  if (!shouldHydrateAccumulatedDemoDataForUser(user)) {
+    return;
+  }
+
+  if (mergeAccumulatedPaymentsIntoStore(demoPayments)) {
+    // 누적 시드는 메모리만 — AsyncStorage에 쓰지 않음
+  }
+}
+
+async function readDemoPaymentsFromStorage() {
+  try {
+    return await AsyncStorage.getItem(DEMO_PAYMENTS_KEY);
+  } catch {
+    await AsyncStorage.removeItem(DEMO_PAYMENTS_KEY);
+    return null;
+  }
+}
+
+async function prepareDemoPayments() {
+  await hydrateDemoPayments();
+  await ensureAccumulatedDemoPaymentsForCurrentUser();
+}
 
 async function hydrateDemoPayments() {
   if (!isDemoAuthMode) {
@@ -75,18 +84,43 @@ async function hydrateDemoPayments() {
 
   if (!demoPaymentsHydratePromise) {
     demoPaymentsHydratePromise = (async () => {
-      const raw = await AsyncStorage.getItem(DEMO_PAYMENTS_KEY);
+      const raw = await readDemoPaymentsFromStorage();
 
       if (raw) {
-        const stored = JSON.parse(raw) as PaymentRecord[];
+        try {
+          const stored = JSON.parse(raw) as PaymentRecord[];
+          demoPayments.length = 0;
+          demoPayments.push(...stored);
+        } catch {
+          await AsyncStorage.removeItem(DEMO_PAYMENTS_KEY);
+          demoPayments.length = 0;
+          demoPayments.push(...ALL_DEMO_PAYMENT_SEEDS.map((item) => ({ ...item })));
+        }
+      } else {
         demoPayments.length = 0;
-        demoPayments.push(...stored);
-        return;
+        demoPayments.push(...ALL_DEMO_PAYMENT_SEEDS.map((item) => ({ ...item })));
       }
 
-      demoPayments.length = 0;
-      demoPayments.push(...INITIAL_DEMO_PAYMENTS.map((item) => ({ ...item })));
-      await AsyncStorage.setItem(DEMO_PAYMENTS_KEY, JSON.stringify(demoPayments));
+      let merged = false;
+
+      const withoutStaleAccumulated = stripAccumulatedPaymentsFromStore(demoPayments);
+
+      if (withoutStaleAccumulated.length !== demoPayments.length) {
+        demoPayments.length = 0;
+        demoPayments.push(...withoutStaleAccumulated);
+        merged = true;
+      }
+
+      for (const seed of ALL_DEMO_PAYMENT_SEEDS) {
+        if (!demoPayments.some((payment) => payment.id === seed.id)) {
+          demoPayments.push({ ...seed });
+          merged = true;
+        }
+      }
+
+      if (!raw || merged) {
+        await persistDemoPayments();
+      }
     })();
   }
 
@@ -98,7 +132,8 @@ async function persistDemoPayments() {
     return;
   }
 
-  await AsyncStorage.setItem(DEMO_PAYMENTS_KEY, JSON.stringify(demoPayments));
+  const persistable = paymentsForDemoPersistence(demoPayments);
+  await AsyncStorage.setItem(DEMO_PAYMENTS_KEY, JSON.stringify(persistable));
 }
 
 function withSettledFees(payment: PaymentRecord) {
@@ -115,31 +150,13 @@ function withSettledFees(payment: PaymentRecord) {
 }
 
 
-function requireTreatmentParties(treatment: Treatment) {
-  if (!treatment.customer_id || !treatment.designer_id) {
-    throw new Error('시술에 고객·디자이너 정보가 없습니다.');
-  }
-
-  return {
-    customerId: treatment.customer_id,
-    designerId: treatment.designer_id,
-  };
-}
-
-export function calculatePaymentFees(amount: number, feeRate = PLATFORM_FEE_RATE) {
-  const feeAmount = Math.round(amount * feeRate);
-  const designerPayout = amount - feeAmount;
-
-  return {
-    feeRate,
-    feeAmount,
-    designerPayout,
-  };
+function requireTreatmentParties(treatment: Treatment, customerId: string) {
+  return getPaymentPartyIds(treatment, customerId);
 }
 
 export async function getPaymentByTreatmentId(treatmentId: string) {
   if (isDemoAuthMode || !supabase) {
-    await hydrateDemoPayments();
+    await prepareDemoPayments();
     return demoPayments.find((payment) => payment.treatment_id === treatmentId) ?? null;
   }
 
@@ -164,13 +181,8 @@ export async function ensurePaymentRecordForTreatment(treatmentId: string) {
     throw new Error('고객만 결제 내역을 생성할 수 있습니다.');
   }
 
-  const { treatment } = await getTreatmentById(treatmentId);
-
-  if (!treatment) {
-    throw new Error('시술 기록을 찾을 수 없습니다.');
-  }
-
-  const { customerId, designerId } = requireTreatmentParties(treatment);
+  const treatment = await resolveTreatmentCustomerForPayment(treatmentId);
+  const { customerId, designerId } = requireTreatmentParties(treatment, treatment.customer_id!);
   const amount = treatment.price ?? 0;
 
   if (amount <= 0) {
@@ -187,7 +199,7 @@ export async function ensurePaymentRecordForTreatment(treatmentId: string) {
   const now = new Date().toISOString();
 
   if (isDemoAuthMode || !supabase) {
-    await hydrateDemoPayments();
+    await prepareDemoPayments();
     const record: PaymentRecord = {
       id: `demo-payment-${treatmentId}`,
       treatment_id: treatmentId,
@@ -240,9 +252,15 @@ export async function upsertDemoPaymentOnRequest(treatment: Treatment, tossOrder
     return;
   }
 
-  await hydrateDemoPayments();
+  await prepareDemoPayments();
 
-  const { customerId, designerId } = requireTreatmentParties(treatment);
+  const customerId = treatment.customer_id;
+
+  if (!customerId || !treatment.designer_id) {
+    throw new Error('시술에 고객·디자이너 정보가 없습니다.');
+  }
+
+  const designerId = treatment.designer_id;
   const amount = treatment.price ?? 0;
   const { feeRate } = calculatePaymentFees(amount);
   const now = new Date().toISOString();
@@ -281,12 +299,20 @@ export async function upsertDemoPaymentOnRequest(treatment: Treatment, tossOrder
 
 export async function updatePaymentOrderId(treatmentId: string, tossOrderId: string) {
   if (isDemoAuthMode || !supabase) {
-    const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
+    await prepareDemoPayments();
+    let index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
+
+    if (index < 0) {
+      await ensurePaymentRecordForTreatment(treatmentId);
+      index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
+    }
+
     if (index >= 0) {
       demoPayments[index] = { ...demoPayments[index], toss_order_id: tossOrderId, status: 'pending' };
       await persistDemoPayments();
       return demoPayments[index];
     }
+
     return null;
   }
 
@@ -312,12 +338,14 @@ export async function markPaymentPaid(
   const { feeRate, feeAmount, designerPayout } = calculatePaymentFees(amount);
   const now = new Date().toISOString();
 
+  await ensurePaymentRecordForTreatment(treatmentId);
+
   if (isDemoAuthMode || !supabase) {
-    await hydrateDemoPayments();
+    await prepareDemoPayments();
     const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
+
     if (index < 0) {
-      await ensurePaymentRecordForTreatment(treatmentId);
-      return markPaymentPaid(treatmentId, input);
+      throw new Error('결제 내역을 찾을 수 없습니다. 잠시 후 다시 시도해 주세요.');
     }
     demoPayments[index] = {
       ...demoPayments[index],
@@ -360,7 +388,7 @@ export async function markPaymentPaid(
 /** 결제 실패 시 pending으로 되돌립니다 (스키마에 failed 없음) */
 export async function markPaymentFailed(treatmentId: string) {
   if (isDemoAuthMode || !supabase) {
-    await hydrateDemoPayments();
+    await prepareDemoPayments();
     const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
     if (index < 0) {
       return null;
@@ -403,7 +431,7 @@ export async function markPaymentCompleted(
   const now = new Date().toISOString();
 
   if (isDemoAuthMode || !supabase) {
-    await hydrateDemoPayments();
+    await prepareDemoPayments();
     const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
 
     if (index < 0) {
@@ -456,7 +484,7 @@ export async function recordPaymentRefund(
   const now = new Date().toISOString();
 
   if (isDemoAuthMode || !supabase) {
-    await hydrateDemoPayments();
+    await prepareDemoPayments();
     const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
     if (index < 0) {
       return null;

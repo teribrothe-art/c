@@ -20,6 +20,7 @@ import {
   createCustomerInvitation,
   CustomerInvitation,
   getPendingInvitationForTreatment,
+  renewCustomerInvitation,
 } from '../../lib/customer-invitations';
 import { getErrorMessage } from '../../lib/errors';
 import { formatPhoneInput } from '../../lib/phone-input';
@@ -29,7 +30,7 @@ import {
   searchRegisteredCustomers,
 } from '../../lib/registered-customers';
 import { colors } from '../../lib/theme';
-import type { Treatment } from '../../lib/treatments';
+import { getTreatmentById, type Treatment } from '../../lib/treatments';
 
 type InviteMode = 'existing' | 'new';
 
@@ -71,27 +72,34 @@ export function CustomerInviteModal({
     setMode('existing');
     setSearchQuery(defaultCustomerName);
     setSelectedCustomerId(null);
+    setInvitation(null);
+    setCustomers([]);
 
     let isMounted = true;
 
     setIsLoadingInvite(true);
 
-    getPendingInvitationForTreatment(treatmentId)
-      .then((pending) => {
+    Promise.all([getPendingInvitationForTreatment(treatmentId), getTreatmentById(treatmentId)])
+      .then(([pending, { treatment }]) => {
         if (!isMounted) {
           return;
         }
 
+        const treatmentName = treatment?.customer_name?.trim() || defaultCustomerName;
+
         if (pending) {
           setInvitation(pending);
-          setMode('new');
-          setCustomerName(pending.customer_name ?? defaultCustomerName);
+          setCustomerName(treatmentName || pending.customer_name || '');
           setCustomerPhone(pending.customer_phone ?? '');
         } else {
-          setInvitation(null);
+          setCustomerName(treatmentName || defaultCustomerName);
         }
       })
-      .catch(() => undefined)
+      .catch((error) => {
+        if (isMounted) {
+          showErrorAlert(getErrorMessage(error, '고객 연결 정보를 불러오지 못했습니다.'));
+        }
+      })
       .finally(() => {
         if (isMounted) {
           setIsLoadingInvite(false);
@@ -104,7 +112,7 @@ export function CustomerInviteModal({
   }, [visible, treatmentId, defaultCustomerName]);
 
   useEffect(() => {
-    if (!visible || mode !== 'existing' || invitation) {
+    if (!visible || mode !== 'existing') {
       return;
     }
 
@@ -118,9 +126,10 @@ export function CustomerInviteModal({
             setCustomers(items);
           }
         })
-        .catch(() => {
+        .catch((error) => {
           if (isMounted) {
             setCustomers([]);
+            showErrorAlert(getErrorMessage(error, '가입 고객 목록을 불러오지 못했습니다.'));
           }
         })
         .finally(() => {
@@ -134,7 +143,7 @@ export function CustomerInviteModal({
       isMounted = false;
       clearTimeout(timer);
     };
-  }, [visible, mode, searchQuery, invitation]);
+  }, [visible, mode, searchQuery]);
 
   const handleClose = () => {
     setInvitation(null);
@@ -161,6 +170,29 @@ export function CustomerInviteModal({
       showSuccessAlert('초대 코드가 생성됐어요. 고객에게 QR 또는 코드를 공유해주세요.');
     } catch (error) {
       showErrorAlert(getErrorMessage(error, '초대 코드를 만들지 못했습니다.'));
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleRenew = async () => {
+    if (!invitation) {
+      return;
+    }
+
+    try {
+      setIsCreating(true);
+      const renewed = await renewCustomerInvitation({
+        invitationId: invitation.id,
+        treatmentId,
+        customerName,
+        customerPhone,
+      });
+      setInvitation(renewed);
+      onInvitationCreated?.(renewed);
+      showSuccessAlert('새 초대 코드를 발급했어요. 이전 코드는 더 이상 사용할 수 없어요.');
+    } catch (error) {
+      showErrorAlert(getErrorMessage(error, '새 초대 코드를 만들지 못했습니다.'));
     } finally {
       setIsCreating(false);
     }
@@ -245,12 +277,117 @@ export function CustomerInviteModal({
           ) : (
             <>
               <Text style={styles.title}>고객 연결</Text>
-              {!invitation ? renderModeTabs() : null}
+              {renderModeTabs()}
 
-              {invitation || mode === 'new' ? (
-                invitation ? (
+              {mode === 'existing' ? (
+                <>
+                  <Text style={styles.subtitle}>
+                    앱에 가입한 고객을 검색해{'\n'}이 시술 기록에 바로 연결할 수 있어요
+                  </Text>
+                  {invitation ? (
+                    <Text style={styles.pendingInviteHint}>
+                      진행 중인 초대 코드는 연결 시 자동으로 만료됩니다.
+                    </Text>
+                  ) : null}
+
+                  <TextInput
+                    placeholder="이름 또는 이메일 검색"
+                    placeholderTextColor="#9CA3AF"
+                    style={styles.input}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    autoCapitalize="none"
+                  />
+
+                  <View style={styles.listWrap}>
+                    {isSearching ? (
+                      <ActivityIndicator color={colors.coral} style={styles.listLoader} />
+                    ) : customers.length === 0 ? (
+                      <Text style={styles.emptyList}>
+                        {searchQuery.trim()
+                          ? '검색 결과가 없어요. 신규 초대 탭을 이용해주세요.'
+                          : '검색어를 입력하거나 아래 목록에서 고객을 선택하세요.'}
+                      </Text>
+                    ) : (
+                      <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                        {customers.map((item) => {
+                          const selected = selectedCustomerId === item.id;
+
+                          return (
+                            <Pressable
+                              key={item.id}
+                              onPress={() => setSelectedCustomerId(item.id)}
+                              style={[styles.customerRow, selected && styles.customerRowSelected]}>
+                              <View style={styles.customerRowBody}>
+                                <Text style={styles.customerName}>{item.name}</Text>
+                                <Text style={styles.customerEmail}>{item.email}</Text>
+                              </View>
+                              {item.linked ? (
+                                <Text style={styles.linkedBadge}>연결됨</Text>
+                              ) : selected ? (
+                                <Text style={styles.selectedMark}>✓</Text>
+                              ) : null}
+                            </Pressable>
+                          );
+                        })}
+                      </ScrollView>
+                    )}
+                  </View>
+
+                  <Pressable
+                    disabled={isLinking || !selectedCustomerId}
+                    onPress={() => void handleLinkExisting()}
+                    style={({ pressed }) => [
+                      styles.primaryButton,
+                      styles.linkButton,
+                      pressed && styles.buttonPressed,
+                      (isLinking || !selectedCustomerId) && styles.buttonDisabled,
+                    ]}>
+                    <Text style={styles.primaryButtonText}>
+                      {isLinking ? '연결 중...' : '선택한 고객 연결'}
+                    </Text>
+                  </Pressable>
+                </>
+              ) : invitation ? (
                   <>
-                    <Text style={styles.subtitle}>신규 고객용 초대 코드</Text>
+                    <Text style={styles.subtitle}>
+                      이름·전화를 수정한 뒤 새 코드를 발급하면{'\n'}이전 초대 코드는 사용할 수 없어요
+                    </Text>
+
+                    <Text style={styles.label}>고객 이름 *</Text>
+                    <TextInput
+                      placeholder="예: 김지원"
+                      placeholderTextColor="#9CA3AF"
+                      style={styles.input}
+                      value={customerName}
+                      onChangeText={setCustomerName}
+                    />
+
+                    <Text style={styles.label}>전화번호 (선택)</Text>
+                    <TextInput
+                      keyboardType="phone-pad"
+                      placeholder="010-0000-0000"
+                      placeholderTextColor="#9CA3AF"
+                      style={styles.input}
+                      value={customerPhone}
+                      onChangeText={(text) => setCustomerPhone(formatPhoneInput(text))}
+                      maxLength={13}
+                    />
+
+                    <Pressable
+                      disabled={isCreating}
+                      onPress={() => void handleRenew()}
+                      style={({ pressed }) => [
+                        styles.primaryButton,
+                        pressed && styles.buttonPressed,
+                        isCreating && styles.buttonDisabled,
+                      ]}>
+                      <Text style={styles.primaryButtonText}>
+                        {isCreating ? '발급 중...' : '새 초대 코드 발급'}
+                      </Text>
+                    </Pressable>
+
+                    <Text style={styles.subtitle}>현재 초대 코드</Text>
                     <Text style={styles.code}>{invitation.invite_code}</Text>
 
                     <View style={styles.qrWrap}>
@@ -320,72 +457,7 @@ export function CustomerInviteModal({
                       </Text>
                     </Pressable>
                   </>
-                )
-              ) : (
-                <>
-                  <Text style={styles.subtitle}>
-                    앱에 가입한 고객을 검색해{'\n'}이 시술 기록에 바로 연결할 수 있어요
-                  </Text>
-
-                  <TextInput
-                    placeholder="이름 또는 이메일 검색"
-                    placeholderTextColor="#9CA3AF"
-                    style={styles.input}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    autoCapitalize="none"
-                  />
-
-                  <View style={styles.listWrap}>
-                    {isSearching ? (
-                      <ActivityIndicator color={colors.coral} style={styles.listLoader} />
-                    ) : customers.length === 0 ? (
-                      <Text style={styles.emptyList}>
-                        {searchQuery.trim()
-                          ? '검색 결과가 없어요. 신규 초대 탭을 이용해주세요.'
-                          : '검색어를 입력하거나 아래 목록에서 고객을 선택하세요.'}
-                      </Text>
-                    ) : (
-                      <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
-                        {customers.map((item) => {
-                          const selected = selectedCustomerId === item.id;
-
-                          return (
-                            <Pressable
-                              key={item.id}
-                              onPress={() => setSelectedCustomerId(item.id)}
-                              style={[styles.customerRow, selected && styles.customerRowSelected]}>
-                              <View style={styles.customerRowBody}>
-                                <Text style={styles.customerName}>{item.name}</Text>
-                                <Text style={styles.customerEmail}>{item.email}</Text>
-                              </View>
-                              {item.linked ? (
-                                <Text style={styles.linkedBadge}>연결됨</Text>
-                              ) : selected ? (
-                                <Text style={styles.selectedMark}>✓</Text>
-                              ) : null}
-                            </Pressable>
-                          );
-                        })}
-                      </ScrollView>
-                    )}
-                  </View>
-
-                  <Pressable
-                    disabled={isLinking || !selectedCustomerId}
-                    onPress={() => void handleLinkExisting()}
-                    style={({ pressed }) => [
-                      styles.primaryButton,
-                      styles.linkButton,
-                      pressed && styles.buttonPressed,
-                      (isLinking || !selectedCustomerId) && styles.buttonDisabled,
-                    ]}>
-                    <Text style={styles.primaryButtonText}>
-                      {isLinking ? '연결 중...' : '선택한 고객 연결'}
-                    </Text>
-                  </Pressable>
-                </>
-              )}
+                )}
             </>
           )}
 
@@ -435,6 +507,13 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 14,
     lineHeight: 21,
+    textAlign: 'center',
+  },
+  pendingInviteHint: {
+    color: colors.coral,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 19,
     textAlign: 'center',
   },
   tabRow: {
