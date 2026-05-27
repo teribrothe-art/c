@@ -13,7 +13,25 @@
     "scheme": "hairdiaryapp",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": [
+          "supertoss",
+          "kakaobank",
+          "kb-acp",
+          "liivbank",
+          "kbbank",
+          "ispmobile",
+          "shinhan-sr-ansimclick",
+          "smshinhanansimclick",
+          "hdcardappcardansimclick",
+          "mpocket.online.ansimclick",
+          "samsungpay",
+          "payco",
+          "lpayapp",
+          "nhappcardansimclick"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
