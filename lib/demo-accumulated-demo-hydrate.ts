@@ -70,6 +70,30 @@ export function mergeAccumulatedPaymentsIntoStore(
     return false;
   }
 
+  return mergeAccumulatedProfilePaymentsIntoStore(demoPayments, profile);
+}
+
+export function findAccumulatedProfileByDesignerId(designerId: string) {
+  return ACCUMULATED_TEST_PROFILES.find((profile) => profile.designer.id === designerId) ?? null;
+}
+
+export function mergeAccumulatedPaymentsForDesignerId(
+  demoPayments: PaymentRecord[],
+  designerId: string,
+): boolean {
+  const profile = findAccumulatedProfileByDesignerId(designerId);
+
+  if (!profile) {
+    return false;
+  }
+
+  return mergeAccumulatedProfilePaymentsIntoStore(demoPayments, profile);
+}
+
+function mergeAccumulatedProfilePaymentsIntoStore(
+  demoPayments: PaymentRecord[],
+  profile: (typeof ACCUMULATED_TEST_PROFILES)[number],
+): boolean {
   let merged = false;
 
   for (const seed of profile.payments) {

@@ -91,8 +91,26 @@ async function ensureDemoUsersSeeded() {
   let changed = false;
 
   for (const seeded of [...SEEDED_DEMO_USERS, ...BETA_DESIGNERS, ...BETA_CUSTOMERS, ...ACCUMULATED_TEST_ACCOUNTS]) {
-    if (!byEmail.has(seeded.email)) {
+    const stored = byEmail.get(seeded.email);
+
+    if (!stored) {
       existing.push(seeded);
+      changed = true;
+      continue;
+    }
+
+    if (
+      stored.id !== seeded.id ||
+      stored.role !== seeded.role ||
+      stored.password !== seeded.password ||
+      (seeded.name && stored.name !== seeded.name)
+    ) {
+      Object.assign(stored, {
+        id: seeded.id,
+        role: seeded.role,
+        password: seeded.password,
+        name: seeded.name ?? stored.name,
+      });
       changed = true;
     }
   }

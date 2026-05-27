@@ -1,6 +1,11 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
-import { calculatePaymentFees, getDesignerDemoPayments, PaymentRecord } from './payment-record';
+import {
+  calculatePaymentFees,
+  getDesignerDemoPayments,
+  getPaymentByTreatmentId,
+  PaymentRecord,
+} from './payment-record';
 import {
   buildWeeklyRevenueWeeks,
   formatDateWithWeekday,
@@ -74,9 +79,28 @@ function monthKeyFromDate(date: string) {
   return date.slice(0, 7);
 }
 
-async function loadDesignerPayments(designerId: string): Promise<PaymentRecord[]> {
+async function loadDesignerPayments(
+  designerId: string,
+  treatments: { id: string }[],
+): Promise<PaymentRecord[]> {
   if (isDemoAuthMode || !supabase) {
-    return getDesignerDemoPayments(designerId);
+    let payments = await getDesignerDemoPayments(designerId);
+
+    if (payments.length === 0 && treatments.length > 0) {
+      const records: PaymentRecord[] = [];
+
+      for (const treatment of treatments) {
+        const payment = await getPaymentByTreatmentId(treatment.id);
+
+        if (payment && payment.designer_id === designerId) {
+          records.push(payment);
+        }
+      }
+
+      payments = records;
+    }
+
+    return payments;
   }
 
   const { data, error } = await supabase
@@ -190,8 +214,8 @@ export async function fetchDesignerRevenueAnalytics(
 
   const { treatments } = await getDesignerTreatments();
   const treatmentMap = new Map(treatments.map((treatment) => [treatment.id, treatment]));
-  const payments = await loadDesignerPayments(user.id);
-  const completed = payments.filter((payment) => payment.status === 'completed' && payment.settled_at);
+  const payments = await loadDesignerPayments(user.id, treatments);
+  const completed = payments.filter((payment) => payment.status === 'completed');
 
   let months = buildMonthlyBuckets(completed);
 
@@ -237,7 +261,7 @@ export async function fetchDesignerRevenueAnalytics(
   const selectedMonthTreatmentCount = monthTreatments.length;
 
   const recentSettlements = payments
-    .filter((payment) => payment.status === 'completed' && payment.settled_at)
+    .filter((payment) => payment.status === 'completed')
     .filter((payment) => monthKeyFromDate(settlementDateOf(payment)) === resolvedMonthKey)
     .sort((a, b) => (b.settled_at ?? '').localeCompare(a.settled_at ?? ''))
     .slice(0, 8)

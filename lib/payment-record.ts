@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import {
+  mergeAccumulatedPaymentsForDesignerId,
   mergeAccumulatedPaymentsIntoStore,
   shouldHydrateAccumulatedDemoDataForUser,
   stripAccumulatedPaymentsFromStore,
@@ -139,7 +140,11 @@ async function hydrateDemoPayments() {
 
 /** 데모 — 디자이너 결제 일괄 조회 (시술별 N회 조회 방지) */
 export async function getDesignerDemoPayments(designerId: string): Promise<PaymentRecord[]> {
-  await prepareDemoPayments();
+  await hydrateDemoPayments();
+  mergeAccumulatedPaymentsForDesignerId(demoPayments, designerId);
+  await ensureAccumulatedDemoPaymentsForCurrentUser();
+  syncDemoPaymentIndex();
+
   return demoPayments.filter((payment) => payment.designer_id === designerId);
 }
 

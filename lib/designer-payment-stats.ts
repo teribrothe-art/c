@@ -1,7 +1,12 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toLocalDateString } from './designer-revenue-weekly';
 import { toAppError } from './errors';
-import { calculatePaymentFees, getDesignerDemoPayments, PaymentRecord } from './payment-record';
+import {
+  calculatePaymentFees,
+  getDesignerDemoPayments,
+  getPaymentByTreatmentId,
+  PaymentRecord,
+} from './payment-record';
 import { supabase } from './supabase';
 import { getDesignerTreatments, Treatment } from './treatments';
 
@@ -58,9 +63,28 @@ function isAwaitingSettlement(status: PaymentRecord['status']) {
   return status === 'paid' || status === 'in_escrow';
 }
 
-async function loadDesignerPayments(designerId: string): Promise<PaymentRecord[]> {
+async function loadDesignerPayments(
+  designerId: string,
+  treatments: { id: string }[],
+): Promise<PaymentRecord[]> {
   if (isDemoAuthMode || !supabase) {
-    return getDesignerDemoPayments(designerId);
+    let payments = await getDesignerDemoPayments(designerId);
+
+    if (payments.length === 0 && treatments.length > 0) {
+      const records: PaymentRecord[] = [];
+
+      for (const treatment of treatments) {
+        const payment = await getPaymentByTreatmentId(treatment.id);
+
+        if (payment && payment.designer_id === designerId) {
+          records.push(payment);
+        }
+      }
+
+      payments = records;
+    }
+
+    return payments;
   }
 
   const { data, error } = await supabase
@@ -92,7 +116,7 @@ export async function fetchDesignerPaymentDashboard(): Promise<DesignerPaymentDa
 
   const { treatments } = await getDesignerTreatments();
   const treatmentMap = new Map(treatments.map((t) => [t.id, t]));
-  const payments = await loadDesignerPayments(user.id);
+  const payments = await loadDesignerPayments(user.id, treatments);
 
   const completedThisMonth = payments.filter(
     (p) => p.status === 'completed' && settlementMonthKey(p) === getCurrentSettlementMonthKey(),
@@ -215,7 +239,7 @@ export async function fetchDesignerProfilePaymentStats(): Promise<DesignerProfil
 
   const { treatments } = await getDesignerTreatments();
   const treatmentMap = new Map(treatments.map((t) => [t.id, t]));
-  const payments = await loadDesignerPayments(user.id);
+  const payments = await loadDesignerPayments(user.id, treatments);
   const completed = payments.filter((p) => p.status === 'completed');
   const payoutOf = (p: PaymentRecord) =>
     p.designer_payout ?? calculatePaymentFees(p.amount).designerPayout;
