@@ -304,7 +304,7 @@ export default function DesignerRevenueScreen() {
         showsVerticalScrollIndicator={false}>
         <Text style={styles.pageTitle}>매출 분석</Text>
         <Text style={styles.pageSubtitle}>
-          월별 매출과 주간(월~일) 합계를 한 화면에서 확인하세요
+          월별 매출과 요일별 주간 합계(막대)를 한 화면에서 확인하세요
         </Text>
 
         {isLoading ? (
@@ -388,6 +388,7 @@ export default function DesignerRevenueScreen() {
               onSelectDay={handleSelectDay}
               selectedDate={selectedDayDate}
               weekLabel={analytics.selectedWeek.label}
+              weekTotal={analytics.selectedWeek.weekTotal}
             />
 
             {linkedMetrics ? (
