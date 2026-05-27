@@ -6,6 +6,7 @@ import {
   formatDateWithWeekday,
   getWeekStartMonday,
   resolveDefaultWeekKey,
+  settlementDateOfPayment,
   toLocalDateString,
   type WeeklyRevenueWeek,
   type WeekdayRevenueCell,
@@ -78,7 +79,7 @@ function formatDayLabel(date: string) {
 }
 
 function settlementDateOf(payment: PaymentRecord) {
-  return (payment.settled_at ?? payment.paid_at ?? payment.created_at).slice(0, 10);
+  return settlementDateOfPayment(payment);
 }
 
 function monthKeyFromDate(date: string) {
@@ -314,14 +315,22 @@ export async function fetchDesignerRevenueAnalytics(
   );
   const selectedMonthTreatmentCount = monthTreatments.length;
 
-  const recentSettlements = payments
+  const weekDayDates = new Set(weeklyWeeks.flatMap((week) => week.days.map((day) => day.date)));
+
+  const monthSettlements = payments
     .filter((payment) => payment.status === 'completed')
-    .filter((payment) => monthKeyFromDate(settlementDateOf(payment)) === resolvedMonthKey)
-    .sort((a, b) => (b.settled_at ?? '').localeCompare(a.settled_at ?? ''))
-    .slice(0, 8)
+    .filter((payment) => {
+      const date = settlementDateOf(payment);
+
+      if (!date) {
+        return false;
+      }
+
+      return weekDayDates.has(date) || monthKeyFromDate(date) === resolvedMonthKey;
+    })
+    .sort((a, b) => settlementDateOf(b).localeCompare(settlementDateOf(a)))
     .map((payment) => {
       const treatment = treatmentMap.get(payment.treatment_id);
-
       const date = settlementDateOf(payment);
 
       return {
@@ -333,6 +342,8 @@ export async function fetchDesignerRevenueAnalytics(
         payout: payoutOf(payment),
       };
     });
+
+  const recentSettlements = monthSettlements;
 
   return {
     months,

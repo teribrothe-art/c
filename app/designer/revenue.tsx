@@ -144,12 +144,18 @@ export default function DesignerRevenueScreen() {
       return [];
     }
 
-    if (!selectedDayDate) {
-      return analytics.recentSettlements;
+    if (selectedDayDate) {
+      return analytics.recentSettlements.filter((item) => item.date === selectedDayDate);
     }
 
-    return analytics.recentSettlements.filter((item) => item.date === selectedDayDate);
-  }, [analytics, selectedDayDate]);
+    if (selectedWeekKey && analytics.selectedWeek) {
+      const weekDates = new Set(analytics.selectedWeek.days.map((day) => day.date));
+
+      return analytics.recentSettlements.filter((item) => weekDates.has(item.date));
+    }
+
+    return analytics.recentSettlements;
+  }, [analytics, selectedDayDate, selectedWeekKey]);
 
   const settlementSectionTitle = useMemo(() => {
     if (!analytics) {
@@ -164,8 +170,12 @@ export default function DesignerRevenueScreen() {
       }
     }
 
+    if (selectedWeekKey && analytics.selectedWeek.label) {
+      return `${analytics.selectedWeek.label} 정산 상세`;
+    }
+
     return `${analytics.selectedMonth.label} 정산 상세`;
-  }, [analytics, selectedDayDate]);
+  }, [analytics, selectedDayDate, selectedWeekKey]);
 
   const linkedMetrics = useMemo(() => {
     if (!analytics) {
@@ -383,7 +393,9 @@ export default function DesignerRevenueScreen() {
                 <Text style={styles.emptyText}>
                   {selectedDayDate
                     ? '해당 날짜에 정산 완료 내역이 없습니다.'
-                    : '해당 월 정산 완료 내역이 없습니다.'}
+                    : selectedWeekKey && analytics.selectedWeek.label
+                      ? '해당 주 정산 완료 내역이 없습니다.'
+                      : '해당 월 정산 완료 내역이 없습니다.'}
                 </Text>
               ) : (
                 visibleSettlements.map((item) => (
