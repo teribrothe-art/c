@@ -1,17 +1,11 @@
-import { getCurrentUser, isDemoAuthMode } from '../auth';
 import {
   buildTreatmentLedgerEntries,
   indexPaymentsByTreatmentId,
   type TreatmentLedgerEntry,
 } from '../domain/treatment-ledger';
-import { toAppError } from '../errors';
-import {
-  getDesignerDemoPayments,
-  getPaymentByTreatmentId,
-  type PaymentRecord,
-} from '../payment-record';
-import { supabase } from '../supabase';
-import { getDesignerTreatments, type Treatment } from '../treatments';
+import { getLedgerRepository } from '../repositories';
+import type { PaymentRecord } from '../payment-types';
+import type { Treatment } from '../treatments';
 import { getCachedDesignerLedger, setCachedDesignerLedger } from './ledger-cache';
 
 export type DesignerLedger = {
@@ -23,46 +17,25 @@ export type DesignerLedger = {
   entries: TreatmentLedgerEntry[];
 };
 
-export async function loadDesignerPaymentsForDesigner(
-  designerId: string,
-  treatments: Pick<Treatment, 'id'>[],
-): Promise<PaymentRecord[]> {
-  if (isDemoAuthMode || !supabase) {
-    let payments = await getDesignerDemoPayments(designerId);
+function buildDesignerLedger(designerId: string, treatments: Treatment[], payments: PaymentRecord[]) {
+  const paymentsByTreatmentId = indexPaymentsByTreatmentId(payments);
+  const entries = buildTreatmentLedgerEntries(treatments, paymentsByTreatmentId);
 
-    if (payments.length === 0 && treatments.length > 0) {
-      const records: PaymentRecord[] = [];
-
-      for (const treatment of treatments) {
-        const payment = await getPaymentByTreatmentId(treatment.id);
-
-        if (payment && payment.designer_id === designerId) {
-          records.push(payment);
-        }
-      }
-
-      payments = records;
-    }
-
-    return payments;
-  }
-
-  const { data, error } = await supabase
-    .from('payments')
-    .select('*')
-    .eq('designer_id', designerId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    throw toAppError(error);
-  }
-
-  return (data ?? []) as PaymentRecord[];
+  return {
+    designerId,
+    treatments,
+    payments,
+    treatmentMap: new Map(treatments.map((treatment) => [treatment.id, treatment])),
+    paymentsByTreatmentId,
+    entries,
+  };
 }
 
 export async function fetchDesignerLedger(options?: {
   forceRefresh?: boolean;
+  month?: string;
 }): Promise<DesignerLedger | null> {
+  const { getCurrentUser } = await import('../auth');
   const user = await getCurrentUser();
 
   if (!user || user.role !== 'designer') {
@@ -72,26 +45,43 @@ export async function fetchDesignerLedger(options?: {
   if (!options?.forceRefresh) {
     const cached = getCachedDesignerLedger(user.id);
 
-    if (cached) {
+    if (cached && !options?.month) {
       return cached;
     }
   }
 
-  const { treatments } = await getDesignerTreatments();
-  const payments = await loadDesignerPaymentsForDesigner(user.id, treatments);
-  const paymentsByTreatmentId = indexPaymentsByTreatmentId(payments);
-  const entries = buildTreatmentLedgerEntries(treatments, paymentsByTreatmentId);
+  const ledgerRepo = getLedgerRepository();
+  const { treatments, payments } = await ledgerRepo.fetchDesignerLedger(user.id, {
+    month: options?.month,
+  });
 
-  const ledger: DesignerLedger = {
-    designerId: user.id,
-    treatments,
-    payments,
-    treatmentMap: new Map(treatments.map((treatment) => [treatment.id, treatment])),
-    paymentsByTreatmentId,
-    entries,
-  };
+  const ledger = buildDesignerLedger(user.id, treatments, payments);
 
-  setCachedDesignerLedger(user.id, ledger);
+  if (!options?.month) {
+    setCachedDesignerLedger(user.id, ledger);
+  }
 
   return ledger;
+}
+
+/** @deprecated fetchDesignerLedger 사용 */
+export async function loadDesignerPaymentsForDesigner(
+  designerId: string,
+  treatments: Pick<Treatment, 'id'>[],
+): Promise<PaymentRecord[]> {
+  const { getPaymentRepository } = await import('../repositories');
+  const payments = await getPaymentRepository().listForDesigner(designerId);
+
+  if (payments.length > 0 || treatments.length === 0) {
+    return payments;
+  }
+
+  const records = await Promise.all(
+    treatments.map((treatment) => getPaymentRepository().getByTreatmentId(treatment.id)),
+  );
+
+  return records.filter(
+    (payment): payment is PaymentRecord =>
+      payment !== null && payment.designer_id === designerId,
+  );
 }

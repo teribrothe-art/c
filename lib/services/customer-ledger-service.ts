@@ -1,17 +1,12 @@
-import { getCurrentUser, isDemoAuthMode } from '../auth';
 import {
   buildTreatmentLedgerEntries,
   indexPaymentsByTreatmentId,
   type TreatmentLedgerEntry,
 } from '../domain/treatment-ledger';
-import { toAppError } from '../errors';
-import {
-  getCustomerDemoPayments,
-  getPaymentByTreatmentId,
-  type PaymentRecord,
-} from '../payment-record';
-import { supabase } from '../supabase';
-import { getTreatments, type Treatment } from '../treatments';
+import { getCurrentUser } from '../auth';
+import { getLedgerRepository } from '../repositories';
+import type { PaymentRecord } from '../payment-types';
+import type { Treatment } from '../treatments';
 import { getCachedCustomerLedger, setCachedCustomerLedger } from './ledger-cache';
 
 export type CustomerLedger = {
@@ -23,41 +18,18 @@ export type CustomerLedger = {
   entries: TreatmentLedgerEntry[];
 };
 
-export async function loadCustomerPaymentsForCustomer(
-  customerId: string,
-  treatments: Pick<Treatment, 'id'>[],
-): Promise<PaymentRecord[]> {
-  if (isDemoAuthMode || !supabase) {
-    let payments = await getCustomerDemoPayments(customerId);
+function buildCustomerLedger(customerId: string, treatments: Treatment[], payments: PaymentRecord[]) {
+  const paymentsByTreatmentId = indexPaymentsByTreatmentId(payments);
+  const entries = buildTreatmentLedgerEntries(treatments, paymentsByTreatmentId);
 
-    if (payments.length === 0 && treatments.length > 0) {
-      const records: PaymentRecord[] = [];
-
-      for (const treatment of treatments) {
-        const payment = await getPaymentByTreatmentId(treatment.id);
-
-        if (payment && payment.customer_id === customerId) {
-          records.push(payment);
-        }
-      }
-
-      payments = records;
-    }
-
-    return payments;
-  }
-
-  const { data, error } = await supabase
-    .from('payments')
-    .select('*')
-    .eq('customer_id', customerId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    throw toAppError(error);
-  }
-
-  return (data ?? []) as PaymentRecord[];
+  return {
+    customerId,
+    treatments,
+    payments,
+    treatmentMap: new Map(treatments.map((treatment) => [treatment.id, treatment])),
+    paymentsByTreatmentId,
+    entries,
+  };
 }
 
 export async function fetchCustomerLedger(options?: {
@@ -77,21 +49,33 @@ export async function fetchCustomerLedger(options?: {
     }
   }
 
-  const { treatments } = await getTreatments();
-  const payments = await loadCustomerPaymentsForCustomer(user.id, treatments);
-  const paymentsByTreatmentId = indexPaymentsByTreatmentId(payments);
-  const entries = buildTreatmentLedgerEntries(treatments, paymentsByTreatmentId);
-
-  const ledger: CustomerLedger = {
-    customerId: user.id,
-    treatments,
-    payments,
-    treatmentMap: new Map(treatments.map((treatment) => [treatment.id, treatment])),
-    paymentsByTreatmentId,
-    entries,
-  };
+  const ledgerRepo = getLedgerRepository();
+  const { treatments, payments } = await ledgerRepo.fetchCustomerLedger(user.id);
+  const ledger = buildCustomerLedger(user.id, treatments, payments);
 
   setCachedCustomerLedger(user.id, ledger);
 
   return ledger;
+}
+
+/** @deprecated fetchCustomerLedger 사용 */
+export async function loadCustomerPaymentsForCustomer(
+  customerId: string,
+  treatments: Pick<Treatment, 'id'>[],
+): Promise<PaymentRecord[]> {
+  const { getPaymentRepository } = await import('../repositories');
+  const payments = await getPaymentRepository().listForCustomer(customerId);
+
+  if (payments.length > 0 || treatments.length === 0) {
+    return payments;
+  }
+
+  const records = await Promise.all(
+    treatments.map((treatment) => getPaymentRepository().getByTreatmentId(treatment.id)),
+  );
+
+  return records.filter(
+    (payment): payment is PaymentRecord =>
+      payment !== null && payment.customer_id === customerId,
+  );
 }

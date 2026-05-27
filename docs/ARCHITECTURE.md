@@ -104,17 +104,21 @@ stateDiagram-v2
 lib/
 ├── domain/              # 순수 도메인 (UI·DB 무관)
 │   └── treatment-ledger.ts
-├── services/            # 화면 간 공유 오케스트레이션
-│   ├── designer-ledger-service.ts   # 디자이너 시술+결제 일괄 로드
-│   ├── customer-ledger-service.ts   # 고객 시술+결제 일괄 로드
-│   ├── ledger-cache.ts              # 45초 메모리 캐시 + 무효화
-│   └── ledger-invalidate.ts         # 시술 수정·결제 후 캐시 무효화
+├── repositories/        # Phase B — 데이터 소스 추상화
+│   ├── local/           # Supabase + Demo
+│   └── rest/            # BFF REST (EXPO_PUBLIC_API_BASE_URL)
+├── api/                 # HTTP 클라이언트 · base URL
+├── services/            # Ledger 오케스트레이션 + 캐시
+│   ├── designer-ledger-service.ts
+│   ├── customer-ledger-service.ts
+│   ├── ledger-cache.ts
+│   └── ledger-invalidate.ts
 ├── treatments.ts        # 시술 Repository (Supabase / Demo)
 ├── payment-record.ts    # 결제 Repository
 ├── payments.ts          # 결제·정산 유스케이스 (쓰기 후 캐시 무효화)
 ├── designer-revenue-analytics.ts   # Ledger → 매출 통계
 ├── designer-payment-stats.ts       # Ledger → 정산 통계
-└── customer-invitations.ts         # Ledger 파생 예정: 고객 목록
+└── customer-invitations.ts         # Ledger 파생
 ```
 
 ### 화면 ↔ 데이터 매핑
@@ -187,8 +191,14 @@ Gateway 뒤 **BFF(Backend for Frontend)** 를 두면 앱은 화면별로 여러 
 
 ### Phase B — API 분리 준비
 
-- Repository 인터페이스 (`TreatmentRepository`, `PaymentRepository`)
-- 환경변수로 REST base URL 전환
+- [x] Repository 인터페이스 (`TreatmentRepository`, `PaymentRepository`, `LedgerRepository`)
+- [x] Local(Supabase/Demo) / REST 구현체
+- [x] `EXPO_PUBLIC_API_BASE_URL` 로 REST 모드 전환
+- [x] Ledger 서비스 → Repository 경유
+- [ ] BFF 서버 배포 (별도 인프라)
+- [ ] 쓰기 경로 REST 이전 (`POST /v1/payments/settle`)
+
+API 계약: [docs/API.md](./API.md)
 
 ### Phase C — 10M 운영
 

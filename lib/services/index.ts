@@ -14,3 +14,10 @@ export {
   invalidateDesignerLedgerCache,
 } from './ledger-cache';
 export { invalidateLedgerCachesForTreatment } from './ledger-invalidate';
+
+export {
+  getDataSourceMode,
+  getLedgerRepository,
+  getPaymentRepository,
+  getTreatmentRepository,
+} from '../repositories';
