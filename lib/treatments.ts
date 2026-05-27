@@ -10,6 +10,7 @@ import {
   mergeAccumulatedTreatmentsIntoStore,
   shouldHydrateAccumulatedDemoDataForUser,
   stripAccumulatedTreatmentsFromStore,
+  treatmentsForDemoPersistence,
 } from './demo-accumulated-demo-hydrate';
 import { mergeAccumulatedDesignerRelationships } from './demo-accumulated-relationships';
 import { INITIAL_DEMO_TREATMENTS } from './demo-initial-treatments';
@@ -65,19 +66,34 @@ async function ensureAccumulatedDemoTreatmentsForCurrentUser() {
   }
 
   if (mergeAccumulatedTreatmentsIntoStore(demoTreatments)) {
-    await persistDemoTreatments();
+    // 누적 시드는 메모리만 — AsyncStorage에 쓰지 않음 (Row too big 방지)
+  }
+}
+
+async function readDemoTreatmentsFromStorage() {
+  try {
+    return await AsyncStorage.getItem(DEMO_TREATMENTS_KEY);
+  } catch {
+    await AsyncStorage.removeItem(DEMO_TREATMENTS_KEY);
+    return null;
   }
 }
 
 async function hydrateDemoTreatments() {
   if (!demoHydratePromise) {
     demoHydratePromise = (async () => {
-      const raw = await AsyncStorage.getItem(DEMO_TREATMENTS_KEY);
+      const raw = await readDemoTreatmentsFromStorage();
 
       if (raw) {
-        const stored = JSON.parse(raw) as Treatment[];
-        demoTreatments.length = 0;
-        demoTreatments.push(...stored);
+        try {
+          const stored = JSON.parse(raw) as Treatment[];
+          demoTreatments.length = 0;
+          demoTreatments.push(...stored);
+        } catch {
+          await AsyncStorage.removeItem(DEMO_TREATMENTS_KEY);
+          demoTreatments.length = 0;
+          demoTreatments.push(...ALL_DEMO_TREATMENT_SEEDS.map((item) => ({ ...item })));
+        }
       } else {
         demoTreatments.length = 0;
         demoTreatments.push(...ALL_DEMO_TREATMENT_SEEDS.map((item) => ({ ...item })));
@@ -131,7 +147,8 @@ async function hydrateDemoTreatments() {
 }
 
 async function persistDemoTreatments() {
-  await AsyncStorage.setItem(DEMO_TREATMENTS_KEY, JSON.stringify(demoTreatments));
+  const persistable = treatmentsForDemoPersistence(demoTreatments);
+  await AsyncStorage.setItem(DEMO_TREATMENTS_KEY, JSON.stringify(persistable));
 }
 
 export async function getTreatments() {

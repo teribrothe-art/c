@@ -73,3 +73,12 @@ export function stripAccumulatedTreatmentsFromStore(demoTreatments: Treatment[])
 export function stripAccumulatedPaymentsFromStore(demoPayments: PaymentRecord[]) {
   return demoPayments.filter((payment) => !isAccumulatedTestPaymentId(payment.id));
 }
+
+/** AsyncStorage에는 누적 테스트 시드 제외 (Android CursorWindow 2MB 한도) */
+export function treatmentsForDemoPersistence(demoTreatments: Treatment[]) {
+  return stripAccumulatedTreatmentsFromStore(demoTreatments);
+}
+
+export function paymentsForDemoPersistence(demoPayments: PaymentRecord[]) {
+  return stripAccumulatedPaymentsFromStore(demoPayments);
+}

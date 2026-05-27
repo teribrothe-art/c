@@ -5,6 +5,7 @@ import {
   mergeAccumulatedPaymentsIntoStore,
   shouldHydrateAccumulatedDemoDataForUser,
   stripAccumulatedPaymentsFromStore,
+  paymentsForDemoPersistence,
 } from './demo-accumulated-demo-hydrate';
 import { toAppError } from './errors';
 import { calculatePaymentFees, PLATFORM_FEE_RATE } from './payment-fees';
@@ -58,7 +59,16 @@ async function ensureAccumulatedDemoPaymentsForCurrentUser() {
   }
 
   if (mergeAccumulatedPaymentsIntoStore(demoPayments)) {
-    await persistDemoPayments();
+    // 누적 시드는 메모리만 — AsyncStorage에 쓰지 않음
+  }
+}
+
+async function readDemoPaymentsFromStorage() {
+  try {
+    return await AsyncStorage.getItem(DEMO_PAYMENTS_KEY);
+  } catch {
+    await AsyncStorage.removeItem(DEMO_PAYMENTS_KEY);
+    return null;
   }
 }
 
@@ -74,12 +84,18 @@ async function hydrateDemoPayments() {
 
   if (!demoPaymentsHydratePromise) {
     demoPaymentsHydratePromise = (async () => {
-      const raw = await AsyncStorage.getItem(DEMO_PAYMENTS_KEY);
+      const raw = await readDemoPaymentsFromStorage();
 
       if (raw) {
-        const stored = JSON.parse(raw) as PaymentRecord[];
-        demoPayments.length = 0;
-        demoPayments.push(...stored);
+        try {
+          const stored = JSON.parse(raw) as PaymentRecord[];
+          demoPayments.length = 0;
+          demoPayments.push(...stored);
+        } catch {
+          await AsyncStorage.removeItem(DEMO_PAYMENTS_KEY);
+          demoPayments.length = 0;
+          demoPayments.push(...ALL_DEMO_PAYMENT_SEEDS.map((item) => ({ ...item })));
+        }
       } else {
         demoPayments.length = 0;
         demoPayments.push(...ALL_DEMO_PAYMENT_SEEDS.map((item) => ({ ...item })));
@@ -103,7 +119,7 @@ async function hydrateDemoPayments() {
       }
 
       if (!raw || merged) {
-        await AsyncStorage.setItem(DEMO_PAYMENTS_KEY, JSON.stringify(demoPayments));
+        await persistDemoPayments();
       }
     })();
   }
@@ -116,7 +132,8 @@ async function persistDemoPayments() {
     return;
   }
 
-  await AsyncStorage.setItem(DEMO_PAYMENTS_KEY, JSON.stringify(demoPayments));
+  const persistable = paymentsForDemoPersistence(demoPayments);
+  await AsyncStorage.setItem(DEMO_PAYMENTS_KEY, JSON.stringify(persistable));
 }
 
 function withSettledFees(payment: PaymentRecord) {
