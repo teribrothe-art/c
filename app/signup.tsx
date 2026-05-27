@@ -166,7 +166,7 @@ export default function SignupScreen() {
       });
 
       if (role === 'designer') {
-        router.replace('/designer/clients');
+        router.replace('/designer/welcome');
         return;
       }
 
