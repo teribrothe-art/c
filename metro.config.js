@@ -23,6 +23,17 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     };
   }
 
+  // 예전 react-native-qrcode-svg 잔여 autolink 방지 (RNSVG codegen 경고)
+  if (
+    moduleName === 'react-native-qrcode-svg' ||
+    moduleName.startsWith('react-native-qrcode-svg/')
+  ) {
+    return {
+      type: 'sourceFile',
+      filePath: stubPath('empty.js'),
+    };
+  }
+
   return metroResolve(context, moduleName, platform);
 };
 
