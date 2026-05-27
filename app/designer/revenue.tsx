@@ -359,9 +359,9 @@ export default function DesignerRevenueScreen() {
                   value={`${linkedMetrics.treatmentCount.toLocaleString('ko-KR')}건`}
                 />
                 <MetricCard
-                  label="정산 대기"
-                  tone="danger"
-                  value={`${linkedMetrics.pendingAmount.toLocaleString('ko-KR')}원`}
+                  label={linkedMetrics.periodLabel}
+                  tone="success"
+                  value={`${linkedMetrics.periodTotal.toLocaleString('ko-KR')}원`}
                 />
                 <MetricCard
                   label="대기 건수"
@@ -369,9 +369,9 @@ export default function DesignerRevenueScreen() {
                   value={`${linkedMetrics.pendingCount.toLocaleString('ko-KR')}건`}
                 />
                 <MetricCard
-                  label={linkedMetrics.periodLabel}
-                  tone="success"
-                  value={`${linkedMetrics.periodTotal.toLocaleString('ko-KR')}원`}
+                  label="정산 대기"
+                  tone="danger"
+                  value={`${linkedMetrics.pendingAmount.toLocaleString('ko-KR')}원`}
                 />
               </View>
             ) : null}
