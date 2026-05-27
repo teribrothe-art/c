@@ -623,27 +623,23 @@ export async function redeemInviteCode(rawCode: string, customerId: string) {
   };
 }
 
-export async function getDesignerClientListItems(): Promise<DesignerClientListItem[]> {
-  const user = await getCurrentUser();
-
-  if (!user || user.role !== 'designer') {
-    return [];
-  }
-
-  const { fetchDesignerLedger } = await import('./services/designer-ledger-service');
-  const ledger = await fetchDesignerLedger();
+export async function getDesignerClientListItemsForDesigner(
+  designerId: string,
+): Promise<DesignerClientListItem[]> {
+  const { fetchDesignerLedgerForDesignerId } = await import('./services/designer-ledger-service');
+  const ledger = await fetchDesignerLedgerForDesignerId(designerId);
   const treatments = ledger?.treatments ?? [];
 
   let invitations: CustomerInvitation[] = [];
 
   if (isDemoAuthMode || !supabase) {
     invitations = await readDemoInvitations();
-    invitations = invitations.filter((item) => item.designer_id === user.id);
+    invitations = invitations.filter((item) => item.designer_id === designerId);
   } else {
     const { data, error } = await supabase
       .from('customer_invitations')
       .select(invitationSelect)
-      .eq('designer_id', user.id)
+      .eq('designer_id', designerId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -697,6 +693,16 @@ export async function getDesignerClientListItems(): Promise<DesignerClientListIt
   }
 
   return rows.sort((a, b) => b.treatmentDate.localeCompare(a.treatmentDate));
+}
+
+export async function getDesignerClientListItems(): Promise<DesignerClientListItem[]> {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== 'designer') {
+    return [];
+  }
+
+  return getDesignerClientListItemsForDesigner(user.id);
 }
 
 export async function renewCustomerInvitation(input: {

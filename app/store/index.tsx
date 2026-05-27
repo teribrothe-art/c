@@ -1,103 +1,116 @@
-import { router, useFocusEffect } from 'expo-router';
+import { Link, router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { getCurrentUser, signOut } from '../../lib/auth';
+import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import { getErrorMessage } from '../../lib/errors';
-import { showErrorAlert } from '../../lib/alerts';
+import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { LoadingState } from '../../src/components/loading-state';
+import { StoreBottomTabBar } from '../../src/components/store-bottom-tab-bar';
 
 export default function StoreHomeScreen() {
+  useOrgRoleGuard('store');
   const insets = useSafeAreaInsets();
-  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const load = useCallback(() => {
+    setIsLoading(true);
+
+    fetchOrgDashboardSummary('store')
+      .then((data) => {
+        setSummary(data);
+        setErrorMessage('');
+      })
+      .catch((error) => {
+        setErrorMessage(getErrorMessage(error, '매장 현황을 불러오지 못했습니다.'));
+      })
+      .finally(() => setIsLoading(false));
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      getCurrentUser().then((user) => {
-        if (!user) {
-          router.replace('/');
-          return;
-        }
-
-        if (user.role !== 'store') {
-          router.replace('/');
-        }
-      });
-    }, []),
+      load();
+    }, [load]),
   );
-
-  const handleSignOut = useCallback(async () => {
-    try {
-      setIsSigningOut(true);
-      await signOut();
-      router.replace('/');
-    } catch (error) {
-      showErrorAlert(getErrorMessage(error, '로그아웃에 실패했습니다.'));
-    } finally {
-      setIsSigningOut(false);
-    }
-  }, []);
-
-  if (isSigningOut) {
-    return <LoadingState message="로그아웃 중..." />;
-  }
 
   return (
     <View style={styles.container}>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + 24, paddingBottom: Math.max(insets.bottom, 20) + 100 },
+        ]}
         showsVerticalScrollIndicator={false}>
         <Text style={styles.badge}>STORE</Text>
         <Text style={styles.title}>매장</Text>
-        <Text style={styles.subtitle}>소속 디자이너·매장 매출·운영 현황을 관리합니다.</Text>
+        <Text style={styles.subtitle}>소속 디자이너의 고객·시술·매출·정산을 한곳에서 확인합니다.</Text>
 
-        <View style={styles.cardGrid}>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>소속 디자이너</Text>
-            <Text style={styles.statValue}>3</Text>
-            <Text style={styles.statMeta}>데모 매장</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>이번 달 시술</Text>
-            <Text style={styles.statValue}>128</Text>
-            <Text style={styles.statMeta}>전월 대비 +12%</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>역할</Text>
-            <Text style={styles.statValue}>매장</Text>
-            <Text style={styles.statMeta}>매장 접속</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>상태</Text>
-            <Text style={[styles.statValue, styles.statValueMint]}>운영중</Text>
-            <Text style={styles.statMeta}>데모 모드</Text>
-          </View>
-        </View>
+        {isLoading ? (
+          <LoadingState message="불러오는 중..." />
+        ) : errorMessage ? (
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        ) : summary ? (
+          <>
+            <View style={styles.cardGrid}>
+              <View style={styles.statCard}>
+                <Text style={styles.statLabel}>소속 디자이너</Text>
+                <Text style={styles.statValue}>{summary.designerCount}</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statLabel}>이번 달 시술</Text>
+                <Text style={styles.statValue}>{summary.monthTreatmentCount}</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statLabel}>이번 달 매출</Text>
+                <Text style={styles.statValue}>{summary.monthRevenue.toLocaleString('ko-KR')}</Text>
+                <Text style={styles.statMeta}>원</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statLabel}>연결 고객</Text>
+                <Text style={styles.statValue}>{summary.customerCount}</Text>
+              </View>
+            </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>빠른 메뉴</Text>
-          <Pressable
-            onPress={() => router.push('/designer/clients')}
-            style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}>
-            <Text style={styles.menuTitle}>고객·시술 현황</Text>
-            <Text style={styles.menuMeta}>소속 디자이너 고객 데이터</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push('/designer/revenue')}
-            style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}>
-            <Text style={styles.menuTitle}>매출·정산</Text>
-            <Text style={styles.menuMeta}>매장 매출·정산 내역</Text>
-          </Pressable>
-        </View>
+            <View style={styles.quickRow}>
+              <Link href="/store/customers" asChild>
+                <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
+                  <Text style={styles.quickTitle}>고객</Text>
+                  <Text style={styles.quickMeta}>디자이너 고객·시술 연동</Text>
+                </Pressable>
+              </Link>
+              <Link href="/store/revenue" asChild>
+                <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
+                  <Text style={styles.quickTitle}>매출</Text>
+                  <Text style={styles.quickMeta}>매출·정산 합산</Text>
+                </Pressable>
+              </Link>
+            </View>
 
-        <Pressable
-          onPress={() => void handleSignOut()}
-          style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutButtonPressed]}>
-          <Text style={styles.logoutText}>로그아웃</Text>
-        </Pressable>
+            <Text style={styles.sectionTitle}>소속 디자이너</Text>
+            {summary.designers.map((designer) => (
+              <Pressable
+                key={designer.id}
+                onPress={() => router.push(`/store/designer/${designer.id}/revenue`)}
+                style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}>
+                <View>
+                  <Text style={styles.menuTitle}>{designer.name}</Text>
+                  <Text style={styles.menuMeta}>
+                    고객 {designer.customerCount}명 · 이번 달 시술 {designer.monthTreatmentCount}건
+                  </Text>
+                </View>
+                <Text style={styles.menuAmount}>
+                  {designer.monthRevenue.toLocaleString('ko-KR')}원
+                </Text>
+              </Pressable>
+            ))}
+          </>
+        ) : null}
       </ScrollView>
+      <StoreBottomTabBar />
     </View>
   );
 }
@@ -108,7 +121,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingBottom: 40,
     paddingHorizontal: 22,
   },
   badge: {
@@ -134,14 +146,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 21,
-    marginBottom: 24,
+    marginBottom: 20,
     marginTop: 8,
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 14,
+    fontWeight: '600',
   },
   cardGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   statCard: {
     backgroundColor: '#FFFFFF',
@@ -160,33 +177,57 @@ const styles = StyleSheet.create({
   },
   statValue: {
     color: '#1A1A2E',
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '900',
-  },
-  statValueMint: {
-    color: colors.mint,
   },
   statMeta: {
     color: '#9CA3AF',
     fontSize: 11,
     fontWeight: '600',
   },
-  section: {
+  quickRow: {
+    flexDirection: 'row',
     gap: 10,
-    marginBottom: 28,
+    marginBottom: 20,
+  },
+  quickCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    gap: 4,
+    padding: 14,
+  },
+  quickPressed: {
+    opacity: 0.9,
+  },
+  quickTitle: {
+    color: '#1A1A2E',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  quickMeta: {
+    color: '#6B6B7B',
+    fontSize: 11,
+    fontWeight: '600',
   },
   sectionTitle: {
     color: '#1A1A2E',
     fontSize: 16,
     fontWeight: '900',
-    marginBottom: 4,
+    marginBottom: 10,
   },
   menuRow: {
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderColor: '#E8E8F0',
     borderRadius: 14,
     borderWidth: 1,
-    gap: 4,
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+    marginBottom: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
@@ -202,21 +243,11 @@ const styles = StyleSheet.create({
     color: '#6B6B7B',
     fontSize: 12,
     fontWeight: '600',
+    marginTop: 4,
   },
-  logoutButton: {
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E8E8F0',
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingVertical: 14,
-  },
-  logoutButtonPressed: {
-    opacity: 0.88,
-  },
-  logoutText: {
-    color: '#6B6B7B',
-    fontSize: 15,
-    fontWeight: '800',
+  menuAmount: {
+    color: colors.mint,
+    fontSize: 14,
+    fontWeight: '900',
   },
 });

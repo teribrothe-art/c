@@ -1,10 +1,13 @@
-import { getTreatmentById, getDesignerTreatments, getTreatments } from '../../treatments';
+import {
+  getTreatmentById,
+  getTreatments,
+  listTreatmentsForDesignerId,
+} from '../../treatments';
 import type { TreatmentRepository } from '../types';
 
 export const localTreatmentRepository: TreatmentRepository = {
-  async listForDesigner(_designerId) {
-    const { treatments } = await getDesignerTreatments();
-    return treatments;
+  async listForDesigner(designerId) {
+    return listTreatmentsForDesignerId(designerId);
   },
 
   async listForCustomer(_customerId) {

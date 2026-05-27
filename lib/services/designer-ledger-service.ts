@@ -6,6 +6,7 @@ import {
 import { getLedgerRepository } from '../repositories';
 import type { PaymentRecord } from '../payment-types';
 import type { Treatment } from '../treatments';
+import { canViewOrgDesignerData } from '../org-access';
 import { getCachedDesignerLedger, setCachedDesignerLedger } from './ledger-cache';
 
 export type DesignerLedger = {
@@ -59,6 +60,47 @@ export async function fetchDesignerLedger(options?: {
 
   if (!options?.month) {
     setCachedDesignerLedger(user.id, ledger);
+  }
+
+  return ledger;
+}
+
+/** 매장·본사·디자이너 — 지정 디자이너 원장 조회 */
+export async function fetchDesignerLedgerForDesignerId(
+  designerId: string,
+  options?: { forceRefresh?: boolean; month?: string },
+): Promise<DesignerLedger | null> {
+  const { getCurrentUser } = await import('../auth');
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return null;
+  }
+
+  const isSelfDesigner = user.role === 'designer' && user.id === designerId;
+  const isOrgViewer = canViewOrgDesignerData(user.role);
+
+  if (!isSelfDesigner && !isOrgViewer) {
+    return null;
+  }
+
+  if (!options?.forceRefresh && isSelfDesigner) {
+    const cached = getCachedDesignerLedger(designerId);
+
+    if (cached && !options?.month) {
+      return cached;
+    }
+  }
+
+  const ledgerRepo = getLedgerRepository();
+  const { treatments, payments } = await ledgerRepo.fetchDesignerLedger(designerId, {
+    month: options?.month,
+  });
+
+  const ledger = buildDesignerLedger(designerId, treatments, payments);
+
+  if (!options?.month && isSelfDesigner) {
+    setCachedDesignerLedger(designerId, ledger);
   }
 
   return ledger;

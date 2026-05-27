@@ -1,6 +1,10 @@
 import { getCurrentUser } from './auth';
 import { calculatePaymentFees, PaymentRecord } from './payment-record';
-import { fetchDesignerLedger } from './services/designer-ledger-service';
+import {
+  fetchDesignerLedger,
+  fetchDesignerLedgerForDesignerId,
+} from './services/designer-ledger-service';
+import { canViewOrgDesignerData } from './org-access';
 import {
   buildWeeklyRevenueWeeks,
   formatDateWithWeekday,
@@ -223,14 +227,27 @@ function emptyMonth(monthKey: string): MonthlyRevenueBucket {
   };
 }
 
+async function resolveLedgerForRevenue(designerId?: string) {
+  if (designerId) {
+    return fetchDesignerLedgerForDesignerId(designerId);
+  }
+
+  return fetchDesignerLedger();
+}
+
 export async function fetchDesignerRevenueAnalytics(
   selectedMonthKey?: string,
   selectedWeekKey?: string,
+  designerId?: string,
 ): Promise<DesignerRevenueAnalytics> {
   const user = await getCurrentUser();
   const fallbackMonth = currentMonthKey();
 
-  if (!user || user.role !== 'designer') {
+  const canLoad =
+    user &&
+    (user.role === 'designer' || (designerId && canViewOrgDesignerData(user.role)));
+
+  if (!canLoad) {
     const month = selectedMonthKey ?? fallbackMonth;
 
     const emptyWeekStart = getWeekStartMonday(`${month}-01`);
@@ -263,7 +280,8 @@ export async function fetchDesignerRevenueAnalytics(
     };
   }
 
-  const ledger = await fetchDesignerLedger();
+  const resolvedDesignerId = designerId ?? (user?.role === 'designer' ? user.id : undefined);
+  const ledger = await resolveLedgerForRevenue(resolvedDesignerId);
   const treatments = ledger?.treatments ?? [];
   const treatmentMap = ledger?.treatmentMap ?? new Map<string, Treatment>();
   const payments = ledger?.payments ?? [];
