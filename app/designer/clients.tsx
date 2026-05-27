@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -140,15 +139,15 @@ function SummaryStat({
   );
 }
 
+const GRID_COLUMNS = 4;
+
 function CustomerGridTile({
   group,
   expanded,
-  tileWidth,
   onPress,
 }: {
   group: ReturnType<typeof groupDesignerClientListItems>[number];
   expanded: boolean;
-  tileWidth: number;
   onPress: () => void;
 }) {
   const latestTreatment = group.items[0];
@@ -158,7 +157,6 @@ function CustomerGridTile({
       onPress={onPress}
       style={({ pressed }) => [
         styles.gridTile,
-        { width: tileWidth },
         expanded && styles.gridTileExpanded,
         pressed && styles.gridTilePressed,
       ]}>
@@ -239,7 +237,6 @@ function DesignerClientCard({
 
 export default function DesignerClientsScreen() {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
   const detailRouter = useRouter();
   const { filter: filterParam } = useLocalSearchParams<{ filter?: string }>();
   const monthOnly = filterParam === 'month';
@@ -351,14 +348,6 @@ export default function DesignerClientsScreen() {
       ).length,
     };
   }, [allCustomerGroups, clientItems]);
-
-  const gridTileWidth = useMemo(() => {
-    const horizontalPadding = 22 * 2;
-    const gap = 8;
-    const columns = 4;
-
-    return (windowWidth - horizontalPadding - gap * (columns - 1)) / columns;
-  }, [windowWidth]);
 
   const applyListFilter = useCallback(
     (filter: 'all' | 'month' | 'escrow') => {
@@ -536,7 +525,6 @@ export default function DesignerClientsScreen() {
                   key={group.key}
                   expanded={isGroupExpanded(group.key)}
                   group={group}
-                  tileWidth={gridTileWidth}
                   onPress={() => toggleGroup(group.key)}
                 />
               ))}
@@ -741,17 +729,19 @@ const styles = StyleSheet.create({
   customerGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    marginHorizontal: -4,
   },
   gridTile: {
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderColor: '#EFEFF4',
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    gap: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 10,
+    gap: 3,
+    marginBottom: 8,
+    paddingHorizontal: 2,
+    paddingVertical: 8,
+    width: `${100 / GRID_COLUMNS}%`,
   },
   gridTileExpanded: {
     backgroundColor: '#FFF5F5',
@@ -763,21 +753,22 @@ const styles = StyleSheet.create({
   gridAvatar: {
     alignItems: 'center',
     backgroundColor: '#FFD4D5',
-    borderRadius: 18,
-    height: 36,
+    borderRadius: 16,
+    height: 32,
     justifyContent: 'center',
-    width: 36,
+    width: 32,
   },
   gridAvatarText: {
     color: '#FF5A5F',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '900',
   },
   gridName: {
     color: '#1A1A2E',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '800',
     maxWidth: '100%',
+    paddingHorizontal: 2,
     textAlign: 'center',
   },
   gridMeta: {
