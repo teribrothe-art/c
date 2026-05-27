@@ -34,6 +34,7 @@ import { InlineFieldError } from '../src/components/inline-field-error';
 const roles: { label: string; value: UserRole }[] = [
   { label: '고객', value: 'customer' },
   { label: '디자이너', value: 'designer' },
+  { label: '본사 어드민', value: 'admin' },
 ];
 
 export default function SignupScreen() {
@@ -167,6 +168,11 @@ export default function SignupScreen() {
 
       if (role === 'designer') {
         router.replace('/designer/welcome');
+        return;
+      }
+
+      if (role === 'admin') {
+        router.replace('/admin');
         return;
       }
 
@@ -415,25 +421,30 @@ const styles = StyleSheet.create({
   },
   roleToggleGroup: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     borderWidth: 1,
     borderColor: '#FFB8BB',
     borderRadius: 14,
     backgroundColor: '#FFF3F3',
     padding: 4,
+    gap: 4,
   },
   roleToggle: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: '30%',
     alignItems: 'center',
     borderRadius: 10,
     paddingVertical: 12,
+    paddingHorizontal: 6,
   },
   roleToggleSelected: {
     backgroundColor: colors.coral,
   },
   roleToggleText: {
     color: colors.coral,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
+    textAlign: 'center',
   },
   roleToggleTextSelected: {
     color: '#FFFFFF',

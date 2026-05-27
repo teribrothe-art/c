@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { redeemInviteForCurrentUser } from '../lib/apply-pending-invite';
+import { ADMIN_TEST_PUBLIC } from '../lib/admin-test-accounts';
 import { getPostAuthRoute } from '../lib/auth-redirect';
 import { getCurrentUser, isDemoAuthMode, signInWithEmail } from '../lib/auth';
 import { ACCUMULATED_TEST_DESIGNERS_PUBLIC } from '../lib/demo-accumulated-test-accounts';
@@ -77,22 +78,20 @@ export default function LoginScreen() {
     }
   };
 
-  const handleTestDesignerLogin = async (
-    designer: (typeof ACCUMULATED_TEST_DESIGNERS_PUBLIC)[number],
-  ) => {
+  const handleQuickLogin = async (accountEmail: string, accountPassword: string) => {
     if (isLoading) {
       return;
     }
 
-    setEmail(designer.email);
-    setPassword(designer.password);
+    setEmail(accountEmail);
+    setPassword(accountPassword);
     setLoginError(null);
     setEmailError(null);
     setPasswordError(null);
 
     try {
       setIsLoading(true);
-      await signInWithEmail({ email: designer.email, password: designer.password });
+      await signInWithEmail({ email: accountEmail, password: accountPassword });
 
       const user = await getCurrentUser();
       const pendingInvite = await peekPendingInviteCode();
@@ -114,6 +113,12 @@ export default function LoginScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleTestDesignerLogin = async (
+    designer: (typeof ACCUMULATED_TEST_DESIGNERS_PUBLIC)[number],
+  ) => {
+    await handleQuickLogin(designer.email, designer.password);
   };
 
   const inputBorder = useMemo(
@@ -196,6 +201,22 @@ export default function LoginScreen() {
           {isDemoAuthMode ? (
             <View style={styles.demoBox}>
               <Text style={styles.demoTitle}>데모 · 기능 확인용</Text>
+              <View style={styles.demoDesignerBlock}>
+                <Pressable
+                  disabled={isLoading}
+                  onPress={() => void handleQuickLogin(ADMIN_TEST_PUBLIC.email, ADMIN_TEST_PUBLIC.password)}
+                  style={({ pressed }) => [
+                    styles.demoButton,
+                    styles.demoButtonAdmin,
+                    pressed && styles.demoButtonPressed,
+                  ]}>
+                  <Text style={styles.demoButtonText}>{ADMIN_TEST_PUBLIC.loginLabel}</Text>
+                </Pressable>
+                <Text style={styles.demoMeta}>ID {ADMIN_TEST_PUBLIC.id}</Text>
+                <Text style={styles.demoMeta}>
+                  {ADMIN_TEST_PUBLIC.email} / {ADMIN_TEST_PUBLIC.password}
+                </Text>
+              </View>
               {ACCUMULATED_TEST_DESIGNERS_PUBLIC.map((designer) => {
                 const stats = ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE[designer.profileKey];
                 const buttonStyle =
@@ -339,6 +360,9 @@ const styles = StyleSheet.create({
   },
   demoButton3y: {
     backgroundColor: '#E85D4C',
+  },
+  demoButtonAdmin: {
+    backgroundColor: '#4B5563',
   },
   demoButtonPressed: {
     opacity: 0.88,

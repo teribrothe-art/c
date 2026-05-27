@@ -13,5 +13,9 @@ export async function getPostAuthRoute(): Promise<Href> {
     return '/designer/welcome';
   }
 
+  if (user.role === 'admin') {
+    return '/admin';
+  }
+
   return '/today-care';
 }
