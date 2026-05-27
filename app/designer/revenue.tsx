@@ -379,6 +379,17 @@ export default function DesignerRevenueScreen() {
               <Text style={styles.heroUnit}>정산 {analytics.selectedMonth.settlementCount}건</Text>
             </View>
 
+            <WeeklyRevenuePanel
+              canGoNext={weekIndex >= 0 && weekIndex < analytics.weeklyWeeks.length - 1}
+              canGoPrev={weekIndex > 0}
+              days={analytics.selectedWeek.days}
+              onNextWeek={handleNextWeek}
+              onPrevWeek={handlePrevWeek}
+              onSelectDay={handleSelectDay}
+              selectedDate={selectedDayDate}
+              weekLabel={analytics.selectedWeek.label}
+            />
+
             {linkedMetrics ? (
               <View style={styles.metricGrid}>
                 <MetricCard
@@ -404,17 +415,6 @@ export default function DesignerRevenueScreen() {
                 />
               </View>
             ) : null}
-
-            <WeeklyRevenuePanel
-              canGoNext={weekIndex >= 0 && weekIndex < analytics.weeklyWeeks.length - 1}
-              canGoPrev={weekIndex > 0}
-              days={analytics.selectedWeek.days}
-              onNextWeek={handleNextWeek}
-              onPrevWeek={handlePrevWeek}
-              onSelectDay={handleSelectDay}
-              selectedDate={selectedDayDate}
-              weekLabel={analytics.selectedWeek.label}
-            />
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>{settlementSectionTitle}</Text>
