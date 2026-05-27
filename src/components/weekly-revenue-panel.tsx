@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { WeekdayRevenueCell } from '../../lib/designer-revenue-analytics';
-import { RevenueBarChart } from './revenue-bar-chart';
+import { RevenueBarChart, type RevenueBarChartPoint } from './revenue-bar-chart';
 
 const CORAL = '#FF5A5F';
 const MINT = '#00C2A8';
@@ -13,8 +13,23 @@ function formatDayDateLabel(date: string) {
   return `${Number(month)}.${Number(day)}`;
 }
 
+function dayToChartPoint(day: WeekdayRevenueCell): RevenueBarChartPoint {
+  return {
+    key: day.date,
+    label: day.weekdayLabel,
+    value: day.totalAmount,
+    subLabel:
+      day.settlementCount > 0
+        ? `${day.settlementCount}건\n${formatDayDateLabel(day.date)}`
+        : formatDayDateLabel(day.date),
+    muted: !day.inSelectedMonth,
+    isToday: day.isToday,
+  };
+}
+
 type WeeklyRevenuePanelProps = {
   weekLabel: string;
+  weekTotal: number;
   days: WeekdayRevenueCell[];
   selectedDate: string | null;
   onSelectDay: (day: WeekdayRevenueCell) => void;
@@ -26,6 +41,7 @@ type WeeklyRevenuePanelProps = {
 
 export function WeeklyRevenuePanel({
   weekLabel,
+  weekTotal,
   days,
   selectedDate,
   onSelectDay,
@@ -34,19 +50,24 @@ export function WeeklyRevenuePanel({
   canGoPrev = false,
   canGoNext = false,
 }: WeeklyRevenuePanelProps) {
-  const chartPoints = days.map((day) => ({
-    key: day.date,
-    label: day.weekdayLabel,
-    value: day.totalAmount,
-    subLabel: day.settlementCount > 0 ? `${day.settlementCount}건` : undefined,
-  }));
-
+  const chartPoints = days.map(dayToChartPoint);
   const selectedDay = days.find((day) => day.date === selectedDate) ?? null;
+
+  const handleSelectPoint = (point: RevenueBarChartPoint) => {
+    const day = days.find((cell) => cell.date === point.key);
+
+    if (day) {
+      onSelectDay(day);
+    }
+  };
 
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>주간 매출 (월~일)</Text>
+        <View style={styles.headerText}>
+          <Text style={styles.title}>요일별 합계</Text>
+          <Text style={styles.subtitle}>주간(월~일) · 막대를 눌러 날짜를 선택하세요</Text>
+        </View>
         <View style={styles.weekNav}>
           <Pressable
             disabled={!canGoPrev}
@@ -54,7 +75,10 @@ export function WeeklyRevenuePanel({
             style={[styles.navButton, !canGoPrev && styles.navButtonDisabled]}>
             <Text style={styles.navButtonText}>‹</Text>
           </Pressable>
-          <Text style={styles.weekLabel}>{weekLabel}</Text>
+          <View style={styles.weekLabelBlock}>
+            <Text style={styles.weekLabel}>{weekLabel}</Text>
+            <Text style={styles.weekTotal}>{weekTotal.toLocaleString('ko-KR')}원</Text>
+          </View>
           <Pressable
             disabled={!canGoNext}
             onPress={onNextWeek}
@@ -64,43 +88,16 @@ export function WeeklyRevenuePanel({
         </View>
       </View>
 
-      <View style={styles.weekGrid}>
-        {days.map((day) => {
-          const selected = day.date === selectedDate;
-
-          return (
-            <Pressable
-              key={day.date}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              onPress={() => onSelectDay(day)}
-              style={({ pressed }) => [
-                styles.dayCell,
-                !day.inSelectedMonth && styles.dayCellOutsideMonth,
-                day.isToday && styles.dayCellToday,
-                selected && styles.dayCellSelected,
-                pressed && styles.dayCellPressed,
-              ]}>
-              <Text style={[styles.weekday, selected && styles.weekdaySelected]}>{day.weekdayLabel}</Text>
-              <Text style={[styles.dayAmount, selected && styles.dayAmountSelected]}>
-                {day.totalAmount > 0 ? `${(day.totalAmount / 10000).toFixed(0)}만` : '-'}
-              </Text>
-              <Text style={[styles.dayCount, selected && styles.dayCountSelected]}>
-                {day.settlementCount}건
-              </Text>
-              <Text style={[styles.dayDate, selected && styles.dayDateSelected]}>
-                {formatDayDateLabel(day.date)}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
       <RevenueBarChart
         barColor={MINT}
-        maxBarHeight={100}
+        embedded
+        maxBarHeight={112}
+        onSelectPoint={handleSelectPoint}
         points={chartPoints}
+        selectedKey={selectedDate}
+        showTitle={false}
         title="요일별 합계"
+        unitHint="일별 정산 합계 (원)"
       />
 
       {selectedDay ? (
@@ -110,7 +107,7 @@ export function WeeklyRevenuePanel({
           <Text style={styles.detailMeta}>정산 {selectedDay.settlementCount}건</Text>
         </View>
       ) : (
-        <Text style={styles.hint}>요일을 누르면 날짜·요일과 합계 금액을 확인할 수 있어요</Text>
+        <Text style={styles.hint}>요일 막대를 누르면 해당 날짜 정산 합계를 확인할 수 있어요</Text>
       )}
     </View>
   );
@@ -125,12 +122,20 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   headerRow: {
-    gap: 10,
+    gap: 12,
+  },
+  headerText: {
+    gap: 4,
   },
   title: {
     color: '#1A1A2E',
     fontSize: 16,
     fontWeight: '800',
+  },
+  subtitle: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '600',
   },
   weekNav: {
     alignItems: 'center',
@@ -154,73 +159,22 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
   },
+  weekLabelBlock: {
+    alignItems: 'center',
+    gap: 2,
+    minWidth: 148,
+  },
   weekLabel: {
     color: PURPLE,
     fontSize: 14,
     fontWeight: '800',
-    minWidth: 140,
     textAlign: 'center',
   },
-  weekGrid: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  dayCell: {
-    alignItems: 'center',
-    backgroundColor: '#FAFAFC',
-    borderColor: '#E8E8F0',
-    borderRadius: 12,
-    borderWidth: 1,
-    flex: 1,
-    gap: 4,
-    minHeight: 96,
-    paddingVertical: 10,
-  },
-  dayCellOutsideMonth: {
-    opacity: 0.55,
-  },
-  dayCellToday: {
-    borderColor: '#FFD4D5',
-  },
-  dayCellSelected: {
-    backgroundColor: '#F0EBFF',
-    borderColor: PURPLE,
-    borderWidth: 2,
-  },
-  dayCellPressed: {
-    opacity: 0.9,
-  },
-  weekday: {
-    color: '#6B6B7B',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  weekdaySelected: {
-    color: PURPLE,
-  },
-  dayAmount: {
-    color: '#1A1A2E',
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  dayAmountSelected: {
+  weekTotal: {
     color: CORAL,
-  },
-  dayCount: {
-    color: '#9CA3AF',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  dayCountSelected: {
-    color: '#6B6B7B',
-  },
-  dayDate: {
-    color: '#9CA3AF',
-    fontSize: 9,
-    fontWeight: '600',
-  },
-  dayDateSelected: {
-    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   detailBox: {
     backgroundColor: '#F0FBF9',
