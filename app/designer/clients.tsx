@@ -519,9 +519,8 @@ export default function DesignerClientsScreen() {
 
         {allTreatments ? (
           <View style={styles.scopeHintCard}>
-            <Text style={styles.scopeHintTitle}>고객</Text>
             <Text style={styles.scopeHintText}>
-              최근 시술 순 · {clientGroups.length}명 · 탭하면 시술 내역을 볼 수 있어요
+              최근 시술순 {summary.customerCount}명 · 탭하면 시술내역을 볼 수 있어요
             </Text>
           </View>
         ) : listFilterActive ? (
@@ -736,11 +735,10 @@ const styles = StyleSheet.create({
     color: '#FF5A5F',
   },
   scopeHintCard: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E8E8F0',
+    backgroundColor: '#FFF6F7',
+    borderColor: '#FCE8EA',
     borderRadius: 16,
     borderWidth: 1,
-    gap: 4,
     marginBottom: 12,
     marginTop: -8,
     paddingHorizontal: 16,
