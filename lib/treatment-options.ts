@@ -1,3 +1,5 @@
+import { QUICK_PRODUCT_PRESETS } from './scalp-product-presets';
+
 export type TreatmentTypeOption = {
   icon: string;
   label: string;
@@ -33,14 +35,7 @@ export const TREATMENT_TITLE_PRESETS: Record<string, string[]> = {
   매직: ['매직', '셋팅 펌', '스트레이트'],
 };
 
-export const PRODUCT_PRESETS = [
-  '웰라',
-  '로레알',
-  '아모스',
-  '밀본',
-  '나푸라',
-  '츠바키',
-] as const;
+export const PRODUCT_PRESETS = [...QUICK_PRODUCT_PRESETS] as const;
 
 export const DEFAULT_TREATMENT_DURATION = '1시간 30분';
 

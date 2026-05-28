@@ -4,6 +4,49 @@ import type { CustomerPaymentEntry } from '../../lib/customer-payment-entries';
 
 const CORAL = '#FF5A5F';
 const MINT = '#00C2A8';
+const PURPLE = '#7B5EE6';
+const INK = '#1A1A2E';
+const MUTED = '#6B6B7B';
+
+type DetailRowVariant = 'amount' | 'datetime' | 'orderId';
+
+function DetailRow({
+  label,
+  value,
+  variant,
+}: {
+  label: string;
+  value: string;
+  variant: DetailRowVariant;
+}) {
+  const variantStyles =
+    variant === 'amount'
+      ? {
+          row: styles.rowAmount,
+          label: styles.rowLabelAmount,
+          value: styles.rowValueAmount,
+        }
+      : variant === 'datetime'
+        ? {
+            row: styles.rowDatetime,
+            label: styles.rowLabelDatetime,
+            value: styles.rowValueDatetime,
+          }
+        : {
+            row: styles.rowOrder,
+            label: styles.rowLabelOrder,
+            value: styles.rowValueOrder,
+          };
+
+  return (
+    <View style={[styles.row, variantStyles.row]}>
+      <Text style={[styles.rowLabel, variantStyles.label]}>{label}</Text>
+      <Text style={[styles.rowValue, variantStyles.value]} numberOfLines={2}>
+        {value}
+      </Text>
+    </View>
+  );
+}
 
 type CustomerPaymentDetailPanelProps = {
   entry: CustomerPaymentEntry;
@@ -57,23 +100,24 @@ export function CustomerPaymentDetailPanel({
       </Text>
 
       <View style={styles.amountBox}>
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>시술 금액</Text>
-          <Text style={styles.rowValue}>{amount.toLocaleString('ko-KR')}원</Text>
-        </View>
+        <DetailRow
+          label="시술 금액"
+          value={`${amount.toLocaleString('ko-KR')}원`}
+          variant="amount"
+        />
         {entry.payment?.paid_at ? (
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>결제 일시</Text>
-            <Text style={styles.rowValueSub}>
-              {entry.payment.paid_at.replace('T', ' ').slice(0, 16)}
-            </Text>
-          </View>
+          <DetailRow
+            label="결제 일시"
+            value={entry.payment.paid_at.replace('T', ' ').slice(0, 16)}
+            variant="datetime"
+          />
         ) : null}
         {entry.payment?.toss_order_id ? (
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>주문 번호</Text>
-            <Text style={styles.rowValueSub}>{entry.payment.toss_order_id}</Text>
-          </View>
+          <DetailRow
+            label="주문 번호"
+            value={entry.payment.toss_order_id}
+            variant="orderId"
+          />
         ) : null}
       </View>
 
@@ -175,30 +219,64 @@ const styles = StyleSheet.create({
   amountBox: {
     backgroundColor: '#FAFAFC',
     borderRadius: 12,
-    gap: 10,
-    padding: 14,
+    gap: 8,
+    padding: 12,
   },
   row: {
+    alignItems: 'center',
+    borderRadius: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  rowAmount: {
+    backgroundColor: '#FFF0F0',
+    borderLeftColor: CORAL,
+    borderLeftWidth: 3,
+  },
+  rowDatetime: {
+    backgroundColor: '#F3F0FF',
+    borderLeftColor: PURPLE,
+    borderLeftWidth: 3,
+  },
+  rowOrder: {
+    backgroundColor: '#E8FAF7',
+    borderLeftColor: MINT,
+    borderLeftWidth: 3,
   },
   rowLabel: {
-    color: '#6B6B7B',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  rowLabelAmount: {
+    color: CORAL,
+  },
+  rowLabelDatetime: {
+    color: PURPLE,
+  },
+  rowLabelOrder: {
+    color: '#00A88F',
   },
   rowValue: {
+    flex: 1,
+    textAlign: 'right',
+  },
+  rowValueAmount: {
     color: CORAL,
     fontSize: 20,
     fontWeight: '900',
   },
-  rowValueSub: {
-    color: '#1A1A2E',
-    flex: 1,
-    fontSize: 13,
+  rowValueDatetime: {
+    color: INK,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  rowValueOrder: {
+    color: MUTED,
+    fontSize: 12,
     fontWeight: '700',
-    textAlign: 'right',
   },
   actions: {
     gap: 8,
