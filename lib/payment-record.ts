@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
+import { getPaymentPartyIds, resolveTreatmentCustomerForPayment } from './payment-customer';
 import { supabase } from './supabase';
 import { getTreatmentById, Treatment } from './treatments';
 
@@ -115,15 +116,8 @@ function withSettledFees(payment: PaymentRecord) {
 }
 
 
-function requireTreatmentParties(treatment: Treatment) {
-  if (!treatment.customer_id || !treatment.designer_id) {
-    throw new Error('시술에 고객·디자이너 정보가 없습니다.');
-  }
-
-  return {
-    customerId: treatment.customer_id,
-    designerId: treatment.designer_id,
-  };
+function requireTreatmentParties(treatment: Treatment, customerId: string) {
+  return getPaymentPartyIds(treatment, customerId);
 }
 
 export function calculatePaymentFees(amount: number, feeRate = PLATFORM_FEE_RATE) {
@@ -164,13 +158,8 @@ export async function ensurePaymentRecordForTreatment(treatmentId: string) {
     throw new Error('고객만 결제 내역을 생성할 수 있습니다.');
   }
 
-  const { treatment } = await getTreatmentById(treatmentId);
-
-  if (!treatment) {
-    throw new Error('시술 기록을 찾을 수 없습니다.');
-  }
-
-  const { customerId, designerId } = requireTreatmentParties(treatment);
+  const treatment = await resolveTreatmentCustomerForPayment(treatmentId);
+  const { customerId, designerId } = requireTreatmentParties(treatment, treatment.customer_id!);
   const amount = treatment.price ?? 0;
 
   if (amount <= 0) {
@@ -242,7 +231,13 @@ export async function upsertDemoPaymentOnRequest(treatment: Treatment, tossOrder
 
   await hydrateDemoPayments();
 
-  const { customerId, designerId } = requireTreatmentParties(treatment);
+  const customerId = treatment.customer_id;
+
+  if (!customerId || !treatment.designer_id) {
+    throw new Error('시술에 고객·디자이너 정보가 없습니다.');
+  }
+
+  const designerId = treatment.designer_id;
   const amount = treatment.price ?? 0;
   const { feeRate } = calculatePaymentFees(amount);
   const now = new Date().toISOString();
@@ -281,12 +276,20 @@ export async function upsertDemoPaymentOnRequest(treatment: Treatment, tossOrder
 
 export async function updatePaymentOrderId(treatmentId: string, tossOrderId: string) {
   if (isDemoAuthMode || !supabase) {
-    const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
+    await hydrateDemoPayments();
+    let index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
+
+    if (index < 0) {
+      await ensurePaymentRecordForTreatment(treatmentId);
+      index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
+    }
+
     if (index >= 0) {
       demoPayments[index] = { ...demoPayments[index], toss_order_id: tossOrderId, status: 'pending' };
       await persistDemoPayments();
       return demoPayments[index];
     }
+
     return null;
   }
 
@@ -312,12 +315,14 @@ export async function markPaymentPaid(
   const { feeRate, feeAmount, designerPayout } = calculatePaymentFees(amount);
   const now = new Date().toISOString();
 
+  await ensurePaymentRecordForTreatment(treatmentId);
+
   if (isDemoAuthMode || !supabase) {
     await hydrateDemoPayments();
     const index = demoPayments.findIndex((payment) => payment.treatment_id === treatmentId);
+
     if (index < 0) {
-      await ensurePaymentRecordForTreatment(treatmentId);
-      return markPaymentPaid(treatmentId, input);
+      throw new Error('결제 내역을 찾을 수 없습니다. 잠시 후 다시 시도해 주세요.');
     }
     demoPayments[index] = {
       ...demoPayments[index],

@@ -1,5 +1,8 @@
-import { loadTossPayments } from '@tosspayments/payment-sdk';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+
+import { isDemoAuthMode } from './auth';
+import { isLocalPaymentSimulation } from './payment-config';
 
 const APP_SCHEME = 'hairdiaryapp';
 
@@ -14,6 +17,7 @@ export type TossPaymentSuccess = {
   paymentKey: string;
   orderId: string;
   amount: number;
+  treatmentId?: string;
 };
 
 export type TossPaymentFailure = {
@@ -55,11 +59,53 @@ export function createTossOrderId(treatmentId: string) {
   return `hair-${treatmentId}-${Date.now()}`;
 }
 
-export function getPaymentRedirectUrls() {
+/** `hair-{treatmentId}-{timestamp}` 주문번호에서 시술 ID 추출 */
+export function extractTreatmentIdFromOrderId(orderId: string) {
+  if (!orderId.startsWith('hair-')) {
+    return null;
+  }
+
+  const withoutPrefix = orderId.slice(5);
+  const lastDash = withoutPrefix.lastIndexOf('-');
+
+  if (lastDash <= 0) {
+    return null;
+  }
+
+  return withoutPrefix.slice(0, lastDash);
+}
+
+export function getPaymentRedirectUrls(treatmentId: string) {
+  const tid = encodeURIComponent(treatmentId);
+
   return {
-    successUrl: `${APP_SCHEME}://payment/success`,
-    failUrl: `${APP_SCHEME}://payment/fail`,
+    successUrl: `${APP_SCHEME}://payment/success?tid=${tid}`,
+    failUrl: `${APP_SCHEME}://payment/fail?tid=${tid}`,
   };
+}
+
+function parseUrlQuery(url: string) {
+  const queryStart = url.indexOf('?');
+
+  if (queryStart < 0) {
+    return new URLSearchParams();
+  }
+
+  return new URLSearchParams(url.slice(queryStart + 1));
+}
+
+function resolveTreatmentIdFromParams(params: URLSearchParams, orderId?: string | null) {
+  const tid = params.get('tid')?.trim();
+
+  if (tid) {
+    return tid;
+  }
+
+  if (orderId) {
+    return extractTreatmentIdFromOrderId(orderId) ?? undefined;
+  }
+
+  return undefined;
 }
 
 export function parseTossSuccessUrl(url: string): TossPaymentSuccess | null {
@@ -68,8 +114,7 @@ export function parseTossSuccessUrl(url: string): TossPaymentSuccess | null {
   }
 
   try {
-    const query = url.includes('?') ? url.split('?')[1] : '';
-    const params = new URLSearchParams(query);
+    const params = parseUrlQuery(url);
 
     const paymentKey = params.get('paymentKey');
     const orderId = params.get('orderId');
@@ -79,7 +124,12 @@ export function parseTossSuccessUrl(url: string): TossPaymentSuccess | null {
       return null;
     }
 
-    return { paymentKey, orderId, amount };
+    return {
+      paymentKey,
+      orderId,
+      amount,
+      treatmentId: resolveTreatmentIdFromParams(params, orderId),
+    };
   } catch {
     return null;
   }
@@ -91,8 +141,7 @@ export function parseTossFailUrl(url: string): TossPaymentFailure | null {
   }
 
   try {
-    const query = url.includes('?') ? url.split('?')[1] : '';
-    const params = new URLSearchParams(query);
+    const params = parseUrlQuery(url);
 
     return {
       code: params.get('code') ?? 'UNKNOWN',
@@ -102,6 +151,11 @@ export function parseTossFailUrl(url: string): TossPaymentFailure | null {
   } catch {
     return null;
   }
+}
+
+export function isHairDiaryPaymentUrl(url: string) {
+  const lower = url.trim().toLowerCase();
+  return lower.startsWith(`${APP_SCHEME}://payment/`);
 }
 
 function escapeHtml(value: string) {
@@ -117,7 +171,7 @@ function escapeHtml(value: string) {
 export function buildTossPaymentWebViewHtml(
   params: TossPaymentParams & { clientKey: string; useDemoSimulator: boolean },
 ) {
-  const { successUrl, failUrl } = getPaymentRedirectUrls();
+  const { successUrl, failUrl } = getPaymentRedirectUrls(params.treatmentId);
   const safeOrderName = escapeHtml(params.orderName);
   const safeOrderId = escapeHtml(params.orderId);
   const safeClientKey = escapeHtml(params.clientKey);
@@ -194,7 +248,8 @@ export async function requestTossPaymentOnWeb(params: TossPaymentParams) {
     throw new Error('토스페이먼츠 클라이언트 키가 설정되지 않았습니다.');
   }
 
-  const { successUrl, failUrl } = getPaymentRedirectUrls();
+  const { successUrl, failUrl } = getPaymentRedirectUrls(params.treatmentId);
+  const { loadTossPayments } = await import('@tosspayments/payment-sdk');
   const tossPayments = await loadTossPayments(clientKey);
 
   await tossPayments.requestPayment('카드', {
@@ -208,4 +263,40 @@ export async function requestTossPaymentOnWeb(params: TossPaymentParams) {
 
 export function shouldUsePaymentWebView() {
   return Platform.OS !== 'web';
+}
+
+function isExpoGoRuntime() {
+  return (
+    Constants.executionEnvironment === 'storeClient' ||
+    Constants.appOwnership === 'expo'
+  );
+}
+
+/**
+ * WebView 토스 결제 대신 앱 버튼 한 번으로 테스트·데모 결제 완료.
+ * test_ck 샌드박스는 RN WebView에서 카드 결제·리다이렉트가 자주 막혀 무반응처럼 보입니다.
+ */
+export function shouldUseInAppDemoPayment() {
+  if (isLocalPaymentSimulation()) {
+    return true;
+  }
+
+  if (Platform.OS === 'web') {
+    return false;
+  }
+
+  if (isDemoAuthMode || !isTossConfigured()) {
+    return true;
+  }
+
+  if (isTossTestKey()) {
+    return true;
+  }
+
+  return isExpoGoRuntime();
+}
+
+/** WebView 결제창 HTML — 샌드박스·Expo Go는 시뮬레이터(테스트 결제 완료 버튼) 사용 */
+export function shouldUseWebViewPaymentSimulator() {
+  return shouldUseInAppDemoPayment() || isTossTestKey() || !isTossConfigured();
 }

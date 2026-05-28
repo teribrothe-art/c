@@ -20,10 +20,11 @@ import { parseWonAmount, sanitizeWonDigits } from '../../../lib/currency-input';
 import { prepareImageForUpload } from '../../../lib/prepare-upload-image';
 import { WonAmountInput } from '../../../src/components/won-amount-input';
 import {
-  getTreatmentPhotoSignedUrl,
-  pickTreatmentPhotoFromLibrary,
+  pickTreatmentPhoto,
+  resolveTreatmentPhotoPreviewUrl,
   removeTreatmentPhoto,
   TreatmentPhotoKind,
+  TreatmentPhotoPickSource,
   uploadTreatmentPhoto,
 } from '../../../lib/treatment-photos';
 
@@ -32,10 +33,11 @@ import {
   showErrorAlert,
   showSettlementCompleteAlert,
   showSuccessAlert,
+  showTreatmentPhotoSourceAlert,
   showWarningAlert,
 } from '../../../lib/alerts';
 import { getErrorMessage } from '../../../lib/errors';
-import { colors, disabledButtonStyle } from '../../../lib/theme';
+import { colors, disabledButtonStyle, formTextInputStyle } from '../../../lib/theme';
 import {
   DURATION_OPTIONS,
   formatProductsInput,
@@ -50,6 +52,7 @@ import {
   validateTreatmentNote,
   validateTreatmentTitle,
 } from '../../../lib/validation';
+import { ScalpProductPicker } from '../../../src/components/scalp-product-picker';
 import { TreatmentOptionChips } from '../../../src/components/treatment-option-chips';
 import { LoadingState } from '../../../src/components/loading-state';
 import {
@@ -82,6 +85,7 @@ import {
 } from '../../../lib/treatment-ai-insight';
 import {
   filterTreatmentsForSameCustomer,
+  formatTreatmentPositionLabel,
   getTreatmentNavigation,
 } from '../../../lib/treatment-navigation';
 import { getDesignerTreatments, getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
@@ -147,6 +151,8 @@ function getDraftValue(treatment: Treatment | null, field: EditableField) {
 
 function FieldCard({ item, onPress }: { item: InputItem; onPress?: () => void }) {
   const showRequired = !item.complete && !item.optional;
+  const displayValue = item.value.trim() || '빈 칸';
+  const isEmpty = !item.value.trim();
 
   return (
     <Pressable
@@ -174,8 +180,13 @@ function FieldCard({ item, onPress }: { item: InputItem; onPress?: () => void })
             <Text style={styles.requiredLabel}>필수</Text>
           )}
         </View>
-        <Text style={[styles.fieldValue, !item.complete && styles.emptyValue]}>
-          {item.value || '빈 칸'}
+        <Text
+          style={[
+            styles.fieldValue,
+            isEmpty && styles.emptyValue,
+            item.complete && !isEmpty && styles.fieldValueOnComplete,
+          ]}>
+          {displayValue}
         </Text>
       </View>
     </Pressable>
@@ -288,8 +299,8 @@ export default function DesignerTreatmentInputScreen() {
         setTreatment(resolvedTreatment);
         setPaymentRecord(payment);
         const [beforePreview, afterPreview] = await Promise.all([
-          getTreatmentPhotoSignedUrl(resolvedTreatment.before_photo_url),
-          getTreatmentPhotoSignedUrl(resolvedTreatment.after_photo_url),
+          resolveTreatmentPhotoPreviewUrl(resolvedTreatment.before_photo_url),
+          resolveTreatmentPhotoPreviewUrl(resolvedTreatment.after_photo_url),
         ]);
         setPhotoPreviews({ before: beforePreview, after: afterPreview });
         setErrorMessage('');
@@ -313,10 +324,10 @@ export default function DesignerTreatmentInputScreen() {
     };
   }, [id]);
   const sections = useMemo<InputSection[]>(() => {
-    const technique = getDraftValue(treatment, 'technique');
-    const diagnosis = getDraftValue(treatment, 'designer_diagnosis');
-    const homeCare = getDraftValue(treatment, 'home_care');
-    const products = formatProductsInput(treatment?.products ?? null);
+    const technique = getDraftValue(treatment, 'technique').trim();
+    const diagnosis = getDraftValue(treatment, 'designer_diagnosis').trim();
+    const homeCare = getDraftValue(treatment, 'home_care').trim();
+    const products = formatProductsInput(treatment?.products ?? null).trim();
 
     return [
       {
@@ -409,7 +420,7 @@ export default function DesignerTreatmentInputScreen() {
     treatment,
     paymentRecord?.status ?? null,
   );
-  const canInviteCustomer = settlementInputComplete && !isCustomerLinked;
+  const canInviteCustomer = !isCustomerLinked;
 
   const openEditor = (field: EditableField) => {
     setActiveField(field);
@@ -712,10 +723,16 @@ export default function DesignerTreatmentInputScreen() {
   };
 
 
-  const refreshPhotoPreview = async (nextTreatment: Treatment) => {
+  const refreshPhotoPreview = async (
+    nextTreatment: Treatment,
+    localFallback?: Partial<Record<TreatmentPhotoKind, string>>,
+  ) => {
     const [before, after] = await Promise.all([
-      getTreatmentPhotoSignedUrl(nextTreatment.before_photo_url),
-      getTreatmentPhotoSignedUrl(nextTreatment.after_photo_url),
+      resolveTreatmentPhotoPreviewUrl(
+        nextTreatment.before_photo_url,
+        localFallback?.before,
+      ),
+      resolveTreatmentPhotoPreviewUrl(nextTreatment.after_photo_url, localFallback?.after),
     ]);
     setPhotoPreviews({ before, after });
   };
@@ -737,14 +754,12 @@ export default function DesignerTreatmentInputScreen() {
     try {
       const preparedUri =
         Platform.OS === 'web' ? await prepareImageForUpload(localUri) : localUri;
+
+      setPhotoPreviews((current) => ({ ...current, [kind]: preparedUri }));
+
       const updatedTreatment = await uploadTreatmentPhoto(treatment.id, kind, preparedUri);
       setTreatment(updatedTreatment);
-      setPhotoPreviews((current) => ({
-        ...current,
-        [kind]:
-          updatedTreatment[kind === 'before' ? 'before_photo_url' : 'after_photo_url'] ?? preparedUri,
-      }));
-      await refreshPhotoPreview(updatedTreatment);
+      await refreshPhotoPreview(updatedTreatment, { [kind]: preparedUri });
       flashPhotoSuccess(kind);
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
@@ -768,13 +783,13 @@ export default function DesignerTreatmentInputScreen() {
         photoPreviews[kind],
     );
 
-  const runPickPhoto = async (kind: TreatmentPhotoKind) => {
+  const runPickPhoto = async (kind: TreatmentPhotoKind, source: TreatmentPhotoPickSource) => {
     if (!treatment || photoUploadStatus[kind] === 'uploading') {
       return;
     }
 
     try {
-      const pickedUri = await pickTreatmentPhotoFromLibrary();
+      const pickedUri = await pickTreatmentPhoto(source);
 
       if (!pickedUri) {
         return;
@@ -785,6 +800,7 @@ export default function DesignerTreatmentInputScreen() {
         return;
       }
 
+      setPhotoPreviews((current) => ({ ...current, [kind]: pickedUri }));
       await uploadPreparedPhoto(kind, pickedUri);
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
@@ -792,7 +808,10 @@ export default function DesignerTreatmentInputScreen() {
       if (message === 'PHOTO_TOO_LARGE') {
         showWarningAlert('사진 용량은 5MB 이하만 업로드할 수 있습니다. 다른 사진을 선택해주세요.', '용량 초과');
       } else {
-        showErrorAlert(getErrorMessage(error, '사진을 선택하지 못했습니다.'), '사진 선택 실패');
+        showErrorAlert(
+          getErrorMessage(error, '사진을 가져오지 못했습니다.'),
+          source === 'camera' ? '촬영 실패' : '사진 선택 실패',
+        );
       }
     }
   };
@@ -805,14 +824,14 @@ export default function DesignerTreatmentInputScreen() {
     const label = photoKindLabel(kind);
     const isChange = hasTreatmentPhoto(kind);
 
-    showConfirmAlert({
+    showTreatmentPhotoSourceAlert({
       title: isChange ? '사진 변경' : '사진 등록',
-      message: isChange
-        ? `${label} 사진을 다른 사진으로 바꿀까요?`
-        : `${label} 사진을 등록할까요?`,
-      confirmLabel: isChange ? '변경' : '등록',
-      onConfirm: () => {
-        void runPickPhoto(kind);
+      message: `${label} 사진을 추가하는 방법을 선택하세요.`,
+      onLibrary: () => {
+        void runPickPhoto(kind, 'library');
+      },
+      onCamera: () => {
+        void runPickPhoto(kind, 'camera');
       },
     });
   };
@@ -905,7 +924,7 @@ export default function DesignerTreatmentInputScreen() {
                 newerId={recordNav.newerId}
                 olderId={recordNav.olderId}
                 onNavigate={(targetId) => router.replace(`/designer/treatment/${targetId}`)}
-                positionLabel={`${recordNav.index + 1} / ${recordNav.total}`}
+                positionLabel={formatTreatmentPositionLabel(recordNav.index, recordNav.total)}
               />
             ) : null}
 
@@ -1187,6 +1206,26 @@ export default function DesignerTreatmentInputScreen() {
                 value={inputValue}
                 onChangeValue={setInputValue}
               />
+            ) : activeField === 'products' ? (
+              <View style={styles.modalPresetBlock}>
+                <ScalpProductPicker
+                  maxHeight={240}
+                  treatmentType={treatment?.treatment_type ?? ''}
+                  value={inputValue}
+                  onChange={setInputValue}
+                />
+                <Text style={styles.modalSubLabel}>브랜드 빠른 추가</Text>
+                <TreatmentOptionChips
+                  options={[...PRODUCT_PRESETS]}
+                  value=""
+                  onChange={(preset) => {
+                    const current = parseProductsInput(inputValue);
+                    if (!current.includes(preset)) {
+                      setInputValue(formatProductsInput([...current, preset]));
+                    }
+                  }}
+                />
+              </View>
             ) : (
               <>
                 <TextInput
@@ -1197,14 +1236,12 @@ export default function DesignerTreatmentInputScreen() {
                       : MAX_TREATMENT_NOTE_LENGTH
                   }
                   onChangeText={setInputValue}
-                  placeholder={
-                    activeField === 'products'
-                      ? '예: 웰라 12%, 로레알 (쉼표·줄바꿈으로 구분)'
-                      : '내용을 입력하세요'
-                  }
+                  placeholder="내용을 입력하세요"
                   placeholderTextColor="#9B9BA7"
+                  keyboardAppearance="light"
                   style={[
                     styles.modalInput,
+                    formTextInputStyle,
                     isSingleLineEditor && styles.modalInputSingleLine,
                   ]}
                   textAlignVertical={isSingleLineEditor ? 'center' : 'top'}
@@ -1216,20 +1253,6 @@ export default function DesignerTreatmentInputScreen() {
                       options={titlePresets}
                       value={inputValue}
                       onChange={setInputValue}
-                    />
-                  </View>
-                ) : null}
-                {activeField === 'products' ? (
-                  <View style={styles.modalPresetBlock}>
-                    <TreatmentOptionChips
-                      options={[...PRODUCT_PRESETS]}
-                      value=""
-                      onChange={(preset) => {
-                        const current = parseProductsInput(inputValue);
-                        if (!current.includes(preset)) {
-                          setInputValue(formatProductsInput([...current, preset]));
-                        }
-                      }}
                     />
                   </View>
                 ) : null}
@@ -1626,8 +1649,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 21,
   },
+  fieldValueOnComplete: {
+    color: '#0F172A',
+  },
   emptyValue: {
     color: '#6B6B7B',
+    fontWeight: '600',
   },
   paymentRequestButton: {
     alignItems: 'center',
@@ -1760,7 +1787,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E3E3EA',
     borderRadius: 16,
-    color: '#1A1A2E',
     fontSize: 16,
     fontWeight: '600',
     lineHeight: 24,
@@ -1780,6 +1806,12 @@ const styles = StyleSheet.create({
   },
   modalPresetBlock: {
     marginTop: 12,
+  },
+  modalSubLabel: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 8,
   },
   modalActions: {
     flexDirection: 'row',

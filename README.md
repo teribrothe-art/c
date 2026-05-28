@@ -120,6 +120,18 @@ EXPO_PUBLIC_SUPABASE_URL=여기에_입력
 EXPO_PUBLIC_SUPABASE_ANON_KEY=여기에_입력
 ```
 
+### NAS / 사설망 주소 → 공개 API URL
+
+앱은 **NAS·Synology·QuickConnect·192.168.x.x·10.x.x** 같은 사설망 주소로는 백엔드에 연결하지 않습니다.  
+이전에 `.env`에 NAS IP나 자가 호스팅 Supabase URL을 넣었다면 제거하고, 아래처럼 **공개 API**만 설정하세요.
+
+```sh
+EXPO_PUBLIC_API_BASE_URL=https://api.your-domain.com
+```
+
+`EXPO_PUBLIC_API_BASE_URL`이 설정되면 BFF REST 모드로 동작합니다 (`docs/API.md`).  
+Supabase 클라우드(`https://xxxx.supabase.co`)만 `EXPO_PUBLIC_SUPABASE_URL`에 사용할 수 있습니다.
+
 ## Supabase 설정
 
 Supabase 값이 placeholder인 상태에서는 앱이 로컬 저장소를 사용해 회원가입/로그인 흐름을 바로 확인할 수 있습니다. 실제 Supabase Auth와 profiles 테이블을 사용하려면 `.env`의 placeholder 값을 실제 Supabase 값으로 바꿔야 합니다.
