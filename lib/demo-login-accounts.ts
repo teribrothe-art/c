@@ -3,15 +3,13 @@ import { DEMO_LOGIN_HINT } from './auth';
 import { BETA_DESIGNERS, BETA_TEST_PASSWORD } from './beta-test-accounts';
 import { ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE } from './demo-accumulated-test-data';
 import {
-  ACCUMULATED_TEST_CUSTOMERS,
-  ACCUMULATED_TEST_CUSTOMERS_1Y,
-  ACCUMULATED_TEST_CUSTOMERS_3Y,
-  ACCUMULATED_TEST_CUSTOMERS_5Y,
   ACCUMULATED_TEST_DESIGNERS_PUBLIC,
-  ACCUMULATED_TEST_PASSWORD,
   EXPANDED_STORE_DESIGNER_COUNT,
 } from './demo-accumulated-test-accounts';
-import { EXPANDED_STORE_DESIGNER_DEFINITIONS } from './demo-expanded-store-designers';
+import {
+  DESIGNER_LINKED_CUSTOMER_COUNT,
+  DESIGNER_LINKED_CUSTOMER_LOGIN_SOURCES,
+} from './demo-designer-linked-customers';
 import { formatDesignerStoreLabel, ORG_STORE_DEFINITIONS } from './org-store-affiliation';
 import { STORE_TEST_ACCOUNTS } from './store-test-accounts';
 import { colors } from './theme';
@@ -37,7 +35,7 @@ export const DEMO_LOGIN_GROUP_DESCRIPTIONS: Record<DemoLoginGroupKey, string> = 
   기본: '고객 · 본사 데모 계정',
   매장: '지역 핫플레이스 매장 전체 — 펼치면 목록 · 검색 가능',
   디자이너: `데모 · 베타 · 누적 · 증원 ${EXPANDED_STORE_DESIGNER_COUNT}명 — 펼치면 목록 · 검색 가능`,
-  가입고객: '누적 테스트 디자이너 연동 고객 — 펼친 뒤 이름·이메일로 검색',
+  가입고객: '디자이너 연동 고객 전체(데모·베타·누적·증원) — 펼친 뒤 검색',
 };
 
 /** 탭하면 계정 목록을 펼치는 그룹 */
@@ -67,39 +65,14 @@ export function getDemoLoginSearchPlaceholder(title: DemoLoginGroupKey) {
   }
 
   if (title === '가입고객') {
-    return '이름 · 이메일 · 1년/2년/3년/5년 누적';
+    return '이름 · 이메일 · 디자이너 · 데모/베타/누적/증원';
   }
 
   return '검색';
 }
 
-const EXPANDED_CUSTOMER_LOGIN_SOURCES = [
-  {
-    profileLabel: '증원 1년차',
-    customers: EXPANDED_STORE_DESIGNER_DEFINITIONS.filter((item) => item.historyYears === 1).flatMap(
-      (item) => item.customers,
-    ),
-  },
-  {
-    profileLabel: '증원 2년차',
-    customers: EXPANDED_STORE_DESIGNER_DEFINITIONS.filter((item) => item.historyYears === 2).flatMap(
-      (item) => item.customers,
-    ),
-  },
-] as const;
-
-const ACCUMULATED_CUSTOMER_LOGIN_SOURCES = [
-  { profileLabel: '1년 누적', customers: ACCUMULATED_TEST_CUSTOMERS_1Y },
-  { profileLabel: '2년 누적', customers: ACCUMULATED_TEST_CUSTOMERS },
-  { profileLabel: '3년 누적', customers: ACCUMULATED_TEST_CUSTOMERS_3Y },
-  { profileLabel: '5년 누적', customers: ACCUMULATED_TEST_CUSTOMERS_5Y },
-  ...EXPANDED_CUSTOMER_LOGIN_SOURCES,
-] as const;
-
-export const ACCUMULATED_LOGIN_CUSTOMER_COUNT = ACCUMULATED_CUSTOMER_LOGIN_SOURCES.reduce(
-  (sum, source) => sum + source.customers.length,
-  0,
-);
+/** @deprecated DESIGNER_LINKED_CUSTOMER_COUNT 사용 */
+export const ACCUMULATED_LOGIN_CUSTOMER_COUNT = DESIGNER_LINKED_CUSTOMER_COUNT;
 
 function designerSearchHaystack(parts: string[]) {
   return parts.join(' ').toLowerCase();
@@ -259,33 +232,39 @@ const BASIC_ACCOUNTS: DemoLoginAccount[] = [
   },
 ];
 
-const REGISTERED_CUSTOMER_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_CUSTOMER_LOGIN_SOURCES.flatMap(
-  ({ profileLabel, customers }) =>
-    customers.map((customer, index) => {
-      const haystack = [
-        customer.name,
-        customer.email,
-        customer.id,
-        profileLabel,
-        '누적',
-        '가입고객',
-      ]
-        .join(' ')
-        .toLowerCase();
+const REGISTERED_CUSTOMER_ACCOUNTS: DemoLoginAccount[] =
+  DESIGNER_LINKED_CUSTOMER_LOGIN_SOURCES.flatMap(
+    ({ profileLabel, designerName, designerId, customers, password }) =>
+      customers.map((customer, index) => {
+        const haystack = [
+          customer.name,
+          customer.email,
+          customer.id,
+          profileLabel,
+          designerName,
+          designerId,
+          '가입고객',
+          '데모',
+          '베타',
+          '누적',
+          '증원',
+        ]
+          .join(' ')
+          .toLowerCase();
 
-      return {
-        id: customer.id,
-        group: '가입고객',
-        roleLabel: '고객',
-        loginLabel: customer.name ?? customer.email,
-        email: customer.email,
-        password: ACCUMULATED_TEST_PASSWORD,
-        meta: `${profileLabel} 디자이너 · ${index + 1}/${customers.length}`,
-        accent: colors.coral,
-        searchHaystack: haystack,
-      };
-    }),
-);
+        return {
+          id: customer.id,
+          group: '가입고객',
+          roleLabel: '고객',
+          loginLabel: customer.name ?? customer.email,
+          email: customer.email,
+          password,
+          meta: `${designerName} · ${profileLabel} · ${index + 1}/${customers.length}`,
+          accent: colors.coral,
+          searchHaystack: haystack,
+        };
+      }),
+  );
 
 export const DEMO_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
   ...BASIC_ACCOUNTS,

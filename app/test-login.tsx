@@ -133,7 +133,7 @@ function DemoLoginGroupSection({
                 ? title === '매장'
                   ? `총 ${STORE_LOGIN_COUNT}곳 · 아래에서 탭하면 로그인`
                   : `총 ${DESIGNER_LOGIN_COUNT}명 · 아래에서 탭하면 로그인`
-                : `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT}명 — 검색어를 입력하면 목록이 표시됩니다`}
+                : `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT}명(디자이너 연동 전체) — 검색어를 입력하면 목록이 표시됩니다`}
           </Text>
         </View>
       ) : null}
