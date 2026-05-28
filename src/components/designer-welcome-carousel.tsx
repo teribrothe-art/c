@@ -138,36 +138,19 @@ export function DesignerWelcomeCarousel({ slides, minHeight }: DesignerWelcomeCa
 
       {showNav ? (
         <View style={[styles.footer, { height: FOOTER_HEIGHT }]}>
-          <Pressable
-            accessibilityLabel="이전 배너"
-            accessibilityRole="button"
-            hitSlop={8}
-            onPress={() => scrollToSlide(activeIndex - 1)}
-            style={({ pressed }) => [styles.navHit, pressed && styles.navHitPressed]}>
-            <View style={styles.navButton}>
-              <Text style={styles.navButtonText}>‹</Text>
-            </View>
-          </Pressable>
-
           <View style={styles.dots}>
             {slides.map((slide, index) => (
-              <View
+              <Pressable
                 key={slide.id}
-                style={[styles.dot, index === activeIndex && styles.dotActive]}
-              />
+                accessibilityLabel={`${index + 1}번째 메시지`}
+                accessibilityRole="button"
+                hitSlop={6}
+                onPress={() => scrollToSlide(index)}
+                style={styles.dotHit}>
+                <View style={[styles.dot, index === activeIndex && styles.dotActive]} />
+              </Pressable>
             ))}
           </View>
-
-          <Pressable
-            accessibilityLabel="다음 배너"
-            accessibilityRole="button"
-            hitSlop={8}
-            onPress={() => scrollToSlide(activeIndex + 1)}
-            style={({ pressed }) => [styles.navHit, pressed && styles.navHitPressed]}>
-            <View style={styles.navButton}>
-              <Text style={styles.navButtonText}>›</Text>
-            </View>
-          </Pressable>
         </View>
       ) : null}
     </View>
@@ -181,34 +164,13 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: 'center',
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingTop: 10,
   },
-  navHit: {
+  dotHit: {
     alignItems: 'center',
-    height: 36,
     justifyContent: 'center',
-    width: 40,
-  },
-  navHitPressed: {
-    opacity: 0.85,
-  },
-  navButton: {
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E8E8F0',
-    borderRadius: 999,
-    borderWidth: 1,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
-  },
-  navButtonText: {
-    color: '#1A1A2E',
-    fontSize: 24,
-    fontWeight: '700',
-    lineHeight: 26,
-    marginTop: -2,
+    padding: 4,
   },
   slideFrame: {
     paddingRight: 0,
