@@ -208,9 +208,9 @@ const styles = StyleSheet.create({
   message: {
     color: colors.purple,
     flexShrink: 1,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '800',
-    lineHeight: 20,
+    lineHeight: 22,
     textAlign: 'center',
   },
 });
