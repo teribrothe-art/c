@@ -93,6 +93,9 @@
     "experiments": {
       "typedRoutes": true
     },
+    "extra": {
+      "expoGoSdkHint": "Expo SDK 56 — 스토어 Expo Go가 안 되면 https://expo.dev/go 에서 SDK 56용 설치"
+    },
     "runtimeVersion": {
       "policy": "appVersion"
     }

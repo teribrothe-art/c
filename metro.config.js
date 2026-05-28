@@ -30,6 +30,13 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     };
   }
 
+  if (moduleName === 'react-native-qrcode-svg') {
+    return {
+      type: 'sourceFile',
+      filePath: stubPath('react-native-qrcode-svg.js'),
+    };
+  }
+
   return metroResolve(context, moduleName, platform);
 };
 
