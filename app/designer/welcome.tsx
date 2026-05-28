@@ -133,7 +133,7 @@ export default function DesignerWelcomeScreen() {
       <Pressable
         onPress={goToSalon}
         style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryPressed]}>
-        <Text style={styles.primaryButtonText}>내 살롱으로 시작하기 →</Text>
+        <Text style={styles.primaryButtonText}>나만의 살롱 시작하기</Text>
       </Pressable>
 
       <DesignerBottomTabBar />
