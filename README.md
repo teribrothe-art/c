@@ -84,12 +84,12 @@ npm run check:phone
 
 | 프로필 | ID | 이메일 | 비밀번호 |
 |--------|-----|--------|----------|
-| 2년 | `test-designer-3y` | test-designer@hair.app | test1234 |
 | 1년 | `test-designer-1y` | test-designer-1y@hair.app | test1234 |
-| 3년 | `test-designer-accum-3y` | test-designer-accum-3y@hair.app | test1234 |
+| 2년 | `test-designer-3y` | test-designer@hair.app | test1234 |
+| 5년 | `test-designer-accum-5y` | test-designer-accum-5y@hair.app | test1234 |
 
-- 로그인 화면 **2년 / 1년 / 3년 누적 테스트 디자이너** 버튼
-- 2년·1년: 일 1~2건 · 3년: 일 4~8명 방문, 신규·단골 혼합, 시술별 재방문 주기 시뮬레이션
+- 로그인 화면 **1년 / 2년 / 5년 누적 테스트 디자이너** 버튼
+- 공통: 단골 재방문 주기(컷·펌·컬러 등) · 일일 방문 수 범위(1년 3~5명 · 2년 4~6명 · 5년 4~8명)
 - 각 디자이너는 **본인 시술만** 메모리 로드 · 일반 데모는 소량 시드 유지
 
 ### 브라우저 `http://localhost:8081` — ERR_EMPTY_RESPONSE (-324)

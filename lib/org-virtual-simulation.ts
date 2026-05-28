@@ -51,7 +51,7 @@ export const VIRTUAL_STORES: VirtualStore[] = [
     id: 'virtual-store-accum-lab',
     name: '누적 테스트 Lab',
     region: '데모 전용',
-    designerIds: ['test-designer-1y', 'test-designer-3y', 'test-designer-accum-3y'],
+    designerIds: ['test-designer-1y', 'test-designer-3y', 'test-designer-accum-5y'],
   },
 ];
 

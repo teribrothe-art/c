@@ -27,7 +27,7 @@ export type DemoLoginGroupKey = (typeof DEMO_LOGIN_GROUP_ORDER)[number];
 
 export const DEMO_LOGIN_GROUP_DESCRIPTIONS: Record<DemoLoginGroupKey, string> = {
   기본: '고객 · 디자이너 · 매장 · 본사 데모 계정',
-  '누적 디자이너': '1년 · 2년 · 3년 누적 시술 데이터 디자이너',
+  '누적 디자이너': '1년 · 2년 · 5년 누적 · 단골 재방문 주기 시뮬레이션',
   '가입고객 1차': '가입·연동 테스트용 고객 10명 — 탭하면 목록이 펼쳐집니다',
 };
 
@@ -83,7 +83,7 @@ const ACCUMULATED_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_DESIGNERS_PUBL
     const accent =
       designer.profileKey === '1y'
         ? '#00C2A8'
-        : designer.profileKey === '3y'
+        : designer.profileKey === '5y'
           ? '#E85D4C'
           : '#7B5EE6';
 
