@@ -13,6 +13,7 @@ export type RevenueBarChartPoint = {
   selected?: boolean;
   dimmed?: boolean;
   isToday?: boolean;
+  barColor?: string;
 };
 
 type RevenueBarChartProps = {
@@ -27,7 +28,11 @@ type RevenueBarChartProps = {
   onSelectPoint?: (key: string) => void;
 };
 
-function formatCompactWon(value: number) {
+function formatCompactWon(value: number, valueSuffix?: string) {
+  if (valueSuffix === '건') {
+    return `${value.toLocaleString('ko-KR')}건`;
+  }
+
   if (value >= 10000) {
     return `${Math.round(value / 10000)}만`;
   }
@@ -68,14 +73,14 @@ export function RevenueBarChart({
       {points.map((point) => {
         const height = Math.max(8, Math.round((point.value / maxValue) * maxBarHeight));
         const selected = Boolean(point.selected);
-        const fillColor = selected ? selectedBarColor : barColor;
+        const fillColor = selected ? selectedBarColor : (point.barColor ?? barColor);
 
         const column = (
           <>
             <Text
               style={[styles.barValue, selected && styles.barValueSelected]}
               numberOfLines={1}>
-              {point.value > 0 ? formatCompactWon(point.value) : '-'}
+              {point.value > 0 ? formatCompactWon(point.value, valueSuffix) : valueSuffix === '건' ? '0건' : '0'}
             </Text>
             <View style={[styles.barTrack, { height: maxBarHeight }]}>
               <View style={[styles.barFill, { height, backgroundColor: fillColor }]} />
@@ -139,7 +144,13 @@ export function RevenueBarChart({
       ) : (
         chartBody
       )}
-      <Text style={styles.unitHint}>합계 ({valueSuffix}) · 막대를 누르면 상세를 볼 수 있어요</Text>
+      {interactive || !embedded ? (
+        <Text style={styles.unitHint}>
+          {interactive
+            ? `합계 (${valueSuffix}) · 막대를 누르면 상세를 볼 수 있어요`
+            : `합계 (${valueSuffix})`}
+        </Text>
+      ) : null}
     </View>
   );
 }

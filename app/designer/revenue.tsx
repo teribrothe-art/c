@@ -13,6 +13,7 @@ import { RevenueBarChart } from '../../src/components/revenue-bar-chart';
 import { EmptyState } from '../../src/components/empty-state';
 import { LoadingState } from '../../src/components/loading-state';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
+import { RevenueMetricsChart } from '../../src/components/revenue-metrics-chart';
 import { RevenueScopeTabs, type RevenueScopeTab } from '../../src/components/revenue-scope-tabs';
 import { WeeklyRevenuePanel } from '../../src/components/weekly-revenue-panel';
 
@@ -32,35 +33,6 @@ function formatKoreanMonthDayWeekday(dateStr: string): string {
   const weekdayKanji = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()];
 
   return `${month}월 ${day}일 ${weekdayKanji}요일`;
-}
-
-function MetricCard({
-  label,
-  labelSub,
-  value,
-  tone = 'default',
-}: {
-  label: string;
-  labelSub?: string;
-  value: string;
-  tone?: 'default' | 'danger' | 'success';
-}) {
-  return (
-    <View style={styles.metricCard}>
-      <View style={styles.metricLabelBlock}>
-        <Text style={styles.metricLabel}>{label}</Text>
-        {labelSub ? <Text style={styles.metricLabelSub}>{labelSub}</Text> : null}
-      </View>
-      <Text
-        style={[
-          styles.metricValue,
-          tone === 'danger' && styles.metricDanger,
-          tone === 'success' && styles.metricSuccess,
-        ]}>
-        {value}
-      </Text>
-    </View>
-  );
 }
 
 export default function DesignerRevenueScreen() {
@@ -381,58 +353,24 @@ export default function DesignerRevenueScreen() {
               />
             ) : null}
 
-            {scopeTab === 'day' ? (
-              selectedDayDate ? (
-                <View style={styles.card}>
-                  <Text style={styles.cardTitle}>
-                    {analytics.selectedWeek.days.find((day) => day.date === selectedDayDate)
-                      ?.dateWithWeekdayLabel ?? '선택한 날짜'}
-                  </Text>
-                  <Text style={styles.dayHeroAmount}>
-                    {(
-                      analytics.selectedWeek.days.find((day) => day.date === selectedDayDate)
-                        ?.totalAmount ?? 0
-                    ).toLocaleString('ko-KR')}
-                    원
-                  </Text>
-                  <Text style={styles.dayHeroMeta}>
-                    정산{' '}
-                    {analytics.selectedWeek.days.find((day) => day.date === selectedDayDate)
-                      ?.settlementCount ?? 0}
-                    건 · 주간 탭에서 다른 요일을 눌러 바꿀 수 있어요
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.card}>
-                  <Text style={styles.emptyText}>주간 탭에서 요일 막대를 눌러 일별 상세를 확인하세요.</Text>
-                </View>
-              )
+            {scopeTab === 'day' && !selectedDayDate ? (
+              <View style={styles.card}>
+                <Text style={styles.emptyText}>주간 탭에서 요일 막대를 눌러 일별 상세를 확인하세요.</Text>
+              </View>
             ) : null}
 
             {linkedMetrics ? (
-              <View style={styles.metricGrid}>
-                <MetricCard
-                  label={linkedMetrics.treatmentLabel}
-                  labelSub={linkedMetrics.treatmentLabelSub}
-                  value={`${linkedMetrics.treatmentCount.toLocaleString('ko-KR')}건`}
-                />
-                <MetricCard
-                  label={linkedMetrics.periodLabel}
-                  labelSub={linkedMetrics.periodLabelSub}
-                  tone="success"
-                  value={`${linkedMetrics.periodTotal.toLocaleString('ko-KR')}원`}
-                />
-                <MetricCard
-                  label="대기 건수"
-                  tone="danger"
-                  value={`${linkedMetrics.pendingCount.toLocaleString('ko-KR')}건`}
-                />
-                <MetricCard
-                  label="정산 대기"
-                  tone="danger"
-                  value={`${linkedMetrics.pendingAmount.toLocaleString('ko-KR')}원`}
-                />
-              </View>
+              <RevenueMetricsChart
+                data={linkedMetrics}
+                title={
+                  scopeTab === 'day' && selectedDayDate
+                    ? analytics.selectedWeek.days.find((day) => day.date === selectedDayDate)
+                        ?.dateWithWeekdayLabel ?? '일별 지표'
+                    : scopeTab === 'week'
+                      ? `${analytics.selectedWeek.label} 지표`
+                      : `${analytics.selectedMonth.label} 지표`
+                }
+              />
             ) : null}
 
             <View style={styles.card}>
@@ -498,24 +436,6 @@ const styles = StyleSheet.create({
   heroValue: { color: '#1A1A2E', fontSize: 40, fontWeight: '900' },
   heroValueUnit: { color: '#1A1A2E', fontSize: 16, fontWeight: '800', marginBottom: 6 },
   heroUnit: { color: '#6B6B7B', fontSize: 14, fontWeight: '600', marginTop: 6 },
-  metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  metricCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    minHeight: 92,
-    padding: 14,
-    width: '48%',
-    elevation: 3,
-  },
-  metricLabelBlock: {
-    gap: 2,
-    marginBottom: 10,
-  },
-  metricLabel: { color: '#6B6B7B', fontSize: 13, fontWeight: '700' },
-  metricLabelSub: { color: '#9CA3AF', fontSize: 11, fontWeight: '600' },
-  metricValue: { color: '#1A1A2E', fontSize: 20, fontWeight: '900' },
-  metricDanger: { color: CORAL },
-  metricSuccess: { color: MINT },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -558,19 +478,6 @@ const styles = StyleSheet.create({
   settlementMeta: { color: '#6B6B7B', fontSize: 13, fontWeight: '600' },
   settlementPrice: { color: CORAL, fontSize: 15, fontWeight: '900' },
   emptyText: { color: '#6B6B7B', fontSize: 14, fontWeight: '600' },
-  dayHeroAmount: {
-    color: MINT,
-    fontSize: 28,
-    fontWeight: '900',
-    marginBottom: 8,
-    marginTop: 4,
-  },
-  dayHeroMeta: {
-    color: '#6B6B7B',
-    fontSize: 13,
-    fontWeight: '600',
-    lineHeight: 19,
-  },
   stateBox: {
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
