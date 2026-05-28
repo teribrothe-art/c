@@ -6,24 +6,42 @@ import { LoginHeroAnimation } from './login-hero-animation';
 
 const SALON_TITLE = '나만의 살롱';
 const DIARY_TITLE = '다이어리';
-const HAIR_TITLE = 'AI 헤어';
+const APP_TITLE = 'AI 헤어 다이어리';
 
 export function LoginHeadlines() {
   const [headlineRowWidth, setHeadlineRowWidth] = useState(0);
-  const [hairNaturalWidth, setHairNaturalWidth] = useState(0);
+  const [appNaturalWidth, setAppNaturalWidth] = useState(0);
 
-  const hairLetterSpacing = useMemo(() => {
-    if (headlineRowWidth <= 0 || hairNaturalWidth <= 0 || hairNaturalWidth >= headlineRowWidth) {
+  const appLetterSpacing = useMemo(() => {
+    if (headlineRowWidth <= 0 || appNaturalWidth <= 0 || appNaturalWidth >= headlineRowWidth) {
       return 0;
     }
 
-    const gaps = Math.max(HAIR_TITLE.length - 1, 1);
-    return (headlineRowWidth - hairNaturalWidth) / gaps;
-  }, [headlineRowWidth, hairNaturalWidth]);
+    const gaps = Math.max(APP_TITLE.length - 1, 1);
+    return (headlineRowWidth - appNaturalWidth) / gaps;
+  }, [headlineRowWidth, appNaturalWidth]);
 
   return (
     <View style={styles.block}>
-      <LoginHeroAnimation />
+      <Text
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={[styles.app, styles.measure]}
+        onLayout={(event) => setAppNaturalWidth(event.nativeEvent.layout.width)}>
+        {APP_TITLE}
+      </Text>
+
+      <Text
+        numberOfLines={1}
+        style={[
+          styles.app,
+          headlineRowWidth > 0 && {
+            width: headlineRowWidth,
+            letterSpacing: appLetterSpacing,
+          },
+        ]}>
+        {APP_TITLE}
+      </Text>
 
       <View
         style={styles.headlineRow}
@@ -32,24 +50,7 @@ export function LoginHeadlines() {
         <Text style={styles.diary}>{DIARY_TITLE}</Text>
       </View>
 
-      <Text
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={[styles.hair, styles.measure]}
-        onLayout={(event) => setHairNaturalWidth(event.nativeEvent.layout.width)}>
-        {HAIR_TITLE}
-      </Text>
-
-      <Text
-        style={[
-          styles.hair,
-          headlineRowWidth > 0 && {
-            width: headlineRowWidth,
-            letterSpacing: hairLetterSpacing,
-          },
-        ]}>
-        {HAIR_TITLE}
-      </Text>
+      <LoginHeroAnimation />
     </View>
   );
 }
@@ -57,14 +58,14 @@ export function LoginHeadlines() {
 const styles = StyleSheet.create({
   block: {
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     marginBottom: 36,
     width: '100%',
   },
   headlineRow: {
     alignItems: 'flex-end',
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
     gap: 6,
     justifyContent: 'center',
   },
@@ -83,7 +84,7 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     marginBottom: 4,
   },
-  hair: {
+  app: {
     color: colors.coral,
     fontSize: 18,
     fontWeight: '800',

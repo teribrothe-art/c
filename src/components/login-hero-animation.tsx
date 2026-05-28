@@ -170,7 +170,8 @@ const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: 0,
+    marginTop: 4,
     minHeight: 72,
     width: '100%',
   },
