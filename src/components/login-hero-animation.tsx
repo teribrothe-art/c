@@ -149,7 +149,7 @@ export function LoginHeroAnimation() {
   });
 
   return (
-    <View style={[styles.wrap, { width: gridSize, height: gridSize }]}>
+    <View style={[styles.wrap, { width: gridSize.width, height: gridSize.height }]}>
       <Animated.View style={[styles.glow, { transform: [{ scale: glowScale }] }]}>
         <LinearGradient
           colors={['#F0EBFF', '#FFE8EA']}
@@ -172,6 +172,7 @@ export function LoginHeroAnimation() {
       <View style={styles.messageCenter}>
         <Text style={styles.badge}>✨</Text>
         <Animated.Text
+          numberOfLines={2}
           style={[
             styles.message,
             {
