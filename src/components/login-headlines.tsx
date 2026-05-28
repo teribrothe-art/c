@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../lib/theme';
+import { LoginHeroAnimation } from './login-hero-animation';
 
 const SALON_TITLE = '나만의 살롱';
 const APP_TITLE = 'AI 헤어 다이어리';
