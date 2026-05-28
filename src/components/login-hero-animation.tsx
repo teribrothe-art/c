@@ -11,9 +11,9 @@ import {
 
 import { colors } from '../../lib/theme';
 
-/** 로그인 배너 그리드 (3×3 정사각형) */
-const GRID_COLUMNS = 3;
-const GRID_ROWS = 3;
+/** 로그인 배너 그리드 (2×2 정사각형) */
+const GRID_COLUMNS = 2;
+const GRID_ROWS = 2;
 const HORIZONTAL_INSET = 56;
 
 const HERO_MESSAGES = [
