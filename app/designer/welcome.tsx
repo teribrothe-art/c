@@ -13,9 +13,10 @@ import { StatusBar } from 'expo-status-bar';
 
 import { getCurrentUser } from '../../lib/auth';
 import { DESIGNER_WELCOME_SLIDES } from '../../lib/designer-welcome-slides';
-import { getProfileScreenData } from '../../lib/profile';
+import { getProfileScreenData, type DesignerStats } from '../../lib/profile';
 import { colors } from '../../lib/theme';
 import { DesignerWelcomeCarousel } from '../../src/components/designer-welcome-carousel';
+import { DesignerWelcomeTodayCard } from '../../src/components/designer-welcome-today-card';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
 import { LoadingState } from '../../src/components/loading-state';
 
@@ -23,6 +24,7 @@ export default function DesignerWelcomeScreen() {
   const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0));
   const [designerName, setDesignerName] = useState<string | null>(null);
+  const [todayStats, setTodayStats] = useState<DesignerStats | null>(null);
   const [isReady, setIsReady] = useState(false);
 
   const greeting = useMemo(() => {
@@ -69,6 +71,11 @@ export default function DesignerWelcomeScreen() {
 
         if (isMounted) {
           setDesignerName(screenData?.profile.name ?? null);
+
+          if (screenData?.stats.kind === 'designer') {
+            setTodayStats(screenData.stats);
+          }
+
           setIsReady(true);
         }
       })
@@ -113,7 +120,15 @@ export default function DesignerWelcomeScreen() {
         <DesignerWelcomeCarousel slides={DESIGNER_WELCOME_SLIDES} />
       </View>
 
-      <View style={styles.flexFill} />
+      {todayStats ? (
+        <View style={styles.todayCardWrap}>
+          <DesignerWelcomeTodayCard
+            monthTreatmentCount={todayStats.monthTreatmentCount}
+            pendingSettlementCount={todayStats.pendingSettlementCount}
+            regularCustomerCount={todayStats.regularCustomerCount}
+          />
+        </View>
+      ) : null}
 
       <Pressable
         onPress={goToSalon}
@@ -164,11 +179,15 @@ const styles = StyleSheet.create({
   carouselWrap: {
     marginTop: 28,
   },
-  flexFill: {
+  todayCardWrap: {
     flex: 1,
-    minHeight: 16,
+    justifyContent: 'center',
+    marginTop: 12,
+    minHeight: 120,
+    paddingBottom: 12,
   },
   primaryButton: {
+    marginTop: 8,
     alignItems: 'center',
     backgroundColor: colors.purple,
     borderRadius: 14,
