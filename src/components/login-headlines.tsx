@@ -5,46 +5,50 @@ import { colors } from '../../lib/theme';
 import { LoginHeroAnimation } from './login-hero-animation';
 
 const SALON_TITLE = '나만의 살롱';
-const APP_TITLE = 'AI 헤어 다이어리';
+const DIARY_TITLE = '다이어리';
+const HAIR_TITLE = 'AI 헤어';
 
 export function LoginHeadlines() {
-  const [salonWidth, setSalonWidth] = useState(0);
-  const [appNaturalWidth, setAppNaturalWidth] = useState(0);
+  const [headlineRowWidth, setHeadlineRowWidth] = useState(0);
+  const [hairNaturalWidth, setHairNaturalWidth] = useState(0);
 
-  const appLetterSpacing = useMemo(() => {
-    if (salonWidth <= 0 || appNaturalWidth <= 0 || appNaturalWidth >= salonWidth) {
+  const hairLetterSpacing = useMemo(() => {
+    if (headlineRowWidth <= 0 || hairNaturalWidth <= 0 || hairNaturalWidth >= headlineRowWidth) {
       return 0;
     }
 
-    const gaps = Math.max(APP_TITLE.length - 1, 1);
-    return (salonWidth - appNaturalWidth) / gaps;
-  }, [salonWidth, appNaturalWidth]);
+    const gaps = Math.max(HAIR_TITLE.length - 1, 1);
+    return (headlineRowWidth - hairNaturalWidth) / gaps;
+  }, [headlineRowWidth, hairNaturalWidth]);
 
   return (
     <View style={styles.block}>
-      <Text
-        style={styles.salon}
-        onLayout={(event) => setSalonWidth(event.nativeEvent.layout.width)}>
-        {SALON_TITLE}
-      </Text>
+      <LoginHeroAnimation />
+
+      <View
+        style={styles.headlineRow}
+        onLayout={(event) => setHeadlineRowWidth(event.nativeEvent.layout.width)}>
+        <Text style={styles.salon}>{SALON_TITLE}</Text>
+        <Text style={styles.diary}>{DIARY_TITLE}</Text>
+      </View>
 
       <Text
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
-        style={[styles.app, styles.measure]}
-        onLayout={(event) => setAppNaturalWidth(event.nativeEvent.layout.width)}>
-        {APP_TITLE}
+        style={[styles.hair, styles.measure]}
+        onLayout={(event) => setHairNaturalWidth(event.nativeEvent.layout.width)}>
+        {HAIR_TITLE}
       </Text>
 
       <Text
         style={[
-          styles.app,
-          salonWidth > 0 && {
-            width: salonWidth,
-            letterSpacing: appLetterSpacing,
+          styles.hair,
+          headlineRowWidth > 0 && {
+            width: headlineRowWidth,
+            letterSpacing: hairLetterSpacing,
           },
         ]}>
-        {APP_TITLE}
+        {HAIR_TITLE}
       </Text>
     </View>
   );
@@ -53,9 +57,16 @@ export function LoginHeadlines() {
 const styles = StyleSheet.create({
   block: {
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     marginBottom: 36,
     width: '100%',
+  },
+  headlineRow: {
+    alignItems: 'flex-end',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    justifyContent: 'center',
   },
   salon: {
     color: colors.purple,
@@ -63,9 +74,16 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: -1,
     lineHeight: 46,
-    textAlign: 'center',
   },
-  app: {
+  diary: {
+    color: colors.coral,
+    fontSize: 26,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    lineHeight: 34,
+    marginBottom: 4,
+  },
+  hair: {
     color: colors.coral,
     fontSize: 18,
     fontWeight: '800',
