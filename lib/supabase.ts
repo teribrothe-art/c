@@ -2,15 +2,26 @@ import 'react-native-url-polyfill/auto';
 
 import { createClient } from '@supabase/supabase-js';
 
+import { isPrivateOrNasEndpoint, warnIgnoredEndpoint } from './api/endpoint-policy';
 import { supabaseAuthStorage } from './supabase-storage';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const rawSupabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim();
+
+const supabaseUrl =
+  rawSupabaseUrl &&
+  rawSupabaseUrl !== '여기에_입력' &&
+  !isPrivateOrNasEndpoint(rawSupabaseUrl)
+    ? rawSupabaseUrl
+    : undefined;
+
+if (rawSupabaseUrl && rawSupabaseUrl !== '여기에_입력' && isPrivateOrNasEndpoint(rawSupabaseUrl)) {
+  warnIgnoredEndpoint('EXPO_PUBLIC_SUPABASE_URL', rawSupabaseUrl);
+}
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl &&
     supabaseAnonKey &&
-    supabaseUrl !== '여기에_입력' &&
     supabaseAnonKey !== '여기에_입력',
 );
 

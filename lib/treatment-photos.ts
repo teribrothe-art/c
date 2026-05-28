@@ -1,6 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Platform } from 'react-native';
 
+import { isPrivateOrNasEndpoint } from './api/endpoint-policy';
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
 import { isDisplayableImageUri, normalizePickerAssetUri, treatmentPhotoPickerOptions } from './image-uri';
@@ -37,7 +38,7 @@ export async function resolveTreatmentPhotoPreviewUrl(
   }
 
   if (isDisplayableImageUri(storagePath)) {
-    return storagePath;
+    return isPrivateOrNasEndpoint(storagePath) ? fallback : storagePath;
   }
 
   try {
@@ -56,7 +57,7 @@ export async function getTreatmentPhotoSignedUrl(
   }
 
   if (isDisplayableImageUri(storagePath)) {
-    return storagePath;
+    return isPrivateOrNasEndpoint(storagePath) ? null : storagePath;
   }
 
   if (isDemoAuthMode || !supabase) {

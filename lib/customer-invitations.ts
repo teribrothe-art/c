@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { isPrivateOrNasEndpoint } from './api/endpoint-policy';
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
 import { addNotification } from './notifications';
@@ -21,7 +22,12 @@ export function isValidInviteCodeFormat(code: string) {
 }
 
 function looksLikeDevOrExpoUrl(payload: string) {
-  const lower = payload.trim().toLowerCase();
+  const trimmed = payload.trim();
+  const lower = trimmed.toLowerCase();
+
+  if (isPrivateOrNasEndpoint(trimmed)) {
+    return true;
+  }
 
   return (
     NON_INVITE_URL_PREFIXES.some((prefix) => lower.startsWith(prefix)) ||
