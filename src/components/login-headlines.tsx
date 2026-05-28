@@ -7,36 +7,54 @@ import { LoginHeroAnimation } from './login-hero-animation';
 const SALON_TITLE = '나만의 살롱';
 const APP_TITLE = 'AI 헤어 다이어리';
 
+function stretchLetterSpacing(targetWidth: number, naturalWidth: number, charCount: number, maxSpacing = 5) {
+  if (targetWidth <= 0 || naturalWidth <= 0 || naturalWidth >= targetWidth) {
+    return 0;
+  }
+
+  const gaps = Math.max(charCount - 1, 1);
+  const spacing = (targetWidth - naturalWidth) / gaps;
+  return Math.min(Math.max(spacing, 0), maxSpacing);
+}
+
 export function LoginHeadlines() {
-  const [salonWidth, setSalonWidth] = useState(0);
+  const [salonNaturalWidth, setSalonNaturalWidth] = useState(0);
   const [appNaturalWidth, setAppNaturalWidth] = useState(0);
 
-  const appLetterSpacing = useMemo(() => {
-    if (salonWidth <= 0 || appNaturalWidth <= 0 || appNaturalWidth >= salonWidth) {
-      return 0;
-    }
+  const headlineWidth = Math.max(salonNaturalWidth, appNaturalWidth);
 
-    const gaps = Math.max(APP_TITLE.length - 1, 1);
-    const spacing = (salonWidth - appNaturalWidth) / gaps;
-    return Math.min(Math.max(spacing, 0), 5);
-  }, [salonWidth, appNaturalWidth]);
+  const appLetterSpacing = useMemo(
+    () => stretchLetterSpacing(headlineWidth, appNaturalWidth, APP_TITLE.length),
+    [headlineWidth, appNaturalWidth],
+  );
+
+  const salonLetterSpacing = useMemo(
+    () => stretchLetterSpacing(headlineWidth, salonNaturalWidth, SALON_TITLE.length, 3),
+    [headlineWidth, salonNaturalWidth],
+  );
+
+  const widthReady = headlineWidth > 0;
 
   return (
     <View style={styles.block}>
-      <Text
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={[styles.app, styles.measure]}
-        onLayout={(event) => setAppNaturalWidth(event.nativeEvent.layout.width)}>
-        {APP_TITLE}
-      </Text>
+      <View pointerEvents="none" style={styles.measureBox}>
+        <Text
+          style={[styles.app, styles.measure]}
+          onLayout={(event) => setAppNaturalWidth(event.nativeEvent.layout.width)}>
+          {APP_TITLE}
+        </Text>
+        <Text
+          style={[styles.salon, styles.measure]}
+          onLayout={(event) => setSalonNaturalWidth(event.nativeEvent.layout.width)}>
+          {SALON_TITLE}
+        </Text>
+      </View>
 
       <Text
-        numberOfLines={1}
         style={[
           styles.app,
-          salonWidth > 0 && {
-            width: salonWidth,
+          widthReady && {
+            width: headlineWidth,
             letterSpacing: appLetterSpacing,
           },
         ]}>
@@ -44,8 +62,13 @@ export function LoginHeadlines() {
       </Text>
 
       <Text
-        style={styles.salon}
-        onLayout={(event) => setSalonWidth(event.nativeEvent.layout.width)}>
+        style={[
+          styles.salon,
+          widthReady && {
+            width: headlineWidth,
+            letterSpacing: salonLetterSpacing,
+          },
+        ]}>
         {SALON_TITLE}
       </Text>
 
@@ -59,7 +82,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 36,
+    paddingHorizontal: 8,
     width: '100%',
+  },
+  measureBox: {
+    height: 0,
+    opacity: 0,
+    overflow: 'hidden',
+    position: 'absolute',
+    width: '100%',
+    zIndex: -1,
   },
   app: {
     color: colors.coral,
@@ -77,10 +109,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   measure: {
-    left: 0,
-    opacity: 0,
-    position: 'absolute',
-    top: 0,
-    zIndex: -1,
+    alignSelf: 'center',
   },
 });
