@@ -5,21 +5,20 @@ import { colors } from '../../lib/theme';
 import { LoginHeroAnimation } from './login-hero-animation';
 
 const SALON_TITLE = '나만의 살롱';
-const DIARY_TITLE = '다이어리';
 const APP_TITLE = 'AI 헤어 다이어리';
 
 export function LoginHeadlines() {
-  const [headlineRowWidth, setHeadlineRowWidth] = useState(0);
+  const [salonWidth, setSalonWidth] = useState(0);
   const [appNaturalWidth, setAppNaturalWidth] = useState(0);
 
   const appLetterSpacing = useMemo(() => {
-    if (headlineRowWidth <= 0 || appNaturalWidth <= 0 || appNaturalWidth >= headlineRowWidth) {
+    if (salonWidth <= 0 || appNaturalWidth <= 0 || appNaturalWidth >= salonWidth) {
       return 0;
     }
 
     const gaps = Math.max(APP_TITLE.length - 1, 1);
-    return (headlineRowWidth - appNaturalWidth) / gaps;
-  }, [headlineRowWidth, appNaturalWidth]);
+    return (salonWidth - appNaturalWidth) / gaps;
+  }, [salonWidth, appNaturalWidth]);
 
   return (
     <View style={styles.block}>
@@ -35,20 +34,19 @@ export function LoginHeadlines() {
         numberOfLines={1}
         style={[
           styles.app,
-          headlineRowWidth > 0 && {
-            width: headlineRowWidth,
+          salonWidth > 0 && {
+            width: salonWidth,
             letterSpacing: appLetterSpacing,
           },
         ]}>
         {APP_TITLE}
       </Text>
 
-      <View
-        style={styles.headlineRow}
-        onLayout={(event) => setHeadlineRowWidth(event.nativeEvent.layout.width)}>
-        <Text style={styles.salon}>{SALON_TITLE}</Text>
-        <Text style={styles.diary}>{DIARY_TITLE}</Text>
-      </View>
+      <Text
+        style={styles.salon}
+        onLayout={(event) => setSalonWidth(event.nativeEvent.layout.width)}>
+        {SALON_TITLE}
+      </Text>
 
       <LoginHeroAnimation />
     </View>
@@ -62,12 +60,11 @@ const styles = StyleSheet.create({
     marginBottom: 36,
     width: '100%',
   },
-  headlineRow: {
-    alignItems: 'flex-end',
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-    gap: 6,
-    justifyContent: 'center',
+  app: {
+    color: colors.coral,
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   salon: {
     color: colors.purple,
@@ -75,19 +72,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: -1,
     lineHeight: 46,
-  },
-  diary: {
-    color: colors.coral,
-    fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-    lineHeight: 34,
-    marginBottom: 4,
-  },
-  app: {
-    color: colors.coral,
-    fontSize: 18,
-    fontWeight: '800',
     textAlign: 'center',
   },
   measure: {
