@@ -11,8 +11,8 @@ import {
 
 import { colors } from '../../lib/theme';
 
-/** 로그인 배너 그리드 (2×2 정사각형) */
-const GRID_COLUMNS = 2;
+/** 로그인 배너 그리드 (가로 3 × 세로 2) */
+const GRID_COLUMNS = 3;
 const GRID_ROWS = 2;
 const HORIZONTAL_INSET = 56;
 
@@ -36,7 +36,10 @@ export function LoginHeroAnimation() {
 
   const gridSize = useMemo(() => {
     const unit = (windowWidth - HORIZONTAL_INSET) / GRID_COLUMNS;
-    return unit * GRID_ROWS;
+    return {
+      width: unit * GRID_COLUMNS,
+      height: unit * GRID_ROWS,
+    };
   }, [windowWidth]);
 
   useEffect(() => {
@@ -224,19 +227,21 @@ const styles = StyleSheet.create({
   messageCenter: {
     alignItems: 'center',
     flex: 1,
+    flexDirection: 'row',
     gap: 8,
     justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   badge: {
-    fontSize: 16,
+    fontSize: 18,
   },
   message: {
     color: colors.purple,
-    fontSize: 17,
+    flex: 1,
+    fontSize: 18,
     fontWeight: '800',
-    lineHeight: 24,
+    lineHeight: 25,
     textAlign: 'center',
   },
 });
