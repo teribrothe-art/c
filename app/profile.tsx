@@ -19,6 +19,7 @@ import { getCurrentSettlementMonthKey } from '../lib/designer-payment-stats';
 import { getProfileScreenData, ProfileData, ProfileStats } from '../lib/profile';
 import { safeNavigate } from '../lib/safe-navigate';
 import { BottomTabBar } from '../src/components/bottom-tab-bar';
+import { AppVersionBadge } from '../src/components/app-version-badge';
 import { DesignerBottomTabBar } from '../src/components/designer-bottom-tab-bar';
 
 type SettingItem = {
@@ -360,22 +361,38 @@ export default function ProfileScreen() {
               </Pressable>
             ) : null}
 
-            <View style={styles.card}>
-              {settingItems.map((item, index) => (
-                <View key={item.label}>
-                  <SettingsRow
-                    icon={item.icon}
-                    label={item.label}
-                    onPress={() => handleSettingPress(item.label)}
-                  />
-                  {index < settingItems.length - 1 ? <View style={styles.settingDivider} /> : null}
+            {!isDesigner ? (
+              <>
+                <View style={styles.card}>
+                  {settingItems.map((item, index) => (
+                    <View key={item.label}>
+                      <SettingsRow
+                        icon={item.icon}
+                        label={item.label}
+                        onPress={() => handleSettingPress(item.label)}
+                      />
+                      {index < settingItems.length - 1 ? (
+                        <View style={styles.settingDivider} />
+                      ) : null}
+                    </View>
+                  ))}
                 </View>
-              ))}
-            </View>
 
-            <Pressable onPress={handleLogout} style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutPressed]}>
-              <Text style={styles.logoutText}>로그아웃</Text>
-            </Pressable>
+                <Pressable
+                  onPress={handleLogout}
+                  style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutPressed]}>
+                  <Text style={styles.logoutText}>로그아웃</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable
+                onPress={() => router.push('/designer/account')}
+                style={({ pressed }) => [styles.accountLink, pressed && styles.accountLinkPressed]}>
+                <Text style={styles.accountLinkIcon}>⚙️</Text>
+                <Text style={styles.accountLinkLabel}>계정 관리 · 로그아웃</Text>
+                <Text style={styles.accountLinkArrow}>›</Text>
+              </Pressable>
+            )}
           </>
         )}
       </ScrollView>
@@ -472,6 +489,23 @@ const styles = StyleSheet.create({
   paymentsLinkIcon: { fontSize: 20 },
   paymentsLinkLabel: { color: '#1A1A2E', flex: 1, fontSize: 16, fontWeight: '800' },
   paymentsLinkArrow: { color: '#9CA3AF', fontSize: 22 },
+  accountLink: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 16,
+    shadowColor: '#1A1A2E',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  accountLinkPressed: { opacity: 0.88 },
+  accountLinkIcon: { fontSize: 20 },
+  accountLinkLabel: { color: '#1A1A2E', flex: 1, fontSize: 16, fontWeight: '800' },
+  accountLinkArrow: { color: '#9CA3AF', fontSize: 22 },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,

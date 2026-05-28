@@ -9,7 +9,7 @@ const tabs: { href: Href; label: string }[] = [
   { href: '/admin/designers' as Href, label: '디자이너' },
   { href: '/admin/simulation' as Href, label: '시뮬' },
   { href: '/admin/revenue' as Href, label: '매출' },
-  { href: '/admin/profile' as Href, label: '마이' },
+  { href: '/admin/profile' as Href, label: '계정' },
 ];
 
 export function AdminBottomTabBar() {

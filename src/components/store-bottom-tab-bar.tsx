@@ -7,7 +7,7 @@ const tabs: { href: Href; label: string }[] = [
   { href: '/store/customers' as Href, label: '고객' },
   { href: '/store/simulation' as Href, label: '시뮬' },
   { href: '/store/revenue' as Href, label: '매출' },
-  { href: '/store/profile' as Href, label: '마이' },
+  { href: '/store/profile' as Href, label: '계정' },
 ];
 
 export function StoreBottomTabBar() {

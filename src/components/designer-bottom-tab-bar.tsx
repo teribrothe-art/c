@@ -8,6 +8,7 @@ const tabs: { href: Href; label: string }[] = [
   { href: '/designer/input' as Href, label: '시술' },
   { href: '/designer/revenue' as Href, label: '매출' },
   { href: '/profile' as Href, label: '정산' },
+  { href: '/designer/account' as Href, label: '계정' },
 ];
 
 function isDesignerTabSelected(pathname: string, href: string) {
@@ -23,7 +24,7 @@ function isDesignerTabSelected(pathname: string, href: string) {
     return pathname.startsWith('/designer/treatment/');
   }
 
-  if (href === '/profile') {
+  if (href === '/profile' || href === '/designer/account') {
     return false;
   }
 
@@ -87,7 +88,7 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     color: '#6B6B7B',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   tabLabelSelected: {
