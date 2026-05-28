@@ -1,4 +1,4 @@
-import { Link, router } from 'expo-router';
+import { Link } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -136,15 +136,6 @@ export default function LoginScreen() {
               ]}>
               <Text style={styles.loginButtonText}>{isLoading ? '로그인 중...' : '로그인'}</Text>
             </Pressable>
-
-            {isDemoAuthMode ? (
-              <Pressable
-                disabled={isLoading}
-                onPress={() => router.push('/test-login')}
-                style={({ pressed }) => [styles.testLoginButton, pressed && styles.testLoginButtonPressed]}>
-                <Text style={styles.testLoginButtonText}>테스트 계정 목록 열기</Text>
-              </Pressable>
-            ) : null}
           </View>
 
           <View style={styles.footerLinks}>
@@ -231,24 +222,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
-  },
-  testLoginButton: {
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderColor: colors.coral,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginTop: 16,
-    paddingVertical: 11,
-    width: '100%',
-  },
-  testLoginButtonPressed: {
-    opacity: 0.9,
-  },
-  testLoginButtonText: {
-    color: colors.coral,
-    fontSize: 14,
-    fontWeight: '800',
   },
   footerLinks: {
     alignItems: 'center',
