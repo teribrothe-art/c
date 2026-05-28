@@ -103,7 +103,7 @@ export default function DesignerWelcomeScreen() {
       ]}>
       <StatusBar style="dark" />
 
-      <Text style={styles.sectionLabel}>✨ 오늘의 메시지</Text>
+      <Text style={styles.sectionLabel}>✨ 오늘의 메시지 ✨</Text>
       <View style={styles.divider} />
 
       <Text style={styles.greeting}>{greeting}</Text>
