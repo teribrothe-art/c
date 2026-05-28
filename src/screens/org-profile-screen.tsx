@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ACCOUNT_SETTING_ITEMS } from '../../lib/account-settings';
 import { getCurrentUser, signOut } from '../../lib/auth';
+import { getOrgStoreForAccountUser } from '../../lib/org-store-affiliation';
 import type { OrgScope } from '../../lib/org-access';
 import { showConfirmAlert, showErrorAlert, showWarningAlert } from '../../lib/alerts';
 import { AccountMenuCard } from '../components/account-menu-card';
@@ -12,6 +13,7 @@ import { AppVersionBadge } from '../components/app-version-badge';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
+import { DesignerStoreAffiliationBadge } from '../components/designer-store-affiliation-badge';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
 import { StoreBottomTabBar } from '../components/store-bottom-tab-bar';
@@ -24,12 +26,17 @@ export function OrgProfileScreen({ scope }: Props) {
   useOrgRoleGuard(scope);
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
+  const [linkedStoreName, setLinkedStoreName] = useState<string | null>(null);
+  const [linkedStoreRegion, setLinkedStoreRegion] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       getCurrentUser().then((user) => {
         setEmail(user?.email ?? '');
+        const linkedStore = user ? getOrgStoreForAccountUser(user) : null;
+        setLinkedStoreName(linkedStore?.name ?? null);
+        setLinkedStoreRegion(linkedStore?.region ?? null);
       });
     }, []),
   );
@@ -84,6 +91,10 @@ export function OrgProfileScreen({ scope }: Props) {
           <Text style={[styles.badgeText, { color: accent }]}>{roleLabel} 접속</Text>
         </View>
 
+        {scope === 'store' && linkedStoreName ? (
+          <DesignerStoreAffiliationBadge storeName={linkedStoreName} storeRegion={linkedStoreRegion ?? undefined} />
+        ) : null}
+
         <View style={styles.infoCard}>
           <Text style={styles.infoCardTitle}>연동 안내</Text>
           <Text style={styles.infoCardBody}>
@@ -95,15 +106,10 @@ export function OrgProfileScreen({ scope }: Props) {
         <View style={styles.menuWrap}>
           <AccountMenuCard
             title="관리"
-            rows={[
-              ...ACCOUNT_SETTING_ITEMS.map((item) => ({
-                ...item,
-                onPress: () => handleSettingPress(item.label),
-              })),
-              ...(isDemoAuthMode
-                ? [{ icon: '🧪', label: '테스트 계정 전환', onPress: () => router.push('/test-login') }]
-                : []),
-            ]}
+            rows={ACCOUNT_SETTING_ITEMS.map((item) => ({
+              ...item,
+              onPress: () => handleSettingPress(item.label),
+            }))}
           />
         </View>
 

@@ -8,6 +8,7 @@ import { getOrgDesignerRoster } from './org-designer-roster';
 export type OrgClientListItem = DesignerClientListItem & {
   designerId: string;
   designerName: string;
+  designerStoreName: string;
 };
 
 export async function getOrgClientListItems(scope: OrgScope): Promise<OrgClientListItem[]> {
@@ -23,6 +24,7 @@ export async function getOrgClientListItems(scope: OrgScope): Promise<OrgClientL
         key: `${designer.id}-${item.key}`,
         designerId: designer.id,
         designerName: designer.name,
+        designerStoreName: designer.storeName,
       });
     }
   }

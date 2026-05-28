@@ -8,12 +8,14 @@ import { ACCOUNT_SETTING_ITEMS } from '../../lib/account-settings';
 import { showConfirmAlert, showErrorAlert, showWarningAlert } from '../../lib/alerts';
 import { getCurrentUser, signOut } from '../../lib/auth';
 import { getErrorMessage } from '../../lib/errors';
+import { getDesignerStoreAffiliation } from '../../lib/org-store-affiliation';
 import { getProfileScreenData, type ProfileData } from '../../lib/profile';
 import { getProfileAvatarUri } from '../../lib/profile-update';
 import { colors } from '../../lib/theme';
 import { AccountMenuCard } from '../../src/components/account-menu-card';
 import { AppVersionBadge } from '../../src/components/app-version-badge';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
+import { DesignerStoreAffiliationBadge } from '../../src/components/designer-store-affiliation-badge';
 import { LoadingState } from '../../src/components/loading-state';
 
 function getDisplayName(profile: ProfileData) {
@@ -31,6 +33,8 @@ export default function DesignerAccountScreen() {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [storeName, setStoreName] = useState<string | null>(null);
+  const [storeRegion, setStoreRegion] = useState<string | null>(null);
 
   const loadAccount = useCallback(() => {
     setIsLoading(true);
@@ -53,6 +57,9 @@ export default function DesignerAccountScreen() {
 
         setProfile(data.profile);
         setErrorMessage('');
+        const affiliation = getDesignerStoreAffiliation(user.id);
+        setStoreName(affiliation?.store.name ?? null);
+        setStoreRegion(affiliation?.store.region ?? null);
         const uri = await getProfileAvatarUri(data.profile.id);
         setAvatarUri(uri);
       })
@@ -128,6 +135,13 @@ export default function DesignerAccountScreen() {
               <View style={styles.roleBadge}>
                 <Text style={styles.roleBadgeText}>디자이너</Text>
               </View>
+              {storeName ? (
+                <DesignerStoreAffiliationBadge storeName={storeName} storeRegion={storeRegion ?? undefined} />
+              ) : (
+                <View style={styles.unlinkedStoreBox}>
+                  <Text style={styles.unlinkedStoreText}>연결된 매장 정보가 없습니다</Text>
+                </View>
+              )}
             </View>
 
             <AccountMenuCard
@@ -211,6 +225,21 @@ const styles = StyleSheet.create({
     color: '#7B5EE6',
     fontSize: 13,
     fontWeight: '800',
+  },
+  unlinkedStoreBox: {
+    alignSelf: 'stretch',
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FDBA74',
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  unlinkedStoreText: {
+    color: '#C2410C',
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   logoutButton: {
     alignItems: 'center',

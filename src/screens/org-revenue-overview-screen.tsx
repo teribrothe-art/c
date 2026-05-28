@@ -85,7 +85,10 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
                 style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
                 <View style={styles.rowMain}>
                   <Text style={styles.rowTitle}>{designer.name}</Text>
-                  {designer.subtitle ? <Text style={styles.rowMeta}>{designer.subtitle}</Text> : null}
+                  <Text style={styles.rowMeta}>
+                    {designer.storeName} · {designer.storeRegion}
+                  </Text>
+                  {designer.subtitle ? <Text style={styles.rowMetaSecondary}>{designer.subtitle}</Text> : null}
                 </View>
                 <View style={styles.rowStats}>
                   <Text style={styles.rowAmount}>
@@ -187,6 +190,11 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   rowMeta: {
+    color: '#0F766E',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  rowMetaSecondary: {
     color: '#9CA3AF',
     fontSize: 11,
     fontWeight: '600',

@@ -160,7 +160,9 @@ export function OrgCustomersScreen({ scope }: Props) {
               <View style={styles.cardTop}>
                 <Text style={styles.customerName}>{item.customerName}</Text>
                 <View style={styles.designerBadge}>
-                  <Text style={styles.designerBadgeText}>{item.designerName}</Text>
+                  <Text style={styles.designerBadgeText}>
+                    {item.designerName} · {item.designerStoreName}
+                  </Text>
                 </View>
               </View>
               <Text style={styles.treatmentTitle}>{item.treatmentTitle}</Text>

@@ -7,6 +7,7 @@ import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/or
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
+import { DesignerStoreAffiliationBadge } from '../components/designer-store-affiliation-badge';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
@@ -47,7 +48,9 @@ export function OrgDesignersRosterScreen() {
         ]}
         showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>디자이너</Text>
-        <Text style={styles.subtitle}>고객·시술·매출 데이터가 디자이너 계정과 연동됩니다.</Text>
+        <Text style={styles.subtitle}>
+          모든 디자이너가 매장에 연결되어 있습니다. 소속 매장을 확인한 뒤 매출·고객을 조회하세요.
+        </Text>
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -60,6 +63,11 @@ export function OrgDesignersRosterScreen() {
                 <Text style={styles.cardTitle}>{designer.name}</Text>
                 {designer.subtitle ? <Text style={styles.cardMeta}>{designer.subtitle}</Text> : null}
               </View>
+              <DesignerStoreAffiliationBadge
+                compact
+                storeName={designer.storeName}
+                storeRegion={designer.storeRegion}
+              />
               <Text style={styles.cardStats}>
                 고객 {designer.customerCount}명 · 시술 {designer.treatmentCount}건 · 이번 달{' '}
                 {designer.monthTreatmentCount}건

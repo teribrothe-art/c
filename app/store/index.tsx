@@ -4,7 +4,9 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
+import { getOrgStoreForAccountUser } from '../../lib/org-store-affiliation';
 import { getVirtualStoreForScope } from '../../lib/org-virtual-simulation';
+import { getCurrentUser } from '../../lib/auth';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
@@ -18,13 +20,18 @@ export default function StoreHomeScreen() {
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [linkedStoreName, setLinkedStoreName] = useState<string | null>(null);
+  const [linkedStoreRegion, setLinkedStoreRegion] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setIsLoading(true);
 
-    fetchOrgDashboardSummary('store')
-      .then((data) => {
+    Promise.all([getCurrentUser(), fetchOrgDashboardSummary('store')])
+      .then(([user, data]) => {
         setSummary(data);
+        const linkedStore = user ? getOrgStoreForAccountUser(user) : getVirtualStoreForScope('store');
+        setLinkedStoreName(linkedStore?.name ?? null);
+        setLinkedStoreRegion(linkedStore?.region ?? null);
         setErrorMessage('');
       })
       .catch((error) => {
@@ -79,10 +86,14 @@ export default function StoreHomeScreen() {
               </View>
             </View>
 
-            {getVirtualStoreForScope('store') ? (
-              <Text style={styles.storeHint}>
-                {getVirtualStoreForScope('store')?.name} · {getVirtualStoreForScope('store')?.region}
-              </Text>
+            {linkedStoreName ? (
+              <View style={styles.storeBanner}>
+                <Text style={styles.storeBannerLabel}>연결 매장</Text>
+                <Text style={styles.storeBannerName}>{linkedStoreName}</Text>
+                {linkedStoreRegion ? (
+                  <Text style={styles.storeBannerRegion}>{linkedStoreRegion}</Text>
+                ) : null}
+              </View>
             ) : null}
 
             <View style={styles.quickRow}>
@@ -115,7 +126,8 @@ export default function StoreHomeScreen() {
                 <View>
                   <Text style={styles.menuTitle}>{designer.name}</Text>
                   <Text style={styles.menuMeta}>
-                    고객 {designer.customerCount}명 · 이번 달 시술 {designer.monthTreatmentCount}건
+                    {designer.storeName} · 고객 {designer.customerCount}명 · 이번 달 시술{' '}
+                    {designer.monthTreatmentCount}건
                   </Text>
                 </View>
                 <Text style={styles.menuAmount}>
@@ -201,11 +213,30 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
-  storeHint: {
-    color: '#0F766E',
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 8,
+  storeBanner: {
+    backgroundColor: '#E0F2FE',
+    borderColor: '#7DD3FC',
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 4,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  storeBannerLabel: {
+    color: '#0369A1',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  storeBannerName: {
+    color: '#0C4A6E',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  storeBannerRegion: {
+    color: '#0284C7',
+    fontSize: 12,
+    fontWeight: '600',
   },
   quickRow: {
     flexDirection: 'row',

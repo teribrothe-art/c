@@ -24,6 +24,7 @@ export function OrgDesignerRevenueScreen({ scope }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [designerName, setDesignerName] = useState('');
+  const [designerStoreLabel, setDesignerStoreLabel] = useState('');
 
   const load = useCallback(async () => {
     if (!designerId) {
@@ -51,6 +52,7 @@ export function OrgDesignerRevenueScreen({ scope }: Props) {
       }
 
       setDesignerName(access.designer.name);
+      setDesignerStoreLabel(`${access.designer.storeName} · ${access.designer.storeRegion}`);
       const data = await fetchDesignerRevenueAnalytics(undefined, undefined, designerId);
       setAnalytics(data);
       setErrorMessage('');
@@ -82,6 +84,7 @@ export function OrgDesignerRevenueScreen({ scope }: Props) {
         </Pressable>
 
         <Text style={styles.title}>{designerName || '디자이너'}</Text>
+        {designerStoreLabel ? <Text style={styles.storeLine}>{designerStoreLabel}</Text> : null}
         <Text style={styles.subtitle}>디자이너 매출 탭과 동일한 주간·월간 데이터</Text>
 
         {isLoading ? (
@@ -165,6 +168,13 @@ const styles = StyleSheet.create({
     color: '#1A1A2E',
     fontSize: 22,
     fontWeight: '900',
+  },
+  storeLine: {
+    color: '#0F766E',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 4,
+    marginTop: -4,
   },
   subtitle: {
     color: '#6B6B7B',

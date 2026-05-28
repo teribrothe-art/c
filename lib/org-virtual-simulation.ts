@@ -1,15 +1,15 @@
 import type { OrgScope } from './org-access';
 import type { OrgDashboardSummary, OrgDesignerMetrics } from './org-aggregates';
 import { getOrgDesignerRoster, type OrgDesignerRosterEntry } from './org-designer-roster';
+import {
+  ORG_STORE_DEFINITIONS,
+  STORE_SCOPE_STORE_ID,
+  type OrgStore,
+} from './org-store-affiliation';
 
 export type VirtualSimulationScenario = 'weekday' | 'weekend_peak' | 'month_end';
 
-export type VirtualStore = {
-  id: string;
-  name: string;
-  region: string;
-  designerIds: string[];
-};
+export type VirtualStore = OrgStore;
 
 export const VIRTUAL_SIMULATION_SCENARIOS: {
   key: VirtualSimulationScenario;
@@ -33,29 +33,10 @@ export const VIRTUAL_SIMULATION_SCENARIOS: {
   },
 ];
 
-/** 가상 매장 네트워크 (본사 시뮬레이션) */
-export const VIRTUAL_STORES: VirtualStore[] = [
-  {
-    id: 'virtual-store-gangnam',
-    name: '강남 본점',
-    region: '서울 강남',
-    designerIds: ['demo-designer-local', 'beta-designer-01', 'beta-designer-02'],
-  },
-  {
-    id: 'virtual-store-hongdae',
-    name: '홍대점',
-    region: '서울 마포',
-    designerIds: ['beta-designer-03', 'beta-designer-04'],
-  },
-  {
-    id: 'virtual-store-accum-lab',
-    name: '누적 테스트 Lab',
-    region: '데모 전용',
-    designerIds: ['test-designer-1y', 'test-designer-3y', 'test-designer-accum-5y'],
-  },
-];
+/** 가상 매장 네트워크 (본사 시뮬레이션) — org-store-affiliation 과 동기화 */
+export const VIRTUAL_STORES: VirtualStore[] = ORG_STORE_DEFINITIONS;
 
-const STORE_SCOPE_STORE_ID = 'virtual-store-gangnam';
+export { STORE_SCOPE_STORE_ID };
 
 function hashString(value: string) {
   let hash = 0;

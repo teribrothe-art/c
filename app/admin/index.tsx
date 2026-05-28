@@ -82,14 +82,22 @@ export default function AdminHomeScreen() {
             </View>
 
             <Text style={styles.sectionTitle}>가상 매장</Text>
-            {virtualStores.map((store) => (
-              <View key={store.id} style={styles.virtualStoreRow}>
-                <Text style={styles.virtualStoreName}>{store.name}</Text>
-                <Text style={styles.virtualStoreMeta}>
-                  {store.region} · 매출 {store.monthRevenue.toLocaleString('ko-KR')}원
-                </Text>
-              </View>
-            ))}
+            {virtualStores.map((store) => {
+              const storeDesigners = summary.designers.filter((designer) => designer.storeId === store.id);
+
+              return (
+                <View key={store.id} style={styles.virtualStoreRow}>
+                  <Text style={styles.virtualStoreName}>{store.name}</Text>
+                  <Text style={styles.virtualStoreMeta}>
+                    {store.region} · 디자이너 {store.designerCount}명 · 매출{' '}
+                    {store.monthRevenue.toLocaleString('ko-KR')}원
+                  </Text>
+                  <Text style={styles.virtualStoreDesigners} numberOfLines={2}>
+                    {storeDesigners.map((designer) => designer.name).join(' · ') || '연결 디자이너 없음'}
+                  </Text>
+                </View>
+              );
+            })}
 
             <View style={styles.quickRow}>
               <Link href="/admin/simulation" asChild>
@@ -123,7 +131,9 @@ export default function AdminHomeScreen() {
                   style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}>
                   <View>
                     <Text style={styles.menuTitle}>{designer.name}</Text>
-                    <Text style={styles.menuMeta}>{designer.subtitle ?? '디자이너'}</Text>
+                    <Text style={styles.menuMeta}>
+                      {designer.storeName} · {designer.storeRegion}
+                    </Text>
                   </View>
                   <Text style={styles.menuAmount}>
                     {designer.monthRevenue.toLocaleString('ko-KR')}원
@@ -227,6 +237,13 @@ const styles = StyleSheet.create({
     color: '#6B6B7B',
     fontSize: 12,
     fontWeight: '600',
+  },
+  virtualStoreDesigners: {
+    color: '#374151',
+    fontSize: 11,
+    fontWeight: '600',
+    lineHeight: 16,
+    marginTop: 4,
   },
   quickRow: {
     flexDirection: 'row',

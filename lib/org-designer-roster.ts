@@ -1,30 +1,54 @@
-import { DEMO_LOGIN_HINT } from './auth';
 import { BETA_DESIGNERS } from './beta-test-accounts';
 import { ACCUMULATED_TEST_DESIGNERS_PUBLIC } from './demo-accumulated-test-accounts';
+import {
+  DEMO_DESIGNER_ROSTER_SEED,
+  getDesignerStoreAffiliation,
+  STORE_SCOPE_STORE_ID,
+} from './org-store-affiliation';
 
 export type OrgDesignerRosterEntry = {
   id: string;
   name: string;
   email: string;
   subtitle?: string;
+  storeId: string;
+  storeName: string;
+  storeRegion: string;
 };
 
-const DEMO_DESIGNER: OrgDesignerRosterEntry = {
-  id: 'demo-designer-local',
-  name: '김미용 디자이너',
-  email: DEMO_LOGIN_HINT.designerEmail,
-  subtitle: '데모 매장 대표',
-};
+function enrichWithStore(entry: {
+  id: string;
+  name: string;
+  email: string;
+  subtitle?: string;
+}): OrgDesignerRosterEntry {
+  const affiliation = getDesignerStoreAffiliation(entry.id);
 
-const STORE_BETA_DESIGNERS = BETA_DESIGNERS.slice(0, 3).map((designer) => ({
-  id: designer.id,
-  name: designer.name,
-  email: designer.email,
-  subtitle: '소속 디자이너',
-}));
+  if (!affiliation) {
+    throw new Error(`매장 소속이 없습니다: ${entry.id}`);
+  }
 
-const ACCUMULATED_ROSTER: OrgDesignerRosterEntry[] = ACCUMULATED_TEST_DESIGNERS_PUBLIC.map(
-  (designer) => ({
+  return {
+    ...entry,
+    storeId: affiliation.store.id,
+    storeName: affiliation.store.name,
+    storeRegion: affiliation.store.region,
+  };
+}
+
+const DEMO_DESIGNER = enrichWithStore(DEMO_DESIGNER_ROSTER_SEED);
+
+const BETA_ROSTER = BETA_DESIGNERS.map((designer) =>
+  enrichWithStore({
+    id: designer.id,
+    name: designer.name,
+    email: designer.email,
+    subtitle: '베타 디자이너',
+  }),
+);
+
+const ACCUMULATED_ROSTER = ACCUMULATED_TEST_DESIGNERS_PUBLIC.map((designer) =>
+  enrichWithStore({
     id: designer.id,
     name: designer.loginLabel,
     email: designer.email,
@@ -32,21 +56,16 @@ const ACCUMULATED_ROSTER: OrgDesignerRosterEntry[] = ACCUMULATED_TEST_DESIGNERS_
   }),
 );
 
-/** 매장 소속 디자이너 (데모) */
-export function getStoreDesignerRoster(): OrgDesignerRosterEntry[] {
-  return [DEMO_DESIGNER, ...STORE_BETA_DESIGNERS];
+const FULL_ROSTER: OrgDesignerRosterEntry[] = [DEMO_DESIGNER, ...BETA_ROSTER, ...ACCUMULATED_ROSTER];
+
+/** 본사에서 조회 가능한 전체 디자이너 (모두 매장 연결) */
+export function getAdminDesignerRoster(): OrgDesignerRosterEntry[] {
+  return FULL_ROSTER;
 }
 
-/** 본사에서 조회 가능한 전체 디자이너 (데모) */
-export function getAdminDesignerRoster(): OrgDesignerRosterEntry[] {
-  const beta = BETA_DESIGNERS.map((designer) => ({
-    id: designer.id,
-    name: designer.name,
-    email: designer.email,
-    subtitle: '베타 디자이너',
-  }));
-
-  return [DEMO_DESIGNER, ...beta, ...ACCUMULATED_ROSTER];
+/** 매장 소속 디자이너 */
+export function getStoreDesignerRoster(storeId = STORE_SCOPE_STORE_ID): OrgDesignerRosterEntry[] {
+  return FULL_ROSTER.filter((entry) => entry.storeId === storeId);
 }
 
 export function getOrgDesignerRoster(scope: 'store' | 'admin'): OrgDesignerRosterEntry[] {

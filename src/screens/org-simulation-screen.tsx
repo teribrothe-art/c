@@ -141,7 +141,7 @@ export function OrgSimulationScreen({ scope }: Props) {
               <View key={designer.id} style={styles.designerRow}>
                 <Text style={styles.designerName}>{designer.name}</Text>
                 <Text style={styles.designerMeta}>
-                  시술 {designer.monthTreatmentCount}건 · 매출{' '}
+                  {designer.storeName} · 시술 {designer.monthTreatmentCount}건 · 매출{' '}
                   {designer.monthRevenue.toLocaleString('ko-KR')}원
                 </Text>
               </View>
