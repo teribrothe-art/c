@@ -18,6 +18,7 @@ import { getErrorMessage } from '../lib/errors';
 import { signInAndNavigate } from '../lib/quick-login-flow';
 import { colors, disabledButtonStyle } from '../lib/theme';
 import { validateEmail } from '../lib/validation';
+import { AppVersionBadge } from '../src/components/app-version-badge';
 import { InlineFieldError } from '../src/components/inline-field-error';
 
 export default function LoginScreen() {
@@ -183,6 +184,8 @@ export default function LoginScreen() {
               </>
             ) : null}
           </View>
+
+          <AppVersionBadge pinned />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

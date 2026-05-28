@@ -17,6 +17,7 @@ import { isDemoAuthMode } from '../lib/auth';
 import { getErrorMessage } from '../lib/errors';
 import { signInAndNavigate } from '../lib/quick-login-flow';
 import { colors } from '../lib/theme';
+import { AppVersionBadge } from '../src/components/app-version-badge';
 
 export default function TestLoginScreen() {
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -47,6 +48,7 @@ export default function TestLoginScreen() {
             <Text style={styles.backLinkText}>로그인으로 돌아가기</Text>
           </Pressable>
         </Link>
+        <AppVersionBadge pinned />
       </View>
     );
   }
@@ -113,6 +115,8 @@ export default function TestLoginScreen() {
           style={styles.backButton}>
           <Text style={styles.backButtonText}>일반 로그인으로 돌아가기</Text>
         </Pressable>
+
+        <AppVersionBadge pinned />
       </ScrollView>
     </KeyboardAvoidingView>
   );
