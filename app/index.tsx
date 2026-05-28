@@ -77,8 +77,10 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
-          <Text style={styles.title}>나만의 살롱</Text>
-          <Text style={styles.subtitle}>AI 헤어 다이어리</Text>
+          <View style={styles.titleBlock}>
+            <Text style={styles.title}>나만의 살롱</Text>
+            <Text style={styles.title}>AI 헤어 다이어리</Text>
+          </View>
 
           <View style={styles.form}>
             <View>
