@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ACCOUNT_SETTING_ITEMS } from '../../lib/account-settings';
 import { showConfirmAlert, showErrorAlert, showWarningAlert } from '../../lib/alerts';
-import { getCurrentUser, isDemoAuthMode, signOut } from '../../lib/auth';
+import { getCurrentUser, signOut } from '../../lib/auth';
 import { getErrorMessage } from '../../lib/errors';
 import { getProfileScreenData, type ProfileData } from '../../lib/profile';
 import { getProfileAvatarUri } from '../../lib/profile-update';
