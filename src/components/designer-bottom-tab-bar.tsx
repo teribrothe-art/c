@@ -3,11 +3,32 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const tabs: { href: Href; label: string }[] = [
+  { href: '/designer/welcome' as Href, label: '홈' },
   { href: '/designer/clients' as Href, label: '고객' },
   { href: '/designer/input' as Href, label: '시술' },
   { href: '/designer/revenue' as Href, label: '매출' },
   { href: '/profile' as Href, label: '정산' },
 ];
+
+function isDesignerTabSelected(pathname: string, href: string) {
+  if (pathname === href) {
+    return true;
+  }
+
+  if (href === '/designer/welcome') {
+    return false;
+  }
+
+  if (href === '/designer/clients') {
+    return pathname.startsWith('/designer/treatment/');
+  }
+
+  if (href === '/profile') {
+    return false;
+  }
+
+  return pathname.startsWith(`${href}/`);
+}
 
 export function DesignerBottomTabBar() {
   const pathname = usePathname();
@@ -17,10 +38,11 @@ export function DesignerBottomTabBar() {
     <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 12) }]}>
       <View style={styles.tabBar}>
         {tabs.map((tab) => {
-          const selected = pathname === tab.href;
+          const href = String(tab.href);
+          const selected = isDesignerTabSelected(pathname, href);
 
           return (
-            <Link href={tab.href} key={String(tab.href)} asChild>
+            <Link href={tab.href} key={href} asChild>
               <Pressable style={styles.tabItem}>
                 <View style={[styles.tabDot, selected && styles.tabDotSelected]} />
                 <Text style={[styles.tabLabel, selected && styles.tabLabelSelected]}>{tab.label}</Text>

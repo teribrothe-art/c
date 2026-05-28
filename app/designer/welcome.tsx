@@ -16,6 +16,7 @@ import { DESIGNER_WELCOME_SLIDES } from '../../lib/designer-welcome-slides';
 import { getProfileScreenData } from '../../lib/profile';
 import { colors } from '../../lib/theme';
 import { DesignerWelcomeCarousel } from '../../src/components/designer-welcome-carousel';
+import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
 import { LoadingState } from '../../src/components/loading-state';
 
 export default function DesignerWelcomeScreen() {
@@ -97,7 +98,7 @@ export default function DesignerWelcomeScreen() {
         {
           opacity: fadeAnim.current,
           paddingTop: insets.top + 12,
-          paddingBottom: Math.max(insets.bottom, 20),
+          paddingBottom: Math.max(insets.bottom, 20) + 88,
         },
       ]}>
       <StatusBar style="dark" />
@@ -119,6 +120,8 @@ export default function DesignerWelcomeScreen() {
         style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryPressed]}>
         <Text style={styles.primaryButtonText}>내 살롱으로 시작하기 →</Text>
       </Pressable>
+
+      <DesignerBottomTabBar />
     </Animated.View>
   );
 }
