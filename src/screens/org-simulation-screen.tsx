@@ -98,7 +98,9 @@ export function OrgSimulationScreen({ scope }: Props) {
             {scope === 'store' && storeEntity ? (
               <View style={styles.storeCard}>
                 <Text style={styles.storeName}>{storeEntity.name}</Text>
-                <Text style={styles.storeRegion}>{storeEntity.region} · 가상 매장</Text>
+                <Text style={styles.storeRegion}>
+                  {storeEntity.region} · {storeEntity.hotPlace}
+                </Text>
                 <Text style={styles.storeStats}>
                   이번 달 매출 {summary.monthRevenue.toLocaleString('ko-KR')}원 · 시술{' '}
                   {summary.monthTreatmentCount}건
@@ -119,20 +121,29 @@ export function OrgSimulationScreen({ scope }: Props) {
 
             {scope === 'admin' ? (
               <>
-                <Text style={styles.sectionLabel}>가상 매장 네트워크</Text>
-                {stores.map((store) => (
-                  <View key={store.id} style={styles.storeCard}>
-                    <Text style={styles.storeName}>{store.name}</Text>
-                    <Text style={styles.storeRegion}>
-                      {store.region} · 디자이너 {store.designerCount}명
-                    </Text>
-                    <Text style={styles.storeStats}>
-                      매출 {store.monthRevenue.toLocaleString('ko-KR')}원 · 고객{' '}
-                      {store.customerCount}명 · 정산대기{' '}
-                      {store.pendingPayoutAmount.toLocaleString('ko-KR')}원
-                    </Text>
-                  </View>
-                ))}
+                <Text style={styles.sectionLabel}>지역별 핫플레이스</Text>
+                {stores.map((store) => {
+                  const storeDesigners = summary.designers.filter(
+                    (designer) => designer.storeId === store.id,
+                  );
+
+                  return (
+                    <View key={store.id} style={styles.storeCard}>
+                      <Text style={styles.storeName}>{store.name}</Text>
+                      <Text style={styles.storeRegion}>
+                        {store.hotPlace} · 디자이너 {store.designerCount}명
+                      </Text>
+                      <Text style={styles.storeStats}>
+                        매출 {store.monthRevenue.toLocaleString('ko-KR')}원 · 고객{' '}
+                        {store.customerCount}명 · 정산대기{' '}
+                        {store.pendingPayoutAmount.toLocaleString('ko-KR')}원
+                      </Text>
+                      <Text style={styles.storeDesignerNames} numberOfLines={2}>
+                        {storeDesigners.map((designer) => designer.name).join(' · ')}
+                      </Text>
+                    </View>
+                  );
+                })}
               </>
             ) : null}
 
@@ -229,6 +240,13 @@ const styles = StyleSheet.create({
     color: '#0F766E',
     fontSize: 13,
     fontWeight: '700',
+  },
+  storeDesignerNames: {
+    color: '#374151',
+    fontSize: 11,
+    fontWeight: '600',
+    lineHeight: 16,
+    marginTop: 6,
   },
   timelineRow: {
     backgroundColor: '#FFFFFF',

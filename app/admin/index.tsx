@@ -52,7 +52,7 @@ export default function AdminHomeScreen() {
         showsVerticalScrollIndicator={false}>
         <Text style={styles.badge}>ADMIN</Text>
         <Text style={styles.title}>본사</Text>
-        <Text style={styles.subtitle}>가상 매장 네트워크 시뮬레이션과 실데이터를 함께 봅니다.</Text>
+        <Text style={styles.subtitle}>지역별 핫플레이스 매장과 디자이너 매출·시술 데이터를 함께 봅니다.</Text>
 
         <VirtualSimulationBanner scenario="weekday" />
 
@@ -92,7 +92,7 @@ export default function AdminHomeScreen() {
               ]}
             />
 
-            <Text style={styles.sectionTitle}>가상 매장</Text>
+            <Text style={styles.sectionTitle}>지역별 핫플레이스</Text>
             {virtualStores.map((store) => {
               const storeDesigners = summary.designers.filter((designer) => designer.storeId === store.id);
 
@@ -103,6 +103,7 @@ export default function AdminHomeScreen() {
                     {store.region} · 디자이너 {store.designerCount}명 · 매출{' '}
                     {store.monthRevenue.toLocaleString('ko-KR')}원
                   </Text>
+                  <Text style={styles.virtualStoreHotPlace}>{store.hotPlace}</Text>
                   <Text style={styles.virtualStoreDesigners} numberOfLines={2}>
                     {storeDesigners.map((designer) => designer.name).join(' · ') || '연결 디자이너 없음'}
                   </Text>
@@ -217,6 +218,12 @@ const styles = StyleSheet.create({
     color: '#6B6B7B',
     fontSize: 12,
     fontWeight: '600',
+  },
+  virtualStoreHotPlace: {
+    color: '#0F766E',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
   },
   virtualStoreDesigners: {
     color: '#374151',

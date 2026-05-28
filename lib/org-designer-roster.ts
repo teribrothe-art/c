@@ -32,7 +32,7 @@ function enrichWithStore(entry: {
     ...entry,
     storeId: affiliation.store.id,
     storeName: affiliation.store.name,
-    storeRegion: affiliation.store.region,
+    storeRegion: affiliation.store.hotPlace,
   };
 }
 

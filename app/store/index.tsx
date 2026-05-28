@@ -34,7 +34,7 @@ export default function StoreHomeScreen() {
         setSummary(data);
         const linkedStore = user ? getOrgStoreForAccountUser(user) : getVirtualStoreForScope('store');
         setLinkedStoreName(linkedStore?.name ?? null);
-        setLinkedStoreRegion(linkedStore?.region ?? null);
+        setLinkedStoreRegion(linkedStore?.hotPlace ?? linkedStore?.region ?? null);
         setErrorMessage('');
       })
       .catch((error) => {
@@ -60,7 +60,7 @@ export default function StoreHomeScreen() {
         showsVerticalScrollIndicator={false}>
         <Text style={styles.badge}>STORE</Text>
         <Text style={styles.title}>매장</Text>
-        <Text style={styles.subtitle}>가상 시뮬레이션과 연동된 매장 운영 화면입니다.</Text>
+        <Text style={styles.subtitle}>지역 핫플레이스 매장과 연동된 디자이너·매출을 확인합니다.</Text>
 
         <VirtualSimulationBanner scenario="weekday" />
 
