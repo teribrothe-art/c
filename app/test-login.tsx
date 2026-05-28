@@ -15,12 +15,15 @@ import {
 import {
   ACCUMULATED_LOGIN_CUSTOMER_COUNT,
   DEMO_LOGIN_GROUPS,
+  DESIGNER_LOGIN_COUNT,
   type DemoLoginAccount,
   type DemoLoginGroupKey,
+  demoLoginGroupListsAllWhenExpanded,
+  getDemoLoginSearchPlaceholder,
   isCollapsibleDemoLoginGroup,
   isSearchableDemoLoginGroup,
 } from '../lib/demo-login-accounts';
-import { filterDemoLoginCustomerAccounts } from '../lib/demo-login-customer-search';
+import { filterDemoLoginAccounts } from '../lib/demo-login-account-search';
 import { showLoginFailureAlert } from '../lib/alerts';
 import { isDemoAuthMode } from '../lib/auth';
 import { getErrorMessage } from '../lib/errors';
@@ -34,9 +37,9 @@ type DemoLoginGroupSectionProps = {
   accounts: DemoLoginAccount[];
   expanded: boolean;
   loadingId: string | null;
-  signupCustomerSearch: string;
+  groupSearch: string;
   onToggle: () => void;
-  onSignupCustomerSearchChange: (value: string) => void;
+  onGroupSearchChange: (value: string) => void;
   onLogin: (id: string, email: string, password: string) => void;
 };
 
@@ -46,26 +49,42 @@ function DemoLoginGroupSection({
   accounts,
   expanded,
   loadingId,
-  signupCustomerSearch,
+  groupSearch,
   onToggle,
-  onSignupCustomerSearchChange,
+  onGroupSearchChange,
   onLogin,
 }: DemoLoginGroupSectionProps) {
   const collapsible = isCollapsibleDemoLoginGroup(title);
   const searchable = isSearchableDemoLoginGroup(title);
+  const listAllWhenExpanded = demoLoginGroupListsAllWhenExpanded(title);
   const countLabel = `${accounts.length}명`;
 
-  const customerSearchResult = useMemo(() => {
+  const searchResult = useMemo(() => {
     if (!searchable) {
       return null;
     }
 
-    return filterDemoLoginCustomerAccounts(accounts, signupCustomerSearch);
-  }, [accounts, searchable, signupCustomerSearch]);
+    return filterDemoLoginAccounts(accounts, groupSearch);
+  }, [accounts, groupSearch, searchable]);
 
-  const visibleAccounts = searchable ? (customerSearchResult?.accounts ?? []) : accounts;
-  const searchQuery = signupCustomerSearch.trim();
+  const searchQuery = groupSearch.trim();
+  const visibleAccounts = useMemo(() => {
+    if (!searchable) {
+      return accounts;
+    }
+
+    if (!searchQuery && listAllWhenExpanded) {
+      return accounts;
+    }
+
+    return searchResult?.accounts ?? [];
+  }, [accounts, listAllWhenExpanded, searchQuery, searchResult, searchable]);
+
   const showSearchPanel = searchable && expanded;
+  const canShowList =
+    (!collapsible || expanded) &&
+    visibleAccounts.length > 0 &&
+    (listAllWhenExpanded || searchQuery.length > 0);
 
   return (
     <View style={styles.group}>
@@ -95,25 +114,27 @@ function DemoLoginGroupSection({
             autoCapitalize="none"
             autoCorrect={false}
             clearButtonMode="while-editing"
-            onChangeText={onSignupCustomerSearchChange}
-            placeholder="이름 · 이메일 · 1년/2년/3년/5년 누적"
+            onChangeText={onGroupSearchChange}
+            placeholder={getDemoLoginSearchPlaceholder(title)}
             placeholderTextColor="#9CA3AF"
             style={styles.searchInput}
-            value={signupCustomerSearch}
+            value={groupSearch}
           />
           <Text style={styles.searchHint}>
             {searchQuery
-              ? customerSearchResult?.totalMatches === 0
+              ? searchResult?.totalMatches === 0
                 ? '검색 결과가 없습니다.'
-                : customerSearchResult?.truncated
-                  ? `${customerSearchResult.totalMatches}명 일치 · 상위 ${visibleAccounts.length}명 표시`
-                  : `${customerSearchResult?.totalMatches ?? 0}명 표시`
-              : `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT}명 — 검색어를 입력하면 목록이 표시됩니다`}
+                : searchResult?.truncated
+                  ? `${searchResult.totalMatches}명 일치 · 상위 ${visibleAccounts.length}명 표시`
+                  : `${searchResult?.totalMatches ?? 0}명 표시`
+              : listAllWhenExpanded
+                ? `총 ${DESIGNER_LOGIN_COUNT}명 · 아래에서 탭하면 로그인`
+                : `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT}명 — 검색어를 입력하면 목록이 표시됩니다`}
           </Text>
         </View>
       ) : null}
 
-      {(!collapsible || expanded) && (!searchable || searchQuery.length > 0) && visibleAccounts.length > 0 ? (
+      {canShowList ? (
         <View style={[styles.card, collapsible && styles.cardIndented]}>
           {visibleAccounts.map((account, index) => (
             <AccountRow
@@ -176,6 +197,7 @@ export default function TestLoginScreen() {
   const [expandedGroups, setExpandedGroups] = useState<Partial<Record<DemoLoginGroupKey, boolean>>>(
     {},
   );
+  const [designerSearch, setDesignerSearch] = useState('');
   const [signupCustomerSearch, setSignupCustomerSearch] = useState('');
 
   const handleAccountLogin = useCallback(async (id: string, email: string, password: string) => {
@@ -235,11 +257,13 @@ export default function TestLoginScreen() {
             accounts={group.accounts}
             description={group.description}
             expanded={Boolean(expandedGroups[group.title])}
+            groupSearch={group.title === '디자이너' ? designerSearch : signupCustomerSearch}
             loadingId={loadingId}
+            onGroupSearchChange={
+              group.title === '디자이너' ? setDesignerSearch : setSignupCustomerSearch
+            }
             onLogin={(id, email, password) => void handleAccountLogin(id, email, password)}
-            onSignupCustomerSearchChange={setSignupCustomerSearch}
             onToggle={() => toggleGroup(group.title)}
-            signupCustomerSearch={signupCustomerSearch}
             title={group.title}
           />
         ))}
