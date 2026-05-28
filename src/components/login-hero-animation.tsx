@@ -11,9 +11,9 @@ import {
 
 import { colors } from '../../lib/theme';
 
-/** 로그인 배너 그리드 (가로 3 × 세로 2) */
+/** 로그인 배너 그리드 (가로 3 × 세로 1) */
 const GRID_COLUMNS = 3;
-const GRID_ROWS = 2;
+const GRID_ROWS = 1;
 const HORIZONTAL_INSET = 56;
 
 const HERO_MESSAGES = [
@@ -212,17 +212,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   floatTopLeft: {
-    left: 14,
-    top: 14,
+    left: 10,
+    top: 6,
   },
   floatTopRight: {
-    right: 14,
-    top: 14,
+    right: 10,
+    top: 6,
   },
   floatBottomRight: {
-    bottom: 14,
-    fontSize: 22,
-    right: 14,
+    bottom: 6,
+    fontSize: 20,
+    right: 10,
   },
   messageCenter: {
     alignItems: 'center',
