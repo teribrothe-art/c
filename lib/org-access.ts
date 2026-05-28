@@ -22,6 +22,7 @@ export function canViewOrgDesignerData(role: UserRole | null | undefined) {
 export function resolveOrgDesignerAccess(
   role: UserRole | null | undefined,
   designerId: string,
+  storeOrgId?: string,
 ): { scope: OrgScope; designer: OrgDesignerRosterEntry } | null {
   const scope = orgScopeForRole(role);
 
@@ -29,7 +30,7 @@ export function resolveOrgDesignerAccess(
     return null;
   }
 
-  const designer = findOrgDesigner(scope, designerId);
+  const designer = findOrgDesigner(scope, designerId, scope === 'store' ? storeOrgId : undefined);
 
   if (!designer) {
     return null;

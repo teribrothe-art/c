@@ -5,12 +5,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { OrgScope } from '../../lib/org-access';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
+import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
 import {
   buildVirtualStoreSummaries,
   getSimulationTimeline,
   getVirtualStoreForScope,
   VIRTUAL_SIMULATION_SCENARIOS,
   type VirtualSimulationScenario,
+  type VirtualStore,
   type VirtualStoreSummary,
 } from '../../lib/org-virtual-simulation';
 import { getErrorMessage } from '../../lib/errors';
@@ -31,15 +33,26 @@ export function OrgSimulationScreen({ scope }: Props) {
   const [scenario, setScenario] = useState<VirtualSimulationScenario>('weekday');
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [stores, setStores] = useState<VirtualStoreSummary[]>([]);
+  const [storeEntity, setStoreEntity] = useState<VirtualStore | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const load = useCallback(() => {
     setIsLoading(true);
 
-    fetchOrgDashboardSummary(scope, { scenario, withVirtualSimulation: true })
-      .then((simulated) => {
+    const storeOrgPromise = scope === 'store' ? resolveCurrentStoreOrgId() : Promise.resolve(undefined);
+
+    storeOrgPromise
+      .then((storeOrgId) =>
+        fetchOrgDashboardSummary(scope, {
+          scenario,
+          withVirtualSimulation: true,
+          storeOrgId,
+        }).then((simulated) => ({ simulated, storeOrgId })),
+      )
+      .then(({ simulated, storeOrgId }) => {
         setSummary(simulated);
         setStores(scope === 'admin' ? buildVirtualStoreSummaries(simulated) : []);
+        setStoreEntity(scope === 'store' ? getVirtualStoreForScope('store', storeOrgId) : null);
       })
       .catch(() => {
         setSummary(null);
@@ -55,7 +68,6 @@ export function OrgSimulationScreen({ scope }: Props) {
   );
 
   const timeline = getSimulationTimeline(scenario);
-  const storeEntity = getVirtualStoreForScope(scope);
   const TabBar = scope === 'store' ? StoreBottomTabBar : AdminBottomTabBar;
 
   return (

@@ -10,8 +10,8 @@ import {
   ACCUMULATED_TEST_DESIGNERS_PUBLIC,
   ACCUMULATED_TEST_PASSWORD,
 } from './demo-accumulated-test-accounts';
-import { formatDesignerStoreLabel } from './org-store-affiliation';
-import { STORE_TEST_PUBLIC } from './store-test-accounts';
+import { formatDesignerStoreLabel, ORG_STORE_DEFINITIONS } from './org-store-affiliation';
+import { STORE_TEST_ACCOUNTS } from './store-test-accounts';
 import { colors } from './theme';
 
 export type DemoLoginAccount = {
@@ -27,18 +27,19 @@ export type DemoLoginAccount = {
 };
 
 /** 테스트 로그인 화면 분류 순서 */
-export const DEMO_LOGIN_GROUP_ORDER = ['기본', '디자이너', '가입고객'] as const;
+export const DEMO_LOGIN_GROUP_ORDER = ['기본', '매장', '디자이너', '가입고객'] as const;
 
 export type DemoLoginGroupKey = (typeof DEMO_LOGIN_GROUP_ORDER)[number];
 
 export const DEMO_LOGIN_GROUP_DESCRIPTIONS: Record<DemoLoginGroupKey, string> = {
-  기본: '고객 · 매장 · 본사 데모 계정',
+  기본: '고객 · 본사 데모 계정',
+  매장: '지역 핫플레이스 매장 전체 — 펼치면 목록 · 검색 가능',
   디자이너: '데모 · 베타 · 누적(1·2·3·5년) 전체 — 펼치면 목록 · 검색 가능',
   가입고객: '누적 테스트 디자이너 연동 고객 — 펼친 뒤 이름·이메일로 검색',
 };
 
 /** 탭하면 계정 목록을 펼치는 그룹 */
-export const DEMO_LOGIN_COLLAPSIBLE_GROUPS: DemoLoginGroupKey[] = ['디자이너', '가입고객'];
+export const DEMO_LOGIN_COLLAPSIBLE_GROUPS: DemoLoginGroupKey[] = ['매장', '디자이너', '가입고객'];
 
 export function isCollapsibleDemoLoginGroup(title: DemoLoginGroupKey) {
   return DEMO_LOGIN_COLLAPSIBLE_GROUPS.includes(title);
@@ -46,15 +47,19 @@ export function isCollapsibleDemoLoginGroup(title: DemoLoginGroupKey) {
 
 /** 검색창 표시 (디자이너·가입고객) */
 export function isSearchableDemoLoginGroup(title: DemoLoginGroupKey) {
-  return title === '디자이너' || title === '가입고객';
+  return title === '매장' || title === '디자이너' || title === '가입고객';
 }
 
-/** 펼치면 검색 없이 전체 목록 표시 (디자이너 10명) */
+/** 펼치면 검색 없이 전체 목록 표시 */
 export function demoLoginGroupListsAllWhenExpanded(title: DemoLoginGroupKey) {
-  return title === '디자이너';
+  return title === '매장' || title === '디자이너';
 }
 
 export function getDemoLoginSearchPlaceholder(title: DemoLoginGroupKey) {
+  if (title === '매장') {
+    return '매장명 · 지역 · 핫플레이스 · 이메일';
+  }
+
   if (title === '디자이너') {
     return '이름 · 이메일 · 데모/베타/누적 · 매장명';
   }
@@ -173,6 +178,41 @@ export const ALL_DESIGNER_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
 
 export const DESIGNER_LOGIN_COUNT = ALL_DESIGNER_LOGIN_ACCOUNTS.length;
 
+function storeSearchHaystack(parts: string[]) {
+  return parts.join(' ').toLowerCase();
+}
+
+const STORE_LOGIN_ACCOUNTS: DemoLoginAccount[] = STORE_TEST_ACCOUNTS.map((account) => {
+  const orgStore = ORG_STORE_DEFINITIONS.find((store) => store.id === account.linkedOrgStoreId);
+  const designerCount = orgStore?.designerIds.length ?? 0;
+  const isLegacy = account.id === 'store-test';
+
+  return {
+    id: account.id,
+    group: '매장',
+    roleLabel: isLegacy ? '레거시' : '매장',
+    loginLabel: isLegacy ? `${orgStore?.name ?? account.name} (store@)` : (orgStore?.name ?? account.name),
+    email: account.email,
+    password: account.password,
+    meta: orgStore
+      ? `${orgStore.region} · ${orgStore.hotPlace} · 디자이너 ${designerCount}명`
+      : undefined,
+    accent: '#0284C7',
+    searchHaystack: storeSearchHaystack([
+      '매장',
+      account.name,
+      account.email,
+      account.id,
+      orgStore?.name ?? '',
+      orgStore?.region ?? '',
+      orgStore?.hotPlace ?? '',
+      isLegacy ? 'store@ 레거시' : '',
+    ]),
+  };
+});
+
+export const STORE_LOGIN_COUNT = STORE_LOGIN_ACCOUNTS.length;
+
 const BASIC_ACCOUNTS: DemoLoginAccount[] = [
   {
     id: 'demo-customer',
@@ -182,15 +222,6 @@ const BASIC_ACCOUNTS: DemoLoginAccount[] = [
     email: DEMO_LOGIN_HINT.customerEmail,
     password: DEMO_LOGIN_HINT.customerPassword,
     accent: colors.coral,
-  },
-  {
-    id: STORE_TEST_PUBLIC.id,
-    group: '기본',
-    roleLabel: '매장',
-    loginLabel: '데모 매장',
-    email: STORE_TEST_PUBLIC.email,
-    password: STORE_TEST_PUBLIC.password,
-    accent: '#0284C7',
   },
   {
     id: ADMIN_TEST_PUBLIC.id,
@@ -233,6 +264,7 @@ const REGISTERED_CUSTOMER_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_CUSTOMER_LO
 
 export const DEMO_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
   ...BASIC_ACCOUNTS,
+  ...STORE_LOGIN_ACCOUNTS,
   ...ALL_DESIGNER_LOGIN_ACCOUNTS,
   ...REGISTERED_CUSTOMER_ACCOUNTS,
 ];

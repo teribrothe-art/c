@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import { getOrgStoreForAccountUser } from '../../lib/org-store-affiliation';
+import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
 import { getVirtualStoreForScope } from '../../lib/org-virtual-simulation';
 import { getCurrentUser } from '../../lib/auth';
 import { getErrorMessage } from '../../lib/errors';
@@ -29,10 +30,19 @@ export default function StoreHomeScreen() {
   const load = useCallback(() => {
     setIsLoading(true);
 
-    Promise.all([getCurrentUser(), fetchOrgDashboardSummary('store')])
-      .then(([user, data]) => {
+    Promise.all([getCurrentUser(), resolveCurrentStoreOrgId()])
+      .then(([user, storeOrgId]) =>
+        fetchOrgDashboardSummary('store', { storeOrgId }).then((data) => ({
+          user,
+          data,
+          storeOrgId,
+        })),
+      )
+      .then(({ user, data, storeOrgId }) => {
         setSummary(data);
-        const linkedStore = user ? getOrgStoreForAccountUser(user) : getVirtualStoreForScope('store');
+        const linkedStore =
+          (user ? getOrgStoreForAccountUser(user) : null) ??
+          getVirtualStoreForScope('store', storeOrgId);
         setLinkedStoreName(linkedStore?.name ?? null);
         setLinkedStoreRegion(linkedStore?.hotPlace ?? linkedStore?.region ?? null);
         setErrorMessage('');

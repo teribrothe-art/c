@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getPaymentByTreatmentId } from '../../lib/payment-record';
 import { resolveOrgDesignerAccess } from '../../lib/org-access';
 import type { OrgScope } from '../../lib/org-access';
+import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
 import { getCurrentUser } from '../../lib/auth';
 import { normalizePaymentStatus } from '../../lib/payment-status';
 import { fetchDesignerLedgerForDesignerId } from '../../lib/services/designer-ledger-service';
@@ -68,7 +69,8 @@ export function OrgTreatmentDetailScreen({ scope }: Props) {
         return;
       }
 
-      const access = resolveOrgDesignerAccess(user.role, loaded.designer_id);
+      const storeOrgId = scope === 'store' ? await resolveCurrentStoreOrgId() : undefined;
+      const access = resolveOrgDesignerAccess(user.role, loaded.designer_id, storeOrgId);
 
       if (!access) {
         setErrorMessage('조회 권한이 없습니다.');

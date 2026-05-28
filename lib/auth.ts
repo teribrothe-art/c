@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { ADMIN_TEST_ACCOUNT } from './admin-test-accounts';
-import { STORE_TEST_ACCOUNT } from './store-test-accounts';
+import { STORE_TEST_ACCOUNTS } from './store-test-accounts';
 import { BETA_CUSTOMERS, BETA_DESIGNERS } from './beta-test-accounts';
 import { ACCUMULATED_TEST_ACCOUNTS } from './demo-accumulated-test-accounts';
 import { isSupabaseConfigured, supabase } from './supabase';
@@ -94,7 +94,7 @@ async function ensureDemoUsersSeeded() {
 
   for (const seeded of [
     ...SEEDED_DEMO_USERS,
-    STORE_TEST_ACCOUNT,
+    ...STORE_TEST_ACCOUNTS,
     ADMIN_TEST_ACCOUNT,
     ...BETA_DESIGNERS,
     ...BETA_CUSTOMERS,

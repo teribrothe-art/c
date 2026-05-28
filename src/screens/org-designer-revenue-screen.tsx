@@ -8,6 +8,7 @@ import {
   type DesignerRevenueAnalytics,
 } from '../../lib/designer-revenue-analytics';
 import { resolveOrgDesignerAccess, type OrgScope } from '../../lib/org-access';
+import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
 import { getCurrentUser } from '../../lib/auth';
 import { getErrorMessage } from '../../lib/errors';
 import { LoadingState } from '../components/loading-state';
@@ -43,7 +44,8 @@ export function OrgDesignerRevenueScreen({ scope }: Props) {
         return;
       }
 
-      const access = resolveOrgDesignerAccess(user.role, designerId);
+      const storeOrgId = scope === 'store' ? await resolveCurrentStoreOrgId() : undefined;
+      const access = resolveOrgDesignerAccess(user.role, designerId, storeOrgId);
 
       if (!access) {
         setErrorMessage('조회 권한이 없습니다.');

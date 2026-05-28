@@ -16,6 +16,7 @@ import {
   ACCUMULATED_LOGIN_CUSTOMER_COUNT,
   DEMO_LOGIN_GROUPS,
   DESIGNER_LOGIN_COUNT,
+  STORE_LOGIN_COUNT,
   type DemoLoginAccount,
   type DemoLoginGroupKey,
   demoLoginGroupListsAllWhenExpanded,
@@ -57,7 +58,8 @@ function DemoLoginGroupSection({
   const collapsible = isCollapsibleDemoLoginGroup(title);
   const searchable = isSearchableDemoLoginGroup(title);
   const listAllWhenExpanded = demoLoginGroupListsAllWhenExpanded(title);
-  const countLabel = `${accounts.length}명`;
+  const countUnit = title === '매장' ? '곳' : '명';
+  const countLabel = `${accounts.length}${countUnit}`;
 
   const searchResult = useMemo(() => {
     if (!searchable) {
@@ -128,7 +130,9 @@ function DemoLoginGroupSection({
                   ? `${searchResult.totalMatches}명 일치 · 상위 ${visibleAccounts.length}명 표시`
                   : `${searchResult?.totalMatches ?? 0}명 표시`
               : listAllWhenExpanded
-                ? `총 ${DESIGNER_LOGIN_COUNT}명 · 아래에서 탭하면 로그인`
+                ? title === '매장'
+                  ? `총 ${STORE_LOGIN_COUNT}곳 · 아래에서 탭하면 로그인`
+                  : `총 ${DESIGNER_LOGIN_COUNT}명 · 아래에서 탭하면 로그인`
                 : `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT}명 — 검색어를 입력하면 목록이 표시됩니다`}
           </Text>
         </View>
@@ -197,6 +201,7 @@ export default function TestLoginScreen() {
   const [expandedGroups, setExpandedGroups] = useState<Partial<Record<DemoLoginGroupKey, boolean>>>(
     {},
   );
+  const [storeSearch, setStoreSearch] = useState('');
   const [designerSearch, setDesignerSearch] = useState('');
   const [signupCustomerSearch, setSignupCustomerSearch] = useState('');
 
@@ -257,10 +262,20 @@ export default function TestLoginScreen() {
             accounts={group.accounts}
             description={group.description}
             expanded={Boolean(expandedGroups[group.title])}
-            groupSearch={group.title === '디자이너' ? designerSearch : signupCustomerSearch}
+            groupSearch={
+              group.title === '매장'
+                ? storeSearch
+                : group.title === '디자이너'
+                  ? designerSearch
+                  : signupCustomerSearch
+            }
             loadingId={loadingId}
             onGroupSearchChange={
-              group.title === '디자이너' ? setDesignerSearch : setSignupCustomerSearch
+              group.title === '매장'
+                ? setStoreSearch
+                : group.title === '디자이너'
+                  ? setDesignerSearch
+                  : setSignupCustomerSearch
             }
             onLogin={(id, email, password) => void handleAccountLogin(id, email, password)}
             onToggle={() => toggleGroup(group.title)}

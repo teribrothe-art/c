@@ -1,7 +1,7 @@
 import { DEMO_LOGIN_HINT } from './auth';
 import { BETA_DESIGNERS } from './beta-test-accounts';
 import { ACCUMULATED_TEST_DESIGNERS_PUBLIC } from './demo-accumulated-test-accounts';
-import { STORE_TEST_ACCOUNT } from './store-test-accounts';
+import { resolveStoreOrgIdForUser } from './store-test-accounts';
 
 export type OrgStore = {
   id: string;
@@ -135,9 +135,15 @@ export function getDesignerIdsForStore(storeId: string) {
   return getOrgStoreById(resolved)?.designerIds ?? [];
 }
 
-export function getOrgStoreForAccountUser(user: { id: string; role?: string | null }) {
-  if (user.role === 'store' && user.id === STORE_TEST_ACCOUNT.id) {
-    return getOrgStoreById(STORE_ACCOUNT_LINKED_STORE_ID) ?? null;
+export function getOrgStoreForAccountUser(user: {
+  id: string;
+  role?: string | null;
+  email?: string;
+}) {
+  const linkedStoreId = resolveStoreOrgIdForUser(user);
+
+  if (linkedStoreId) {
+    return getOrgStoreById(linkedStoreId) ?? null;
   }
 
   if (user.role === 'designer') {

@@ -4,6 +4,7 @@ import {
 } from './customer-invitations';
 import type { OrgScope } from './org-access';
 import { getOrgDesignerRoster } from './org-designer-roster';
+import { resolveStoreOrgIdForOrgScope } from './org-store-scope';
 
 export type OrgClientListItem = DesignerClientListItem & {
   designerId: string;
@@ -11,8 +12,12 @@ export type OrgClientListItem = DesignerClientListItem & {
   designerStoreName: string;
 };
 
-export async function getOrgClientListItems(scope: OrgScope): Promise<OrgClientListItem[]> {
-  const roster = getOrgDesignerRoster(scope);
+export async function getOrgClientListItems(
+  scope: OrgScope,
+  options?: { storeOrgId?: string },
+): Promise<OrgClientListItem[]> {
+  const storeOrgId = await resolveStoreOrgIdForOrgScope(scope, options?.storeOrgId);
+  const roster = getOrgDesignerRoster(scope, storeOrgId);
   const rows: OrgClientListItem[] = [];
 
   for (const designer of roster) {

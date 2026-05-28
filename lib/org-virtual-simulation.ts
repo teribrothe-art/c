@@ -144,9 +144,11 @@ export function buildVirtualStoreSummaries(summary: OrgDashboardSummary): Virtua
   });
 }
 
-export function getVirtualStoreForScope(scope: OrgScope) {
+export function getVirtualStoreForScope(scope: OrgScope, storeOrgId?: string) {
   if (scope === 'store') {
-    return VIRTUAL_STORES.find((store) => store.id === STORE_SCOPE_STORE_ID) ?? VIRTUAL_STORES[0];
+    const resolvedId = storeOrgId ?? STORE_SCOPE_STORE_ID;
+
+    return VIRTUAL_STORES.find((store) => store.id === resolvedId) ?? VIRTUAL_STORES[0];
   }
 
   return null;
@@ -166,12 +168,13 @@ export function getSimulationTimeline(scenario: VirtualSimulationScenario) {
 export function filterSummaryForStoreScope(
   summary: OrgDashboardSummary,
   scope: OrgScope,
+  storeOrgId?: string,
 ): OrgDashboardSummary {
   if (scope !== 'store') {
     return summary;
   }
 
-  const store = getVirtualStoreForScope('store');
+  const store = getVirtualStoreForScope('store', storeOrgId);
   const allowed = new Set(store?.designerIds ?? []);
   const designers = summary.designers.filter((designer) => allowed.has(designer.id));
 

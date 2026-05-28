@@ -68,17 +68,25 @@ export function getStoreDesignerRoster(storeId = STORE_SCOPE_STORE_ID): OrgDesig
   return FULL_ROSTER.filter((entry) => entry.storeId === storeId);
 }
 
-export function getOrgDesignerRoster(scope: 'store' | 'admin'): OrgDesignerRosterEntry[] {
-  return scope === 'store' ? getStoreDesignerRoster() : getAdminDesignerRoster();
+export function getOrgDesignerRoster(
+  scope: 'store' | 'admin',
+  storeOrgId?: string,
+): OrgDesignerRosterEntry[] {
+  return scope === 'store' ? getStoreDesignerRoster(storeOrgId) : getAdminDesignerRoster();
 }
 
 export function findOrgDesigner(
   scope: 'store' | 'admin',
   designerId: string,
+  storeOrgId?: string,
 ): OrgDesignerRosterEntry | undefined {
-  return getOrgDesignerRoster(scope).find((entry) => entry.id === designerId);
+  return getOrgDesignerRoster(scope, storeOrgId).find((entry) => entry.id === designerId);
 }
 
-export function isDesignerInOrgScope(scope: 'store' | 'admin', designerId: string) {
-  return Boolean(findOrgDesigner(scope, designerId));
+export function isDesignerInOrgScope(
+  scope: 'store' | 'admin',
+  designerId: string,
+  storeOrgId?: string,
+) {
+  return Boolean(findOrgDesigner(scope, designerId, storeOrgId));
 }

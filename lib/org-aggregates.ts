@@ -3,6 +3,7 @@ import { calculatePaymentFees, type PaymentRecord } from './payment-record';
 import { fetchDesignerLedgerForDesignerId } from './services/designer-ledger-service';
 import { getOrgDesignerRoster, type OrgDesignerRosterEntry } from './org-designer-roster';
 import type { OrgScope } from './org-access';
+import { resolveStoreOrgIdForOrgScope } from './org-store-scope';
 import {
   applyVirtualSimulationToSummary,
   filterSummaryForStoreScope,
@@ -109,10 +110,15 @@ async function metricsForDesigner(
 
 export async function fetchOrgDashboardSummary(
   scope: OrgScope,
-  options?: { scenario?: VirtualSimulationScenario; withVirtualSimulation?: boolean },
+  options?: {
+    scenario?: VirtualSimulationScenario;
+    withVirtualSimulation?: boolean;
+    storeOrgId?: string;
+  },
 ): Promise<OrgDashboardSummary> {
   const monthKey = currentMonthKey();
-  const roster = getOrgDesignerRoster(scope);
+  const storeOrgId = await resolveStoreOrgIdForOrgScope(scope, options?.storeOrgId);
+  const roster = getOrgDesignerRoster(scope, storeOrgId);
   const designers = await Promise.all(roster.map((entry) => metricsForDesigner(entry, monthKey)));
 
   let summary: OrgDashboardSummary = {
@@ -129,7 +135,7 @@ export async function fetchOrgDashboardSummary(
 
   if (useSimulation) {
     summary = applyVirtualSimulationToSummary(
-      filterSummaryForStoreScope(summary, scope),
+      filterSummaryForStoreScope(summary, scope, storeOrgId),
       options?.scenario ?? 'weekday',
     );
   }
