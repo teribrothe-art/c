@@ -1,5 +1,5 @@
 import { Link, router } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -8,21 +8,127 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
 import {
+  ACCUMULATED_LOGIN_CUSTOMER_COUNT,
   DEMO_LOGIN_GROUPS,
   type DemoLoginAccount,
   type DemoLoginGroupKey,
   isCollapsibleDemoLoginGroup,
+  isSearchableDemoLoginGroup,
 } from '../lib/demo-login-accounts';
+import { filterDemoLoginCustomerAccounts } from '../lib/demo-login-customer-search';
 import { showLoginFailureAlert } from '../lib/alerts';
 import { isDemoAuthMode } from '../lib/auth';
 import { getErrorMessage } from '../lib/errors';
 import { signInAndNavigate } from '../lib/quick-login-flow';
 import { colors } from '../lib/theme';
 import { AppVersionBadge } from '../src/components/app-version-badge';
+
+type DemoLoginGroupSectionProps = {
+  title: DemoLoginGroupKey;
+  description?: string;
+  accounts: DemoLoginAccount[];
+  expanded: boolean;
+  loadingId: string | null;
+  signupCustomerSearch: string;
+  onToggle: () => void;
+  onSignupCustomerSearchChange: (value: string) => void;
+  onLogin: (id: string, email: string, password: string) => void;
+};
+
+function DemoLoginGroupSection({
+  title,
+  description,
+  accounts,
+  expanded,
+  loadingId,
+  signupCustomerSearch,
+  onToggle,
+  onSignupCustomerSearchChange,
+  onLogin,
+}: DemoLoginGroupSectionProps) {
+  const collapsible = isCollapsibleDemoLoginGroup(title);
+  const searchable = isSearchableDemoLoginGroup(title);
+  const countLabel = `${accounts.length}명`;
+
+  const customerSearchResult = useMemo(() => {
+    if (!searchable) {
+      return null;
+    }
+
+    return filterDemoLoginCustomerAccounts(accounts, signupCustomerSearch);
+  }, [accounts, searchable, signupCustomerSearch]);
+
+  const visibleAccounts = searchable ? (customerSearchResult?.accounts ?? []) : accounts;
+  const searchQuery = signupCustomerSearch.trim();
+  const showSearchPanel = searchable && expanded;
+
+  return (
+    <View style={styles.group}>
+      {collapsible ? (
+        <Pressable
+          onPress={onToggle}
+          style={({ pressed }) => [styles.collapseHeader, pressed && styles.collapseHeaderPressed]}>
+          <View style={styles.collapseHeaderBody}>
+            <Text style={styles.groupTitle}>{title}</Text>
+            {description ? <Text style={styles.groupDescription}>{description}</Text> : null}
+          </View>
+          <View style={styles.collapseTrailing}>
+            <Text style={styles.collapseCount}>{countLabel}</Text>
+            <Text style={styles.collapseChevron}>{expanded ? '▲' : '▼'}</Text>
+          </View>
+        </Pressable>
+      ) : (
+        <>
+          <Text style={styles.groupTitle}>{title}</Text>
+          {description ? <Text style={styles.groupDescription}>{description}</Text> : null}
+        </>
+      )}
+
+      {showSearchPanel ? (
+        <View style={styles.searchPanel}>
+          <TextInput
+            autoCapitalize="none"
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+            onChangeText={onSignupCustomerSearchChange}
+            placeholder="이름 · 이메일 · 1년/2년/5년 누적"
+            placeholderTextColor="#9CA3AF"
+            style={styles.searchInput}
+            value={signupCustomerSearch}
+          />
+          <Text style={styles.searchHint}>
+            {searchQuery
+              ? customerSearchResult?.totalMatches === 0
+                ? '검색 결과가 없습니다.'
+                : customerSearchResult?.truncated
+                  ? `${customerSearchResult.totalMatches}명 일치 · 상위 ${visibleAccounts.length}명 표시`
+                  : `${customerSearchResult?.totalMatches ?? 0}명 표시`
+              : `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT}명 — 검색어를 입력하면 목록이 표시됩니다`}
+          </Text>
+        </View>
+      ) : null}
+
+      {(!collapsible || expanded) && (!searchable || searchQuery.length > 0) && visibleAccounts.length > 0 ? (
+        <View style={[styles.card, collapsible && styles.cardIndented]}>
+          {visibleAccounts.map((account, index) => (
+            <AccountRow
+              key={account.id}
+              account={account}
+              isLast={index === visibleAccounts.length - 1}
+              loadingId={loadingId}
+              onLogin={onLogin}
+            />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 function AccountRow({
   account,
@@ -70,6 +176,7 @@ export default function TestLoginScreen() {
   const [expandedGroups, setExpandedGroups] = useState<Partial<Record<DemoLoginGroupKey, boolean>>>(
     {},
   );
+  const [signupCustomerSearch, setSignupCustomerSearch] = useState('');
 
   const handleAccountLogin = useCallback(async (id: string, email: string, password: string) => {
     if (loadingId) {
@@ -122,53 +229,20 @@ export default function TestLoginScreen() {
           <Text style={styles.subtitle}>탭하면 바로 로그인됩니다.</Text>
         </View>
 
-        {DEMO_LOGIN_GROUPS.map((group) => {
-          const collapsible = isCollapsibleDemoLoginGroup(group.title);
-          const expanded = Boolean(expandedGroups[group.title]);
-          const countLabel = `${group.accounts.length}명`;
-
-          return (
-            <View key={group.title} style={styles.group}>
-              {collapsible ? (
-                <Pressable
-                  onPress={() => toggleGroup(group.title)}
-                  style={({ pressed }) => [styles.collapseHeader, pressed && styles.collapseHeaderPressed]}>
-                  <View style={styles.collapseHeaderBody}>
-                    <Text style={styles.groupTitle}>{group.title}</Text>
-                    {group.description ? (
-                      <Text style={styles.groupDescription}>{group.description}</Text>
-                    ) : null}
-                  </View>
-                  <View style={styles.collapseTrailing}>
-                    <Text style={styles.collapseCount}>{countLabel}</Text>
-                    <Text style={styles.collapseChevron}>{expanded ? '▲' : '▼'}</Text>
-                  </View>
-                </Pressable>
-              ) : (
-                <>
-                  <Text style={styles.groupTitle}>{group.title}</Text>
-                  {group.description ? (
-                    <Text style={styles.groupDescription}>{group.description}</Text>
-                  ) : null}
-                </>
-              )}
-
-              {(!collapsible || expanded) && group.accounts.length > 0 ? (
-                <View style={[styles.card, collapsible && styles.cardIndented]}>
-                  {group.accounts.map((account, index) => (
-                    <AccountRow
-                      key={account.id}
-                      account={account}
-                      isLast={index === group.accounts.length - 1}
-                      loadingId={loadingId}
-                      onLogin={(id, email, password) => void handleAccountLogin(id, email, password)}
-                    />
-                  ))}
-                </View>
-              ) : null}
-            </View>
-          );
-        })}
+        {DEMO_LOGIN_GROUPS.map((group) => (
+          <DemoLoginGroupSection
+            key={group.title}
+            accounts={group.accounts}
+            description={group.description}
+            expanded={Boolean(expandedGroups[group.title])}
+            loadingId={loadingId}
+            onLogin={(id, email, password) => void handleAccountLogin(id, email, password)}
+            onSignupCustomerSearchChange={setSignupCustomerSearch}
+            onToggle={() => toggleGroup(group.title)}
+            signupCustomerSearch={signupCustomerSearch}
+            title={group.title}
+          />
+        ))}
 
         <Pressable
           disabled={Boolean(loadingId)}
@@ -262,6 +336,28 @@ const styles = StyleSheet.create({
   },
   cardIndented: {
     marginTop: 0,
+  },
+  searchPanel: {
+    gap: 8,
+    marginBottom: 10,
+  },
+  searchInput: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 12,
+    borderWidth: 1,
+    color: '#1A1A2E',
+    fontSize: 15,
+    fontWeight: '600',
+    paddingHorizontal: 14,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
+  },
+  searchHint: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 17,
+    paddingHorizontal: 2,
   },
   row: {
     alignItems: 'center',

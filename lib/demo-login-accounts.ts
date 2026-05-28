@@ -3,6 +3,8 @@ import { DEMO_LOGIN_HINT } from './auth';
 import { ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE } from './demo-accumulated-test-data';
 import {
   ACCUMULATED_TEST_CUSTOMERS,
+  ACCUMULATED_TEST_CUSTOMERS_1Y,
+  ACCUMULATED_TEST_CUSTOMERS_5Y,
   ACCUMULATED_TEST_DESIGNERS_PUBLIC,
   ACCUMULATED_TEST_PASSWORD,
 } from './demo-accumulated-test-accounts';
@@ -18,25 +20,42 @@ export type DemoLoginAccount = {
   password: string;
   meta?: string;
   accent: string;
+  /** 가입고객 검색용 (이름·이메일·소속 누적 프로필) */
+  searchHaystack?: string;
 };
 
 /** 테스트 로그인 화면 분류 순서 */
-export const DEMO_LOGIN_GROUP_ORDER = ['기본', '누적 디자이너', '가입고객 1차'] as const;
+export const DEMO_LOGIN_GROUP_ORDER = ['기본', '누적 디자이너', '가입고객'] as const;
 
 export type DemoLoginGroupKey = (typeof DEMO_LOGIN_GROUP_ORDER)[number];
 
 export const DEMO_LOGIN_GROUP_DESCRIPTIONS: Record<DemoLoginGroupKey, string> = {
   기본: '고객 · 디자이너 · 매장 · 본사 데모 계정',
   '누적 디자이너': '1년 · 2년 · 5년 누적 · 단골 재방문 주기 시뮬레이션',
-  '가입고객 1차': '가입·연동 테스트용 고객 10명 — 탭하면 목록이 펼쳐집니다',
+  가입고객: '누적 테스트 디자이너 연동 고객 — 펼친 뒤 이름·이메일로 검색',
 };
 
 /** 탭하면 계정 목록을 펼치는 그룹 */
-export const DEMO_LOGIN_COLLAPSIBLE_GROUPS: DemoLoginGroupKey[] = ['가입고객 1차'];
+export const DEMO_LOGIN_COLLAPSIBLE_GROUPS: DemoLoginGroupKey[] = ['가입고객'];
 
 export function isCollapsibleDemoLoginGroup(title: DemoLoginGroupKey) {
   return DEMO_LOGIN_COLLAPSIBLE_GROUPS.includes(title);
 }
+
+export function isSearchableDemoLoginGroup(title: DemoLoginGroupKey) {
+  return title === '가입고객';
+}
+
+const ACCUMULATED_CUSTOMER_LOGIN_SOURCES = [
+  { profileLabel: '1년 누적', customers: ACCUMULATED_TEST_CUSTOMERS_1Y },
+  { profileLabel: '2년 누적', customers: ACCUMULATED_TEST_CUSTOMERS },
+  { profileLabel: '5년 누적', customers: ACCUMULATED_TEST_CUSTOMERS_5Y },
+] as const;
+
+export const ACCUMULATED_LOGIN_CUSTOMER_COUNT = ACCUMULATED_CUSTOMER_LOGIN_SOURCES.reduce(
+  (sum, source) => sum + source.customers.length,
+  0,
+);
 
 const BASIC_ACCOUNTS: DemoLoginAccount[] = [
   {
@@ -102,17 +121,32 @@ const ACCUMULATED_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_DESIGNERS_PUBL
   },
 );
 
-const REGISTERED_CUSTOMER_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_CUSTOMERS.slice(0, 10).map(
-  (customer, index) => ({
-    id: customer.id,
-    group: '가입고객 1차',
-    roleLabel: '고객',
-    loginLabel: customer.name,
-    email: customer.email,
-    password: ACCUMULATED_TEST_PASSWORD,
-    meta: `1차 ${index + 1}/10 · 비밀번호 ${ACCUMULATED_TEST_PASSWORD}`,
-    accent: colors.coral,
-  }),
+const REGISTERED_CUSTOMER_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_CUSTOMER_LOGIN_SOURCES.flatMap(
+  ({ profileLabel, customers }) =>
+    customers.map((customer, index) => {
+      const haystack = [
+        customer.name,
+        customer.email,
+        customer.id,
+        profileLabel,
+        '누적',
+        '가입고객',
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      return {
+        id: customer.id,
+        group: '가입고객',
+        roleLabel: '고객',
+        loginLabel: customer.name ?? customer.email,
+        email: customer.email,
+        password: ACCUMULATED_TEST_PASSWORD,
+        meta: `${profileLabel} 디자이너 · ${index + 1}/${customers.length}`,
+        accent: colors.coral,
+        searchHaystack: haystack,
+      };
+    }),
 );
 
 export const DEMO_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
