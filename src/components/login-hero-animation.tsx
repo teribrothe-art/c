@@ -1,8 +1,20 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { colors } from '../../lib/theme';
+
+/** 로그인 배너 그리드 (3×3 정사각형) */
+const GRID_COLUMNS = 3;
+const GRID_ROWS = 3;
+const HORIZONTAL_INSET = 56;
 
 const HERO_MESSAGES = [
   '당신의 손끝이 만드는 아름다움',
@@ -14,12 +26,18 @@ const HERO_MESSAGES = [
 const FLOATING_ICONS = ['✨', '💇‍♀️', '💜', '✨'] as const;
 
 export function LoginHeroAnimation() {
+  const { width: windowWidth } = useWindowDimensions();
   const [messageIndex, setMessageIndex] = useState(0);
   const messageOpacity = useRef(new Animated.Value(1)).current;
   const messageTranslate = useRef(new Animated.Value(0)).current;
   const floatA = useRef(new Animated.Value(0)).current;
   const floatB = useRef(new Animated.Value(0)).current;
   const glowScale = useRef(new Animated.Value(1)).current;
+
+  const gridSize = useMemo(() => {
+    const unit = (windowWidth - HORIZONTAL_INSET) / GRID_COLUMNS;
+    return unit * GRID_ROWS;
+  }, [windowWidth]);
 
   useEffect(() => {
     const floatLoop = Animated.loop(
@@ -131,7 +149,7 @@ export function LoginHeroAnimation() {
   });
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, { width: gridSize, height: gridSize }]}>
       <Animated.View style={[styles.glow, { transform: [{ scale: glowScale }] }]}>
         <LinearGradient
           colors={['#F0EBFF', '#FFE8EA']}
@@ -141,14 +159,17 @@ export function LoginHeroAnimation() {
         />
       </Animated.View>
 
-      <Animated.Text style={[styles.floatIcon, styles.floatLeft, { transform: [{ translateY: floatATranslateY }] }]}>
+      <Animated.Text
+        style={[styles.floatIcon, styles.floatTopLeft, { transform: [{ translateY: floatATranslateY }] }]}>
         {FLOATING_ICONS[0]}
       </Animated.Text>
-      <Animated.Text style={[styles.floatIcon, styles.floatRight, { transform: [{ translateY: floatBTranslateY }] }]}>
+      <Animated.Text
+        style={[styles.floatIcon, styles.floatTopRight, { transform: [{ translateY: floatBTranslateY }] }]}>
         {FLOATING_ICONS[1]}
       </Animated.Text>
+      <Text style={[styles.floatIcon, styles.floatBottomRight]}>{FLOATING_ICONS[2]}</Text>
 
-      <View style={styles.badgeRow}>
+      <View style={styles.messageCenter}>
         <Text style={styles.badge}>✨</Text>
         <Animated.Text
           style={[
@@ -168,16 +189,14 @@ export function LoginHeroAnimation() {
 
 const styles = StyleSheet.create({
   wrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 0,
-    marginTop: 4,
-    minHeight: 72,
-    width: '100%',
+    alignSelf: 'center',
+    borderRadius: 24,
+    marginTop: 8,
+    overflow: 'hidden',
   },
   glow: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: 'hidden',
   },
   gradient: {
@@ -185,32 +204,38 @@ const styles = StyleSheet.create({
     opacity: 0.95,
   },
   floatIcon: {
-    fontSize: 22,
+    fontSize: 24,
     position: 'absolute',
-    top: 8,
   },
-  floatLeft: {
-    left: 18,
+  floatTopLeft: {
+    left: 14,
+    top: 14,
   },
-  floatRight: {
-    right: 18,
+  floatTopRight: {
+    right: 14,
+    top: 14,
   },
-  badgeRow: {
+  floatBottomRight: {
+    bottom: 14,
+    fontSize: 22,
+    right: 14,
+  },
+  messageCenter: {
     alignItems: 'center',
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    flex: 1,
+    gap: 8,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   badge: {
     fontSize: 16,
   },
   message: {
     color: colors.purple,
-    flexShrink: 1,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
-    lineHeight: 22,
+    lineHeight: 24,
     textAlign: 'center',
   },
 });
