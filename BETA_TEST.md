@@ -14,6 +14,10 @@
 |------|--------|----------|
 | 고객 | demo@hair.app | demo1234 |
 | 디자이너 | designer@hair.app | demo1234 |
+| 매장 | store@hair.app | store1234 |
+| 어드민 | admin@hair.app | admin1234 |
+
+로그인 화면 **「테스트 계정」** 링크 또는 `/test-login`에서 원클릭 로그인. 회원가입에서 **고객 · 디자이너 · 매장 · 어드민** 4분류 선택.
 
 ### 베타 전용 10계정 (앱 첫 실행 시 자동 시드)
 
@@ -26,6 +30,29 @@
 | 5 | beta-designer-5@hair.app | beta-customer-5@hair.app | beta1234 |
 
 자동 검증: `npm run beta:e2e`
+
+### 누적 통합 테스트 (디자이너 3종)
+
+**일반 데모**(`designer@hair.app` / `demo@hair.app`)는 기존처럼 소량 시술 시드만 사용합니다.
+
+테스트 디자이너로 로그인할 때만 해당 프로필 시술이 **메모리에** 로드됩니다 (AsyncStorage 미저장).
+
+| 프로필 | ID | 이메일 | 기간 · 일정 |
+|--------|-----|--------|-------------|
+| 1년 | `test-designer-1y` | test-designer-1y@hair.app | 최근 1년~현재 · **일 3~5명** · 단골 재방문 주기 |
+| 2년 | `test-designer-3y` | test-designer@hair.app | 최근 2년~현재 · **일 4~6명** · 단골 재방문 주기 |
+| 5년 | `test-designer-accum-5y` | test-designer-accum-5y@hair.app | 최근 5년~현재 · **일 4~8명** · 단골 재방문 주기(컷 4~6주, 펌 2~4개월, 컬러 3~5개월 등) |
+
+비밀번호 공통: `test1234`
+
+**1년 디자이너 고객** — `test-1y-customer-1@hair.app` … (80명)  
+**2년 디자이너 고객** — `test-customer-1@hair.app` … (120명)  
+**5년 디자이너 고객** — `test-5y-customer-001@hair.app` … (200명)
+
+- 로그인 화면 **「1년 / 2년 / 5년 누적 테스트 디자이너」** 버튼
+- **정산**, **자산**, **매출** 탭에서 누적 통계 확인
+- **「Row too big…」** 오류 → Expo Go 완전 종료 후 재실행
+- CLI: `npm run verify:accumulated-designer`
 
 ---
 

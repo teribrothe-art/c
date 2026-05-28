@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { showErrorAlert } from '../lib/alerts';
 import { isValidInviteCodeFormat, parseInviteCodeFromQrPayload } from '../lib/customer-invitations';
+import { stashPendingInviteCode } from '../lib/pending-invite-code';
 
 export default function ScanInviteScreen() {
   const insets = useSafeAreaInsets();
@@ -50,13 +51,23 @@ export default function ScanInviteScreen() {
               throw new Error('초대 QR이 아니에요. 디자이너 초대 코드 QR을 스캔해주세요.');
             }
 
-            router.replace({
-              pathname: (returnTo as '/signup') ?? '/signup',
-              params: { inviteCode: code },
+            void stashPendingInviteCode(code).then(() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace({
+                  pathname: (returnTo as '/signup') ?? '/signup',
+                  params: { inviteCode: code },
+                });
+              }
             });
-          } catch {
+          } catch (error) {
             setScanned(false);
-            showErrorAlert('다시 시도해주세요', 'QR 스캔 실패');
+            const message =
+              error instanceof Error
+                ? error.message
+                : '디자이너 초대 QR(6자리 코드)을 스캔해주세요. Expo Go QR은 사용할 수 없어요.';
+            showErrorAlert(message, 'QR 스캔 실패');
           }
         }}
       />
@@ -65,7 +76,7 @@ export default function ScanInviteScreen() {
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backText}>닫기</Text>
         </Pressable>
-        <Text style={styles.hint}>초대 QR 코드를 화면 안에 맞춰주세요</Text>
+        <Text style={styles.hint}>디자이너가 보낸 초대 QR만 스캔해주세요 (Expo 개발 QR X)</Text>
       </View>
     </View>
   );

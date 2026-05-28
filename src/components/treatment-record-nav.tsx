@@ -25,29 +25,39 @@ export function TreatmentRecordNav({
 
   return (
     <View style={styles.bar}>
-      <Pressable
-        disabled={!olderId}
-        onPress={() => olderId && onNavigate(olderId)}
-        style={({ pressed }) => [
-          styles.button,
-          !olderId && styles.buttonDisabled,
-          pressed && olderId && styles.buttonPressed,
-        ]}>
-        <Text style={[styles.buttonText, !olderId && styles.buttonTextDisabled]}>‹ {olderLabel}</Text>
-      </Pressable>
+      <View style={styles.side}>
+        <Pressable
+          disabled={!olderId}
+          onPress={() => olderId && onNavigate(olderId)}
+          style={({ pressed }) => [
+            styles.button,
+            !olderId && styles.buttonDisabled,
+            pressed && olderId && styles.buttonPressed,
+          ]}>
+          <Text style={[styles.buttonText, !olderId && styles.buttonTextDisabled]}>
+            ‹ {olderLabel}
+          </Text>
+        </Pressable>
+      </View>
 
-      <Text style={styles.position}>{positionLabel}</Text>
+      <Text style={styles.position} numberOfLines={1}>
+        {positionLabel}
+      </Text>
 
-      <Pressable
-        disabled={!newerId}
-        onPress={() => newerId && onNavigate(newerId)}
-        style={({ pressed }) => [
-          styles.button,
-          !newerId && styles.buttonDisabled,
-          pressed && newerId && styles.buttonPressed,
-        ]}>
-        <Text style={[styles.buttonText, !newerId && styles.buttonTextDisabled]}>{newerLabel} ›</Text>
-      </Pressable>
+      <View style={[styles.side, styles.sideRight]}>
+        <Pressable
+          disabled={!newerId}
+          onPress={() => newerId && onNavigate(newerId)}
+          style={({ pressed }) => [
+            styles.button,
+            !newerId && styles.buttonDisabled,
+            pressed && newerId && styles.buttonPressed,
+          ]}>
+          <Text style={[styles.buttonText, !newerId && styles.buttonTextDisabled]}>
+            {newerLabel} ›
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -58,19 +68,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: 14,
+    minHeight: 52,
     paddingHorizontal: 8,
     paddingVertical: 8,
+    position: 'relative',
     shadowColor: '#1A1A2E',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 10,
     elevation: 2,
   },
+  side: {
+    alignItems: 'flex-start',
+    flex: 1,
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  sideRight: {
+    alignItems: 'flex-end',
+  },
   button: {
     borderRadius: 10,
-    minWidth: 108,
+    maxWidth: '100%',
     paddingHorizontal: 10,
     paddingVertical: 10,
   },
@@ -95,5 +115,10 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 13,
     fontWeight: '700',
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    textAlign: 'center',
+    zIndex: 0,
   },
 });
