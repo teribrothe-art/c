@@ -41,15 +41,17 @@
 |--------|-----|--------|-------------|
 | 1년 | `test-designer-1y` | test-designer-1y@hair.app | 최근 1년~현재 · **일 3~5명** · 단골 재방문 주기 |
 | 2년 | `test-designer-3y` | test-designer@hair.app | 최근 2년~현재 · **일 4~6명** · 단골 재방문 주기 |
+| 3년 | `test-designer-accum-3y` | test-designer-accum-3y@hair.app | 최근 3년~현재 · **일 4~8명** · 단골 재방문 주기 |
 | 5년 | `test-designer-accum-5y` | test-designer-accum-5y@hair.app | 최근 5년~현재 · **일 4~8명** · 단골 재방문 주기(컷 4~6주, 펌 2~4개월, 컬러 3~5개월 등) |
 
 비밀번호 공통: `test1234`
 
 **1년 디자이너 고객** — `test-1y-customer-1@hair.app` … (80명)  
 **2년 디자이너 고객** — `test-customer-1@hair.app` … (120명)  
+**3년 디자이너 고객** — `test-3y-customer-001@hair.app` … (150명)  
 **5년 디자이너 고객** — `test-5y-customer-001@hair.app` … (200명)
 
-- 로그인 화면 **「1년 / 2년 / 5년 누적 테스트 디자이너」** 버튼
+- 로그인 화면 **「1년 / 2년 / 3년 / 5년 누적 테스트 디자이너」** 버튼
 - **정산**, **자산**, **매출** 탭에서 누적 통계 확인
 - **「Row too big…」** 오류 → Expo Go 완전 종료 후 재실행
 - CLI: `npm run verify:accumulated-designer`

@@ -4,6 +4,7 @@ import { ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE } from './demo-accumulated-test-
 import {
   ACCUMULATED_TEST_CUSTOMERS,
   ACCUMULATED_TEST_CUSTOMERS_1Y,
+  ACCUMULATED_TEST_CUSTOMERS_3Y,
   ACCUMULATED_TEST_CUSTOMERS_5Y,
   ACCUMULATED_TEST_DESIGNERS_PUBLIC,
   ACCUMULATED_TEST_PASSWORD,
@@ -31,7 +32,7 @@ export type DemoLoginGroupKey = (typeof DEMO_LOGIN_GROUP_ORDER)[number];
 
 export const DEMO_LOGIN_GROUP_DESCRIPTIONS: Record<DemoLoginGroupKey, string> = {
   기본: '고객 · 디자이너 · 매장 · 본사 데모 계정',
-  '누적 디자이너': '1년 · 2년 · 5년 누적 · 단골 재방문 주기 시뮬레이션',
+  '누적 디자이너': '1년 · 2년 · 3년 · 5년 누적 · 단골 재방문 주기 시뮬레이션',
   가입고객: '누적 테스트 디자이너 연동 고객 — 펼친 뒤 이름·이메일로 검색',
 };
 
@@ -49,6 +50,7 @@ export function isSearchableDemoLoginGroup(title: DemoLoginGroupKey) {
 const ACCUMULATED_CUSTOMER_LOGIN_SOURCES = [
   { profileLabel: '1년 누적', customers: ACCUMULATED_TEST_CUSTOMERS_1Y },
   { profileLabel: '2년 누적', customers: ACCUMULATED_TEST_CUSTOMERS },
+  { profileLabel: '3년 누적', customers: ACCUMULATED_TEST_CUSTOMERS_3Y },
   { profileLabel: '5년 누적', customers: ACCUMULATED_TEST_CUSTOMERS_5Y },
 ] as const;
 
@@ -102,9 +104,11 @@ const ACCUMULATED_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_DESIGNERS_PUBL
     const accent =
       designer.profileKey === '1y'
         ? '#00C2A8'
-        : designer.profileKey === '5y'
-          ? '#E85D4C'
-          : '#7B5EE6';
+        : designer.profileKey === '3y'
+          ? '#F59E0B'
+          : designer.profileKey === '5y'
+            ? '#E85D4C'
+            : '#7B5EE6';
 
     return {
       id: designer.id,

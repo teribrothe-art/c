@@ -96,7 +96,7 @@ function DemoLoginGroupSection({
             autoCorrect={false}
             clearButtonMode="while-editing"
             onChangeText={onSignupCustomerSearchChange}
-            placeholder="이름 · 이메일 · 1년/2년/5년 누적"
+            placeholder="이름 · 이메일 · 1년/2년/3년/5년 누적"
             placeholderTextColor="#9CA3AF"
             style={styles.searchInput}
             value={signupCustomerSearch}

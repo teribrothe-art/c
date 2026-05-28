@@ -19,7 +19,7 @@ function assert(condition: unknown, message: string): asserts condition {
   }
 }
 
-type ProfileKey = '1y' | '2y' | '5y';
+type ProfileKey = '1y' | '2y' | '3y' | '5y';
 
 type VisitCycleExpectation = {
   profileKey: ProfileKey;
@@ -31,6 +31,7 @@ type VisitCycleExpectation = {
 const VISIT_CYCLE_PROFILES: VisitCycleExpectation[] = [
   { profileKey: '1y', customerCount: 80, minTreatments: 1000, minRegularCustomers: 35 },
   { profileKey: '2y', customerCount: 120, minTreatments: 2500, minRegularCustomers: 55 },
+  { profileKey: '3y', customerCount: 150, minTreatments: 4000, minRegularCustomers: 80 },
   { profileKey: '5y', customerCount: 200, minTreatments: 6500, minRegularCustomers: 90 },
 ];
 
@@ -111,14 +112,14 @@ function logProfile(
 }
 
 function main() {
-  assert(ACCUMULATED_TEST_DESIGNERS_PUBLIC.length === 3, '공개 누적 디자이너 3종');
+  assert(ACCUMULATED_TEST_DESIGNERS_PUBLIC.length === 4, '공개 누적 디자이너 4종');
 
   for (const expectation of VISIT_CYCLE_PROFILES) {
     verifyVisitCycleProfile(expectation);
   }
 
   console.log('\n시드 검증 OK');
-  console.log('  · 로그인 화면에서 1년 / 2년 / 5년 누적 테스트 디자이너 확인');
+  console.log('  · 로그인 화면에서 1년 / 2년 / 3년 / 5년 누적 테스트 디자이너 확인');
   console.log('  · 공통: 일일 방문 수 범위 · 단골 재방문 주기(컷/펌/컬러 등)');
   console.log('  · 각 계정은 본인 시드만 메모리 로드 (AsyncStorage 미저장)');
   console.log('\n데이터가 비어 있으면 Expo Go 완전 종료 후 npm run start:phone 으로 재접속');
