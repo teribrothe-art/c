@@ -17,7 +17,8 @@ export function LoginHeadlines() {
     }
 
     const gaps = Math.max(APP_TITLE.length - 1, 1);
-    return (salonWidth - appNaturalWidth) / gaps;
+    const spacing = (salonWidth - appNaturalWidth) / gaps;
+    return Math.min(Math.max(spacing, 0), 5);
   }, [salonWidth, appNaturalWidth]);
 
   return (
@@ -62,16 +63,17 @@ const styles = StyleSheet.create({
   },
   app: {
     color: colors.coral,
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '800',
+    lineHeight: 30,
     textAlign: 'center',
   },
   salon: {
     color: colors.purple,
-    fontSize: 40,
+    fontSize: 46,
     fontWeight: '900',
-    letterSpacing: -1,
-    lineHeight: 46,
+    letterSpacing: -0.5,
+    lineHeight: 52,
     textAlign: 'center',
   },
   measure: {

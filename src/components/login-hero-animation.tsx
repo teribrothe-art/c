@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   badge: {
-    fontSize: 14,
+    fontSize: 16,
   },
   message: {
     color: colors.purple,
