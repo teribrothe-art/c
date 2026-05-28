@@ -19,6 +19,7 @@ import { colors, disabledButtonStyle } from '../lib/theme';
 import { validateEmail } from '../lib/validation';
 import { AppVersionBadge } from '../src/components/app-version-badge';
 import { InlineFieldError } from '../src/components/inline-field-error';
+import { LoginHeadlines } from '../src/components/login-headlines';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -77,10 +78,7 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
-          <View style={styles.titleBlock}>
-            <Text style={styles.titleSalon}>나만의 살롱</Text>
-            <Text style={styles.titleApp}>AI 헤어 다이어리</Text>
-          </View>
+          <LoginHeadlines />
 
           <View style={styles.form}>
             <View>
@@ -181,18 +179,6 @@ const styles = StyleSheet.create({
   content: {
     alignItems: 'center',
     width: '100%',
-  },
-  titleBlock: {
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 36,
-  },
-  title: {
-    color: colors.coral,
-    fontSize: 30,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-    textAlign: 'center',
   },
   form: {
     width: '100%',
