@@ -132,16 +132,10 @@ export default function DesignerAccountScreen() {
 
             <AccountMenuCard
               title="관리"
-              rows={[
-                { icon: '📊', label: '정산·통계', onPress: () => router.push('/profile') },
-                ...ACCOUNT_SETTING_ITEMS.map((item) => ({
-                  ...item,
-                  onPress: () => handleSettingPress(item.label),
-                })),
-                ...(isDemoAuthMode
-                  ? [{ icon: '🧪', label: '테스트 계정 전환', onPress: () => router.push('/test-login') }]
-                  : []),
-              ]}
+              rows={ACCOUNT_SETTING_ITEMS.map((item) => ({
+                ...item,
+                onPress: () => handleSettingPress(item.label),
+              }))}
             />
 
             <Pressable
