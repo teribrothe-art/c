@@ -77,7 +77,8 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
-          <Text style={styles.title}>AI 헤어 다이어리</Text>
+          <Text style={styles.title}>나만의 살롱</Text>
+          <Text style={styles.subtitle}>AI 헤어 다이어리</Text>
 
           <View style={styles.form}>
             <View>
@@ -182,8 +183,15 @@ const styles = StyleSheet.create({
   title: {
     color: colors.coral,
     fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 40,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  subtitle: {
+    color: '#6B6B7B',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 36,
+    marginTop: 8,
     textAlign: 'center',
   },
   form: {
