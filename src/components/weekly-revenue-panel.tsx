@@ -1,9 +1,10 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import type { WeekdayRevenueCell } from '../../lib/designer-revenue-analytics';
+import type { WeekdayRevenueCell, WeeklyRevenueWeek } from '../../lib/designer-revenue-analytics';
 import { RevenueBarChart } from './revenue-bar-chart';
 
 const PURPLE = '#7B5EE6';
+const MINT = '#00C2A8';
 
 function formatDayDateLabel(date: string) {
   const [, month, day] = date.split('-');
@@ -12,26 +13,24 @@ function formatDayDateLabel(date: string) {
 }
 
 type WeeklyRevenuePanelProps = {
-  weekLabel: string;
+  weeks: WeeklyRevenueWeek[];
+  selectedWeekKey: string;
   days: WeekdayRevenueCell[];
   selectedDate: string | null;
+  onSelectWeek: (weekKey: string) => void;
   onSelectDay: (day: WeekdayRevenueCell) => void;
-  onPrevWeek?: () => void;
-  onNextWeek?: () => void;
-  canGoPrev?: boolean;
-  canGoNext?: boolean;
 };
 
 export function WeeklyRevenuePanel({
-  weekLabel,
+  weeks,
+  selectedWeekKey,
   days,
   selectedDate,
+  onSelectWeek,
   onSelectDay,
-  onPrevWeek,
-  onNextWeek,
-  canGoPrev = false,
-  canGoNext = false,
 }: WeeklyRevenuePanelProps) {
+  const selectedWeek = weeks.find((week) => week.weekKey === selectedWeekKey) ?? weeks[0];
+
   const chartPoints = days.map((day) => ({
     key: day.date,
     label: day.weekdayLabel,
@@ -43,8 +42,6 @@ export function WeeklyRevenuePanel({
     isToday: day.isToday,
   }));
 
-  const selectedDay = days.find((day) => day.date === selectedDate) ?? null;
-
   const handleSelectPoint = (date: string) => {
     const day = days.find((item) => item.date === date);
 
@@ -55,40 +52,53 @@ export function WeeklyRevenuePanel({
 
   return (
     <View style={styles.card}>
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>주간 매출 (월~일)</Text>
-        <View style={styles.weekNav}>
-          <Pressable
-            disabled={!canGoPrev}
-            onPress={onPrevWeek}
-            style={[styles.navButton, !canGoPrev && styles.navButtonDisabled]}>
-            <Text style={styles.navButtonText}>‹</Text>
-          </Pressable>
-          <Text style={styles.weekLabel}>{weekLabel}</Text>
-          <Pressable
-            disabled={!canGoNext}
-            onPress={onNextWeek}
-            style={[styles.navButton, !canGoNext && styles.navButtonDisabled]}>
-            <Text style={styles.navButtonText}>›</Text>
-          </Pressable>
+      <Text style={styles.title}>주간 매출 (월~일)</Text>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={styles.weekTabRow}>
+          {weeks.map((week) => {
+            const selected = week.weekKey === selectedWeekKey;
+
+            return (
+              <Pressable
+                key={week.weekKey}
+                accessibilityRole="tab"
+                accessibilityState={{ selected }}
+                onPress={() => onSelectWeek(week.weekKey)}
+                style={({ pressed }) => [
+                  styles.weekTab,
+                  selected && styles.weekTabSelected,
+                  pressed && styles.weekTabPressed,
+                ]}>
+                <Text style={[styles.weekTabLabel, selected && styles.weekTabLabelSelected]}>
+                  {week.label}
+                </Text>
+                <Text style={[styles.weekTabAmount, selected && styles.weekTabAmountSelected]}>
+                  {week.weekTotal.toLocaleString('ko-KR')}원
+                </Text>
+                <Text style={[styles.weekTabMeta, selected && styles.weekTabMetaSelected]}>
+                  {week.settlementCount}건
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
-      </View>
+      </ScrollView>
+
+      {selectedWeek ? (
+        <Text style={styles.weekSummary}>
+          선택 주 합계 {selectedWeek.weekTotal.toLocaleString('ko-KR')}원 · 정산{' '}
+          {selectedWeek.settlementCount}건
+        </Text>
+      ) : null}
 
       <RevenueBarChart
-        barColor="#00C2A8"
+        barColor={MINT}
         embedded
         maxBarHeight={112}
         onSelectPoint={handleSelectPoint}
         points={chartPoints}
       />
-
-      {selectedDay ? (
-        <View style={styles.detailBox}>
-          <Text style={styles.detailTitle}>{selectedDay.dateWithWeekdayLabel}</Text>
-          <Text style={styles.detailAmount}>{selectedDay.totalAmount.toLocaleString('ko-KR')}원</Text>
-          <Text style={styles.detailMeta}>정산 {selectedDay.settlementCount}건</Text>
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -98,65 +108,65 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     elevation: 3,
-    gap: 14,
+    gap: 12,
     padding: 16,
-  },
-  headerRow: {
-    gap: 10,
   },
   title: {
     color: '#1A1A2E',
     fontSize: 16,
     fontWeight: '800',
   },
-  weekNav: {
-    alignItems: 'center',
+  weekTabRow: {
     flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'center',
+    gap: 8,
+    paddingBottom: 4,
   },
-  navButton: {
-    alignItems: 'center',
+  weekTab: {
     backgroundColor: '#F5F5F8',
-    borderRadius: 10,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
+    borderColor: '#E8E8F0',
+    borderRadius: 14,
+    borderWidth: 1,
+    minWidth: 128,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  navButtonDisabled: {
-    opacity: 0.35,
+  weekTabSelected: {
+    backgroundColor: '#F0EBFF',
+    borderColor: PURPLE,
   },
-  navButtonText: {
+  weekTabPressed: {
+    opacity: 0.9,
+  },
+  weekTabLabel: {
     color: '#1A1A2E',
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  weekLabel: {
-    color: PURPLE,
-    fontSize: 14,
-    fontWeight: '800',
-    minWidth: 140,
-    textAlign: 'center',
-  },
-  detailBox: {
-    backgroundColor: '#F0FBF9',
-    borderRadius: 12,
-    gap: 4,
-    padding: 14,
-  },
-  detailTitle: {
-    color: '#1A1A2E',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  detailAmount: {
-    color: '#00C2A8',
-    fontSize: 24,
-    fontWeight: '900',
-  },
-  detailMeta: {
-    color: '#6B6B7B',
     fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  weekTabLabelSelected: {
+    color: PURPLE,
+  },
+  weekTabAmount: {
+    color: '#FF5A5F',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  weekTabAmountSelected: {
+    color: '#FF5A5F',
+  },
+  weekTabMeta: {
+    color: '#6B6B7B',
+    fontSize: 11,
     fontWeight: '600',
+    marginTop: 2,
+  },
+  weekTabMetaSelected: {
+    color: '#6B6B7B',
+  },
+  weekSummary: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

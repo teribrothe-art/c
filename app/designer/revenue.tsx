@@ -13,6 +13,7 @@ import { RevenueBarChart } from '../../src/components/revenue-bar-chart';
 import { EmptyState } from '../../src/components/empty-state';
 import { LoadingState } from '../../src/components/loading-state';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
+import { RevenueScopeTabs, type RevenueScopeTab } from '../../src/components/revenue-scope-tabs';
 import { WeeklyRevenuePanel } from '../../src/components/weekly-revenue-panel';
 
 const CORAL = '#FF5A5F';
@@ -69,6 +70,7 @@ export default function DesignerRevenueScreen() {
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | undefined>(undefined);
   const [selectedWeekKey, setSelectedWeekKey] = useState<string | undefined>(undefined);
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
+  const [scopeTab, setScopeTab] = useState<RevenueScopeTab>('week');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const selectedMonthKeyRef = useRef<string | undefined>(undefined);
@@ -149,14 +151,6 @@ export default function DesignerRevenueScreen() {
         })),
     [analytics?.months],
   );
-
-  const weekIndex = useMemo(() => {
-    if (!analytics) {
-      return -1;
-    }
-
-    return analytics.weeklyWeeks.findIndex((week) => week.weekKey === analytics.selectedWeekKey);
-  }, [analytics]);
 
   const visibleSettlements = useMemo(() => {
     if (!analytics) {
@@ -258,40 +252,24 @@ export default function DesignerRevenueScreen() {
 
   const handleSelectWeek = (weekKey: string) => {
     if (weekKey === selectedWeekKey) {
+      setScopeTab('week');
       return;
     }
 
     setSelectedWeekKey(weekKey);
     setSelectedDayDate(null);
+    setScopeTab('week');
     loadRevenue(selectedMonthKey, weekKey);
   };
 
   const handleSelectDay = (day: WeekdayRevenueCell) => {
     setSelectedDayDate(day.date);
+    setScopeTab('day');
   };
 
-  const handlePrevWeek = () => {
-    if (!analytics || weekIndex <= 0) {
-      return;
-    }
-
-    const prev = analytics.weeklyWeeks[weekIndex - 1];
-
-    if (prev) {
-      handleSelectWeek(prev.weekKey);
-    }
-  };
-
-  const handleNextWeek = () => {
-    if (!analytics || weekIndex < 0 || weekIndex >= analytics.weeklyWeeks.length - 1) {
-      return;
-    }
-
-    const next = analytics.weeklyWeeks[weekIndex + 1];
-
-    if (next) {
-      handleSelectWeek(next.weekKey);
-    }
+  const handleSelectMonthFromChart = (monthKey: string) => {
+    handleSelectMonth(monthKey);
+    setScopeTab('month');
   };
 
   return (
@@ -321,74 +299,115 @@ export default function DesignerRevenueScreen() {
           />
         ) : (
           <>
-            <RevenueBarChart
-              barColor={PURPLE}
-              emptyMessage="월별 정산 매출이 없습니다"
-              points={monthlyChartPoints}
-              title="월별 매출 (정산 완료)"
-            />
+            <RevenueScopeTabs onChange={setScopeTab} value={scopeTab} />
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>월 선택</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.monthChipRow}>
-                  {analytics.months.map((month) => {
-                    const selected = month.monthKey === analytics.selectedMonthKey;
+            {scopeTab === 'month' ? (
+              <>
+                <RevenueBarChart
+                  barColor={PURPLE}
+                  emptyMessage="월별 정산 매출이 없습니다"
+                  onSelectPoint={handleSelectMonthFromChart}
+                  points={monthlyChartPoints.map((point) => ({
+                    ...point,
+                    selected: point.key === analytics.selectedMonthKey,
+                  }))}
+                  title="월별 매출 (정산 완료)"
+                />
 
-                    return (
-                      <Pressable
-                        key={month.monthKey}
-                        onPress={() => handleSelectMonth(month.monthKey)}
-                        style={({ pressed }) => [
-                          styles.monthChip,
-                          selected && styles.monthChipSelected,
-                          pressed && styles.monthChipPressed,
-                        ]}>
-                        <Text style={[styles.monthChipText, selected && styles.monthChipTextSelected]}>
-                          {month.label}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.monthChipAmount,
-                            selected && styles.monthChipAmountSelected,
-                          ]}>
-                          {month.revenue.toLocaleString('ko-KR')}원
-                        </Text>
-                        <Text
-                          style={[
-                            styles.monthChipMeta,
-                            selected && styles.monthChipMetaSelected,
-                          ]}>
-                          {month.settlementCount}건
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+                <View style={styles.card}>
+                  <Text style={styles.cardTitle}>월 선택</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={styles.monthChipRow}>
+                      {analytics.months.map((month) => {
+                        const selected = month.monthKey === analytics.selectedMonthKey;
+
+                        return (
+                          <Pressable
+                            key={month.monthKey}
+                            onPress={() => {
+                          handleSelectMonth(month.monthKey);
+                          setScopeTab('month');
+                        }}
+                            style={({ pressed }) => [
+                              styles.monthChip,
+                              selected && styles.monthChipSelected,
+                              pressed && styles.monthChipPressed,
+                            ]}>
+                            <Text style={[styles.monthChipText, selected && styles.monthChipTextSelected]}>
+                              {month.label}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.monthChipAmount,
+                                selected && styles.monthChipAmountSelected,
+                              ]}>
+                              {month.revenue.toLocaleString('ko-KR')}원
+                            </Text>
+                            <Text
+                              style={[
+                                styles.monthChipMeta,
+                                selected && styles.monthChipMetaSelected,
+                              ]}>
+                              {month.settlementCount}건
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
                 </View>
-              </ScrollView>
-            </View>
 
-            <View style={styles.heroCard}>
-              <Text style={styles.heroLabel}>{analytics.selectedMonth.label} 매출</Text>
-              <View style={styles.heroValueRow}>
-                <Text style={styles.heroValue}>
-                  {analytics.selectedMonth.revenue.toLocaleString('ko-KR')}
-                </Text>
-                <Text style={styles.heroValueUnit}>원</Text>
-              </View>
-              <Text style={styles.heroUnit}>정산 {analytics.selectedMonth.settlementCount}건</Text>
-            </View>
+                <View style={styles.heroCard}>
+                  <Text style={styles.heroLabel}>{analytics.selectedMonth.label} 매출</Text>
+                  <View style={styles.heroValueRow}>
+                    <Text style={styles.heroValue}>
+                      {analytics.selectedMonth.revenue.toLocaleString('ko-KR')}
+                    </Text>
+                    <Text style={styles.heroValueUnit}>원</Text>
+                  </View>
+                  <Text style={styles.heroUnit}>정산 {analytics.selectedMonth.settlementCount}건</Text>
+                </View>
+              </>
+            ) : null}
 
-            <WeeklyRevenuePanel
-              canGoNext={weekIndex >= 0 && weekIndex < analytics.weeklyWeeks.length - 1}
-              canGoPrev={weekIndex > 0}
-              days={analytics.selectedWeek.days}
-              onNextWeek={handleNextWeek}
-              onPrevWeek={handlePrevWeek}
-              onSelectDay={handleSelectDay}
-              selectedDate={selectedDayDate}
-              weekLabel={analytics.selectedWeek.label}
-            />
+            {scopeTab === 'week' ? (
+              <WeeklyRevenuePanel
+                days={analytics.selectedWeek.days}
+                onSelectDay={handleSelectDay}
+                onSelectWeek={handleSelectWeek}
+                selectedDate={selectedDayDate}
+                selectedWeekKey={analytics.selectedWeekKey}
+                weeks={analytics.weeklyWeeks}
+              />
+            ) : null}
+
+            {scopeTab === 'day' ? (
+              selectedDayDate ? (
+                <View style={styles.card}>
+                  <Text style={styles.cardTitle}>
+                    {analytics.selectedWeek.days.find((day) => day.date === selectedDayDate)
+                      ?.dateWithWeekdayLabel ?? '선택한 날짜'}
+                  </Text>
+                  <Text style={styles.dayHeroAmount}>
+                    {(
+                      analytics.selectedWeek.days.find((day) => day.date === selectedDayDate)
+                        ?.totalAmount ?? 0
+                    ).toLocaleString('ko-KR')}
+                    원
+                  </Text>
+                  <Text style={styles.dayHeroMeta}>
+                    정산{' '}
+                    {analytics.selectedWeek.days.find((day) => day.date === selectedDayDate)
+                      ?.settlementCount ?? 0}
+                    건 · 주간 탭에서 다른 요일을 눌러 바꿀 수 있어요
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.card}>
+                  <Text style={styles.emptyText}>주간 탭에서 요일 막대를 눌러 일별 상세를 확인하세요.</Text>
+                </View>
+              )
+            ) : null}
 
             {linkedMetrics ? (
               <View style={styles.metricGrid}>
@@ -539,6 +558,19 @@ const styles = StyleSheet.create({
   settlementMeta: { color: '#6B6B7B', fontSize: 13, fontWeight: '600' },
   settlementPrice: { color: CORAL, fontSize: 15, fontWeight: '900' },
   emptyText: { color: '#6B6B7B', fontSize: 14, fontWeight: '600' },
+  dayHeroAmount: {
+    color: MINT,
+    fontSize: 28,
+    fontWeight: '900',
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  dayHeroMeta: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 19,
+  },
   stateBox: {
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
