@@ -148,7 +148,14 @@ export async function searchRegisteredCustomers(query = ''): Promise<RegisteredC
   });
 
   if (error) {
-    if (error.message.includes('Could not find the function')) {
+    const message = error.message ?? '';
+
+    if (
+      message.includes('Could not find the function') ||
+      message.includes('search_registered_customers') ||
+      message.includes('NOT_AUTHENTICATED') ||
+      message.includes('permission denied')
+    ) {
       return fetchDemoRegisteredCustomers(user.id, query);
     }
 

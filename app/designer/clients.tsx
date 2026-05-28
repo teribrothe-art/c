@@ -1,5 +1,4 @@
-import { router, useRouter } from 'expo-router';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   Pressable,
@@ -15,10 +14,9 @@ import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-b
 import { getErrorMessage } from '../../lib/errors';
 import { normalizePaymentStatus } from '../../lib/payment-status';
 import {
-  createCustomerInvitation,
   DesignerClientListItem,
-  expireInvitation,
   getDesignerClientListItems,
+  renewCustomerInvitation,
 } from '../../lib/customer-invitations';
 import {
   DESIGNER_ONBOARDING_SLIDES,
@@ -110,14 +108,16 @@ function DesignerClientCard({
         {item.inviteCode && item.inviteStatus === 'pending' ? (
           <Text style={styles.inviteCodeText}>코드 {item.inviteCode}</Text>
         ) : null}
-        {item.inviteStatus === 'expired' && onReinvite ? (
+        {(item.inviteStatus === 'pending' || item.inviteStatus === 'expired') && onReinvite ? (
           <Pressable
             onPress={(event) => {
               event.stopPropagation?.();
               onReinvite();
             }}
             style={styles.reinviteButton}>
-            <Text style={styles.reinviteText}>재초대</Text>
+            <Text style={styles.reinviteText}>
+              {item.inviteStatus === 'pending' ? '초대 다시 보내기' : '재초대'}
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -128,6 +128,8 @@ function DesignerClientCard({
 export default function DesignerClientsScreen() {
   const insets = useSafeAreaInsets();
   const detailRouter = useRouter();
+  const { filter: filterParam } = useLocalSearchParams<{ filter?: string }>();
+  const escrowOnly = filterParam === 'escrow';
   const [clientItems, setClientItems] = useState<DesignerClientListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -157,13 +159,22 @@ export default function DesignerClientsScreen() {
   );
 
   const visibleItems = useMemo(() => {
+    let items = clientItems;
+
+    if (escrowOnly) {
+      items = items.filter(
+        (item) =>
+          item.treatment && normalizePaymentStatus(item.treatment.payment_status) === 'escrow',
+      );
+    }
+
     const query = searchQuery.trim().toLowerCase();
 
     if (!query) {
-      return clientItems;
+      return items;
     }
 
-    return clientItems.filter((item) => {
+    return items.filter((item) => {
       const haystack = [
         item.customerName,
         item.treatmentTitle,
@@ -175,7 +186,7 @@ export default function DesignerClientsScreen() {
 
       return haystack.includes(query);
     });
-  }, [clientItems, searchQuery]);
+  }, [clientItems, escrowOnly, searchQuery]);
 
   const summary = useMemo(() => {
     const now = new Date();
@@ -192,18 +203,18 @@ export default function DesignerClientsScreen() {
   }, [clientItems]);
 
   const handleReinvite = (item: DesignerClientListItem) => {
-    if (!item.invitationId) {
+    if (!item.invitationId || !item.treatmentId) {
       return;
     }
 
     Promise.resolve()
       .then(async () => {
-        await expireInvitation(item.invitationId!);
-        await createCustomerInvitation({
+        await renewCustomerInvitation({
+          invitationId: item.invitationId!,
           treatmentId: item.treatmentId,
-          customerName: item.customerName,
+          customerName: item.treatment?.customer_name?.trim() || item.customerName,
         });
-        showSuccessAlert('새 초대 코드를 만들었어요.');
+        showSuccessAlert('새 초대 코드를 만들었어요. 이전 코드는 더 이상 사용할 수 없어요.');
         loadClients();
       })
       .catch((error) => {
