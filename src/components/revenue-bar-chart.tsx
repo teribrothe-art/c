@@ -1,27 +1,39 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 const MINT = '#00C2A8';
 const CORAL = '#FF5A5F';
+const PURPLE = '#7B5EE6';
 
 export type RevenueBarChartPoint = {
   key: string;
   label: string;
   value: number;
   subLabel?: string;
+  dateLabel?: string;
+  selected?: boolean;
+  dimmed?: boolean;
+  isToday?: boolean;
 };
 
 type RevenueBarChartProps = {
-  title: string;
+  title?: string;
   points: RevenueBarChartPoint[];
   valueSuffix?: string;
   emptyMessage?: string;
   barColor?: string;
+  selectedBarColor?: string;
   maxBarHeight?: number;
+  embedded?: boolean;
+  onSelectPoint?: (key: string) => void;
 };
 
 function formatCompactWon(value: number) {
   if (value >= 10000) {
     return `${Math.round(value / 10000)}만`;
+  }
+
+  if (value <= 0) {
+    return '0';
   }
 
   return value.toLocaleString('ko-KR');
@@ -33,15 +45,19 @@ export function RevenueBarChart({
   valueSuffix = '원',
   emptyMessage = '표시할 데이터가 없어요',
   barColor = MINT,
+  selectedBarColor = PURPLE,
   maxBarHeight = 120,
+  embedded = false,
+  onSelectPoint,
 }: RevenueBarChartProps) {
   const maxValue = Math.max(...points.map((point) => point.value), 1);
   const useHorizontalScroll = points.length > 7;
+  const interactive = Boolean(onSelectPoint);
 
   if (points.length === 0) {
     return (
-      <View style={styles.card}>
-        <Text style={styles.title}>{title}</Text>
+      <View style={[styles.card, embedded && styles.cardEmbedded]}>
+        {title ? <Text style={styles.title}>{title}</Text> : null}
         <Text style={styles.empty}>{emptyMessage}</Text>
       </View>
     );
@@ -51,18 +67,20 @@ export function RevenueBarChart({
     <View style={[styles.chartRow, useHorizontalScroll && styles.chartRowScrollable]}>
       {points.map((point) => {
         const height = Math.max(8, Math.round((point.value / maxValue) * maxBarHeight));
+        const selected = Boolean(point.selected);
+        const fillColor = selected ? selectedBarColor : barColor;
 
-        return (
-          <View
-            key={point.key}
-            style={[styles.barColumn, useHorizontalScroll && styles.barColumnFixed]}>
-            <Text style={styles.barValue} numberOfLines={1}>
-              {formatCompactWon(point.value)}
+        const column = (
+          <>
+            <Text
+              style={[styles.barValue, selected && styles.barValueSelected]}
+              numberOfLines={1}>
+              {point.value > 0 ? formatCompactWon(point.value) : '-'}
             </Text>
             <View style={[styles.barTrack, { height: maxBarHeight }]}>
-              <View style={[styles.barFill, { height, backgroundColor: barColor }]} />
+              <View style={[styles.barFill, { height, backgroundColor: fillColor }]} />
             </View>
-            <Text style={styles.barLabel} numberOfLines={1}>
+            <Text style={[styles.barLabel, selected && styles.barLabelSelected]} numberOfLines={1}>
               {point.label}
             </Text>
             {point.subLabel ? (
@@ -70,6 +88,41 @@ export function RevenueBarChart({
                 {point.subLabel}
               </Text>
             ) : null}
+            {point.dateLabel ? (
+              <Text style={[styles.barDateLabel, selected && styles.barDateLabelSelected]} numberOfLines={1}>
+                {point.dateLabel}
+              </Text>
+            ) : null}
+          </>
+        );
+
+        const columnStyle = [
+          styles.barColumn,
+          useHorizontalScroll && styles.barColumnFixed,
+          point.dimmed && styles.barColumnDimmed,
+          point.isToday && !selected && styles.barColumnToday,
+          selected && styles.barColumnSelected,
+        ];
+
+        if (interactive) {
+          return (
+            <Pressable
+              key={point.key}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              onPress={() => onSelectPoint?.(point.key)}
+              style={({ pressed }) => [
+                ...columnStyle,
+                pressed && styles.barColumnPressed,
+              ]}>
+              {column}
+            </Pressable>
+          );
+        }
+
+        return (
+          <View key={point.key} style={columnStyle}>
+            {column}
           </View>
         );
       })}
@@ -77,8 +130,8 @@ export function RevenueBarChart({
   );
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>{title}</Text>
+    <View style={[styles.card, embedded && styles.cardEmbedded]}>
+      {title ? <Text style={styles.title}>{title}</Text> : null}
       {useHorizontalScroll ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {chartBody}
@@ -86,7 +139,7 @@ export function RevenueBarChart({
       ) : (
         chartBody
       )}
-      <Text style={styles.unitHint}>합계 ({valueSuffix})</Text>
+      <Text style={styles.unitHint}>합계 ({valueSuffix}) · 막대를 누르면 상세를 볼 수 있어요</Text>
     </View>
   );
 }
@@ -95,9 +148,15 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
+    elevation: 3,
     gap: 12,
     padding: 16,
-    elevation: 3,
+  },
+  cardEmbedded: {
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    elevation: 0,
+    padding: 0,
   },
   title: {
     color: '#1A1A2E',
@@ -114,7 +173,7 @@ const styles = StyleSheet.create({
   chartRow: {
     alignItems: 'flex-end',
     flexDirection: 'row',
-    gap: 6,
+    gap: 4,
     justifyContent: 'space-between',
   },
   chartRowScrollable: {
@@ -123,19 +182,41 @@ const styles = StyleSheet.create({
   },
   barColumn: {
     alignItems: 'center',
+    borderColor: 'transparent',
+    borderRadius: 12,
+    borderWidth: 2,
     flex: 1,
-    minWidth: 28,
+    minWidth: 36,
+    paddingBottom: 4,
+    paddingHorizontal: 2,
+    paddingTop: 6,
   },
   barColumnFixed: {
     flex: 0,
-    width: 44,
+    width: 48,
+  },
+  barColumnDimmed: {
+    opacity: 0.55,
+  },
+  barColumnToday: {
+    borderColor: '#FFD4D5',
+  },
+  barColumnSelected: {
+    backgroundColor: '#F0EBFF',
+    borderColor: PURPLE,
+  },
+  barColumnPressed: {
+    opacity: 0.9,
   },
   barValue: {
-    color: CORAL,
-    fontSize: 10,
-    fontWeight: '800',
+    color: '#1A1A2E',
+    fontSize: 11,
+    fontWeight: '900',
     marginBottom: 4,
     textAlign: 'center',
+  },
+  barValueSelected: {
+    color: CORAL,
   },
   barTrack: {
     alignItems: 'center',
@@ -149,16 +230,29 @@ const styles = StyleSheet.create({
   },
   barLabel: {
     color: '#1A1A2E',
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
     marginTop: 6,
     textAlign: 'center',
+  },
+  barLabelSelected: {
+    color: PURPLE,
   },
   barSubLabel: {
     color: '#9CA3AF',
     fontSize: 10,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  barDateLabel: {
+    color: '#9CA3AF',
+    fontSize: 9,
+    fontWeight: '600',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  barDateLabelSelected: {
+    color: '#6B6B7B',
   },
   unitHint: {
     color: '#9CA3AF',
