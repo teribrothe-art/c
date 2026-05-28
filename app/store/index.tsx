@@ -1,5 +1,5 @@
 import { Link, router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,6 +10,7 @@ import { getCurrentUser } from '../../lib/auth';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
+import { OrgDashboardStatGrid } from '../../src/components/org-dashboard-stat-grid';
 import { LoadingState } from '../../src/components/loading-state';
 import { StoreBottomTabBar } from '../../src/components/store-bottom-tab-bar';
 import { VirtualSimulationBanner } from '../../src/components/virtual-simulation-banner';
@@ -22,6 +23,8 @@ export default function StoreHomeScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [linkedStoreName, setLinkedStoreName] = useState<string | null>(null);
   const [linkedStoreRegion, setLinkedStoreRegion] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const designersSectionY = useRef(0);
 
   const load = useCallback(() => {
     setIsLoading(true);
@@ -49,6 +52,7 @@ export default function StoreHomeScreen() {
   return (
     <View style={styles.container}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[
           styles.content,
           { paddingTop: insets.top + 24, paddingBottom: Math.max(insets.bottom, 20) + 100 },
@@ -66,25 +70,40 @@ export default function StoreHomeScreen() {
           <Text style={styles.errorText}>{errorMessage}</Text>
         ) : summary ? (
           <>
-            <View style={styles.cardGrid}>
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>소속 디자이너</Text>
-                <Text style={styles.statValue}>{summary.designerCount}</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>이번 달 시술</Text>
-                <Text style={styles.statValue}>{summary.monthTreatmentCount}</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>이번 달 매출</Text>
-                <Text style={styles.statValue}>{summary.monthRevenue.toLocaleString('ko-KR')}</Text>
-                <Text style={styles.statMeta}>원</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>연결 고객</Text>
-                <Text style={styles.statValue}>{summary.customerCount}</Text>
-              </View>
-            </View>
+            <OrgDashboardStatGrid
+              items={[
+                {
+                  key: 'designers',
+                  label: '소속 디자이너',
+                  value: String(summary.designerCount),
+                  onPress: () => {
+                    scrollRef.current?.scrollTo({
+                      y: Math.max(0, designersSectionY.current - 12),
+                      animated: true,
+                    });
+                  },
+                },
+                {
+                  key: 'treatments',
+                  label: '이번 달 시술',
+                  value: String(summary.monthTreatmentCount),
+                  onPress: () => router.push('/store/customers'),
+                },
+                {
+                  key: 'revenue',
+                  label: '이번 달 매출',
+                  value: summary.monthRevenue.toLocaleString('ko-KR'),
+                  meta: '원',
+                  onPress: () => router.push('/store/revenue'),
+                },
+                {
+                  key: 'customers',
+                  label: '연결 고객',
+                  value: String(summary.customerCount),
+                  onPress: () => router.push('/store/customers'),
+                },
+              ]}
+            />
 
             {linkedStoreName ? (
               <View style={styles.storeBanner}>
@@ -117,24 +136,29 @@ export default function StoreHomeScreen() {
               </Link>
             </View>
 
-            <Text style={styles.sectionTitle}>소속 디자이너</Text>
-            {summary.designers.map((designer) => (
-              <Pressable
-                key={designer.id}
-                onPress={() => router.push(`/store/designer/${designer.id}/revenue`)}
-                style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}>
-                <View>
-                  <Text style={styles.menuTitle}>{designer.name}</Text>
-                  <Text style={styles.menuMeta}>
-                    {designer.storeName} · 고객 {designer.customerCount}명 · 이번 달 시술{' '}
-                    {designer.monthTreatmentCount}건
+            <View
+              onLayout={(event) => {
+                designersSectionY.current = event.nativeEvent.layout.y;
+              }}>
+              <Text style={styles.sectionTitle}>소속 디자이너</Text>
+              {summary.designers.map((designer) => (
+                <Pressable
+                  key={designer.id}
+                  onPress={() => router.push(`/store/designer/${designer.id}/revenue`)}
+                  style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}>
+                  <View>
+                    <Text style={styles.menuTitle}>{designer.name}</Text>
+                    <Text style={styles.menuMeta}>
+                      {designer.storeName} · 고객 {designer.customerCount}명 · 이번 달 시술{' '}
+                      {designer.monthTreatmentCount}건
+                    </Text>
+                  </View>
+                  <Text style={styles.menuAmount}>
+                    {designer.monthRevenue.toLocaleString('ko-KR')}원
                   </Text>
-                </View>
-                <Text style={styles.menuAmount}>
-                  {designer.monthRevenue.toLocaleString('ko-KR')}원
-                </Text>
-              </Pressable>
-            ))}
+                </Pressable>
+              ))}
+            </View>
           </>
         ) : null}
       </ScrollView>
@@ -180,37 +204,6 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#EF4444',
     fontSize: 14,
-    fontWeight: '600',
-  },
-  cardGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 16,
-  },
-  statCard: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E8E8F0',
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 4,
-    minHeight: 96,
-    padding: 14,
-    width: '48%',
-  },
-  statLabel: {
-    color: '#6B6B7B',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  statValue: {
-    color: '#1A1A2E',
-    fontSize: 22,
-    fontWeight: '900',
-  },
-  statMeta: {
-    color: '#9CA3AF',
-    fontSize: 11,
     fontWeight: '600',
   },
   storeBanner: {

@@ -8,6 +8,7 @@ import { buildVirtualStoreSummaries } from '../../lib/org-virtual-simulation';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
+import { OrgDashboardStatGrid } from '../../src/components/org-dashboard-stat-grid';
 import { LoadingState } from '../../src/components/loading-state';
 import { AdminBottomTabBar } from '../../src/components/admin-bottom-tab-bar';
 import { VirtualSimulationBanner } from '../../src/components/virtual-simulation-banner';
@@ -61,25 +62,35 @@ export default function AdminHomeScreen() {
           <Text style={styles.errorText}>{errorMessage}</Text>
         ) : summary ? (
           <>
-            <View style={styles.cardGrid}>
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>연결 디자이너</Text>
-                <Text style={styles.statValue}>{summary.designerCount}</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>이번 달 시술</Text>
-                <Text style={styles.statValue}>{summary.monthTreatmentCount}</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>이번 달 매출</Text>
-                <Text style={styles.statValue}>{summary.monthRevenue.toLocaleString('ko-KR')}</Text>
-                <Text style={styles.statMeta}>원</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>전체 고객</Text>
-                <Text style={styles.statValue}>{summary.customerCount}</Text>
-              </View>
-            </View>
+            <OrgDashboardStatGrid
+              items={[
+                {
+                  key: 'designers',
+                  label: '연결 디자이너',
+                  value: String(summary.designerCount),
+                  onPress: () => router.push('/admin/designers'),
+                },
+                {
+                  key: 'treatments',
+                  label: '이번 달 시술',
+                  value: String(summary.monthTreatmentCount),
+                  onPress: () => router.push('/admin/customers'),
+                },
+                {
+                  key: 'revenue',
+                  label: '이번 달 매출',
+                  value: summary.monthRevenue.toLocaleString('ko-KR'),
+                  meta: '원',
+                  onPress: () => router.push('/admin/revenue'),
+                },
+                {
+                  key: 'customers',
+                  label: '전체 고객',
+                  value: String(summary.customerCount),
+                  onPress: () => router.push('/admin/customers'),
+                },
+              ]}
+            />
 
             <Text style={styles.sectionTitle}>가상 매장</Text>
             {virtualStores.map((store) => {
@@ -185,37 +196,6 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#EF4444',
     fontSize: 14,
-    fontWeight: '600',
-  },
-  cardGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 16,
-  },
-  statCard: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E8E8F0',
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 4,
-    minHeight: 96,
-    padding: 14,
-    width: '48%',
-  },
-  statLabel: {
-    color: '#6B6B7B',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  statValue: {
-    color: '#1A1A2E',
-    fontSize: 22,
-    fontWeight: '900',
-  },
-  statMeta: {
-    color: '#9CA3AF',
-    fontSize: 11,
     fontWeight: '600',
   },
   virtualStoreRow: {
