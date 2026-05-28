@@ -11,7 +11,12 @@ import {
   View,
 } from 'react-native';
 
-import { DEMO_LOGIN_GROUPS } from '../lib/demo-login-accounts';
+import {
+  DEMO_LOGIN_GROUPS,
+  type DemoLoginAccount,
+  type DemoLoginGroupKey,
+  isCollapsibleDemoLoginGroup,
+} from '../lib/demo-login-accounts';
 import { showLoginFailureAlert } from '../lib/alerts';
 import { isDemoAuthMode } from '../lib/auth';
 import { getErrorMessage } from '../lib/errors';
@@ -19,8 +24,52 @@ import { signInAndNavigate } from '../lib/quick-login-flow';
 import { colors } from '../lib/theme';
 import { AppVersionBadge } from '../src/components/app-version-badge';
 
+function AccountRow({
+  account,
+  isLast,
+  loadingId,
+  onLogin,
+}: {
+  account: DemoLoginAccount;
+  isLast: boolean;
+  loadingId: string | null;
+  onLogin: (id: string, email: string, password: string) => void;
+}) {
+  const isLoading = loadingId === account.id;
+
+  return (
+    <Pressable
+      disabled={Boolean(loadingId)}
+      onPress={() => onLogin(account.id, account.email, account.password)}
+      style={({ pressed }) => [
+        styles.row,
+        !isLast && styles.rowBorder,
+        pressed && !loadingId && styles.rowPressed,
+      ]}>
+      <View style={[styles.roleBadge, { backgroundColor: account.accent }]}>
+        <Text style={styles.roleBadgeText}>{account.roleLabel}</Text>
+      </View>
+      <View style={styles.rowBody}>
+        <Text style={styles.rowTitle}>{account.loginLabel}</Text>
+        <Text style={styles.rowMeta}>
+          {account.email} · {account.password}
+        </Text>
+        {account.meta ? <Text style={styles.rowMeta}>{account.meta}</Text> : null}
+      </View>
+      {isLoading ? (
+        <ActivityIndicator color={colors.coral} size="small" />
+      ) : (
+        <Text style={styles.rowAction}>로그인</Text>
+      )}
+    </Pressable>
+  );
+}
+
 export default function TestLoginScreen() {
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Partial<Record<DemoLoginGroupKey, boolean>>>(
+    {},
+  );
 
   const handleAccountLogin = useCallback(async (id: string, email: string, password: string) => {
     if (loadingId) {
@@ -37,6 +86,13 @@ export default function TestLoginScreen() {
       setLoadingId(null);
     }
   }, [loadingId]);
+
+  const toggleGroup = useCallback((title: DemoLoginGroupKey) => {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [title]: !prev[title],
+    }));
+  }, []);
 
   if (!isDemoAuthMode) {
     return (
@@ -66,48 +122,53 @@ export default function TestLoginScreen() {
           <Text style={styles.subtitle}>탭하면 바로 로그인됩니다.</Text>
         </View>
 
-        {DEMO_LOGIN_GROUPS.map((group) => (
-          <View key={group.title} style={styles.group}>
-            <Text style={styles.groupTitle}>{group.title}</Text>
-            {group.description ? (
-              <Text style={styles.groupDescription}>{group.description}</Text>
-            ) : null}
-            <View style={styles.card}>
-              {group.accounts.map((account, index) => {
-                const isLoading = loadingId === account.id;
-                const isLast = index === group.accounts.length - 1;
+        {DEMO_LOGIN_GROUPS.map((group) => {
+          const collapsible = isCollapsibleDemoLoginGroup(group.title);
+          const expanded = Boolean(expandedGroups[group.title]);
+          const countLabel = `${group.accounts.length}명`;
 
-                return (
-                  <Pressable
-                    key={account.id}
-                    disabled={Boolean(loadingId)}
-                    onPress={() => void handleAccountLogin(account.id, account.email, account.password)}
-                    style={({ pressed }) => [
-                      styles.row,
-                      !isLast && styles.rowBorder,
-                      pressed && !loadingId && styles.rowPressed,
-                    ]}>
-                    <View style={[styles.roleBadge, { backgroundColor: account.accent }]}>
-                      <Text style={styles.roleBadgeText}>{account.roleLabel}</Text>
-                    </View>
-                    <View style={styles.rowBody}>
-                      <Text style={styles.rowTitle}>{account.loginLabel}</Text>
-                      <Text style={styles.rowMeta}>
-                        {account.email} · {account.password}
-                      </Text>
-                      {account.meta ? <Text style={styles.rowMeta}>{account.meta}</Text> : null}
-                    </View>
-                    {isLoading ? (
-                      <ActivityIndicator color={colors.coral} size="small" />
-                    ) : (
-                      <Text style={styles.rowAction}>로그인</Text>
-                    )}
-                  </Pressable>
-                );
-              })}
+          return (
+            <View key={group.title} style={styles.group}>
+              {collapsible ? (
+                <Pressable
+                  onPress={() => toggleGroup(group.title)}
+                  style={({ pressed }) => [styles.collapseHeader, pressed && styles.collapseHeaderPressed]}>
+                  <View style={styles.collapseHeaderBody}>
+                    <Text style={styles.groupTitle}>{group.title}</Text>
+                    {group.description ? (
+                      <Text style={styles.groupDescription}>{group.description}</Text>
+                    ) : null}
+                  </View>
+                  <View style={styles.collapseTrailing}>
+                    <Text style={styles.collapseCount}>{countLabel}</Text>
+                    <Text style={styles.collapseChevron}>{expanded ? '▲' : '▼'}</Text>
+                  </View>
+                </Pressable>
+              ) : (
+                <>
+                  <Text style={styles.groupTitle}>{group.title}</Text>
+                  {group.description ? (
+                    <Text style={styles.groupDescription}>{group.description}</Text>
+                  ) : null}
+                </>
+              )}
+
+              {(!collapsible || expanded) && group.accounts.length > 0 ? (
+                <View style={[styles.card, collapsible && styles.cardIndented]}>
+                  {group.accounts.map((account, index) => (
+                    <AccountRow
+                      key={account.id}
+                      account={account}
+                      isLast={index === group.accounts.length - 1}
+                      loadingId={loadingId}
+                      onLogin={(id, email, password) => void handleAccountLogin(id, email, password)}
+                    />
+                  ))}
+                </View>
+              ) : null}
             </View>
-          </View>
-        ))}
+          );
+        })}
 
         <Pressable
           disabled={Boolean(loadingId)}
@@ -153,19 +214,54 @@ const styles = StyleSheet.create({
     color: '#1A1A2E',
     fontSize: 14,
     fontWeight: '900',
-    marginBottom: 4,
   },
   groupDescription: {
     color: '#6B6B7B',
     fontSize: 12,
     fontWeight: '600',
     lineHeight: 17,
+    marginTop: 4,
+  },
+  collapseHeader: {
+    alignItems: 'center',
+    backgroundColor: '#FFF8F8',
+    borderColor: '#FFE0E1',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
     marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  collapseHeaderPressed: {
+    opacity: 0.92,
+  },
+  collapseHeaderBody: {
+    flex: 1,
+    gap: 2,
+  },
+  collapseTrailing: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  collapseCount: {
+    color: colors.coral,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  collapseChevron: {
+    color: '#9A9AAA',
+    fontSize: 11,
+    fontWeight: '700',
   },
   card: {
     backgroundColor: '#F8F8FC',
     borderRadius: 14,
     overflow: 'hidden',
+  },
+  cardIndented: {
+    marginTop: 0,
   },
   row: {
     alignItems: 'center',

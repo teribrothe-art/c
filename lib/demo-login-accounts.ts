@@ -21,15 +21,22 @@ export type DemoLoginAccount = {
 };
 
 /** 테스트 로그인 화면 분류 순서 */
-export const DEMO_LOGIN_GROUP_ORDER = ['기본', '누적 디자이너', '가입 고객 10명'] as const;
+export const DEMO_LOGIN_GROUP_ORDER = ['기본', '누적 디자이너', '가입고객 1차'] as const;
 
 export type DemoLoginGroupKey = (typeof DEMO_LOGIN_GROUP_ORDER)[number];
 
 export const DEMO_LOGIN_GROUP_DESCRIPTIONS: Record<DemoLoginGroupKey, string> = {
   기본: '고객 · 디자이너 · 매장 · 본사 데모 계정',
   '누적 디자이너': '1년 · 2년 · 3년 누적 시술 데이터 디자이너',
-  '가입 고객 10명': '가입·연동 테스트용 고객 계정 (탭 시 바로 로그인)',
+  '가입고객 1차': '가입·연동 테스트용 고객 10명 — 탭하면 목록이 펼쳐집니다',
 };
+
+/** 탭하면 계정 목록을 펼치는 그룹 */
+export const DEMO_LOGIN_COLLAPSIBLE_GROUPS: DemoLoginGroupKey[] = ['가입고객 1차'];
+
+export function isCollapsibleDemoLoginGroup(title: DemoLoginGroupKey) {
+  return DEMO_LOGIN_COLLAPSIBLE_GROUPS.includes(title);
+}
 
 const BASIC_ACCOUNTS: DemoLoginAccount[] = [
   {
@@ -98,12 +105,12 @@ const ACCUMULATED_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_DESIGNERS_PUBL
 const REGISTERED_CUSTOMER_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_CUSTOMERS.slice(0, 10).map(
   (customer, index) => ({
     id: customer.id,
-    group: '가입 고객 10명',
+    group: '가입고객 1차',
     roleLabel: '고객',
     loginLabel: customer.name,
     email: customer.email,
     password: ACCUMULATED_TEST_PASSWORD,
-    meta: `가입 고객 ${index + 1}/10 · 비밀번호 ${ACCUMULATED_TEST_PASSWORD}`,
+    meta: `1차 ${index + 1}/10 · 비밀번호 ${ACCUMULATED_TEST_PASSWORD}`,
     accent: colors.coral,
   }),
 );
