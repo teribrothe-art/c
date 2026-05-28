@@ -8,6 +8,7 @@ import {
   ACCUMULATED_TEST_DESIGNERS_PUBLIC,
   ACCUMULATED_TEST_PASSWORD,
 } from '../lib/demo-accumulated-test-accounts';
+import { EXPANDED_STORE_DESIGNER_DEFINITIONS } from '../lib/demo-expanded-store-designers';
 import {
   ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE,
   ACCUMULATED_TEST_PROFILES,
@@ -111,12 +112,43 @@ function logProfile(
   console.log(`  (${stats.yearSpanLabel}) · ${stats.weeklyTreatmentsLabel}`);
 }
 
+function verifyExpandedDesigner(slot: number) {
+  const definition = EXPANDED_STORE_DESIGNER_DEFINITIONS.find((item) => item.slot === slot);
+  const profileKey = `exp-${String(slot).padStart(2, '0')}`;
+  const profile = ACCUMULATED_TEST_PROFILES.find((item) => item.key === profileKey);
+  const stats = ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE[profileKey];
+  const publicAccount = ACCUMULATED_TEST_DESIGNERS_PUBLIC.find((item) => item.id === definition?.designer.id);
+
+  assert(definition, `증원 디자이너 slot ${slot}`);
+  assert(profile, `증원 프로필 ${profileKey}`);
+  assert(stats, `증원 통계 ${profileKey}`);
+  assert(publicAccount, `증원 공개 계정 ${profileKey}`);
+  assert(profile.historyYears === definition.historyYears, `${profileKey} 연차 일치`);
+  assert(profile.customers.length === definition.customers.length, `${profileKey} 고객 수`);
+  assert(profile.treatments.length >= 400, `${profileKey} 최소 시술 400건`);
+  assert(profile.visitCycleMode, `${profileKey} visitCycleMode`);
+
+  console.log(
+    `\n=== ${publicAccount.loginLabel} · ${definition.storeId} ===\n  시술 ${stats.treatmentCount}건 · 고객 ${stats.customerCount}명`,
+  );
+}
+
 function main() {
-  assert(ACCUMULATED_TEST_DESIGNERS_PUBLIC.length === 4, '공개 누적 디자이너 4종');
+  const expandedCount = EXPANDED_STORE_DESIGNER_DEFINITIONS.length;
+  assert(ACCUMULATED_TEST_DESIGNERS_PUBLIC.length === 4 + expandedCount, '누적+증원 디자이너 수');
+  assert(EXPANDED_STORE_DESIGNER_DEFINITIONS.length === 15, '증원 디자이너 15명');
 
   for (const expectation of VISIT_CYCLE_PROFILES) {
     verifyVisitCycleProfile(expectation);
   }
+
+  verifyExpandedDesigner(1);
+  verifyExpandedDesigner(8);
+  verifyExpandedDesigner(15);
+
+  const expanded1y = EXPANDED_STORE_DESIGNER_DEFINITIONS.filter((item) => item.historyYears === 1).length;
+  const expanded2y = EXPANDED_STORE_DESIGNER_DEFINITIONS.filter((item) => item.historyYears === 2).length;
+  console.log(`\n증원 연차 분포: 1년차 ${expanded1y}명 · 2년차 ${expanded2y}명`);
 
   console.log('\n시드 검증 OK');
   console.log('  · 로그인 화면에서 1년 / 2년 / 3년 / 5년 누적 테스트 디자이너 확인');

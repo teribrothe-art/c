@@ -9,7 +9,9 @@ import {
   ACCUMULATED_TEST_CUSTOMERS_5Y,
   ACCUMULATED_TEST_DESIGNERS_PUBLIC,
   ACCUMULATED_TEST_PASSWORD,
+  EXPANDED_STORE_DESIGNER_COUNT,
 } from './demo-accumulated-test-accounts';
+import { EXPANDED_STORE_DESIGNER_DEFINITIONS } from './demo-expanded-store-designers';
 import { formatDesignerStoreLabel, ORG_STORE_DEFINITIONS } from './org-store-affiliation';
 import { STORE_TEST_ACCOUNTS } from './store-test-accounts';
 import { colors } from './theme';
@@ -34,7 +36,7 @@ export type DemoLoginGroupKey = (typeof DEMO_LOGIN_GROUP_ORDER)[number];
 export const DEMO_LOGIN_GROUP_DESCRIPTIONS: Record<DemoLoginGroupKey, string> = {
   기본: '고객 · 본사 데모 계정',
   매장: '지역 핫플레이스 매장 전체 — 펼치면 목록 · 검색 가능',
-  디자이너: '데모 · 베타 · 누적(1·2·3·5년) 전체 — 펼치면 목록 · 검색 가능',
+  디자이너: `데모 · 베타 · 누적 · 증원 ${EXPANDED_STORE_DESIGNER_COUNT}명 — 펼치면 목록 · 검색 가능`,
   가입고객: '누적 테스트 디자이너 연동 고객 — 펼친 뒤 이름·이메일로 검색',
 };
 
@@ -71,11 +73,27 @@ export function getDemoLoginSearchPlaceholder(title: DemoLoginGroupKey) {
   return '검색';
 }
 
+const EXPANDED_CUSTOMER_LOGIN_SOURCES = [
+  {
+    profileLabel: '증원 1년차',
+    customers: EXPANDED_STORE_DESIGNER_DEFINITIONS.filter((item) => item.historyYears === 1).flatMap(
+      (item) => item.customers,
+    ),
+  },
+  {
+    profileLabel: '증원 2년차',
+    customers: EXPANDED_STORE_DESIGNER_DEFINITIONS.filter((item) => item.historyYears === 2).flatMap(
+      (item) => item.customers,
+    ),
+  },
+] as const;
+
 const ACCUMULATED_CUSTOMER_LOGIN_SOURCES = [
   { profileLabel: '1년 누적', customers: ACCUMULATED_TEST_CUSTOMERS_1Y },
   { profileLabel: '2년 누적', customers: ACCUMULATED_TEST_CUSTOMERS },
   { profileLabel: '3년 누적', customers: ACCUMULATED_TEST_CUSTOMERS_3Y },
   { profileLabel: '5년 누적', customers: ACCUMULATED_TEST_CUSTOMERS_5Y },
+  ...EXPANDED_CUSTOMER_LOGIN_SOURCES,
 ] as const;
 
 export const ACCUMULATED_LOGIN_CUSTOMER_COUNT = ACCUMULATED_CUSTOMER_LOGIN_SOURCES.reduce(
@@ -141,14 +159,19 @@ const BETA_DESIGNER_ACCOUNTS: DemoLoginAccount[] = BETA_DESIGNERS.map((designer)
   ]),
 }));
 
+function accumulatedDesignerRoleLabel(profileKey: string) {
+  return profileKey.startsWith('exp-') ? '증원' : '누적';
+}
+
 const ACCUMULATED_DESIGNER_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_DESIGNERS_PUBLIC.map(
   (designer) => {
     const stats = ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE[designer.profileKey];
+    const roleLabel = accumulatedDesignerRoleLabel(designer.profileKey);
 
     return {
       id: designer.id,
       group: '디자이너',
-      roleLabel: '누적',
+      roleLabel,
       loginLabel: designer.loginLabel,
       email: designer.email,
       password: designer.password,
@@ -157,7 +180,9 @@ const ACCUMULATED_DESIGNER_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_DESIG
         : formatDesignerStoreLabel(designer.id),
       accent: accumulatedDesignerAccent(designer.profileKey),
       searchHaystack: designerSearchHaystack([
+        roleLabel,
         '누적',
+        '증원',
         '디자이너',
         designer.loginLabel,
         designer.email,
@@ -169,7 +194,7 @@ const ACCUMULATED_DESIGNER_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_DESIG
   },
 );
 
-/** 테스트 로그인 · 디자이너 탭 전체 (데모 1 + 베타 5 + 누적 4) */
+/** 테스트 로그인 · 디자이너 탭 전체 (데모 1 + 베타 5 + 누적 4 + 증원 15) */
 export const ALL_DESIGNER_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
   DEMO_DESIGNER_ACCOUNT,
   ...BETA_DESIGNER_ACCOUNTS,

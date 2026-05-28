@@ -1,6 +1,7 @@
 import { DEMO_LOGIN_HINT } from './auth';
 import { BETA_DESIGNERS } from './beta-test-accounts';
 import { ACCUMULATED_TEST_DESIGNERS_PUBLIC } from './demo-accumulated-test-accounts';
+import { EXPANDED_DESIGNER_IDS_BY_STORE } from './demo-expanded-store-designers';
 import { resolveStoreOrgIdForUser } from './store-test-accounts';
 
 export type OrgStore = {
@@ -14,10 +15,7 @@ export type OrgStore = {
   designerIds: string[];
 };
 
-/**
- * 지역별 핫플레이스 매장 — 디자이너 2~6명, 누적·베타 등 매출 시드 보유 디자이너 연결
- */
-export const ORG_STORE_DEFINITIONS: OrgStore[] = [
+const ORG_STORE_DEFINITIONS_BASE: OrgStore[] = [
   {
     id: 'virtual-store-hot-gangnam',
     name: '강남 핫플레이스',
@@ -48,6 +46,17 @@ export const ORG_STORE_DEFINITIONS: OrgStore[] = [
   },
 ];
 
+/**
+ * 지역별 핫플레이스 매장 — 디자이너 2~8명 (증원 15명 포함)
+ */
+export const ORG_STORE_DEFINITIONS: OrgStore[] = ORG_STORE_DEFINITIONS_BASE.map((store) => ({
+  ...store,
+  designerIds: [
+    ...store.designerIds,
+    ...(EXPANDED_DESIGNER_IDS_BY_STORE[store.id] ?? []),
+  ],
+}));
+
 /** 매장 로그인(`store@hair.app`)이 관리하는 핫플레이스 */
 export const STORE_ACCOUNT_LINKED_STORE_ID = 'virtual-store-hot-gangnam';
 
@@ -76,6 +85,8 @@ export const ALL_ORG_DESIGNER_IDS = [
   ...ACCUMULATED_TEST_DESIGNERS_PUBLIC.map((designer) => designer.id),
 ] as const;
 
+const MAX_DESIGNERS_PER_STORE = 8;
+
 function assertCompleteAffiliations() {
   const missing = ALL_ORG_DESIGNER_IDS.filter((designerId) => !designerToStoreMap.has(designerId));
 
@@ -86,8 +97,10 @@ function assertCompleteAffiliations() {
   for (const store of ORG_STORE_DEFINITIONS) {
     const count = store.designerIds.length;
 
-    if (count < 2 || count > 6) {
-      throw new Error(`${store.name} 디자이너 수는 2~6명이어야 합니다 (현재 ${count}명)`);
+    if (count < 2 || count > MAX_DESIGNERS_PER_STORE) {
+      throw new Error(
+        `${store.name} 디자이너 수는 2~${MAX_DESIGNERS_PER_STORE}명이어야 합니다 (현재 ${count}명)`,
+      );
     }
   }
 }
