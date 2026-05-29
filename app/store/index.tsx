@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import { getOrgStoreForAccountUser } from '../../lib/org-store-affiliation';
 import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
+import { orgCustomersHref, orgRevenuePath } from '../../lib/org-dashboard-links';
 import { getVirtualStoreForScope } from '../../lib/org-virtual-simulation';
 import { getCurrentUser } from '../../lib/auth';
 import { getErrorMessage } from '../../lib/errors';
@@ -72,7 +73,7 @@ export default function StoreHomeScreen() {
         <Text style={styles.title}>매장</Text>
         <Text style={styles.subtitle}>지역 핫플레이스 매장과 연동된 디자이너·매출을 확인합니다.</Text>
 
-        <VirtualSimulationBanner scenario="weekday" />
+        <VirtualSimulationBanner onPress={() => router.push('/store/simulation')} scenario="weekday" />
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -83,37 +84,45 @@ export default function StoreHomeScreen() {
             <OrgDashboardStatGrid
               items={[
                 {
-                  key: 'designers',
-                  label: '소속 디자이너',
-                  value: String(summary.designerCount),
-                  onPress: () => {
-                    scrollRef.current?.scrollTo({
-                      y: Math.max(0, designersSectionY.current - 12),
-                      animated: true,
-                    });
-                  },
+                  key: 'revenue',
+                  label: '이번 달 매출',
+                  value: summary.monthRevenue.toLocaleString('ko-KR'),
+                  meta: '원',
+                  onPress: () => router.push(orgRevenuePath('store')),
                 },
                 {
                   key: 'treatments',
                   label: '이번 달 시술',
                   value: String(summary.monthTreatmentCount),
-                  onPress: () => router.push('/store/customers'),
+                  onPress: () => router.push(orgCustomersHref('store', 'month')),
                 },
                 {
-                  key: 'revenue',
-                  label: '이번 달 매출',
-                  value: summary.monthRevenue.toLocaleString('ko-KR'),
+                  key: 'pending',
+                  label: '정산 대기',
+                  value: summary.pendingPayoutAmount.toLocaleString('ko-KR'),
                   meta: '원',
-                  onPress: () => router.push('/store/revenue'),
+                  onPress: () => router.push(orgCustomersHref('store', 'escrow')),
                 },
                 {
                   key: 'customers',
                   label: '연결 고객',
                   value: String(summary.customerCount),
-                  onPress: () => router.push('/store/customers'),
+                  onPress: () => router.push(orgCustomersHref('store')),
                 },
               ]}
             />
+
+            <Pressable
+              onPress={() => {
+                scrollRef.current?.scrollTo({
+                  y: Math.max(0, designersSectionY.current - 12),
+                  animated: true,
+                });
+              }}
+              style={({ pressed }) => [styles.designersJumpRow, pressed && styles.designersJumpPressed]}>
+              <Text style={styles.designersJumpLabel}>소속 디자이너 {summary.designerCount}명</Text>
+              <Text style={styles.designersJumpAction}>목록으로 ↓</Text>
+            </Pressable>
 
             {linkedStoreName ? (
               <View style={styles.storeBanner}>
@@ -240,6 +249,32 @@ const styles = StyleSheet.create({
     color: '#0284C7',
     fontSize: 12,
     fontWeight: '600',
+  },
+  designersJumpRow: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    marginTop: -8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  designersJumpPressed: {
+    opacity: 0.9,
+  },
+  designersJumpLabel: {
+    color: '#1A1A2E',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  designersJumpAction: {
+    color: '#0284C7',
+    fontSize: 13,
+    fontWeight: '800',
   },
   quickRow: {
     flexDirection: 'row',

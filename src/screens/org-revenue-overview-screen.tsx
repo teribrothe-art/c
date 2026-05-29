@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -8,6 +8,8 @@ import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/or
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
+import { orgCustomersHref } from '../../lib/org-dashboard-links';
+import { OrgDashboardStatGrid } from '../components/org-dashboard-stat-grid';
 import { VirtualSimulationBanner } from '../components/virtual-simulation-banner';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
@@ -24,6 +26,8 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const scrollRef = useRef<ScrollView>(null);
+  const designersSectionY = useRef(0);
 
   const load = useCallback(() => {
     setIsLoading(true);
@@ -51,6 +55,7 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   return (
     <View style={styles.container}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[
           styles.content,
           { paddingTop: insets.top + 16, paddingBottom: Math.max(insets.bottom, 20) + 100 },
@@ -59,7 +64,10 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
         <Text style={styles.title}>{scope === 'store' ? '매장 매출' : '본사 매출'}</Text>
         <Text style={styles.subtitle}>디자이너 매출·정산 화면과 동일 데이터를 합산합니다.</Text>
 
-        <VirtualSimulationBanner scenario="weekday" />
+        <VirtualSimulationBanner
+          onPress={() => router.push(scope === 'store' ? '/store/simulation' : '/admin/simulation')}
+          scenario="weekday"
+        />
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -67,17 +75,48 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
           <EmptyState title="불러오기 실패" subtitle={errorMessage} />
         ) : summary ? (
           <>
-            <View style={styles.grid}>
-              <StatCard label="이번 달 매출" value={`${summary.monthRevenue.toLocaleString('ko-KR')}원`} />
-              <StatCard
-                label="이번 달 시술"
-                value={`${summary.monthTreatmentCount.toLocaleString('ko-KR')}건`}
-              />
-              <StatCard label="정산 대기" value={`${summary.pendingPayoutAmount.toLocaleString('ko-KR')}원`} />
-              <StatCard label="연결 고객" value={`${summary.customerCount.toLocaleString('ko-KR')}명`} />
-            </View>
+            <OrgDashboardStatGrid
+              items={[
+                {
+                  key: 'revenue',
+                  label: '이번 달 매출',
+                  value: summary.monthRevenue.toLocaleString('ko-KR'),
+                  meta: '원 · 디자이너별',
+                  onPress: () => {
+                    scrollRef.current?.scrollTo({
+                      y: Math.max(0, designersSectionY.current - 8),
+                      animated: true,
+                    });
+                  },
+                },
+                {
+                  key: 'treatments',
+                  label: '이번 달 시술',
+                  value: `${summary.monthTreatmentCount.toLocaleString('ko-KR')}건`,
+                  onPress: () => router.push(orgCustomersHref(scope, 'month')),
+                },
+                {
+                  key: 'pending',
+                  label: '정산 대기',
+                  value: summary.pendingPayoutAmount.toLocaleString('ko-KR'),
+                  meta: '원',
+                  onPress: () => router.push(orgCustomersHref(scope, 'escrow')),
+                },
+                {
+                  key: 'customers',
+                  label: '연결 고객',
+                  value: `${summary.customerCount.toLocaleString('ko-KR')}명`,
+                  onPress: () => router.push(orgCustomersHref(scope)),
+                },
+              ]}
+            />
 
-            <Text style={styles.sectionTitle}>디자이너별 매출</Text>
+            <View
+              onLayout={(event) => {
+                designersSectionY.current = event.nativeEvent.layout.y;
+              }}>
+              <Text style={styles.sectionTitle}>디자이너별 매출</Text>
+            </View>
             {summary.designers.map((designer) => (
               <Pressable
                 key={designer.id}
@@ -108,15 +147,6 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.statCard}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FAFAFC',
@@ -136,31 +166,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 4,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  statCard: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E8E8F0',
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 6,
-    minHeight: 88,
-    padding: 14,
-    width: '48%',
-  },
-  statLabel: {
-    color: '#6B6B7B',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  statValue: {
-    color: '#1A1A2E',
-    fontSize: 18,
-    fontWeight: '900',
   },
   sectionTitle: {
     color: '#1A1A2E',

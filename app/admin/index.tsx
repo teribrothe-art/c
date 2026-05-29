@@ -8,6 +8,7 @@ import { buildVirtualStoreSummaries } from '../../lib/org-virtual-simulation';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
+import { orgCustomersHref, orgRevenuePath } from '../../lib/org-dashboard-links';
 import { OrgDashboardStatGrid } from '../../src/components/org-dashboard-stat-grid';
 import { LoadingState } from '../../src/components/loading-state';
 import { AdminBottomTabBar } from '../../src/components/admin-bottom-tab-bar';
@@ -54,7 +55,7 @@ export default function AdminHomeScreen() {
         <Text style={styles.title}>본사</Text>
         <Text style={styles.subtitle}>지역별 핫플레이스 매장과 디자이너 매출·시술 데이터를 함께 봅니다.</Text>
 
-        <VirtualSimulationBanner scenario="weekday" />
+        <VirtualSimulationBanner onPress={() => router.push('/admin/simulation')} scenario="weekday" />
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -65,32 +66,40 @@ export default function AdminHomeScreen() {
             <OrgDashboardStatGrid
               items={[
                 {
-                  key: 'designers',
-                  label: '연결 디자이너',
-                  value: String(summary.designerCount),
-                  onPress: () => router.push('/admin/designers'),
+                  key: 'revenue',
+                  label: '이번 달 매출',
+                  value: summary.monthRevenue.toLocaleString('ko-KR'),
+                  meta: '원',
+                  onPress: () => router.push(orgRevenuePath('admin')),
                 },
                 {
                   key: 'treatments',
                   label: '이번 달 시술',
                   value: String(summary.monthTreatmentCount),
-                  onPress: () => router.push('/admin/customers'),
+                  onPress: () => router.push(orgCustomersHref('admin', 'month')),
                 },
                 {
-                  key: 'revenue',
-                  label: '이번 달 매출',
-                  value: summary.monthRevenue.toLocaleString('ko-KR'),
+                  key: 'pending',
+                  label: '정산 대기',
+                  value: summary.pendingPayoutAmount.toLocaleString('ko-KR'),
                   meta: '원',
-                  onPress: () => router.push('/admin/revenue'),
+                  onPress: () => router.push(orgCustomersHref('admin', 'escrow')),
                 },
                 {
                   key: 'customers',
-                  label: '전체 고객',
+                  label: '연결 고객',
                   value: String(summary.customerCount),
-                  onPress: () => router.push('/admin/customers'),
+                  onPress: () => router.push(orgCustomersHref('admin')),
                 },
               ]}
             />
+
+            <Pressable
+              onPress={() => router.push('/admin/designers')}
+              style={({ pressed }) => [styles.designersJumpRow, pressed && styles.designersJumpPressed]}>
+              <Text style={styles.designersJumpLabel}>연결 디자이너 {summary.designerCount}명</Text>
+              <Text style={styles.designersJumpAction}>목록 보기 ›</Text>
+            </Pressable>
 
             <Text style={styles.sectionTitle}>지역별 핫플레이스</Text>
             {virtualStores.map((store) => {
@@ -198,6 +207,32 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     fontSize: 14,
     fontWeight: '600',
+  },
+  designersJumpRow: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    marginTop: -8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  designersJumpPressed: {
+    opacity: 0.9,
+  },
+  designersJumpLabel: {
+    color: '#1A1A2E',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  designersJumpAction: {
+    color: '#0284C7',
+    fontSize: 13,
+    fontWeight: '800',
   },
   virtualStoreRow: {
     backgroundColor: '#FFFFFF',

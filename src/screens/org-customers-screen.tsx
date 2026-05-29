@@ -5,7 +5,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { OrgScope } from '../../lib/org-access';
 import { getOrgClientListItems, type OrgClientListItem } from '../../lib/org-client-list';
+import type { OrgDashboardListFilter } from '../../lib/org-dashboard-links';
 import { getErrorMessage } from '../../lib/errors';
+import { normalizePaymentStatus } from '../../lib/payment-status';
 import { navigateBackOrOrgHome } from '../../lib/navigation';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { EmptyState } from '../components/empty-state';
@@ -21,9 +23,33 @@ function formatDate(date: string) {
   return date.replaceAll('-', '.');
 }
 
+function isCurrentMonthTreatmentDate(treatmentDate: string) {
+  const now = new Date();
+  const date = new Date(`${treatmentDate}T00:00:00`);
+
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+}
+
+function listFilterLabel(filter: OrgDashboardListFilter | undefined) {
+  if (filter === 'month') {
+    return '이번 달 시술';
+  }
+
+  if (filter === 'escrow') {
+    return '정산 대기';
+  }
+
+  return null;
+}
+
 export function OrgCustomersScreen({ scope }: Props) {
   useOrgRoleGuard(scope);
-  const { designerId: designerIdParam } = useLocalSearchParams<{ designerId?: string }>();
+  const { designerId: designerIdParam, listFilter: listFilterParam } = useLocalSearchParams<{
+    designerId?: string;
+    listFilter?: OrgDashboardListFilter;
+  }>();
+  const listFilter =
+    listFilterParam === 'month' || listFilterParam === 'escrow' ? listFilterParam : undefined;
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<OrgClientListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -68,6 +94,16 @@ export function OrgCustomersScreen({ scope }: Props) {
   const visibleItems = useMemo(() => {
     let rows = items;
 
+    if (listFilter === 'month') {
+      rows = rows.filter((item) => isCurrentMonthTreatmentDate(item.treatmentDate));
+    }
+
+    if (listFilter === 'escrow') {
+      rows = rows.filter(
+        (item) => item.treatment && normalizePaymentStatus(item.treatment.payment_status) === 'escrow',
+      );
+    }
+
     if (designerFilter) {
       rows = rows.filter((item) => item.designerId === designerFilter);
     }
@@ -84,7 +120,9 @@ export function OrgCustomersScreen({ scope }: Props) {
         .toLowerCase()
         .includes(query),
     );
-  }, [designerFilter, items, searchQuery]);
+  }, [designerFilter, items, listFilter, searchQuery]);
+
+  const listFilterTitle = listFilterLabel(listFilter);
 
   const treatmentPath = scope === 'store' ? '/store/treatment' : '/admin/treatment';
   const showStoreTabBar = scope === 'store';
@@ -109,7 +147,19 @@ export function OrgCustomersScreen({ scope }: Props) {
         <Text style={styles.title}>{scope === 'store' ? '매장 고객' : '고객·시술'}</Text>
         <Text style={styles.subtitle}>소속 디자이너 고객 데이터와 동일하게 연동됩니다.</Text>
 
-        <VirtualSimulationBanner scenario="weekday" />
+        <VirtualSimulationBanner
+          onPress={() => router.push(scope === 'store' ? '/store/simulation' : '/admin/simulation')}
+          scenario="weekday"
+        />
+
+        {listFilterTitle ? (
+          <View style={styles.filterBanner}>
+            <Text style={styles.filterBannerText}>{listFilterTitle}만 표시 중</Text>
+            <Pressable onPress={() => router.replace(scope === 'store' ? '/store/customers' : '/admin/customers')}>
+              <Text style={styles.filterBannerAction}>전체 보기</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         <TextInput
           onChangeText={setSearchQuery}
@@ -198,6 +248,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 4,
+  },
+  filterBanner: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFD4D5',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  filterBannerText: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  filterBannerAction: {
+    color: '#FF5A5F',
+    fontSize: 13,
+    fontWeight: '800',
   },
   backLink: {
     alignSelf: 'flex-start',

@@ -25,6 +25,7 @@ export function OrgDashboardStatGrid({ items }: OrgDashboardStatGridProps) {
           <Text style={styles.statLabel}>{item.label}</Text>
           <Text style={styles.statValue}>{item.value}</Text>
           {item.meta ? <Text style={styles.statMeta}>{item.meta}</Text> : null}
+          <Text style={styles.statTapHint}>탭하여 이동</Text>
         </Pressable>
       ))}
     </View>
@@ -67,5 +68,11 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     fontSize: 11,
     fontWeight: '600',
+  },
+  statTapHint: {
+    color: '#9CA3AF',
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 2,
   },
 });
