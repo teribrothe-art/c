@@ -5,10 +5,11 @@ const { resolve: metroResolve } = require('metro-resolver');
 const config = getDefaultConfig(__dirname);
 
 const projectRoot = __dirname;
+const stubsRoot = path.join(projectRoot, 'lib', 'metro-stubs');
 
 config.resolver.resolverMainFields = ['react-native', 'browser', 'main'];
 
-const stubPath = (name) => path.join(projectRoot, 'lib', 'metro-stubs', name);
+const stubPath = (name) => path.join(stubsRoot, name);
 
 config.resolver.extraNodeModules = {
   fs: stubPath('empty.js'),
@@ -27,6 +28,13 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     return {
       type: 'sourceFile',
       filePath: stubPath('qrcode-react-native.js'),
+    };
+  }
+
+  if (moduleName === '@tosspayments/payment-sdk' && platform !== 'web') {
+    return {
+      type: 'sourceFile',
+      filePath: stubPath('toss-payment-sdk-native.js'),
     };
   }
 

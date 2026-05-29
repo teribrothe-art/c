@@ -20,13 +20,13 @@ import {
 import { withRetry } from './payment-retry';
 import { normalizePaymentStatus } from './payment-status';
 import { supabase } from './supabase';
-import { createTossOrderId, isTossConfigured as isTossKeyConfigured } from './toss';
+import { createTossOrderId, isTossConfigured as isTossKeyConfigured } from './toss-config';
 import { isDesignerSettlementInputComplete } from './treatment-settlement';
 import { getTreatmentById, Treatment, updateTreatment } from './treatments';
 
 export { PLATFORM_FEE_RATE };
 export { ensurePaymentRecordForTreatment, getPaymentByTreatmentId } from './payment-record';
-export { isTossConfigured } from './toss';
+export { isTossConfigured } from './toss-config';
 
 export function calculatePayout(amount: number) {
   const { feeAmount, designerPayout } = calculatePaymentFees(amount);

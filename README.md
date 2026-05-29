@@ -2,13 +2,25 @@
 
 Expo Router와 TypeScript를 사용하는 Expo React Native 프로젝트입니다.
 
-## 시작하기
+## 시작하기 (처음 개발할 때와 동일)
 
 ```sh
 npm install
 cp .env.example .env
 npm start
 ```
+
+- 터미널에 **QR 코드**가 나옵니다 → Expo Go로 스캔 (PC·폰이 **같은 Wi‑Fi**)
+- Windows: `scripts\start-dev.cmd` 도 동일 (`npm start`)
+
+Wi‑Fi가 다르거나 QR이 `172.x`만 보이면:
+
+```sh
+npm run start:phone
+npm run share
+```
+
+접속 점검: `npm run connect`
 
 ## 휴대폰에서 접속 (Expo Go) — PC 공유
 
@@ -64,7 +76,7 @@ npm run check:phone
 - `check:phone` OK + 폰만 실패 → Wi‑Fi/터널 문제 → `start:phone` 재시도, Expo Go **Reload**(↻)  
 - `check:phone` FAIL → 터미널 빨간 Metro 오류 확인 후 `npm run start:phone`  
 4. 빨간 번들 오류가 나면 캐시 삭제 후 재시작: `npm run start:phone`  
-5. `react-native-svg` / QR 관련 500 오류는 `metro.config.js`의 스텁 설정으로 해결됨 — 의존성 변경 후에는 반드시 `--clear`로 재시작
+5. QR 관련 Metro 500 (`Failed to get the SHA-1 for …/metro-stubs/…`) → `react-native-qrcode-svg` 제거됨. `npm run start:phone` 으로 캐시 삭제 후 재시작
 
 ### 어플(Expo Go)로 접속이 안 될 때
 
@@ -72,10 +84,19 @@ npm run check:phone
 |------|----------------|------|
 | 연결 자체가 안 됨 / 로딩만 멈춤 | `web:clear`만 실행, 또는 PC·폰 네트워크 불일치 | `npm run start:phone` 후 QR 재스캔 |
 | "Unable to connect" | 방화벽·게스트 Wi‑Fi·VPN | 터널(`start:phone`) 또는 같은 Wi‑Fi + `start:lan` |
-| 파란 화면 "Something went wrong" | Expo Go 구버전 또는 번들 크래시 | Expo Go 업데이트(SDK 56), `start:phone` + Reload |
+| 파란 화면 **Something went wrong** | 번들 로드 실패·구버전 Expo Go·캐시 | 아래 「Something went wrong」 절차 |
+| 노란 **Console Warning: Cannot connect to Expo CLI** | Metro 꺼짐·PC·폰 네트워크 불일치·HMR 끊김 | `npm run start:phone` 후 QR 재스캔 · `npm run check:app` · Expo Go **Reload**(↻) |
 | Cursor 원격 VM에서 개발 | QR의 IP가 내 폰에서 안 보임 | **본인 PC**에서 `git clone` 후 `start:phone` 실행 (또는 터널 URL이 폰에서 열리는지 확인) |
 
 데모 로그인( Supabase 미설정 시): `demo@hair.app` / `demo1234`, `designer@hair.app` / `demo1234`
+
+### Expo Go 파란 화면 — Something went wrong
+
+1. 화면 맨 아래 **View error log** 탭 → 빨간 오류 한 줄 확인 (PC Metro 터미널에도 동일 메시지)
+2. Expo Go **최신 버전** (SDK 56) — 스토어 업데이트 또는 https://expo.dev/go
+3. PC에서 Metro 종료 후: `npm run start:phone` → `npm run share` → **새 QR** 스캔
+4. Expo Go에서 프로젝트 삭제 후 QR 다시 스캔, 또는 **Reload(↻)** 두 번
+5. PC에서 `npm run check:phone` 이 OK인지 확인 (FAIL이면 터미널 빨간 Metro 로그 수정)
 
 ### 브라우저 `http://localhost:8081` — ERR_EMPTY_RESPONSE (-324)
 
