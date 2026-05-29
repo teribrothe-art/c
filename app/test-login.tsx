@@ -16,6 +16,7 @@ import {
   ACCUMULATED_LOGIN_CUSTOMER_COUNT,
   DESIGNER_LOGIN_COUNT,
   STORE_LOGIN_COUNT,
+  getDemoLoginGroupCountLabel,
   getDemoLoginGroups,
   type DemoLoginAccount,
   type DemoLoginGroupKey,
@@ -58,8 +59,7 @@ function DemoLoginGroupSection({
   const collapsible = isCollapsibleDemoLoginGroup(title);
   const searchable = isSearchableDemoLoginGroup(title);
   const listAllWhenExpanded = demoLoginGroupListsAllWhenExpanded(title);
-  const countUnit = title === '매장' ? '곳' : title === '본사' ? '계정' : '명';
-  const countLabel = `${accounts.length}${countUnit}`;
+  const countLabel = getDemoLoginGroupCountLabel(title);
 
   const searchResult = useMemo(() => {
     if (!searchable) {
@@ -127,13 +127,13 @@ function DemoLoginGroupSection({
               ? searchResult?.totalMatches === 0
                 ? '검색 결과가 없습니다.'
                 : searchResult?.truncated
-                  ? `${searchResult.totalMatches}명 일치 · 상위 ${visibleAccounts.length}명 표시`
-                  : `${searchResult?.totalMatches ?? 0}명 표시`
+                  ? `${searchResult.totalMatches.toLocaleString('ko-KR')} 명 일치 · 상위 ${visibleAccounts.length.toLocaleString('ko-KR')} 명 표시`
+                  : `${(searchResult?.totalMatches ?? 0).toLocaleString('ko-KR')} 명 표시`
               : listAllWhenExpanded
                 ? title === '매장'
-                  ? `총 ${STORE_LOGIN_COUNT}곳 · 아래에서 탭하면 로그인`
-                  : `총 ${DESIGNER_LOGIN_COUNT}명 · 아래에서 탭하면 로그인`
-                : `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT}명(디자이너 연동 전체) — 검색어를 입력하면 목록이 표시됩니다`}
+                  ? `총 ${STORE_LOGIN_COUNT.toLocaleString('ko-KR')} 곳 · 아래에서 탭하면 로그인`
+                  : `총 ${DESIGNER_LOGIN_COUNT.toLocaleString('ko-KR')} 명 · 아래에서 탭하면 로그인`
+                : `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT.toLocaleString('ko-KR')} 명(디자이너 연동 전체) — 검색어를 입력하면 목록이 표시됩니다`}
           </Text>
         </View>
       ) : null}

@@ -315,6 +315,31 @@ const STATIC_DEMO_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
   ...ALL_DESIGNER_LOGIN_ACCOUNTS,
 ];
 
+export function getDemoLoginGroupCountLabel(title: DemoLoginGroupKey) {
+  const unit = title === '매장' ? '곳' : title === '본사' ? '계정' : '명';
+  let count = 0;
+
+  switch (title) {
+    case '기본':
+      count = BASIC_ACCOUNTS.length;
+      break;
+    case '본사':
+      count = ADMIN_LOGIN_COUNT;
+      break;
+    case '매장':
+      count = STORE_LOGIN_COUNT;
+      break;
+    case '디자이너':
+      count = DESIGNER_LOGIN_COUNT;
+      break;
+    case '가입고객':
+      count = DESIGNER_LINKED_CUSTOMER_COUNT;
+      break;
+  }
+
+  return `${count.toLocaleString('ko-KR')} ${unit}`;
+}
+
 export function getDemoLoginGroups(options?: { includeRegisteredCustomers?: boolean }) {
   const includeRegisteredCustomers = options?.includeRegisteredCustomers ?? false;
 
