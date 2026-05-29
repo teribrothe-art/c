@@ -27,6 +27,11 @@ import {
   isSearchableDemoLoginGroup,
 } from '../lib/demo-login-accounts';
 import { filterDemoLoginAccounts } from '../lib/demo-login-account-search';
+import {
+  countAccountsByCustomerConsonant,
+  CUSTOMER_CONSONANT_TABS,
+  type CustomerConsonantTab,
+} from '../lib/korean-consonant';
 import { showLoginFailureAlert } from '../lib/alerts';
 import { isDemoAuthMode } from '../lib/auth';
 import { getErrorMessage } from '../lib/errors';
@@ -57,23 +62,42 @@ function DemoLoginGroupSection({
   onGroupSearchChange,
   onLogin,
 }: DemoLoginGroupSectionProps) {
+  const [selectedConsonant, setSelectedConsonant] = useState<CustomerConsonantTab | null>(null);
+  const isRegisteredCustomerGroup = title === '가입고객';
   const collapsible = isCollapsibleDemoLoginGroup(title);
   const searchable = isSearchableDemoLoginGroup(title);
   const listAllWhenExpanded = demoLoginGroupListsAllWhenExpanded(title);
   const countLabel = getDemoLoginGroupCountLabel(title);
+  const consonantCounts = useMemo(
+    () => (isRegisteredCustomerGroup ? countAccountsByCustomerConsonant(accounts) : null),
+    [accounts, isRegisteredCustomerGroup],
+  );
 
   const searchResult = useMemo(() => {
     if (!searchable) {
       return null;
     }
 
-    return filterDemoLoginAccounts(accounts, groupSearch);
-  }, [accounts, groupSearch, searchable]);
+    return filterDemoLoginAccounts(
+      accounts,
+      groupSearch,
+      isRegisteredCustomerGroup ? selectedConsonant : null,
+    );
+  }, [accounts, groupSearch, isRegisteredCustomerGroup, searchable, selectedConsonant]);
 
   const searchQuery = groupSearch.trim();
+  const hasConsonantFilter = isRegisteredCustomerGroup && selectedConsonant;
   const visibleAccounts = useMemo(() => {
     if (!searchable) {
       return accounts;
+    }
+
+    if (isRegisteredCustomerGroup) {
+      if (hasConsonantFilter || searchQuery) {
+        return searchResult?.accounts ?? [];
+      }
+
+      return [];
     }
 
     if (!searchQuery && listAllWhenExpanded) {
@@ -81,13 +105,42 @@ function DemoLoginGroupSection({
     }
 
     return searchResult?.accounts ?? [];
-  }, [accounts, listAllWhenExpanded, searchQuery, searchResult, searchable]);
+  }, [
+    accounts,
+    hasConsonantFilter,
+    isRegisteredCustomerGroup,
+    listAllWhenExpanded,
+    searchQuery,
+    searchResult,
+    searchable,
+  ]);
 
   const showSearchPanel = searchable && expanded;
   const canShowList =
     visibleAccounts.length > 0 &&
     (!collapsible || expanded) &&
-    (!searchable || listAllWhenExpanded || searchQuery.length > 0);
+    (!searchable ||
+      listAllWhenExpanded ||
+      searchQuery.length > 0 ||
+      Boolean(hasConsonantFilter));
+
+  const registeredCustomerHint = () => {
+    if (selectedConsonant) {
+      const total = searchResult?.totalMatches ?? consonantCounts?.[selectedConsonant] ?? 0;
+
+      if (total === 0) {
+        return `${selectedConsonant} · 해당 초성 고객이 없습니다`;
+      }
+
+      if (searchResult?.truncated) {
+        return `${selectedConsonant} · ${total.toLocaleString('ko-KR')} 명 · 상위 ${visibleAccounts.length.toLocaleString('ko-KR')} 명 표시`;
+      }
+
+      return `${selectedConsonant} · ${total.toLocaleString('ko-KR')} 명 · 탭하면 로그인`;
+    }
+
+    return `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT.toLocaleString('ko-KR')} 명(디자이너 연동 전체) — 초성 탭을 선택하거나 검색어를 입력하세요`;
+  };
 
   return (
     <View style={styles.group}>
@@ -123,6 +176,40 @@ function DemoLoginGroupSection({
             style={styles.searchInput}
             value={groupSearch}
           />
+
+          {isRegisteredCustomerGroup ? (
+            <ScrollView
+              horizontal
+              contentContainerStyle={styles.consonantRow}
+              showsHorizontalScrollIndicator={false}>
+              {CUSTOMER_CONSONANT_TABS.map((tab) => {
+                const selected = selectedConsonant === tab;
+                const count = consonantCounts?.[tab] ?? 0;
+
+                return (
+                  <Pressable
+                    key={tab}
+                    onPress={() => setSelectedConsonant(selected ? null : tab)}
+                    style={({ pressed }) => [
+                      styles.consonantTab,
+                      selected && styles.consonantTabSelected,
+                      count === 0 && styles.consonantTabEmpty,
+                      pressed && styles.consonantTabPressed,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.consonantTabText,
+                        selected && styles.consonantTabTextSelected,
+                        count === 0 && styles.consonantTabTextEmpty,
+                      ]}>
+                      {tab}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          ) : null}
+
           <Text style={styles.searchHint}>
             {searchQuery
               ? searchResult?.totalMatches === 0
@@ -134,7 +221,9 @@ function DemoLoginGroupSection({
                 ? title === '매장'
                   ? `총 ${STORE_LOGIN_COUNT.toLocaleString('ko-KR')} 곳 · 아래에서 탭하면 로그인`
                   : `총 ${DESIGNER_LOGIN_COUNT.toLocaleString('ko-KR')} 명 · 아래에서 탭하면 로그인`
-                : `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT.toLocaleString('ko-KR')} 명(디자이너 연동 전체) — 검색어를 입력하면 목록이 표시됩니다`}
+                : isRegisteredCustomerGroup
+                  ? registeredCustomerHint()
+                  : `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT.toLocaleString('ko-KR')} 명(디자이너 연동 전체) — 검색어를 입력하면 목록이 표시됩니다`}
           </Text>
         </View>
       ) : null}
@@ -426,6 +515,43 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 17,
     paddingHorizontal: 2,
+  },
+  consonantRow: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  consonantTab: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minWidth: 32,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  consonantTabSelected: {
+    backgroundColor: '#FFE8EA',
+    borderColor: colors.coral,
+  },
+  consonantTabEmpty: {
+    opacity: 0.45,
+  },
+  consonantTabPressed: {
+    opacity: 0.88,
+  },
+  consonantTabText: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  consonantTabTextSelected: {
+    color: colors.coral,
+  },
+  consonantTabTextEmpty: {
+    color: '#9CA3AF',
   },
   row: {
     alignItems: 'center',
