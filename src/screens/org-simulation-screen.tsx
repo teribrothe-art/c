@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -160,7 +160,10 @@ export function OrgSimulationScreen({ scope }: Props) {
                   );
 
                   return (
-                    <View key={store.id} style={styles.storeCard}>
+                    <Pressable
+                      key={store.id}
+                      onPress={() => router.push(`/admin/store/${store.id}`)}
+                      style={({ pressed }) => [styles.storeCard, pressed && styles.storeCardPressed]}>
                       <Text style={styles.storeName}>{store.name}</Text>
                       <Text style={styles.storeRegion}>
                         {store.hotPlace} · 디자이너 {store.designerCount}명
@@ -173,7 +176,7 @@ export function OrgSimulationScreen({ scope }: Props) {
                       <Text style={styles.storeDesignerNames} numberOfLines={2}>
                         {storeDesigners.map((designer) => designer.name).join(' · ')}
                       </Text>
-                    </View>
+                    </Pressable>
                   );
                 })}
               </>
@@ -257,6 +260,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 6,
     padding: 14,
+  },
+  storeCardPressed: {
+    backgroundColor: '#F5F5F8',
+    opacity: 0.92,
   },
   storeName: {
     color: '#1A1A2E',

@@ -1,6 +1,11 @@
 import type { OrgDashboardSummary } from './org-aggregates';
 import type { OrgDashboardStatCardItem } from '../src/components/org-dashboard-stat-grid';
 
+type SimulationStatSummary = Pick<
+  OrgDashboardSummary,
+  'monthRevenue' | 'monthTreatmentCount' | 'pendingPayoutAmount' | 'customerCount'
+>;
+
 type RouteHandlers = {
   onRevenue: () => void;
   onTreatments: () => void;
@@ -10,7 +15,7 @@ type RouteHandlers = {
 
 /** 가상 시뮬레이션 대시보드 — 이번 달 매출·시술·정산 대기·연결 고객 */
 export function buildSimulationStatGridItems(
-  summary: OrgDashboardSummary,
+  summary: SimulationStatSummary,
   routes: RouteHandlers,
 ): OrgDashboardStatCardItem[] {
   return [

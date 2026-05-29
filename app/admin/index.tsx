@@ -71,7 +71,10 @@ export default function AdminHomeScreen() {
               const storeDesigners = summary.designers.filter((designer) => designer.storeId === store.id);
 
               return (
-                <View key={store.id} style={styles.virtualStoreRow}>
+                <Pressable
+                  key={store.id}
+                  onPress={() => router.push(`/admin/store/${store.id}`)}
+                  style={({ pressed }) => [styles.virtualStoreRow, pressed && styles.virtualStoreRowPressed]}>
                   <Text style={styles.virtualStoreName}>{store.name}</Text>
                   <Text style={styles.virtualStoreMeta}>
                     {store.region} · 디자이너 {store.designerCount}명 · 매출{' '}
@@ -81,7 +84,7 @@ export default function AdminHomeScreen() {
                   <Text style={styles.virtualStoreDesigners} numberOfLines={2}>
                     {storeDesigners.map((designer) => designer.name).join(' · ') || '연결 디자이너 없음'}
                   </Text>
-                </View>
+                </Pressable>
               );
             })}
 
@@ -182,6 +185,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  virtualStoreRowPressed: {
+    backgroundColor: '#F5F5F8',
+    opacity: 0.92,
   },
   virtualStoreName: {
     color: '#1A1A2E',
