@@ -156,6 +156,29 @@ export async function getPaymentByTreatmentId(treatmentId: string) {
   return (data as PaymentRecord | null) ?? null;
 }
 
+/** 매장·본사 조회 — 특정 디자이너 결제 목록 */
+export async function listPaymentsForDesignerId(designerId: string): Promise<PaymentRecord[]> {
+  if (isDemoAuthMode || !supabase) {
+    await hydrateDemoPayments();
+
+    return demoPayments
+      .filter((payment) => payment.designer_id === designerId)
+      .sort((a, b) => (b.paid_at ?? b.created_at).localeCompare(a.paid_at ?? a.created_at));
+  }
+
+  const { data, error } = await supabase
+    .from('payments')
+    .select(paymentSelectFields)
+    .eq('designer_id', designerId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw toAppError(error);
+  }
+
+  return (data ?? []) as PaymentRecord[];
+}
+
 /** 고객 결제 화면 진입 시 RLS(INSERT)에 맞춰 결제 행을 생성합니다. */
 export async function ensurePaymentRecordForTreatment(treatmentId: string) {
   const user = await getCurrentUser();

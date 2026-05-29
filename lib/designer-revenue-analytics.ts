@@ -1,6 +1,7 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
-import { calculatePaymentFees, getPaymentByTreatmentId, PaymentRecord } from './payment-record';
+import { calculatePaymentFees, getPaymentByTreatmentId, listPaymentsForDesignerId, PaymentRecord } from './payment-record';
+import { canViewOrgDesignerData } from './org-access';
 import {
   buildWeeklyRevenueWeeks,
   formatDateWithWeekday,
@@ -11,7 +12,7 @@ import {
   type WeekdayRevenueCell,
 } from './designer-revenue-weekly';
 import { supabase } from './supabase';
-import { getDesignerTreatments } from './treatments';
+import { getDesignerTreatments, listTreatmentsForDesignerId } from './treatments';
 
 export type { WeekdayRevenueCell, WeeklyRevenueWeek };
 export { formatDateWithWeekday };
@@ -41,6 +42,7 @@ export type DesignerRevenueAnalytics = {
   pendingPayoutAmount: number;
   pendingPayoutCount: number;
   averageTreatmentPrice: number;
+  selectedMonthTreatmentCount: number;
   recentSettlements: {
     paymentId: string;
     customerName: string;
@@ -75,18 +77,7 @@ function monthKeyFromDate(date: string) {
 
 async function loadDesignerPayments(designerId: string): Promise<PaymentRecord[]> {
   if (isDemoAuthMode || !supabase) {
-    const { treatments } = await getDesignerTreatments();
-    const records: PaymentRecord[] = [];
-
-    for (const treatment of treatments) {
-      const payment = await getPaymentByTreatmentId(treatment.id);
-
-      if (payment) {
-        records.push(payment);
-      }
-    }
-
-    return records;
+    return listPaymentsForDesignerId(designerId);
   }
 
   const { data, error } = await supabase
@@ -164,43 +155,56 @@ function emptyMonth(monthKey: string): MonthlyRevenueBucket {
   };
 }
 
+function emptyAnalytics(monthKey: string): DesignerRevenueAnalytics {
+  const emptyWeekStart = `${monthKey}-01`;
+  const emptyDays = buildWeeklyRevenueWeeks([], monthKey)[0]?.days ?? [];
+
+  return {
+    months: [emptyMonth(monthKey)],
+    selectedMonthKey: monthKey,
+    selectedMonth: emptyMonth(monthKey),
+    weeklyWeeks: [],
+    selectedWeekKey: emptyWeekStart,
+    selectedWeek: {
+      weekKey: emptyWeekStart,
+      label: '',
+      days: emptyDays,
+      weekTotal: 0,
+      settlementCount: 0,
+    },
+    dailyTotals: [],
+    pendingPayoutAmount: 0,
+    pendingPayoutCount: 0,
+    averageTreatmentPrice: 0,
+    selectedMonthTreatmentCount: 0,
+    recentSettlements: [],
+  };
+}
+
 export async function fetchDesignerRevenueAnalytics(
   selectedMonthKey?: string,
   selectedWeekKey?: string,
+  designerId?: string,
 ): Promise<DesignerRevenueAnalytics> {
   const user = await getCurrentUser();
   const fallbackMonth = currentMonthKey();
+  const resolvedDesignerId =
+    designerId ?? (user?.role === 'designer' ? user.id : undefined);
+  const canLoad =
+    Boolean(resolvedDesignerId) &&
+    ((user?.role === 'designer' && user.id === resolvedDesignerId) ||
+      (Boolean(designerId) && canViewOrgDesignerData(user?.role)));
 
-  if (!user || user.role !== 'designer') {
-    const month = selectedMonthKey ?? fallbackMonth;
-
-    const emptyWeekStart = `${month}-01`;
-    const emptyDays = buildWeeklyRevenueWeeks([], month)[0]?.days ?? [];
-
-    return {
-      months: [emptyMonth(month)],
-      selectedMonthKey: month,
-      selectedMonth: emptyMonth(month),
-      weeklyWeeks: [],
-      selectedWeekKey: emptyWeekStart,
-      selectedWeek: {
-        weekKey: emptyWeekStart,
-        label: '',
-        days: emptyDays,
-        weekTotal: 0,
-        settlementCount: 0,
-      },
-      dailyTotals: [],
-      pendingPayoutAmount: 0,
-      pendingPayoutCount: 0,
-      averageTreatmentPrice: 0,
-      recentSettlements: [],
-    };
+  if (!canLoad || !resolvedDesignerId) {
+    return emptyAnalytics(selectedMonthKey ?? fallbackMonth);
   }
 
-  const { treatments } = await getDesignerTreatments();
+  const treatments =
+    user?.role === 'designer' && !designerId
+      ? (await getDesignerTreatments()).treatments
+      : await listTreatmentsForDesignerId(resolvedDesignerId);
   const treatmentMap = new Map(treatments.map((treatment) => [treatment.id, treatment]));
-  const payments = await loadDesignerPayments(user.id);
+  const payments = await loadDesignerPayments(resolvedDesignerId);
   const completed = payments.filter((payment) => payment.status === 'completed' && payment.settled_at);
 
   let months = buildMonthlyBuckets(completed);
@@ -281,6 +285,7 @@ export async function fetchDesignerRevenueAnalytics(
     pendingPayoutAmount,
     pendingPayoutCount: paidPending.length,
     averageTreatmentPrice,
+    selectedMonthTreatmentCount: monthTreatments.length,
     recentSettlements,
   };
 }

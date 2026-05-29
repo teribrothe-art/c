@@ -337,6 +337,29 @@ export async function getTreatmentById(id: string) {
   return { user, treatment };
 }
 
+/** 매장·본사 조회 — 특정 디자이너 시술 목록 */
+export async function listTreatmentsForDesignerId(designerId: string): Promise<Treatment[]> {
+  if (isDemoAuthMode || !supabase) {
+    await hydrateDemoTreatments();
+
+    return demoTreatments
+      .filter((treatment) => treatment.designer_id === designerId)
+      .sort((a, b) => b.treatment_date.localeCompare(a.treatment_date));
+  }
+
+  const { data, error } = await supabase
+    .from('treatments')
+    .select(treatmentSelectFields)
+    .eq('designer_id', designerId)
+    .order('treatment_date', { ascending: false });
+
+  if (error) {
+    throw toAppError(error);
+  }
+
+  return (data ?? []) as Treatment[];
+}
+
 export async function getDesignerTreatments() {
   const user = await getCurrentUser();
 
