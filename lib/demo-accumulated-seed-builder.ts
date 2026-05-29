@@ -1,5 +1,5 @@
 import type { PaymentStatus } from './payment-status';
-import { calculatePaymentFees, PLATFORM_FEE_RATE } from './payment-fees';
+import { calculatePaymentFees, PLATFORM_FEE_RATE } from './payment-record';
 import type { PaymentRecord } from './payment-types';
 import type { BetaTestAccount } from './beta-test-accounts';
 import { buildVisitCycleAccumulatedSeedProfile } from './demo-accumulated-visit-seed-builder';
