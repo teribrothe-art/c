@@ -59,7 +59,7 @@ function DemoLoginGroupSection({
   const collapsible = isCollapsibleDemoLoginGroup(title);
   const searchable = isSearchableDemoLoginGroup(title);
   const listAllWhenExpanded = demoLoginGroupListsAllWhenExpanded(title);
-  const countUnit = title === '매장' ? '곳' : '명';
+  const countUnit = title === '매장' ? '곳' : title === '본사' ? '계정' : '명';
   const countLabel = `${accounts.length}${countUnit}`;
 
   const searchResult = useMemo(() => {

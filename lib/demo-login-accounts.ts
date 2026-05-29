@@ -27,12 +27,13 @@ export type DemoLoginAccount = {
 };
 
 /** 테스트 로그인 화면 분류 순서 */
-export const DEMO_LOGIN_GROUP_ORDER = ['기본', '매장', '디자이너', '가입고객'] as const;
+export const DEMO_LOGIN_GROUP_ORDER = ['기본', '본사', '매장', '디자이너', '가입고객'] as const;
 
 export type DemoLoginGroupKey = (typeof DEMO_LOGIN_GROUP_ORDER)[number];
 
 export const DEMO_LOGIN_GROUP_DESCRIPTIONS: Record<DemoLoginGroupKey, string> = {
-  기본: '고객 · 본사 데모 계정',
+  기본: '데모 고객 계정',
+  본사: '본사 어드민 · 전체 매장·디자이너 조회',
   매장: '지역 핫플레이스 매장 전체 — 펼치면 목록 · 검색 가능',
   디자이너: `데모 · 베타 · 누적 · 증원 ${EXPANDED_STORE_DESIGNER_COUNT}명 — 펼치면 목록 · 검색 가능`,
   가입고객: '디자이너 연동 고객 전체(데모·베타·누적·증원) — 펼친 뒤 검색',
@@ -221,16 +222,23 @@ const BASIC_ACCOUNTS: DemoLoginAccount[] = [
     password: DEMO_LOGIN_HINT.customerPassword,
     accent: colors.coral,
   },
+];
+
+const ADMIN_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
   {
     id: ADMIN_TEST_PUBLIC.id,
-    group: '기본',
+    group: '본사',
     roleLabel: '본사',
-    loginLabel: '본사 어드민',
+    loginLabel: ADMIN_TEST_PUBLIC.loginLabel,
     email: ADMIN_TEST_PUBLIC.email,
     password: ADMIN_TEST_PUBLIC.password,
+    meta: '전체 핫플레이스 · 디자이너 · 매출',
     accent: '#4B5563',
+    searchHaystack: ['본사', '어드민', 'admin', ADMIN_TEST_PUBLIC.email, 'hq-admin'],
   },
 ];
+
+export const ADMIN_LOGIN_COUNT = ADMIN_LOGIN_ACCOUNTS.length;
 
 const REGISTERED_CUSTOMER_ACCOUNTS: DemoLoginAccount[] =
   DESIGNER_LINKED_CUSTOMER_LOGIN_SOURCES.flatMap(
@@ -268,6 +276,7 @@ const REGISTERED_CUSTOMER_ACCOUNTS: DemoLoginAccount[] =
 
 export const DEMO_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
   ...BASIC_ACCOUNTS,
+  ...ADMIN_LOGIN_ACCOUNTS,
   ...STORE_LOGIN_ACCOUNTS,
   ...ALL_DESIGNER_LOGIN_ACCOUNTS,
   ...REGISTERED_CUSTOMER_ACCOUNTS,
