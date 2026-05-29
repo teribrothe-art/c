@@ -61,6 +61,7 @@ export default function CustomerVoiceScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [usageHint, setUsageHint] = useState('');
+  const [showStatusDetails, setShowStatusDetails] = useState(false);
 
   const loadHistory = useCallback(() => {
     setIsLoading(true);
@@ -128,23 +129,34 @@ export default function CustomerVoiceScreen() {
       </View>
 
       <View style={styles.heroSection}>
-        <LinearGradient
-          colors={[CORAL, PURPLE]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.decoCircle}>
-          <Text style={styles.decoIcon}>💬</Text>
-        </LinearGradient>
-        <Text style={styles.voiceHint}>{getAiChatStatusLabel()}</Text>
-        <Text style={styles.featureHint}>
-          시술 AI 인사이트·오늘의 케어·맞춤 상담이 Claude와 연동됩니다
-        </Text>
-        {!isAiChatEnabled() ? (
-          <Text style={styles.setupHint}>
-            Supabase 연결 + ai-chat 배포 또는 .env에 EXPO_PUBLIC_ANTHROPIC_API_KEY 설정 (미연동 시 데모·규칙 기반)
-          </Text>
+        <Pressable
+          accessibilityHint="AI 연동 안내 문구를 표시하거나 숨깁니다"
+          accessibilityLabel="AI 연동 안내"
+          accessibilityRole="button"
+          onPress={() => setShowStatusDetails((open) => !open)}
+          style={({ pressed }) => [pressed && styles.decoCirclePressed]}>
+          <LinearGradient
+            colors={[CORAL, PURPLE]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.decoCircle}>
+            <Text style={styles.decoIcon}>💬</Text>
+          </LinearGradient>
+        </Pressable>
+        {showStatusDetails ? (
+          <>
+            <Text style={styles.voiceHint}>{getAiChatStatusLabel()}</Text>
+            <Text style={styles.featureHint}>
+              시술 AI 인사이트·오늘의 케어·맞춤 상담이 Claude와 연동됩니다
+            </Text>
+            {!isAiChatEnabled() ? (
+              <Text style={styles.setupHint}>
+                Supabase 연결 + ai-chat 배포 또는 .env에 EXPO_PUBLIC_ANTHROPIC_API_KEY 설정 (미연동 시 데모·규칙 기반)
+              </Text>
+            ) : null}
+            {usageHint ? <Text style={styles.usageHint}>{usageHint}</Text> : null}
+          </>
         ) : null}
-        {usageHint ? <Text style={styles.usageHint}>{usageHint}</Text> : null}
       </View>
 
       <View style={styles.inputSection}>
@@ -219,6 +231,7 @@ const styles = StyleSheet.create({
     width: DECO_SIZE,
   },
   decoIcon: { fontSize: 40 },
+  decoCirclePressed: { opacity: 0.85 },
   voiceHint: { color: colors.muted, fontSize: 12, marginTop: 8, textAlign: 'center' },
   featureHint: {
     color: colors.text,
