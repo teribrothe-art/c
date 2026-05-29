@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
+import { SEO_JUNGHYUN_DEMO_TREATMENTS } from './demo-customer-seo-junghyun';
 import { toAppError } from './errors';
 import type { PaymentStatus } from './payment-status';
 import { filterTreatmentsForCustomerUser, sortTreatmentsForDiaryList } from './diary-list';
@@ -230,6 +231,7 @@ const INITIAL_DEMO_TREATMENTS: Treatment[] = [
     designer_payout_amount: 108000,
     feedback_completed: true,
   },
+  ...SEO_JUNGHYUN_DEMO_TREATMENTS,
 ];
 
 const demoTreatments: Treatment[] = INITIAL_DEMO_TREATMENTS.map((item) => ({ ...item }));

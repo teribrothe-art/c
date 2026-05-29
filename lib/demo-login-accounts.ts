@@ -10,6 +10,10 @@ import {
   getDesignerLinkedCustomerLoginSources,
 } from './demo-designer-linked-customers';
 import { formatDesignerStoreLabel, ORG_STORE_DEFINITIONS } from './org-store-affiliation';
+import {
+  SEO_JUNGHYUN_CUSTOMER_META,
+  SEO_JUNGHYUN_TEST_ACCOUNT,
+} from './demo-customer-seo-junghyun';
 import { STORE_TEST_ACCOUNTS } from './store-test-accounts';
 import { colors } from './theme';
 
@@ -251,6 +255,19 @@ const BASIC_ACCOUNTS: DemoLoginAccount[] = [
     email: 'customer@hair.app',
     password: DEMO_LOGIN_HINT.customerPassword,
     accent: colors.coral,
+  },
+  {
+    id: SEO_JUNGHYUN_TEST_ACCOUNT.id,
+    group: '기본',
+    roleLabel: '고객',
+    loginLabel: '서정현 · 2년 이력',
+    email: SEO_JUNGHYUN_TEST_ACCOUNT.email,
+    password: SEO_JUNGHYUN_TEST_ACCOUNT.password,
+    meta: SEO_JUNGHYUN_CUSTOMER_META,
+    accent: '#2563EB',
+    searchHaystack: ['서정현', 'seo-junghyun', '노원구', '남', '2년', '쉐도우펌', '다운펌']
+      .join(' ')
+      .toLowerCase(),
   },
 ];
 

@@ -58,6 +58,13 @@ const SEEDED_DEMO_USERS: DemoUser[] = [
     role: 'customer',
   },
   {
+    id: 'demo-customer-seo-junghyun',
+    email: 'seo-junghyun@hair.app',
+    name: '서정현',
+    password: 'demo1234',
+    role: 'customer',
+  },
+  {
     id: 'demo-designer-local',
     email: 'designer@hair.app',
     name: '김미용 디자이너',

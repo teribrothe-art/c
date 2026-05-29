@@ -1,6 +1,7 @@
 import { ADMIN_TEST_ACCOUNT } from './admin-test-accounts';
 import { BETA_CUSTOMERS, BETA_DESIGNERS } from './beta-test-accounts';
 import { ACCUMULATED_TEST_ACCOUNTS } from './demo-accumulated-test-accounts';
+import { SEO_JUNGHYUN_TEST_ACCOUNT } from './demo-customer-seo-junghyun';
 import { STORE_TEST_ACCOUNTS } from './store-test-accounts';
 import type { UserRole } from './auth';
 
@@ -31,6 +32,7 @@ function ensureDemoUserCatalog() {
     ...BETA_DESIGNERS,
     ...BETA_CUSTOMERS,
     ...ACCUMULATED_TEST_ACCOUNTS,
+    SEO_JUNGHYUN_TEST_ACCOUNT,
   ]) {
     catalogByEmail.set(normalizeEmail(account.email), {
       id: account.id,

@@ -1,4 +1,5 @@
 import { DEMO_LOGIN_HINT } from './auth';
+import { SEO_JUNGHYUN_TEST_ACCOUNT } from './demo-customer-seo-junghyun';
 import {
   BETA_CUSTOMERS,
   BETA_DESIGNERS,
@@ -63,6 +64,7 @@ const DEMO_DESIGNER_LINKED_CUSTOMERS: BetaTestAccount[] = [
     password: DEMO_LOGIN_HINT.customerPassword,
     role: 'customer',
   },
+  SEO_JUNGHYUN_TEST_ACCOUNT,
 ];
 
 /** 데모 디자이너 시술 연동 고객 */
