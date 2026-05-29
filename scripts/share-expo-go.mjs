@@ -12,6 +12,10 @@ import { fileURLToPath } from 'node:url';
 import QRCode from 'qrcode';
 
 import {
+  resolveBestExpoEndpoint,
+  writeConnectManifest,
+} from './lib/expo-connect-federation.mjs';
+import {
   classifyExpoUrl,
   fetchNgrokTunnel,
   resolveExpoGoShareUrl,
@@ -93,7 +97,23 @@ async function main() {
   let resolved;
 
   try {
-    resolved = await resolveExpoGoShareUrl('ios');
+    const federation = await resolveBestExpoEndpoint('ios');
+
+    if (federation.best?.shareable) {
+      resolved = {
+        url: federation.best.expoUrl,
+        classification: {
+          mode: federation.best.mode,
+          shareable: federation.best.shareable,
+        },
+        ngrokPublicUrl: federation.best.publicUrl ?? null,
+        allPlatforms: {},
+        federation: federation.best,
+      };
+      writeConnectManifest({ best: federation.best, candidates: federation.candidates });
+    } else {
+      resolved = await resolveExpoGoShareUrl('ios');
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.log(`FAIL: ${message}`);

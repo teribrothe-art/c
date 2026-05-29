@@ -6,31 +6,31 @@ import { addNotification } from './notifications';
 import { supabase } from './supabase';
 import { getTreatmentById, Treatment, updateTreatment } from './treatments';
 
+import {
+  buildInviteDeepLink,
+  buildInviteQrPayload,
+  formatInviteCodeInput,
+  isValidInviteCodeFormat,
+  normalizeInviteCode,
+  parseInviteCodeFromQrPayload,
+  sanitizeInviteCode,
+} from './invite-url-parse';
+
+export {
+  buildInviteDeepLink,
+  buildInviteQrPayload,
+  formatInviteCodeInput,
+  isValidInviteCodeFormat,
+  normalizeInviteCode,
+  parseInviteCodeFromQrPayload,
+  sanitizeInviteCode,
+} from './invite-url-parse';
+
 const DEMO_INVITATIONS_KEY = 'hair-diary-customer-invitations';
 const DEMO_RELATIONSHIPS_KEY = 'hair-diary-designer-customer-relationships';
 
 const INVITE_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-/** I,O,0,1 제외 — generate_invite_code와 동일 */
-const INVITE_CODE_PATTERN = /^[A-HJ-NP-Z2-9]{6}$/;
 const INVITE_VALID_DAYS = 7;
-
-const NON_INVITE_URL_PREFIXES = ['http://', 'https://', 'exp://', 'exps://'];
-
-export function isValidInviteCodeFormat(code: string) {
-  return INVITE_CODE_PATTERN.test(code);
-}
-
-function looksLikeDevOrExpoUrl(payload: string) {
-  const lower = payload.trim().toLowerCase();
-
-  return (
-    NON_INVITE_URL_PREFIXES.some((prefix) => lower.startsWith(prefix)) ||
-    lower.includes('localhost') ||
-    lower.includes('127.0.0.1') ||
-    lower.includes('exp.direct') ||
-    lower.includes('/_expo/')
-  );
-}
 
 export type InvitationStatus = 'pending' | 'used' | 'expired';
 
@@ -90,67 +90,54 @@ const invitationSelect =
 const demoInvitations: CustomerInvitation[] = [];
 const demoRelationships: DesignerCustomerRelationship[] = [];
 
-/** 입력란용 — 허용 문자만 남기고 6자리까지 (미완성 입력 가능) */
-export function formatInviteCodeInput(raw: string) {
-  return raw
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-HJ-NP-Z2-9]/gi, '')
-    .slice(0, 6);
-}
+type ValidateInviteCodeRpcResult = {
+  valid: boolean;
+  reason?: 'invalid' | 'expired' | 'used';
+  message?: string;
+  designer_name?: string;
+  invitation?: CustomerInvitation;
+};
 
-export function normalizeInviteCode(raw: string) {
-  return formatInviteCodeInput(raw);
-}
-
-/** 저장·QR·딥링크용 — 유효한 6자리만 반환, 아니면 빈 문자열 */
-export function sanitizeInviteCode(raw: string) {
-  const code = formatInviteCodeInput(raw);
-
-  return isValidInviteCodeFormat(code) ? code : '';
-}
-
-export function buildInviteDeepLink(code: string) {
-  return `hairdiaryapp://invite/${normalizeInviteCode(code)}`;
-}
-
-/** QR 스캔용 — 6자리 코드만 인코딩 (카메라·앱 모두 인식) */
-export function buildInviteQrPayload(code: string) {
-  return normalizeInviteCode(code);
-}
-
-export function parseInviteCodeFromQrPayload(payload: string) {
-  const trimmed = payload.trim();
-
-  if (!trimmed || looksLikeDevOrExpoUrl(trimmed)) {
-    return '';
+async function validateInviteCodeViaRpc(code: string): Promise<InviteValidationResult | null> {
+  if (!supabase) {
+    return null;
   }
 
-  try {
-    if (trimmed.startsWith('hairdiaryapp://')) {
-      const url = new URL(trimmed);
-      const segment = url.pathname.replace(/^\//, '').split('/');
+  const { data, error } = await supabase.rpc('validate_invite_code', { p_code: code });
 
-      if (segment[0] === 'invite' && segment[1]) {
-        return sanitizeInviteCode(segment[1]);
-      }
+  if (error) {
+    const message = error.message ?? '';
 
-      return '';
+    if (message.includes('validate_invite_code') || message.includes('Could not find the function')) {
+      return null;
     }
 
-    if (trimmed.includes('invite/')) {
-      const part = trimmed.split('invite/')[1]?.split(/[?#]/)[0] ?? '';
-      return sanitizeInviteCode(part);
-    }
-  } catch {
-    return '';
+    throw toAppError(error);
   }
 
-  if (/^[A-HJ-NP-Z2-9]{6}$/i.test(trimmed)) {
-    return sanitizeInviteCode(trimmed);
+  const result = data as ValidateInviteCodeRpcResult | null;
+
+  if (!result || typeof result.valid !== 'boolean') {
+    return null;
   }
 
-  return '';
+  if (!result.valid) {
+    return {
+      valid: false,
+      reason: result.reason ?? 'invalid',
+      message: result.message ?? '코드가 올바르지 않아요',
+    };
+  }
+
+  if (!result.invitation) {
+    return { valid: false, reason: 'invalid', message: '코드가 올바르지 않아요' };
+  }
+
+  return {
+    valid: true,
+    invitation: normalizeInvitationRow(result.invitation),
+    designerName: result.designer_name?.trim() || '디자이너',
+  };
 }
 
 export function generateInviteCodeLocal(existing: Set<string>) {
@@ -265,12 +252,25 @@ export async function validateInviteCode(rawCode: string): Promise<InviteValidat
     return { valid: false, reason: 'invalid', message: '코드가 올바르지 않아요' };
   }
 
+  if (!isDemoAuthMode && supabase) {
+    const rpcResult = await validateInviteCodeViaRpc(code);
+
+    if (rpcResult) {
+      return rpcResult;
+    }
+  }
+
   if (isDemoAuthMode || !supabase) {
     const items = await readDemoInvitations();
     const invitation = items.find((item) => item.invite_code === code);
 
     if (!invitation) {
-      return { valid: false, reason: 'invalid', message: '코드가 올바르지 않아요' };
+      return {
+        valid: false,
+        reason: 'invalid',
+        message:
+          '등록되지 않은 코드예요. 디자이너가 방금 만든 QR인지 확인하거나, Supabase 연결 후 다시 시도해주세요.',
+      };
     }
 
     const status = resolveInvitationStatus(invitation);
@@ -289,6 +289,12 @@ export async function validateInviteCode(rawCode: string): Promise<InviteValidat
 
     const designerName = await fetchDesignerName(invitation.designer_id);
     return { valid: true, invitation: normalizeInvitationRow(invitation), designerName };
+  }
+
+  const rpcFallback = await validateInviteCodeViaRpc(code);
+
+  if (rpcFallback) {
+    return rpcFallback;
   }
 
   const { data, error } = await supabase
@@ -530,26 +536,23 @@ export async function redeemInviteCode(rawCode: string, customerId: string) {
   };
 }
 
-export async function getDesignerClientListItems(): Promise<DesignerClientListItem[]> {
-  const user = await getCurrentUser();
-
-  if (!user || user.role !== 'designer') {
-    return [];
-  }
-
-  const { getDesignerTreatments } = await import('./treatments');
-  const { treatments } = await getDesignerTreatments();
+export async function getDesignerClientListItemsForDesigner(
+  designerId: string,
+): Promise<DesignerClientListItem[]> {
+  const { fetchDesignerLedgerForDesignerId } = await import('./services/designer-ledger-service');
+  const ledger = await fetchDesignerLedgerForDesignerId(designerId);
+  const treatments = ledger?.treatments ?? [];
 
   let invitations: CustomerInvitation[] = [];
 
   if (isDemoAuthMode || !supabase) {
     invitations = await readDemoInvitations();
-    invitations = invitations.filter((item) => item.designer_id === user.id);
+    invitations = invitations.filter((item) => item.designer_id === designerId);
   } else {
     const { data, error } = await supabase
       .from('customer_invitations')
       .select(invitationSelect)
-      .eq('designer_id', user.id)
+      .eq('designer_id', designerId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -603,6 +606,49 @@ export async function getDesignerClientListItems(): Promise<DesignerClientListIt
   }
 
   return rows.sort((a, b) => b.treatmentDate.localeCompare(a.treatmentDate));
+}
+
+export async function getDesignerClientListItems(): Promise<DesignerClientListItem[]> {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== 'designer') {
+    return [];
+  }
+
+  return getDesignerClientListItemsForDesigner(user.id);
+}
+
+export async function renewCustomerInvitation(input: {
+  invitationId: string;
+  treatmentId: string;
+  customerName?: string;
+  customerPhone?: string;
+}) {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== 'designer') {
+    throw new Error('디자이너만 초대 코드를 다시 발급할 수 있습니다.');
+  }
+
+  const { treatment } = await getTreatmentById(input.treatmentId);
+
+  if (!treatment || treatment.designer_id !== user.id) {
+    throw new Error('시술 기록을 찾을 수 없습니다.');
+  }
+
+  const customerName = (input.customerName?.trim() || treatment.customer_name?.trim() || '').trim();
+
+  if (!customerName) {
+    throw new Error('고객 이름을 입력해주세요.');
+  }
+
+  await expireInvitation(input.invitationId);
+
+  return createCustomerInvitation({
+    treatmentId: input.treatmentId,
+    customerName,
+    customerPhone: input.customerPhone,
+  });
 }
 
 export async function expireInvitation(invitationId: string) {

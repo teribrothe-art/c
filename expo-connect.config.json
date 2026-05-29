@@ -1,0 +1,18 @@
+{
+  "metroPort": 8081,
+  "strategies": ["expo-tunnel", "ngrok-relay", "lan", "federation"],
+  "relay": {
+    "ngrok": {
+      "enabled": true,
+      "port": 8081
+    },
+    "expoTunnel": {
+      "enabled": true
+    }
+  },
+  "federation": {
+    "hosts": [
+      { "id": "local", "host": "127.0.0.1", "port": 8081, "label": "로컬 Metro" }
+    ]
+  }
+}
