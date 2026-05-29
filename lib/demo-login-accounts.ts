@@ -235,11 +235,20 @@ export const STORE_LOGIN_COUNT = STORE_LOGIN_ACCOUNTS.length;
 
 const BASIC_ACCOUNTS: DemoLoginAccount[] = [
   {
-    id: 'demo-customer',
+    id: 'demo-customer-kim-jiwon',
     group: '기본',
     roleLabel: '고객',
-    loginLabel: '데모 고객',
+    loginLabel: '데모 고객 · 김지원',
     email: DEMO_LOGIN_HINT.customerEmail,
+    password: DEMO_LOGIN_HINT.customerPassword,
+    accent: colors.coral,
+  },
+  {
+    id: 'demo-customer-lee-seoyeon',
+    group: '기본',
+    roleLabel: '고객',
+    loginLabel: '데모 고객 · 이서연',
+    email: 'customer@hair.app',
     password: DEMO_LOGIN_HINT.customerPassword,
     accent: colors.coral,
   },

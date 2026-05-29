@@ -207,6 +207,29 @@ const INITIAL_DEMO_TREATMENTS: Treatment[] = [
     after_photo_url:
       'https://images.unsplash.com/photo-1521590839637-31813ae3d58c?auto=format&fit=crop&w=900&q=80',
   },
+  {
+    id: 'demo-treatment-8',
+    customer_id: 'demo-customer-lee-seoyeon',
+    designer_id: 'demo-designer-local',
+    designer_name: '김미용 디자이너',
+    customer_name: '이서연',
+    treatment_date: '2026-04-22',
+    treatment_type: '컷',
+    treatment_title: '시스루 레이어드 컷',
+    products: ['로레알 트리트먼트'],
+    damage_level: 4,
+    duration: '1시간 20분',
+    designer_diagnosis: '모발 상태 양호. 가벼운 레이어로 볼륨감을 살렸습니다.',
+    home_care: '드라이 시 열 보호제 사용. 6주 후 트리밍 권장.',
+    ai_insight: '컷 유지를 위해 6~8주 주기 관리를 추천합니다.',
+    price: 120000,
+    payment_status: 'completed',
+    paid_at: '2026-04-22T13:00:00.000Z',
+    settled_at: '2026-04-23T10:00:00.000Z',
+    platform_fee: 12000,
+    designer_payout_amount: 108000,
+    feedback_completed: true,
+  },
 ];
 
 const demoTreatments: Treatment[] = INITIAL_DEMO_TREATMENTS.map((item) => ({ ...item }));

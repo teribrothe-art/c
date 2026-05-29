@@ -56,6 +56,13 @@ const DEMO_DESIGNER_LINKED_CUSTOMERS: BetaTestAccount[] = [
     password: DEMO_LOGIN_HINT.customerPassword,
     role: 'customer',
   },
+  {
+    id: 'demo-customer-lee-seoyeon',
+    email: 'customer@hair.app',
+    name: '이서연',
+    password: DEMO_LOGIN_HINT.customerPassword,
+    role: 'customer',
+  },
 ];
 
 /** 데모 디자이너 시술 연동 고객 */
