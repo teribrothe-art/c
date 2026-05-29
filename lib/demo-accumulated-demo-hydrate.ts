@@ -48,6 +48,24 @@ export function shouldHydrateAccumulatedDemoDataForUser(user: {
   return findProfileForUser(user) !== null;
 }
 
+function mergeAccumulatedProfileTreatmentsIntoStore(
+  demoTreatments: Treatment[],
+  profile: BuiltAccumulatedSeedProfile,
+): boolean {
+  const existingIds = new Set(demoTreatments.map((item) => item.id));
+  let merged = false;
+
+  for (const seed of profile.treatments) {
+    if (!existingIds.has(seed.id)) {
+      demoTreatments.push(applyAccumulatedTreatmentPatch({ ...(seed as Treatment) }));
+      existingIds.add(seed.id);
+      merged = true;
+    }
+  }
+
+  return merged;
+}
+
 export function mergeAccumulatedTreatmentsIntoStore(
   demoTreatments: Treatment[],
   user: { id: string; role?: string | null } | null,
@@ -58,15 +76,37 @@ export function mergeAccumulatedTreatmentsIntoStore(
     return false;
   }
 
-  const existingIds = new Set(demoTreatments.map((item) => item.id));
+  return mergeAccumulatedProfileTreatmentsIntoStore(demoTreatments, profile);
+}
+
+export function mergeAccumulatedTreatmentsForDesignerId(
+  demoTreatments: Treatment[],
+  designerId: string,
+): boolean {
+  const profile = findAccumulatedProfileByDesignerId(designerId);
+
+  if (!profile) {
+    return false;
+  }
+
+  return mergeAccumulatedProfileTreatmentsIntoStore(demoTreatments, profile);
+}
+
+export function mergeAllAccumulatedTreatmentsIntoStore(demoTreatments: Treatment[]): boolean {
   let merged = false;
 
-  for (const seed of profile.treatments) {
-    if (!existingIds.has(seed.id)) {
-      demoTreatments.push(applyAccumulatedTreatmentPatch({ ...(seed as Treatment) }));
-      existingIds.add(seed.id);
-      merged = true;
-    }
+  for (const profile of getAccumulatedTestProfiles()) {
+    merged = mergeAccumulatedProfileTreatmentsIntoStore(demoTreatments, profile) || merged;
+  }
+
+  return merged;
+}
+
+export function mergeAllAccumulatedPaymentsIntoStore(demoPayments: PaymentRecord[]): boolean {
+  let merged = false;
+
+  for (const profile of getAccumulatedTestProfiles()) {
+    merged = mergeAccumulatedProfilePaymentsIntoStore(demoPayments, profile) || merged;
   }
 
   return merged;

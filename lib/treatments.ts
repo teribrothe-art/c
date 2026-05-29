@@ -1,6 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
+import {
+  mergeAccumulatedTreatmentsForDesignerId,
+  mergeAccumulatedTreatmentsIntoStore,
+  treatmentsForDemoPersistence,
+} from './demo-accumulated-demo-hydrate';
+import { isAccumulatedTestTreatmentId } from './demo-accumulated-ids';
+import { getAccumulatedTestProfiles } from './demo-accumulated-test-seeds';
+import {
+  ensureAccumulatedTreatmentPatchesLoaded,
+  reapplyAccumulatedTreatmentPatchesInStore,
+} from './demo-accumulated-treatment-patches';
 import { SEO_JUNGHYUN_DEMO_TREATMENTS } from './demo-customer-seo-junghyun';
 import { toAppError } from './errors';
 import type { PaymentStatus } from './payment-status';
@@ -290,7 +301,32 @@ async function hydrateDemoTreatments() {
 }
 
 async function persistDemoTreatments() {
-  await AsyncStorage.setItem(DEMO_TREATMENTS_KEY, JSON.stringify(demoTreatments));
+  await AsyncStorage.setItem(
+    DEMO_TREATMENTS_KEY,
+    JSON.stringify(treatmentsForDemoPersistence(demoTreatments)),
+  );
+}
+
+async function ensureAccumulatedDemoTreatmentsMerged(options?: {
+  user?: { id: string; role?: string | null } | null;
+  designerId?: string;
+}) {
+  await ensureAccumulatedTreatmentPatchesLoaded();
+
+  let merged = false;
+
+  if (options?.user) {
+    merged = mergeAccumulatedTreatmentsIntoStore(demoTreatments, options.user) || merged;
+  }
+
+  if (options?.designerId) {
+    merged =
+      mergeAccumulatedTreatmentsForDesignerId(demoTreatments, options.designerId) || merged;
+  }
+
+  if (merged) {
+    reapplyAccumulatedTreatmentPatchesInStore(demoTreatments);
+  }
 }
 
 export async function getTreatments() {
@@ -304,6 +340,7 @@ export async function getTreatments() {
 
   if (isDemoAuthMode || !supabase) {
     await hydrateDemoTreatments();
+    await ensureAccumulatedDemoTreatmentsMerged({ user });
     treatments = [...demoTreatments];
   } else {
     const { data, error } = await supabase
@@ -340,7 +377,19 @@ export async function getTreatmentById(id: string) {
 
   if (isDemoAuthMode || !supabase) {
     await hydrateDemoTreatments();
+    await ensureAccumulatedDemoTreatmentsMerged({ user });
     treatment = demoTreatments.find((item) => item.id === id) ?? null;
+
+    if (!treatment && isAccumulatedTestTreatmentId(id)) {
+      const profile = getAccumulatedTestProfiles().find((item) =>
+        item.treatments.some((seed) => seed.id === id),
+      );
+
+      if (profile) {
+        await ensureAccumulatedDemoTreatmentsMerged({ designerId: profile.designer.id });
+        treatment = demoTreatments.find((item) => item.id === id) ?? null;
+      }
+    }
   } else {
     const { data, error } = await supabase
       .from('treatments')
@@ -366,6 +415,7 @@ export async function getTreatmentById(id: string) {
 export async function listTreatmentsForDesignerId(designerId: string): Promise<Treatment[]> {
   if (isDemoAuthMode || !supabase) {
     await hydrateDemoTreatments();
+    await ensureAccumulatedDemoTreatmentsMerged({ designerId });
 
     return demoTreatments
       .filter((treatment) => treatment.designer_id === designerId)
@@ -398,6 +448,8 @@ export async function getDesignerTreatments() {
 
   if (isDemoAuthMode || !supabase) {
     await hydrateDemoTreatments();
+    await ensureAccumulatedDemoTreatmentsMerged({ user });
+
     return {
       user,
       treatments: demoTreatments

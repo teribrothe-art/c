@@ -1,6 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
+import {
+  mergeAccumulatedPaymentsForDesignerId,
+  mergeAccumulatedPaymentsIntoStore,
+  paymentsForDemoPersistence,
+} from './demo-accumulated-demo-hydrate';
+import { isAccumulatedTestTreatmentId } from './demo-accumulated-ids';
+import { getAccumulatedTestProfiles } from './demo-accumulated-test-seeds';
 import { toAppError } from './errors';
 import { supabase } from './supabase';
 import { getTreatmentById, Treatment } from './treatments';
@@ -98,7 +105,27 @@ async function persistDemoPayments() {
     return;
   }
 
-  await AsyncStorage.setItem(DEMO_PAYMENTS_KEY, JSON.stringify(demoPayments));
+  await AsyncStorage.setItem(
+    DEMO_PAYMENTS_KEY,
+    JSON.stringify(paymentsForDemoPersistence(demoPayments)),
+  );
+}
+
+async function ensureAccumulatedDemoPaymentsMerged(options?: {
+  user?: { id: string; role?: string | null } | null;
+  designerId?: string;
+}) {
+  let merged = false;
+
+  if (options?.user) {
+    merged = mergeAccumulatedPaymentsIntoStore(demoPayments, options.user) || merged;
+  }
+
+  if (options?.designerId) {
+    merged = mergeAccumulatedPaymentsForDesignerId(demoPayments, options.designerId) || merged;
+  }
+
+  return merged;
 }
 
 function withSettledFees(payment: PaymentRecord) {
@@ -140,7 +167,20 @@ export function calculatePaymentFees(amount: number, feeRate = PLATFORM_FEE_RATE
 export async function getPaymentByTreatmentId(treatmentId: string) {
   if (isDemoAuthMode || !supabase) {
     await hydrateDemoPayments();
-    return demoPayments.find((payment) => payment.treatment_id === treatmentId) ?? null;
+    let payment = demoPayments.find((item) => item.treatment_id === treatmentId) ?? null;
+
+    if (!payment && isAccumulatedTestTreatmentId(treatmentId)) {
+      const profile = getAccumulatedTestProfiles().find((item) =>
+        item.treatments.some((seed) => seed.id === treatmentId),
+      );
+
+      if (profile) {
+        await ensureAccumulatedDemoPaymentsMerged({ designerId: profile.designer.id });
+        payment = demoPayments.find((item) => item.treatment_id === treatmentId) ?? null;
+      }
+    }
+
+    return payment;
   }
 
   const { data, error } = await supabase
@@ -160,6 +200,7 @@ export async function getPaymentByTreatmentId(treatmentId: string) {
 export async function listPaymentsForDesignerId(designerId: string): Promise<PaymentRecord[]> {
   if (isDemoAuthMode || !supabase) {
     await hydrateDemoPayments();
+    await ensureAccumulatedDemoPaymentsMerged({ designerId });
 
     return demoPayments
       .filter((payment) => payment.designer_id === designerId)
