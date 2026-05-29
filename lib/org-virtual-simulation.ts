@@ -23,7 +23,7 @@ export const VIRTUAL_SIMULATION_SCENARIOS: {
   },
   {
     key: 'weekend_peak',
-    label: '주말 피크',
+    label: '주말 운영',
     description: '주말 예약·시술이 몰리는 피크 시나리오',
   },
   {
@@ -32,6 +32,11 @@ export const VIRTUAL_SIMULATION_SCENARIOS: {
     description: '정산·대기 건이 늘어나는 월말 시나리오',
   },
 ];
+
+/** 홈·매출 화면 — 평일 / 주말 전환 */
+export const PRIMARY_VIRTUAL_SIMULATION_SCENARIOS = VIRTUAL_SIMULATION_SCENARIOS.filter(
+  (item) => item.key === 'weekday' || item.key === 'weekend_peak',
+);
 
 /** 가상 매장 네트워크 (본사 시뮬레이션) — org-store-affiliation 과 동기화 */
 export const VIRTUAL_STORES: VirtualStore[] = ORG_STORE_DEFINITIONS;

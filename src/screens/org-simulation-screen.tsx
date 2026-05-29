@@ -1,19 +1,22 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { OrgScope } from '../../lib/org-access';
-import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
+import { isDemoAuthMode } from '../../lib/auth';
+import type { OrgDashboardSummary } from '../../lib/org-aggregates';
+import { fetchOrgDashboardSummary } from '../../lib/org-aggregates';
 import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
 import {
+  applyVirtualSimulationToSummary,
   buildVirtualStoreSummaries,
+  filterSummaryForStoreScope,
   getSimulationTimeline,
   getVirtualStoreForScope,
   VIRTUAL_SIMULATION_SCENARIOS,
   type VirtualSimulationScenario,
   type VirtualStore,
-  type VirtualStoreSummary,
 } from '../../lib/org-virtual-simulation';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
@@ -31,10 +34,29 @@ export function OrgSimulationScreen({ scope }: Props) {
   useOrgRoleGuard(scope);
   const insets = useSafeAreaInsets();
   const [scenario, setScenario] = useState<VirtualSimulationScenario>('weekday');
-  const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
-  const [stores, setStores] = useState<VirtualStoreSummary[]>([]);
+  const [baseSummary, setBaseSummary] = useState<OrgDashboardSummary | null>(null);
+  const [storeOrgId, setStoreOrgId] = useState<string | undefined>();
   const [storeEntity, setStoreEntity] = useState<VirtualStore | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const summary = useMemo(() => {
+    if (!baseSummary) {
+      return null;
+    }
+
+    const filtered = filterSummaryForStoreScope(baseSummary, scope, storeOrgId);
+
+    if (!isDemoAuthMode) {
+      return filtered;
+    }
+
+    return applyVirtualSimulationToSummary(filtered, scenario);
+  }, [baseSummary, scenario, scope, storeOrgId]);
+
+  const stores = useMemo(
+    () => (summary && scope === 'admin' ? buildVirtualStoreSummaries(summary) : []),
+    [scope, summary],
+  );
 
   const load = useCallback(() => {
     setIsLoading(true);
@@ -42,24 +64,22 @@ export function OrgSimulationScreen({ scope }: Props) {
     const storeOrgPromise = scope === 'store' ? resolveCurrentStoreOrgId() : Promise.resolve(undefined);
 
     storeOrgPromise
-      .then((storeOrgId) =>
+      .then((resolvedStoreOrgId) =>
         fetchOrgDashboardSummary(scope, {
-          scenario,
-          withVirtualSimulation: true,
-          storeOrgId,
-        }).then((simulated) => ({ simulated, storeOrgId })),
+          withVirtualSimulation: false,
+          storeOrgId: resolvedStoreOrgId,
+        }).then((raw) => ({ raw, resolvedStoreOrgId })),
       )
-      .then(({ simulated, storeOrgId }) => {
-        setSummary(simulated);
-        setStores(scope === 'admin' ? buildVirtualStoreSummaries(simulated) : []);
-        setStoreEntity(scope === 'store' ? getVirtualStoreForScope('store', storeOrgId) : null);
+      .then(({ raw, resolvedStoreOrgId }) => {
+        setBaseSummary(raw);
+        setStoreOrgId(resolvedStoreOrgId);
+        setStoreEntity(scope === 'store' ? getVirtualStoreForScope('store', resolvedStoreOrgId) : null);
       })
       .catch(() => {
-        setSummary(null);
-        setStores([]);
+        setBaseSummary(null);
       })
       .finally(() => setIsLoading(false));
-  }, [scenario, scope]);
+  }, [scope]);
 
   useFocusEffect(
     useCallback(() => {

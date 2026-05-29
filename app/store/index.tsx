@@ -3,61 +3,52 @@ import { useCallback, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import { getOrgStoreForAccountUser } from '../../lib/org-store-affiliation';
-import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
-import { getVirtualStoreForScope } from '../../lib/org-virtual-simulation';
+import { buildSimulationStatGridItems } from '../../lib/org-dashboard-stat-items';
+import { useOrgDashboardScenario } from '../../lib/use-org-dashboard-scenario';
 import { getCurrentUser } from '../../lib/auth';
-import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { OrgDashboardStatGrid } from '../../src/components/org-dashboard-stat-grid';
 import { LoadingState } from '../../src/components/loading-state';
 import { StoreBottomTabBar } from '../../src/components/store-bottom-tab-bar';
+import { SimulationScenarioPicker } from '../../src/components/simulation-scenario-picker';
 import { VirtualSimulationBanner } from '../../src/components/virtual-simulation-banner';
 
 export default function StoreHomeScreen() {
   useOrgRoleGuard('store');
   const insets = useSafeAreaInsets();
-  const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState('');
+  const { scenario, setScenario, summary, isLoading, errorMessage, reload } =
+    useOrgDashboardScenario('store');
   const [linkedStoreName, setLinkedStoreName] = useState<string | null>(null);
   const [linkedStoreRegion, setLinkedStoreRegion] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const designersSectionY = useRef(0);
 
   const load = useCallback(() => {
-    setIsLoading(true);
+    reload();
 
-    Promise.all([getCurrentUser(), resolveCurrentStoreOrgId()])
-      .then(([user, storeOrgId]) =>
-        fetchOrgDashboardSummary('store', { storeOrgId }).then((data) => ({
-          user,
-          data,
-          storeOrgId,
-        })),
-      )
-      .then(({ user, data, storeOrgId }) => {
-        setSummary(data);
-        const linkedStore =
-          (user ? getOrgStoreForAccountUser(user) : null) ??
-          getVirtualStoreForScope('store', storeOrgId);
-        setLinkedStoreName(linkedStore?.name ?? null);
-        setLinkedStoreRegion(linkedStore?.hotPlace ?? linkedStore?.region ?? null);
-        setErrorMessage('');
-      })
-      .catch((error) => {
-        setErrorMessage(getErrorMessage(error, '매장 현황을 불러오지 못했습니다.'));
-      })
-      .finally(() => setIsLoading(false));
-  }, []);
+    void getCurrentUser().then((user) => {
+      const linkedStore = user ? getOrgStoreForAccountUser(user) : null;
+      setLinkedStoreName(linkedStore?.name ?? null);
+      setLinkedStoreRegion(linkedStore?.hotPlace ?? linkedStore?.region ?? null);
+    });
+  }, [reload]);
 
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load]),
   );
+
+  const statItems = summary
+    ? buildSimulationStatGridItems(summary, {
+        onRevenue: () => router.push('/store/revenue'),
+        onTreatments: () => router.push('/store/customers'),
+        onPending: () => router.push('/store/revenue'),
+        onCustomers: () => router.push('/store/customers'),
+      })
+    : [];
 
   return (
     <View style={styles.container}>
@@ -72,7 +63,8 @@ export default function StoreHomeScreen() {
         <Text style={styles.title}>매장</Text>
         <Text style={styles.subtitle}>지역 핫플레이스 매장과 연동된 디자이너·매출을 확인합니다.</Text>
 
-        <VirtualSimulationBanner scenario="weekday" />
+        <VirtualSimulationBanner scenario={scenario} />
+        <SimulationScenarioPicker onChange={setScenario} scenario={scenario} />
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -80,40 +72,7 @@ export default function StoreHomeScreen() {
           <Text style={styles.errorText}>{errorMessage}</Text>
         ) : summary ? (
           <>
-            <OrgDashboardStatGrid
-              items={[
-                {
-                  key: 'designers',
-                  label: '소속 디자이너',
-                  value: String(summary.designerCount),
-                  onPress: () => {
-                    scrollRef.current?.scrollTo({
-                      y: Math.max(0, designersSectionY.current - 12),
-                      animated: true,
-                    });
-                  },
-                },
-                {
-                  key: 'treatments',
-                  label: '이번 달 시술',
-                  value: String(summary.monthTreatmentCount),
-                  onPress: () => router.push('/store/customers'),
-                },
-                {
-                  key: 'revenue',
-                  label: '이번 달 매출',
-                  value: summary.monthRevenue.toLocaleString('ko-KR'),
-                  meta: '원',
-                  onPress: () => router.push('/store/revenue'),
-                },
-                {
-                  key: 'customers',
-                  label: '연결 고객',
-                  value: String(summary.customerCount),
-                  onPress: () => router.push('/store/customers'),
-                },
-              ]}
-            />
+            <OrgDashboardStatGrid items={statItems} />
 
             {linkedStoreName ? (
               <View style={styles.storeBanner}>

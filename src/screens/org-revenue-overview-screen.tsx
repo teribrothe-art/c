@@ -1,14 +1,14 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { OrgScope } from '../../lib/org-access';
-import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
-import { getErrorMessage } from '../../lib/errors';
+import { useOrgDashboardScenario } from '../../lib/use-org-dashboard-scenario';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { VirtualSimulationBanner } from '../components/virtual-simulation-banner';
+import { SimulationScenarioPicker } from '../components/simulation-scenario-picker';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
@@ -21,28 +21,13 @@ type Props = {
 export function OrgRevenueOverviewScreen({ scope }: Props) {
   useOrgRoleGuard(scope);
   const insets = useSafeAreaInsets();
-  const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState('');
-
-  const load = useCallback(() => {
-    setIsLoading(true);
-
-    fetchOrgDashboardSummary(scope)
-      .then((data) => {
-        setSummary(data);
-        setErrorMessage('');
-      })
-      .catch((error) => {
-        setErrorMessage(getErrorMessage(error, '매출을 불러오지 못했습니다.'));
-      })
-      .finally(() => setIsLoading(false));
-  }, [scope]);
+  const { scenario, setScenario, summary, isLoading, errorMessage, reload } =
+    useOrgDashboardScenario(scope);
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load]),
+      reload();
+    }, [reload]),
   );
 
   const TabBar = scope === 'store' ? StoreBottomTabBar : AdminBottomTabBar;
@@ -59,7 +44,8 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
         <Text style={styles.title}>{scope === 'store' ? '매장 매출' : '본사 매출'}</Text>
         <Text style={styles.subtitle}>디자이너 매출·정산 화면과 동일 데이터를 합산합니다.</Text>
 
-        <VirtualSimulationBanner scenario="weekday" />
+        <VirtualSimulationBanner scenario={scenario} />
+        <SimulationScenarioPicker onChange={setScenario} scenario={scenario} />
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />

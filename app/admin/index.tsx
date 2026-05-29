@@ -1,45 +1,46 @@
 import { Link, router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import { buildVirtualStoreSummaries } from '../../lib/org-virtual-simulation';
-import { getErrorMessage } from '../../lib/errors';
+import { buildSimulationStatGridItems } from '../../lib/org-dashboard-stat-items';
+import { useOrgDashboardScenario } from '../../lib/use-org-dashboard-scenario';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { OrgDashboardStatGrid } from '../../src/components/org-dashboard-stat-grid';
 import { LoadingState } from '../../src/components/loading-state';
 import { AdminBottomTabBar } from '../../src/components/admin-bottom-tab-bar';
+import { SimulationScenarioPicker } from '../../src/components/simulation-scenario-picker';
 import { VirtualSimulationBanner } from '../../src/components/virtual-simulation-banner';
 
 export default function AdminHomeScreen() {
   useOrgRoleGuard('admin');
   const insets = useSafeAreaInsets();
-  const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
-  const [virtualStores, setVirtualStores] = useState<ReturnType<typeof buildVirtualStoreSummaries>>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState('');
-
-  const load = useCallback(() => {
-    setIsLoading(true);
-
-    fetchOrgDashboardSummary('admin')
-      .then((data) => {
-        setSummary(data);
-        setVirtualStores(buildVirtualStoreSummaries(data));
-        setErrorMessage('');
-      })
-      .catch((error) => {
-        setErrorMessage(getErrorMessage(error, '본사 현황을 불러오지 못했습니다.'));
-      })
-      .finally(() => setIsLoading(false));
-  }, []);
+  const { scenario, setScenario, summary, isLoading, errorMessage, reload } =
+    useOrgDashboardScenario('admin');
+  const virtualStores = useMemo(
+    () => (summary ? buildVirtualStoreSummaries(summary) : []),
+    [summary],
+  );
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load]),
+      reload();
+    }, [reload]),
+  );
+
+  const statItems = useMemo(
+    () =>
+      summary
+        ? buildSimulationStatGridItems(summary, {
+            onRevenue: () => router.push('/admin/revenue'),
+            onTreatments: () => router.push('/admin/customers'),
+            onPending: () => router.push('/admin/revenue'),
+            onCustomers: () => router.push('/admin/customers'),
+          })
+        : [],
+    [summary],
   );
 
   return (
@@ -54,7 +55,8 @@ export default function AdminHomeScreen() {
         <Text style={styles.title}>본사</Text>
         <Text style={styles.subtitle}>지역별 핫플레이스 매장과 디자이너 매출·시술 데이터를 함께 봅니다.</Text>
 
-        <VirtualSimulationBanner scenario="weekday" />
+        <VirtualSimulationBanner scenario={scenario} />
+        <SimulationScenarioPicker onChange={setScenario} scenario={scenario} />
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -62,35 +64,7 @@ export default function AdminHomeScreen() {
           <Text style={styles.errorText}>{errorMessage}</Text>
         ) : summary ? (
           <>
-            <OrgDashboardStatGrid
-              items={[
-                {
-                  key: 'designers',
-                  label: '연결 디자이너',
-                  value: String(summary.designerCount),
-                  onPress: () => router.push('/admin/designers'),
-                },
-                {
-                  key: 'treatments',
-                  label: '이번 달 시술',
-                  value: String(summary.monthTreatmentCount),
-                  onPress: () => router.push('/admin/customers'),
-                },
-                {
-                  key: 'revenue',
-                  label: '이번 달 매출',
-                  value: summary.monthRevenue.toLocaleString('ko-KR'),
-                  meta: '원',
-                  onPress: () => router.push('/admin/revenue'),
-                },
-                {
-                  key: 'customers',
-                  label: '전체 고객',
-                  value: String(summary.customerCount),
-                  onPress: () => router.push('/admin/customers'),
-                },
-              ]}
-            />
+            <OrgDashboardStatGrid items={statItems} />
 
             <Text style={styles.sectionTitle}>지역별 핫플레이스</Text>
             {virtualStores.map((store) => {
