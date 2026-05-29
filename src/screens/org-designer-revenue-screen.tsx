@@ -11,6 +11,7 @@ import { resolveOrgDesignerAccess, type OrgScope } from '../../lib/org-access';
 import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
 import { getCurrentUser } from '../../lib/auth';
 import { getErrorMessage } from '../../lib/errors';
+import { navigateBackOrOrgHome } from '../../lib/navigation';
 import { LoadingState } from '../components/loading-state';
 import { EmptyState } from '../components/empty-state';
 
@@ -81,7 +82,7 @@ export function OrgDesignerRevenueScreen({ scope }: Props) {
           { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 },
         ]}
         showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => router.back()} style={styles.backLink}>
+        <Pressable onPress={() => navigateBackOrOrgHome(scope)} style={styles.backLink}>
           <Text style={styles.backLinkText}>‹ 매출 목록</Text>
         </Pressable>
 

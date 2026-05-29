@@ -10,6 +10,7 @@ import { getCurrentUser } from '../../lib/auth';
 import { normalizePaymentStatus } from '../../lib/payment-status';
 import { getTreatmentById, type Treatment } from '../../lib/treatments';
 import { getErrorMessage } from '../../lib/errors';
+import { navigateBackOrOrgHome } from '../../lib/navigation';
 import { colors } from '../../lib/theme';
 import { LoadingState } from '../components/loading-state';
 
@@ -105,7 +106,7 @@ export function OrgTreatmentDetailScreen({ scope }: Props) {
       <View style={styles.centered}>
         <Text style={styles.errorTitle}>시술 상세</Text>
         <Text style={styles.errorText}>{errorMessage || '데이터가 없습니다.'}</Text>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable onPress={() => navigateBackOrOrgHome(scope)} style={styles.backButton}>
           <Text style={styles.backButtonText}>돌아가기</Text>
         </Pressable>
       </View>
@@ -119,7 +120,7 @@ export function OrgTreatmentDetailScreen({ scope }: Props) {
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => router.back()} style={styles.backLink}>
+        <Pressable onPress={() => navigateBackOrOrgHome(scope)} style={styles.backLink}>
           <Text style={styles.backLinkText}>‹ 목록</Text>
         </Pressable>
 
