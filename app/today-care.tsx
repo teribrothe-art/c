@@ -103,7 +103,11 @@ export default function TodayCareScreen() {
 
       <View style={styles.topSpacer} />
 
-      <Text style={styles.sectionLabel}>💡 오늘의 케어</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionEmoji}>💡</Text>
+        <Text style={styles.sectionLabel}>오늘의 케어</Text>
+        <Text style={styles.sectionEmoji}>✨</Text>
+      </View>
       <View style={styles.divider} />
 
       <View style={styles.gap40} />
@@ -144,6 +148,15 @@ const styles = StyleSheet.create({
   topSpacer: {
     flex: 0.25,
     minHeight: 48,
+  },
+  sectionHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+  },
+  sectionEmoji: {
+    fontSize: 16,
   },
   sectionLabel: {
     color: colors.purple,
