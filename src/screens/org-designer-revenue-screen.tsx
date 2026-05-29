@@ -13,16 +13,33 @@ import { getCurrentUser } from '../../lib/auth';
 import { getErrorMessage } from '../../lib/errors';
 import { LoadingState } from '../components/loading-state';
 import { EmptyState } from '../components/empty-state';
+import {
+  resolveDefaultSettlementDay,
+  SettlementWeekDayTabs,
+} from '../components/settlement-week-day-tabs';
 
 type Props = {
   scope: OrgScope;
 };
+
+function countSettlementsByDate(
+  settlements: DesignerRevenueAnalytics['recentSettlements'],
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+
+  for (const item of settlements) {
+    counts[item.date] = (counts[item.date] ?? 0) + 1;
+  }
+
+  return counts;
+}
 
 export function OrgDesignerRevenueScreen({ scope }: Props) {
   const { designerId } = useLocalSearchParams<{ designerId: string }>();
   const insets = useSafeAreaInsets();
   const [analytics, setAnalytics] = useState<DesignerRevenueAnalytics | null>(null);
   const [selectedWeekKey, setSelectedWeekKey] = useState<string | undefined>();
+  const [selectedSettlementDate, setSelectedSettlementDate] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [designerName, setDesignerName] = useState('');
@@ -65,6 +82,14 @@ export function OrgDesignerRevenueScreen({ scope }: Props) {
 
         return data.selectedWeekKey;
       });
+      const initialWeek =
+        data.weeklyWeeks.find((week) => week.weekKey === data.selectedWeekKey) ?? data.selectedWeek;
+      setSelectedSettlementDate(
+        resolveDefaultSettlementDay(
+          initialWeek?.days ?? [],
+          countSettlementsByDate(data.recentSettlements),
+        ),
+      );
       setErrorMessage('');
     } catch (error) {
       setErrorMessage(getErrorMessage(error, '매출을 불러오지 못했습니다.'));
@@ -89,9 +114,36 @@ export function OrgDesignerRevenueScreen({ scope }: Props) {
     );
   }, [analytics, selectedWeekKey]);
 
-  const handleSelectWeek = useCallback((weekKey: string) => {
-    setSelectedWeekKey(weekKey);
-  }, []);
+  const settlementCountByDate = useMemo(() => {
+    if (!analytics) {
+      return {};
+    }
+
+    return countSettlementsByDate(analytics.recentSettlements);
+  }, [analytics]);
+
+  const handleSelectWeek = useCallback(
+    (weekKey: string) => {
+      setSelectedWeekKey(weekKey);
+
+      const week = analytics?.weeklyWeeks.find((item) => item.weekKey === weekKey);
+
+      if (week) {
+        setSelectedSettlementDate(
+          resolveDefaultSettlementDay(week.days, settlementCountByDate),
+        );
+      }
+    },
+    [analytics?.weeklyWeeks, settlementCountByDate],
+  );
+
+  const visibleSettlements = useMemo(() => {
+    if (!analytics || !selectedSettlementDate) {
+      return [];
+    }
+
+    return analytics.recentSettlements.filter((item) => item.date === selectedSettlementDate);
+  }, [analytics, selectedSettlementDate]);
 
   return (
     <View style={styles.container}>
@@ -177,22 +229,38 @@ export function OrgDesignerRevenueScreen({ scope }: Props) {
               </View>
             ) : null}
 
-            <Text style={styles.sectionTitle}>최근 정산</Text>
-            {analytics.recentSettlements.length === 0 ? (
-              <Text style={styles.emptySettlements}>정산 내역이 없습니다.</Text>
-            ) : (
-              analytics.recentSettlements.slice(0, 8).map((item) => (
-                <View key={item.paymentId} style={styles.settlementRow}>
-                  <View style={styles.settlementMain}>
-                    <Text style={styles.settlementTitle}>{item.customerName}</Text>
-                    <Text style={styles.settlementMeta}>
-                      {item.treatmentTitle} · {item.dateWithWeekdayLabel}
-                    </Text>
+            <View style={styles.settlementSection}>
+              <Text style={styles.sectionTitle}>최근 정산</Text>
+
+              {selectedWeek ? (
+                <SettlementWeekDayTabs
+                  days={selectedWeek.days}
+                  onSelectDate={setSelectedSettlementDate}
+                  selectedDate={selectedSettlementDate}
+                  settlementCountByDate={settlementCountByDate}
+                />
+              ) : null}
+
+              {visibleSettlements.length === 0 ? (
+                <Text style={styles.emptySettlements}>
+                  {selectedSettlementDate
+                    ? '해당 날짜에 정산 내역이 없습니다.'
+                    : '정산 내역이 없습니다.'}
+                </Text>
+              ) : (
+                visibleSettlements.map((item) => (
+                  <View key={item.paymentId} style={styles.settlementRow}>
+                    <View style={styles.settlementMain}>
+                      <Text style={styles.settlementTitle}>{item.customerName}</Text>
+                      <Text style={styles.settlementMeta}>
+                        {item.treatmentTitle} · {item.dateWithWeekdayLabel}
+                      </Text>
+                    </View>
+                    <Text style={styles.settlementAmount}>{item.payout.toLocaleString('ko-KR')}원</Text>
                   </View>
-                  <Text style={styles.settlementAmount}>{item.payout.toLocaleString('ko-KR')}원</Text>
-                </View>
-              ))
-            )}
+                ))
+              )}
+            </View>
           </>
         ) : null}
       </ScrollView>
@@ -330,6 +398,9 @@ const styles = StyleSheet.create({
     color: '#1A1A2E',
     fontSize: 16,
     fontWeight: '900',
+  },
+  settlementSection: {
+    gap: 10,
   },
   emptySettlements: {
     color: '#6B6B7B',

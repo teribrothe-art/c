@@ -16,6 +16,7 @@ import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-b
 import { RevenueMetricsChart } from '../../src/components/revenue-metrics-chart';
 import { RevenueScopeTabs, type RevenueScopeTab } from '../../src/components/revenue-scope-tabs';
 import { WeeklyRevenuePanel } from '../../src/components/weekly-revenue-panel';
+import { SettlementWeekDayTabs } from '../../src/components/settlement-week-day-tabs';
 
 const CORAL = '#FF5A5F';
 const MINT = '#00C2A8';
@@ -123,6 +124,20 @@ export default function DesignerRevenueScreen() {
         })),
     [analytics?.months],
   );
+
+  const settlementCountByDate = useMemo(() => {
+    if (!analytics) {
+      return {};
+    }
+
+    const counts: Record<string, number> = {};
+
+    for (const item of analytics.recentSettlements) {
+      counts[item.date] = (counts[item.date] ?? 0) + 1;
+    }
+
+    return counts;
+  }, [analytics?.recentSettlements]);
 
   const visibleSettlements = useMemo(() => {
     if (!analytics) {
@@ -236,6 +251,11 @@ export default function DesignerRevenueScreen() {
 
   const handleSelectDay = (day: WeekdayRevenueCell) => {
     setSelectedDayDate(day.date);
+    setScopeTab('day');
+  };
+
+  const handleSelectSettlementDay = (date: string) => {
+    setSelectedDayDate(date);
     setScopeTab('day');
   };
 
@@ -375,6 +395,16 @@ export default function DesignerRevenueScreen() {
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>{settlementSectionTitle}</Text>
+
+              {scopeTab !== 'month' && analytics.selectedWeek.days.length > 0 ? (
+                <SettlementWeekDayTabs
+                  days={analytics.selectedWeek.days}
+                  onSelectDate={handleSelectSettlementDay}
+                  selectedDate={selectedDayDate}
+                  settlementCountByDate={settlementCountByDate}
+                />
+              ) : null}
+
               {visibleSettlements.length === 0 ? (
                 <Text style={styles.emptyText}>
                   {selectedDayDate
