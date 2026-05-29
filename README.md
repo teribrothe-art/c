@@ -13,7 +13,37 @@ cp .env.example .env
 npm start
 ```
 
-## 휴대폰에서 접속 (Expo Go) — PC 공유
+## 휴대폰에서 접속 (Expo Go) — 연합 접속 (권장)
+
+**여러 서버·터널·LAN·ngrok** 중 폰에서 접속 가능한 최적 경로를 자동 선택합니다.
+
+**터미널 1** — Metro + 릴레이 자동:
+
+```sh
+npm run start:connect
+```
+
+**터미널 2** — QR·URL 생성:
+
+```sh
+npm run share:connect
+```
+
+탐색만: `npm run connect`
+
+### 원격 Metro 서버 추가 (PC + NAS + VM)
+
+`.env` 또는 `expo-connect.config.json`:
+
+```sh
+EXPO_CONNECT_HOSTS=127.0.0.1:8081,192.168.0.10:8081
+```
+
+Expo 터널 실패 시 Ngrok 릴레이: `NGROK_AUTHTOKEN` 설정 (선택)
+
+---
+
+## 휴대폰에서 접속 (Expo Go) — PC 공유 (기존)
 
 **브라우저용** `npm run web` / `web:clear` 만 켜 두면 휴대폰 QR이 안 보이거나 접속이 실패할 수 있습니다.
 
