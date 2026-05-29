@@ -1,5 +1,4 @@
 import Constants from 'expo-constants';
-import { loadTossPayments } from '@tosspayments/payment-sdk';
 import { Platform } from 'react-native';
 
 import { isDemoAuthMode } from './auth';
@@ -250,6 +249,7 @@ export async function requestTossPaymentOnWeb(params: TossPaymentParams) {
   }
 
   const { successUrl, failUrl } = getPaymentRedirectUrls(params.treatmentId);
+  const { loadTossPayments } = await import('@tosspayments/payment-sdk');
   const tossPayments = await loadTossPayments(clientKey);
 
   await tossPayments.requestPayment('카드', {

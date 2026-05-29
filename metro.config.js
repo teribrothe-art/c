@@ -34,6 +34,13 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     };
   }
 
+  if (moduleName === '@tosspayments/payment-sdk' && platform !== 'web') {
+    return {
+      type: 'sourceFile',
+      filePath: stubPath('toss-payment-sdk-native.js'),
+    };
+  }
+
   return metroResolve(context, moduleName, platform);
 };
 
