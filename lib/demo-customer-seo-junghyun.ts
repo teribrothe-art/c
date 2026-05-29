@@ -1,13 +1,14 @@
 import type { BetaTestAccount } from './beta-test-accounts';
-import { DEMO_LOGIN_HINT } from './auth';
 import type { Treatment } from './treatments';
+
+const DEMO_CUSTOMER_PASSWORD = 'demo1234';
 
 /** 노원구 거주 · 2년 시술 이력 남성 테스트 고객 */
 export const SEO_JUNGHYUN_TEST_ACCOUNT: BetaTestAccount = {
   id: 'demo-customer-seo-junghyun',
   email: 'seo-junghyun@hair.app',
   name: '서정현',
-  password: DEMO_LOGIN_HINT.customerPassword,
+  password: DEMO_CUSTOMER_PASSWORD,
   role: 'customer',
 };
 
