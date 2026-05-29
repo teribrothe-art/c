@@ -1,108 +1,25 @@
-import { loadTossPayments } from '@tosspayments/payment-sdk';
 import { Platform } from 'react-native';
 
-const APP_SCHEME = 'hairdiaryapp';
+export type {
+  TossPaymentFailure,
+  TossPaymentParams,
+  TossPaymentSuccess,
+} from './toss-config';
 
-export type TossPaymentParams = {
-  amount: number;
-  orderId: string;
-  orderName: string;
-  treatmentId: string;
-};
+export {
+  TOSS_TEST_CARD,
+  createTossOrderId,
+  getPaymentRedirectUrls,
+  getTossClientKey,
+  isTossConfigured,
+  isTossTestKey,
+  parseTossFailUrl,
+  parseTossSuccessUrl,
+  shouldShowTossTestCardGuide,
+} from './toss-config';
 
-export type TossPaymentSuccess = {
-  paymentKey: string;
-  orderId: string;
-  amount: number;
-};
-
-export type TossPaymentFailure = {
-  code: string;
-  message: string;
-  orderId?: string;
-};
-
-/** 앱용 클라이언트 키 (`test_ck_` / `live_ck_`). 시크릿 키(`test_sk_`)는 사용하지 않습니다. */
-export function getTossClientKey() {
-  return process.env.EXPO_PUBLIC_TOSS_CLIENT_KEY?.trim() ?? '';
-}
-
-export function isTossConfigured() {
-  const key = getTossClientKey();
-  return key.length > 0 && key !== '여기에_입력';
-}
-
-export function isTossTestKey() {
-  return getTossClientKey().startsWith('test_');
-}
-
-/** 토스페이먼츠 샌드박스(test_ck) 전용 테스트 카드 — 실제 결제되지 않습니다 */
-export const TOSS_TEST_CARD = {
-  cardNumber: '4330-1234-1234-1234',
-  expiry: '12/30',
-  cvc: '123',
-  passwordPrefix: '00',
-  birthDate: '940101',
-} as const;
-
-export function shouldShowTossTestCardGuide() {
-  return isTossTestKey() || !isTossConfigured();
-}
-
-
-
-export function createTossOrderId(treatmentId: string) {
-  return `hair-${treatmentId}-${Date.now()}`;
-}
-
-export function getPaymentRedirectUrls() {
-  return {
-    successUrl: `${APP_SCHEME}://payment/success`,
-    failUrl: `${APP_SCHEME}://payment/fail`,
-  };
-}
-
-export function parseTossSuccessUrl(url: string): TossPaymentSuccess | null {
-  if (!url.includes('payment/success')) {
-    return null;
-  }
-
-  try {
-    const query = url.includes('?') ? url.split('?')[1] : '';
-    const params = new URLSearchParams(query);
-
-    const paymentKey = params.get('paymentKey');
-    const orderId = params.get('orderId');
-    const amount = Number(params.get('amount') ?? '0');
-
-    if (!paymentKey || !orderId) {
-      return null;
-    }
-
-    return { paymentKey, orderId, amount };
-  } catch {
-    return null;
-  }
-}
-
-export function parseTossFailUrl(url: string): TossPaymentFailure | null {
-  if (!url.includes('payment/fail')) {
-    return null;
-  }
-
-  try {
-    const query = url.includes('?') ? url.split('?')[1] : '';
-    const params = new URLSearchParams(query);
-
-    return {
-      code: params.get('code') ?? 'UNKNOWN',
-      message: params.get('message') ?? '결제에 실패했습니다.',
-      orderId: params.get('orderId') ?? undefined,
-    };
-  } catch {
-    return null;
-  }
-}
+import type { TossPaymentParams } from './toss-config';
+import { getPaymentRedirectUrls, getTossClientKey } from './toss-config';
 
 function escapeHtml(value: string) {
   return value
@@ -195,6 +112,7 @@ export async function requestTossPaymentOnWeb(params: TossPaymentParams) {
   }
 
   const { successUrl, failUrl } = getPaymentRedirectUrls();
+  const { loadTossPayments } = await import('@tosspayments/payment-sdk');
   const tossPayments = await loadTossPayments(clientKey);
 
   await tossPayments.requestPayment('카드', {

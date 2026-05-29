@@ -43,12 +43,18 @@ export function DevMetroConnectionBanner() {
       return;
     }
 
-    void runCheck();
+    const initialDelay = setTimeout(() => {
+      void runCheck();
+    }, 800);
+
     const interval = setInterval(() => {
       void runCheck();
     }, POLL_MS);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initialDelay);
+      clearInterval(interval);
+    };
   }, [hostUri, runCheck]);
 
   if (!hostUri || checking || !disconnected) {

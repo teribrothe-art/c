@@ -2,12 +2,16 @@ import Constants from 'expo-constants';
 
 /** Expo Go / dev client가 번들을 받은 Metro 호스트 (예: 192.168.0.5:8081) */
 export function resolveMetroHostUri(): string | null {
-  const fromConfig = Constants.expoConfig?.hostUri?.trim();
-  if (fromConfig) {
-    return fromConfig;
-  }
+  try {
+    const fromConfig = Constants.expoConfig?.hostUri?.trim();
+    if (fromConfig) {
+      return fromConfig;
+    }
 
-  return Constants.expoGoConfig?.hostUri?.trim() || null;
+    return Constants.expoGoConfig?.hostUri?.trim() || null;
+  } catch {
+    return null;
+  }
 }
 
 export function metroStatusUrl(hostUri: string): string {
