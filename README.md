@@ -12,7 +12,9 @@ npm start
 
 ## 휴대폰에서 접속 (Expo Go) — PC 공유
 
-**접속오류** (연결 안 됨 / Unable to connect / 로딩만 멈춤) → PC에서 `npm run connect` 로 원인 확인 후 아래 **start:phone** 순서대로 진행하세요.
+**접속오류** (연결 안 됨 / Unable to connect / 로딩만 멈춤) → 대부분 **터널 미실행** 또는 **`@expo/ngrok` 미설치**입니다. `npm install` 후 `npm run connect` 로 확인하고 아래 **start:phone** 순서대로 진행하세요.
+
+> `exp://172.x` / `exp://192.168.x` 만 보이고 `.exp.direct` 가 없으면 터널이 안 켜진 상태입니다. `npm install` 로 `@expo/ngrok` 설치 후 `start:phone` 을 다시 실행하세요.
 
 **브라우저용** `npm run web` / `web:clear` 만 켜 두면 휴대폰 QR이 안 보이거나 접속이 실패할 수 있습니다.
 

@@ -26,6 +26,15 @@ function runCheckApp() {
 async function main() {
   console.log('=== Expo Go 접속오류 안내 ===\n');
 
+  try {
+    await import('@expo/ngrok');
+  } catch {
+    console.log('【원인】 @expo/ngrok 미설치 → npm run start:phone 터널 실패\n');
+    console.log('  → 프로젝트 폴더에서: npm install');
+    console.log('  → 다시: npm run start:phone\n');
+    process.exit(1);
+  }
+
   let url = null;
   let classification = { mode: 'unknown', shareable: false };
 
