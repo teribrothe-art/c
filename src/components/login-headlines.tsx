@@ -12,8 +12,8 @@ export function LoginHeadlines() {
     <View style={styles.block}>
       <Text style={styles.salon}>{SALON_TITLE}</Text>
       <Text style={styles.app}>{APP_TITLE}</Text>
-      <LoginHeroAnimation />
       <LoginHopeQuotesAnimation />
+      <LoginHeroAnimation />
     </View>
   );
 }
