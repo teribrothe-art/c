@@ -6,7 +6,7 @@ const tabs: { href: Href; label: string }[] = [
   { href: '/home', label: '다이어리' },
   { href: '/analysis', label: '분석' },
   { href: '/voice', label: 'AI 상담' },
-  { href: '/profile', label: '마이' },
+  { href: '/profile', label: '계정' },
 ];
 
 export function BottomTabBar() {
