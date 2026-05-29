@@ -20,8 +20,11 @@ import {
 import { withRetry } from './payment-retry';
 import { normalizePaymentStatus } from './payment-status';
 import { supabase } from './supabase';
-import { createTossOrderId, isTossConfigured as isTossKeyConfigured } from './toss';
+import { resolveTreatmentCustomerForPayment } from './payment-customer';
+import { isLocalPaymentSimulation } from './payment-config';
+import { createTossOrderId } from './toss';
 import { isDesignerSettlementInputComplete } from './treatment-settlement';
+import { invalidateLedgerCachesForTreatment } from './services/ledger-invalidate';
 import { getTreatmentById, Treatment, updateTreatment } from './treatments';
 
 export { PLATFORM_FEE_RATE };
@@ -49,13 +52,23 @@ function assertDesignerOwnership(treatment: Treatment, designerId: string) {
 }
 
 function assertCustomerOwnership(treatment: Treatment, customerId: string) {
-  if (isDemoAuthMode) {
-    return;
-  }
+  if (treatment.customer_id && treatment.customer_id !== customerId) {
+    if (isDemoAuthMode || isLocalPaymentSimulation()) {
+      return;
+    }
 
-  if (treatment.customer_id !== customerId) {
-    throw new Error('권한이 없습니다');
+    throw new Error('이 시술은 다른 고객 계정에 연결되어 있어요.');
   }
+}
+
+/** 결제 서버 없이 테스트 — 버튼 한 번으로 결제·에스크로까지 반영 */
+export async function completeLocalTestPayment(treatmentId: string, orderId?: string) {
+  const resolvedOrderId = orderId ?? createTossOrderId(treatmentId);
+
+  return handleTossPaymentSuccess(treatmentId, {
+    paymentKey: `local_test_${Date.now()}`,
+    orderId: resolvedOrderId,
+  });
 }
 
 export async function assertCanPayTreatment(treatmentId: string) {
@@ -129,12 +142,7 @@ export async function requestCustomerPayment(treatmentId: string) {
 export async function preparePaymentSession(treatmentId: string) {
   await assertCanPayTreatment(treatmentId);
 
-  const { treatment } = await getTreatmentById(treatmentId);
-
-  if (!treatment) {
-    throw new Error('시술 기록을 찾을 수 없습니다.');
-  }
-
+  const treatment = await resolveTreatmentCustomerForPayment(treatmentId);
   const orderId = createTossOrderId(treatmentId);
 
   await withRetry(() => ensurePaymentRecordForTreatment(treatmentId), { maxAttempts: 3 });
@@ -159,24 +167,20 @@ export async function handleTossPaymentSuccess(
 
   await assertCanPayTreatment(treatmentId);
 
-  const { treatment } = await getTreatmentById(treatmentId);
-
-  if (!treatment) {
-    throw new Error('시술 기록을 찾을 수 없습니다.');
-  }
+  const treatment = await resolveTreatmentCustomerForPayment(treatmentId);
 
   assertCustomerOwnership(treatment, user.id);
 
   const amount = treatment.price ?? 0;
   const { platformFee, designerPayout } = calculatePayout(amount);
   const now = new Date().toISOString();
-  const receiptUrl = buildTossReceiptUrl(input.paymentKey);
-
-  if (!isDemoAuthMode && supabase && isTossKeyConfigured()) {
-    // TODO: Edge Function에서 paymentKey 승인 후 receiptUrl 갱신
-  }
+  const receiptUrl = isLocalPaymentSimulation()
+    ? null
+    : buildTossReceiptUrl(input.paymentKey);
 
   try {
+    await withRetry(() => ensurePaymentRecordForTreatment(treatmentId), { maxAttempts: 3 });
+
     await withRetry(
       async () => {
         await markPaymentPaid(treatmentId, {
@@ -205,8 +209,10 @@ export async function handleTossPaymentSuccess(
     const payment = await getPaymentByTreatmentId(treatmentId);
 
     if (payment) {
-      await notifyDesignerPaymentCompleted(updatedTreatment, payment);
+      await notifyDesignerPaymentCompleted(updatedTreatment, payment).catch(() => undefined);
     }
+
+    invalidateLedgerCachesForTreatment(updatedTreatment);
 
     return updatedTreatment;
   } catch (error) {
@@ -220,6 +226,10 @@ export async function handleTossPaymentFailure(treatmentId: string) {
 }
 
 export async function completeCustomerPayment(treatmentId: string, tossPaymentKey?: string) {
+  if (isLocalPaymentSimulation()) {
+    return completeLocalTestPayment(treatmentId);
+  }
+
   const orderId = createTossOrderId(treatmentId);
   return handleTossPaymentSuccess(treatmentId, {
     paymentKey: tossPaymentKey ?? `demo-payment-${Date.now()}`,
@@ -287,6 +297,8 @@ export async function settleDesignerPayout(treatmentId: string) {
   const paymentForNotify = settledPayment;
 
   await notifyDesignerSettlementCompleted(updatedTreatment, paymentForNotify);
+
+  invalidateLedgerCachesForTreatment(updatedTreatment);
 
   return updatedTreatment;
 }

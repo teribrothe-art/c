@@ -1,7 +1,8 @@
 import { getCurrentUser } from './auth';
-import { getPaymentByTreatmentId, PaymentRecord } from './payment-record';
+import type { PaymentRecord } from './payment-record';
 import { normalizePaymentStatus } from './payment-status';
-import { getTreatments, Treatment } from './treatments';
+import { fetchCustomerLedger } from './services/customer-ledger-service';
+import type { Treatment } from './treatments';
 
 export type CustomerPaymentEntry = {
   treatment: Treatment;
@@ -78,11 +79,10 @@ export async function fetchCustomerPaymentEntries(): Promise<CustomerPaymentEntr
     return [];
   }
 
-  const { treatments } = await getTreatments();
+  const ledger = await fetchCustomerLedger();
   const entries: CustomerPaymentEntry[] = [];
 
-  for (const treatment of treatments) {
-    const payment = await getPaymentByTreatmentId(treatment.id);
+  for (const { treatment, payment } of ledger?.entries ?? []) {
     const entry = buildEntry(treatment, payment);
 
     if (entry) {

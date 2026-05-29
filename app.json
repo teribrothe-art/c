@@ -2,7 +2,7 @@
   "expo": {
     "name": "헤어 다이어리",
     "slug": "hair-diary-app",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "splash": {
@@ -13,7 +13,25 @@
     "scheme": "hairdiaryapp",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": [
+          "supertoss",
+          "kakaobank",
+          "kb-acp",
+          "liivbank",
+          "kbbank",
+          "ispmobile",
+          "shinhan-sr-ansimclick",
+          "smshinhanansimclick",
+          "hdcardappcardansimclick",
+          "mpocket.online.ansimclick",
+          "samsungpay",
+          "payco",
+          "lpayapp",
+          "nhappcardansimclick"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -74,6 +92,10 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "buildLabel": "2026-05-27 12:00",
+      "expoGoSdkHint": "Expo SDK 56 — 스토어 Expo Go가 안 되면 https://expo.dev/go 에서 SDK 56용 설치"
     },
     "runtimeVersion": {
       "policy": "appVersion"
