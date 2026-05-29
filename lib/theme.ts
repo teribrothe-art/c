@@ -18,3 +18,9 @@ export const disabledButtonStyle = {
   backgroundColor: colors.disabled,
   opacity: 0.5,
 } as const;
+
+/** 다크 모드에서도 입력 글자가 보이도록 배경·글자색 고정 */
+export const formTextInputStyle = {
+  backgroundColor: '#FFFFFF',
+  color: colors.text,
+} as const;

@@ -30,42 +30,6 @@ export function getTimeOfDayGreeting(date = new Date()): string {
   return '편안한 밤 되세요';
 }
 
-export function getDamageHeadline(damageLevel: number | null | undefined): string {
-  if (typeof damageLevel !== 'number') {
-    return '시술 기록을 쌓아보세요';
-  }
-
-  if (damageLevel <= 3) {
-    return '건강한 상태예요';
-  }
-
-  if (damageLevel <= 6) {
-    return '보통 관리 필요';
-  }
-
-  if (damageLevel <= 8) {
-    return '트리트먼트 추천';
-  }
-
-  return '집중 케어 필요!';
-}
-
-export function getDamageAccentColor(damageLevel: number | null | undefined) {
-  if (typeof damageLevel !== 'number') {
-    return '#7B5EE6' as const;
-  }
-
-  if (damageLevel <= 3) {
-    return '#00C2A8' as const;
-  }
-
-  if (damageLevel <= 6) {
-    return '#7B5EE6' as const;
-  }
-
-  return '#FF5A5F' as const;
-}
-
 export function buildInsightPayload(treatments: Treatment[], now = new Date()): InsightPayload {
   const payload = buildTodayCarePayload(treatments, now);
 
