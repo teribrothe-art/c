@@ -134,16 +134,12 @@ export function LoginHopeQuotesAnimation() {
 const styles = StyleSheet.create({
   block: {
     alignItems: 'center',
-    backgroundColor: '#FAFAFC',
-    borderColor: '#EFEFF4',
-    borderRadius: 16,
-    borderWidth: 1,
     gap: 6,
     justifyContent: 'center',
     marginTop: 2,
-    minHeight: 108,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
+    minHeight: 72,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
     width: '100%',
   },
   line: {
