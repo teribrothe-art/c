@@ -14,6 +14,7 @@ import {
 
 import {
   ACCUMULATED_LOGIN_CUSTOMER_COUNT,
+  ADMIN_LOGIN_COUNT,
   DEMO_LOGIN_GROUPS,
   DESIGNER_LOGIN_COUNT,
   STORE_LOGIN_COUNT,
@@ -58,7 +59,7 @@ function DemoLoginGroupSection({
   const collapsible = isCollapsibleDemoLoginGroup(title);
   const searchable = isSearchableDemoLoginGroup(title);
   const listAllWhenExpanded = demoLoginGroupListsAllWhenExpanded(title);
-  const countUnit = title === '매장' ? '곳' : '명';
+  const countUnit = title === '매장' ? '곳' : title === '본사' ? '계정' : '명';
   const countLabel = `${accounts.length}${countUnit}`;
 
   const searchResult = useMemo(() => {
@@ -84,9 +85,9 @@ function DemoLoginGroupSection({
 
   const showSearchPanel = searchable && expanded;
   const canShowList =
-    (!collapsible || expanded) &&
     visibleAccounts.length > 0 &&
-    (listAllWhenExpanded || searchQuery.length > 0);
+    (!collapsible || expanded) &&
+    (!searchable || listAllWhenExpanded || searchQuery.length > 0);
 
   return (
     <View style={styles.group}>
@@ -132,7 +133,9 @@ function DemoLoginGroupSection({
               : listAllWhenExpanded
                 ? title === '매장'
                   ? `총 ${STORE_LOGIN_COUNT}곳 · 아래에서 탭하면 로그인`
-                  : `총 ${DESIGNER_LOGIN_COUNT}명 · 아래에서 탭하면 로그인`
+                  : title === '본사'
+                    ? `총 ${ADMIN_LOGIN_COUNT}계정 · 아래에서 탭하면 로그인`
+                    : `총 ${DESIGNER_LOGIN_COUNT}명 · 아래에서 탭하면 로그인`
                 : `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT}명(디자이너 연동 전체) — 검색어를 입력하면 목록이 표시됩니다`}
           </Text>
         </View>
