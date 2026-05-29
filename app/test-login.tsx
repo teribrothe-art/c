@@ -28,6 +28,7 @@ import { filterDemoLoginAccounts } from '../lib/demo-login-account-search';
 import { showLoginFailureAlert } from '../lib/alerts';
 import { isDemoAuthMode } from '../lib/auth';
 import { getErrorMessage } from '../lib/errors';
+import { navigateBackOrReplace } from '../lib/navigation';
 import { signInAndNavigate } from '../lib/quick-login-flow';
 import { colors } from '../lib/theme';
 import { AppVersionBadge } from '../src/components/app-version-badge';
@@ -285,7 +286,7 @@ export default function TestLoginScreen() {
 
         <Pressable
           disabled={Boolean(loadingId)}
-          onPress={() => router.back()}
+          onPress={() => navigateBackOrReplace('/')}
           style={styles.backButton}>
           <Text style={styles.backButtonText}>일반 로그인으로 돌아가기</Text>
         </Pressable>

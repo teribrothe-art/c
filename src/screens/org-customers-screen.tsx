@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { OrgScope } from '../../lib/org-access';
 import { getOrgClientListItems, type OrgClientListItem } from '../../lib/org-client-list';
 import { getErrorMessage } from '../../lib/errors';
+import { navigateBackOrOrgHome } from '../../lib/navigation';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
@@ -101,7 +102,7 @@ export function OrgCustomersScreen({ scope }: Props) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         {scope === 'admin' ? (
-          <Pressable onPress={() => router.back()} style={styles.backLink}>
+          <Pressable onPress={() => navigateBackOrOrgHome(scope)} style={styles.backLink}>
             <Text style={styles.backLinkText}>‹ 디자이너</Text>
           </Pressable>
         ) : null}

@@ -12,6 +12,7 @@ import { normalizePaymentStatus } from '../../lib/payment-status';
 import { fetchDesignerLedgerForDesignerId } from '../../lib/services/designer-ledger-service';
 import { getTreatmentById, type Treatment } from '../../lib/treatments';
 import { getErrorMessage } from '../../lib/errors';
+import { navigateBackOrOrgHome } from '../../lib/navigation';
 import { colors } from '../../lib/theme';
 import { LoadingState } from '../components/loading-state';
 
@@ -123,7 +124,7 @@ export function OrgTreatmentDetailScreen({ scope }: Props) {
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => router.back()} style={styles.backLink}>
+        <Pressable onPress={() => navigateBackOrOrgHome(scope)} style={styles.backLink}>
           <Text style={styles.backLinkText}>‹ 목록</Text>
         </Pressable>
 
