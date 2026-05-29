@@ -73,6 +73,7 @@ npm run check:phone
 | 연결 자체가 안 됨 / 로딩만 멈춤 | `web:clear`만 실행, 또는 PC·폰 네트워크 불일치 | `npm run start:phone` 후 QR 재스캔 |
 | "Unable to connect" | 방화벽·게스트 Wi‑Fi·VPN | 터널(`start:phone`) 또는 같은 Wi‑Fi + `start:lan` |
 | 파란 화면 "Something went wrong" | Expo Go 구버전 또는 번들 크래시 | Expo Go 업데이트(SDK 56), `start:phone` + Reload |
+| 노란 **Console Warning: Cannot connect to Expo CLI** | Metro 꺼짐·PC·폰 네트워크 불일치·HMR 끊김 | `npm run start:phone` 후 QR 재스캔 · `npm run check:app` · Expo Go **Reload**(↻) |
 | Cursor 원격 VM에서 개발 | QR의 IP가 내 폰에서 안 보임 | **본인 PC**에서 `git clone` 후 `start:phone` 실행 (또는 터널 URL이 폰에서 열리는지 확인) |
 
 데모 로그인( Supabase 미설정 시): `demo@hair.app` / `demo1234`, `designer@hair.app` / `demo1234`
