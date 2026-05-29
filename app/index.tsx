@@ -1,4 +1,4 @@
-import { Link, router } from 'expo-router';
+import { Link } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -13,7 +13,6 @@ import {
 
 import { showLoginFailureAlert } from '../lib/alerts';
 import { isDemoAuthMode } from '../lib/auth';
-import { DEMO_LOGIN_GROUP_ORDER, type DemoLoginGroupKey } from '../lib/demo-login-accounts';
 import { getErrorMessage } from '../lib/errors';
 import { signInAndNavigate } from '../lib/quick-login-flow';
 import { colors, disabledButtonStyle } from '../lib/theme';
@@ -57,13 +56,6 @@ export default function LoginScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const openTestLoginGroup = (group: DemoLoginGroupKey) => {
-    router.push({
-      pathname: '/test-login',
-      params: { group },
-    });
   };
 
   const inputBorder = useMemo(
@@ -142,36 +134,6 @@ export default function LoginScreen() {
               ]}>
               <Text style={styles.loginButtonText}>{isLoading ? '로그인 중...' : '로그인'}</Text>
             </Pressable>
-
-            {isDemoAuthMode ? (
-              <View style={styles.testLoginBlock}>
-                <Text style={styles.testLoginHeading}>테스트 계정</Text>
-                <Text style={styles.testLoginHint}>분류별 탭 한 번으로 바로가기</Text>
-                <View style={styles.testCategoryRow}>
-                  {DEMO_LOGIN_GROUP_ORDER.map((category) => (
-                    <Pressable
-                      key={category}
-                      disabled={isLoading}
-                      onPress={() => openTestLoginGroup(category)}
-                      style={({ pressed }) => [
-                        styles.testCategoryChip,
-                        pressed && styles.testCategoryChipPressed,
-                      ]}>
-                      <Text style={styles.testCategoryChipText}>{category}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-                <Pressable
-                  disabled={isLoading}
-                  onPress={() => router.push('/test-login')}
-                  style={({ pressed }) => [
-                    styles.testLoginButton,
-                    pressed && styles.testLoginButtonPressed,
-                  ]}>
-                  <Text style={styles.testLoginButtonText}>테스트 계정 목록 열기</Text>
-                </Pressable>
-              </View>
-            ) : null}
           </View>
 
           <View style={styles.footerLinks}>
@@ -258,60 +220,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
-  },
-  testLoginBlock: {
-    gap: 10,
-    marginTop: 8,
-  },
-  testLoginHeading: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  testLoginHint: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  testCategoryRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    justifyContent: 'center',
-  },
-  testCategoryChip: {
-    backgroundColor: '#F5F5F8',
-    borderColor: '#E8E8F0',
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  testCategoryChipPressed: {
-    backgroundColor: '#FFE8EA',
-    borderColor: colors.coral,
-  },
-  testCategoryChipText: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  testLoginButton: {
-    alignItems: 'center',
-    borderColor: colors.coral,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingVertical: 12,
-  },
-  testLoginButtonPressed: {
-    opacity: 0.85,
-  },
-  testLoginButtonText: {
-    color: colors.coral,
-    fontSize: 14,
-    fontWeight: '800',
   },
   footerLinks: {
     alignItems: 'center',
