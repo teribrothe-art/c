@@ -92,6 +92,30 @@ export function showConfirmAlert({
   ]);
 }
 
+/** 시술 Before/After — 앨범 또는 카메라 선택 (웹은 앨범만) */
+export function showTreatmentPhotoSourceAlert({
+  title,
+  message,
+  onLibrary,
+  onCamera,
+}: {
+  title: string;
+  message: string;
+  onLibrary: () => void;
+  onCamera: () => void;
+}) {
+  if (Platform.OS === 'web') {
+    onLibrary();
+    return;
+  }
+
+  Alert.alert(title, message, [
+    { text: '취소', style: 'cancel' },
+    { text: '앨범에서 선택', onPress: onLibrary },
+    { text: '카메라로 촬영', onPress: onCamera },
+  ]);
+}
+
 export function showLoginFailureAlert(message = '이메일 또는 비밀번호가 올바르지 않습니다') {
   if (Platform.OS === 'web') {
     showWebAlert('로그인 실패', message);
