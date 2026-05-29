@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import type { DesignerClientDaySection, DesignerClientMonthSection } from '../../lib/designer-client-treatment-timeline';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
@@ -21,6 +22,7 @@ import {
 import { groupDesignerClientListItems } from '../../lib/designer-client-groups';
 import {
   groupClientItemsByMonthAndCategory,
+  type DesignerClientDaySection,
   type DesignerClientMonthSection,
 } from '../../lib/designer-client-treatment-timeline';
 import {
@@ -178,6 +180,116 @@ function CustomerGridTile({
   );
 }
 
+function TreatmentCategoryList({
+  monthKey,
+  dayKey,
+  categories,
+  onTreatmentPress,
+  onReinvite,
+}: {
+  monthKey: string;
+  dayKey: string;
+  categories: DesignerClientDaySection['categories'];
+  onTreatmentPress: (treatmentId: string) => void;
+  onReinvite: (item: DesignerClientListItem) => void;
+}) {
+  return (
+    <>
+      {categories.map((category) => (
+        <View
+          key={`${monthKey}-${dayKey}-${category.categoryKey}`}
+          style={styles.categorySection}>
+          <View style={styles.categorySectionHeader}>
+            <Text style={styles.categorySectionIcon}>{category.icon}</Text>
+            <Text style={styles.categorySectionTitle}>{category.categoryLabel}</Text>
+            <Text style={styles.categorySectionCount}>{category.items.length}건</Text>
+          </View>
+
+          <View style={styles.categoryCards}>
+            {category.items.map((item) => (
+              <DesignerClientCard
+                key={item.key}
+                compact
+                item={item}
+                onPress={() => onTreatmentPress(item.treatmentId)}
+                onReinvite={() => onReinvite(item)}
+              />
+            ))}
+          </View>
+        </View>
+      ))}
+    </>
+  );
+}
+
+function CustomerMonthSectionBlock({
+  section,
+  onTreatmentPress,
+  onReinvite,
+}: {
+  section: DesignerClientMonthSection;
+  onTreatmentPress: (treatmentId: string) => void;
+  onReinvite: (item: DesignerClientListItem) => void;
+}) {
+  const [selectedDayKey, setSelectedDayKey] = useState(section.days[0]?.dayKey ?? '');
+
+  useEffect(() => {
+    setSelectedDayKey(section.days[0]?.dayKey ?? '');
+  }, [section.monthKey, section.days]);
+
+  const activeDay =
+    section.days.find((day) => day.dayKey === selectedDayKey) ?? section.days[0] ?? null;
+
+  return (
+    <View style={styles.monthSection}>
+      <View style={styles.monthSectionHeader}>
+        <Text style={styles.monthSectionTitle}>{section.monthLabel}</Text>
+        <Text style={styles.monthSectionCount}>{section.totalCount}건</Text>
+      </View>
+
+      {section.days.length > 0 ? (
+        <>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.dayTabScroll}
+            contentContainerStyle={styles.dayTabRow}>
+            {section.days.map((day) => {
+              const selected = day.dayKey === activeDay?.dayKey;
+
+              return (
+                <Pressable
+                  key={day.dayKey}
+                  onPress={() => setSelectedDayKey(day.dayKey)}
+                  style={[styles.dayTab, selected && styles.dayTabSelected]}>
+                  <Text style={[styles.dayTabLabel, selected && styles.dayTabLabelSelected]}>
+                    {day.dayLabel}
+                  </Text>
+                  <Text style={[styles.dayTabCount, selected && styles.dayTabCountSelected]}>
+                    {day.totalCount}건
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {activeDay ? (
+            <TreatmentCategoryList
+              categories={activeDay.categories}
+              dayKey={activeDay.dayKey}
+              monthKey={section.monthKey}
+              onReinvite={onReinvite}
+              onTreatmentPress={onTreatmentPress}
+            />
+          ) : null}
+        </>
+      ) : (
+        <Text style={styles.emptyDayText}>이 달 시술 기록이 없습니다.</Text>
+      )}
+    </View>
+  );
+}
+
 function CustomerMonthTimeline({
   sections,
   onTreatmentPress,
@@ -190,34 +302,12 @@ function CustomerMonthTimeline({
   return (
     <View style={styles.monthTimeline}>
       {sections.map((section) => (
-        <View key={section.monthKey} style={styles.monthSection}>
-          <View style={styles.monthSectionHeader}>
-            <Text style={styles.monthSectionTitle}>{section.monthLabel}</Text>
-            <Text style={styles.monthSectionCount}>{section.totalCount}건</Text>
-          </View>
-
-          {section.categories.map((category) => (
-            <View key={`${section.monthKey}-${category.categoryKey}`} style={styles.categorySection}>
-              <View style={styles.categorySectionHeader}>
-                <Text style={styles.categorySectionIcon}>{category.icon}</Text>
-                <Text style={styles.categorySectionTitle}>{category.categoryLabel}</Text>
-                <Text style={styles.categorySectionCount}>{category.items.length}건</Text>
-              </View>
-
-              <View style={styles.categoryCards}>
-                {category.items.map((item) => (
-                  <DesignerClientCard
-                    key={item.key}
-                    compact
-                    item={item}
-                    onPress={() => onTreatmentPress(item.treatmentId)}
-                    onReinvite={() => onReinvite(item)}
-                  />
-                ))}
-              </View>
-            </View>
-          ))}
-        </View>
+        <CustomerMonthSectionBlock
+          key={section.monthKey}
+          onReinvite={onReinvite}
+          onTreatmentPress={onTreatmentPress}
+          section={section}
+        />
       ))}
     </View>
   );
@@ -578,7 +668,7 @@ export default function DesignerClientsScreen() {
         {allTreatments ? (
           <View style={styles.scopeHintCard}>
             <Text style={styles.scopeHintText}>
-              최근 시술순 {summary.customerCount}명 · 탭하면 월별·시술 종류별 내역
+              최근 시술순 {summary.customerCount}명 · 탭하면 월별·일별·시술 종류별 내역
             </Text>
           </View>
         ) : listFilterActive ? (
@@ -953,6 +1043,52 @@ const styles = StyleSheet.create({
     color: '#6B6B7B',
     fontSize: 13,
     fontWeight: '800',
+  },
+  dayTabScroll: {
+    flexGrow: 0,
+    marginBottom: 4,
+  },
+  dayTabRow: {
+    gap: 8,
+    paddingRight: 4,
+  },
+  dayTab: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 2,
+    minWidth: 88,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  dayTabSelected: {
+    backgroundColor: '#FFF5F5',
+    borderColor: '#FFD4D5',
+  },
+  dayTabLabel: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  dayTabLabelSelected: {
+    color: '#FF5A5F',
+  },
+  dayTabCount: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  dayTabCountSelected: {
+    color: '#FF5A5F',
+  },
+  emptyDayText: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    fontWeight: '600',
+    paddingHorizontal: 4,
+    paddingVertical: 8,
   },
   categorySection: {
     gap: 8,
