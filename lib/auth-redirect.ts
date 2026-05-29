@@ -21,5 +21,5 @@ export async function getPostAuthRoute(): Promise<Href> {
     return '/admin';
   }
 
-  return '/today-care';
+  return '/customer-home';
 }

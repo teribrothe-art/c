@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const tabs: { href: Href; label: string }[] = [
-  { href: '/designer/clients' as Href, label: '홈' },
+  { href: '/designer/clients' as Href, label: '고객' },
   { href: '/designer/input' as Href, label: '입력' },
   { href: '/designer/revenue' as Href, label: '매출' },
   { href: '/profile' as Href, label: '마이' },
@@ -17,7 +17,11 @@ export function DesignerBottomTabBar() {
     <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 12) }]}>
       <View style={styles.tabBar}>
         {tabs.map((tab) => {
-          const selected = pathname === tab.href;
+          const href = String(tab.href);
+          const selected =
+            pathname === href ||
+            (href === '/designer/clients' && pathname.startsWith('/designer/clients')) ||
+            (href !== '/profile' && pathname.startsWith(`${href}/`));
 
           return (
             <Link href={tab.href} key={String(tab.href)} asChild>
