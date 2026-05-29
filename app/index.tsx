@@ -1,6 +1,7 @@
 import { Link, router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -153,6 +154,30 @@ export default function LoginScreen() {
             <Text style={styles.signupLinkText}>회원가입</Text>
           </Pressable>
         </Link>
+
+        {__DEV__ ? (
+          <Pressable
+            accessibilityRole="button"
+            disabled={isLoading}
+            onPress={() => {
+              Alert.alert(
+                'Expo Go 접속오류',
+                [
+                  '1) PC에서 Metro 종료 (Ctrl+C)',
+                  '2) npm run start:phone',
+                  '3) npm run share → QR 스캔',
+                  '4) Expo Go Reload(↻)',
+                  '',
+                  '같은 Wi‑Fi만: start:lan',
+                  'PC 점검: npm run connect',
+                ].join('\n'),
+              );
+            }}
+            style={styles.devConnectLink}
+          >
+            <Text style={styles.devConnectLinkText}>Expo Go 접속이 안 되나요?</Text>
+          </Pressable>
+        ) : null}
       </View>
     </KeyboardAvoidingView>
   );
@@ -221,5 +246,15 @@ const styles = StyleSheet.create({
     color: colors.coral,
     fontSize: 16,
     fontWeight: '600',
+  },
+  devConnectLink: {
+    marginTop: 12,
+    padding: 8,
+  },
+  devConnectLinkText: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

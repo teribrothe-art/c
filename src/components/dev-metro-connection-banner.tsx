@@ -1,62 +1,40 @@
-import Constants from 'expo-constants';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import {
+  isLikelyUnreachableFromPhone,
+  isMetroRunning,
+  resolveMetroHostUri,
+} from '../../lib/dev-metro-host';
 import { colors } from '../../lib/theme';
 
 const POLL_MS = 15_000;
 
-function resolveMetroHostUri(): string | null {
-  const fromConfig = Constants.expoConfig?.hostUri?.trim();
-  if (fromConfig) {
-    return fromConfig;
-  }
-
-  const legacy = Constants.expoGoConfig?.hostUri?.trim();
-  return legacy || null;
-}
-
-function metroStatusUrl(hostUri: string): string {
-  const base = hostUri.startsWith('http') ? hostUri : `http://${hostUri}`;
-  return `${base.replace(/\/$/, '')}/status`;
-}
-
-async function isMetroRunning(hostUri: string): Promise<boolean> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
-
-  try {
-    const response = await fetch(metroStatusUrl(hostUri), { signal: controller.signal });
-    const body = await response.text();
-    return response.ok && body.includes('running');
-  } catch {
-    return false;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
 /**
- * Dev-only: replaces the noisy LogBox "Cannot connect to Expo CLI" overlay with
- * a short banner and reload when Metro/HMR is unreachable.
+ * Dev-only: Metro/HMR 끊김 또는 휴대폰에서 닿을 수 없는 호스트일 때 안내 배너
  */
 export function DevMetroConnectionBanner() {
   const insets = useSafeAreaInsets();
   const hostUri = resolveMetroHostUri();
   const [disconnected, setDisconnected] = useState(false);
+  const [unreachableHost, setUnreachableHost] = useState(false);
   const [checking, setChecking] = useState(true);
 
   const runCheck = useCallback(async () => {
     if (!hostUri) {
       setDisconnected(false);
+      setUnreachableHost(false);
       setChecking(false);
       return;
     }
 
     setChecking(true);
+    const likelyUnreachable = isLikelyUnreachableFromPhone(hostUri);
+    setUnreachableHost(likelyUnreachable);
+
     const ok = await isMetroRunning(hostUri);
-    setDisconnected(!ok);
+    setDisconnected(!ok || likelyUnreachable);
     setChecking(false);
   }, [hostUri]);
 
@@ -79,17 +57,19 @@ export function DevMetroConnectionBanner() {
 
   const androidHint =
     Platform.OS === 'android'
-      ? '\n· USB 연결 시 PC에서 adb reverse tcp:8081 tcp:8081'
+      ? '\n· USB: PC에서 adb reverse tcp:8081 tcp:8081'
       : '';
+
+  const title = unreachableHost ? '접속오류 — 개발 서버 주소에 연결할 수 없음' : '개발 서버에 연결되지 않습니다';
+
+  const body = unreachableHost
+    ? `현재 주소(${hostUri})는 PC/VM 전용입니다.\n· PC에서 npm run start:phone 실행\n· npm run share 로 QR 재생성\n· Expo Go에서 새 QR 스캔 또는 Reload(↻)${androidHint}`
+    : `PC에서 Metro를 켠 뒤 다시 연결하세요.\n· npm run start:phone (터널, 권장)\n· 같은 Wi‑Fi면 npm run start:lan\n· QR 재스캔 또는 Reload(↻)${androidHint}`;
 
   return (
     <View style={[styles.banner, { paddingTop: insets.top + 8 }]}>
-      <Text style={styles.title}>개발 서버에 연결되지 않습니다</Text>
-      <Text style={styles.body}>
-        PC에서 Metro를 켠 뒤 Expo Go에서 다시 연결하세요.{'\n'}· npm run start:phone (터널, 권장){'\n'}·
-        같은 Wi‑Fi면 npm run start:lan{'\n'}· QR 재스캔 또는 Reload(↻)
-        {androidHint}
-      </Text>
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.body}>{body}</Text>
       <Pressable
         accessibilityRole="button"
         onPress={() => {

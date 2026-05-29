@@ -34,7 +34,7 @@ async function fetchJson(url) {
 }
 
 async function main() {
-  console.log('=== Expo Go 접속 점검 ===\n');
+  console.log('=== Expo Go 접속 점검 (접속오류 시 npm run connect) ===\n');
 
   let statusOk = false;
   try {
@@ -86,9 +86,11 @@ async function main() {
   }
 
   if (!tunnelOk && expoUrl?.match(/^exp:\/\/(172\.|10\.)/)) {
-    console.log('WARN: 서버·번들은 정상이나, 이 QR/URL은 외부 휴대폰에서 안 될 수 있습니다.');
-    console.log('  → 본인 PC에서 npm run start:phone 후 npm run qr');
-    console.log('  → Expo Go 최신(SDK 56), Reload(↻) 재시도');
+    console.log('【접속오류】 서버·번들은 PC에서 정상이나, 이 URL은 휴대폰에서 열리지 않습니다.');
+    console.log('  → 실행 중인 Metro 종료 후: npm run start:phone');
+    console.log('  → npm run share 로 새 QR 생성 후 재스캔');
+    console.log('  → Expo Go 최신(SDK 56), Reload(↻)');
+    console.log('  → Cursor 원격 VM이면 본인 PC에서 clone 후 동일 명령 실행');
     process.exit(2);
   }
 

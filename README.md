@@ -12,6 +12,8 @@ npm start
 
 ## 휴대폰에서 접속 (Expo Go) — PC 공유
 
+**접속오류** (연결 안 됨 / Unable to connect / 로딩만 멈춤) → PC에서 `npm run connect` 로 원인 확인 후 아래 **start:phone** 순서대로 진행하세요.
+
 **브라우저용** `npm run web` / `web:clear` 만 켜 두면 휴대폰 QR이 안 보이거나 접속이 실패할 수 있습니다.
 
 ### PC에서 공유 주소 받기 (권장 순서)
