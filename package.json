@@ -44,6 +44,7 @@
     "react-native-worklets": "0.8.3"
   },
   "devDependencies": {
+    "@expo/ngrok": "^4.1.3",
     "@types/react": "~19.2.14",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~56.0.4",
@@ -54,7 +55,7 @@
     "start:lan": "expo start --lan",
     "start:tunnel": "expo start --tunnel",
     "start:clear": "expo start --clear",
-    "start:phone": "expo start --tunnel --clear",
+    "start:phone": "CI=false expo start --tunnel --clear",
     "share": "node scripts/share-expo-go.mjs",
     "phone:pc": "node -e \"console.log('터미널1: npm run start:phone\\n터미널2: npm run share\\nWindows: scripts\\\\start-phone-pc.cmd → scripts\\\\share-expo-pc.cmd')\"",
     "reset-project": "node ./scripts/reset-project.js",

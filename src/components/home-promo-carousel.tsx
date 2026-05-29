@@ -94,14 +94,14 @@ export function HomePromoCarousel({ slides, minHeight, onPressSlide }: HomePromo
     scrollToSlide(activeIndex + 1);
   };
 
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     const index = viewableItems[0]?.index;
 
     if (typeof index === 'number') {
       activeIndexRef.current = index;
       setActiveIndex(index);
     }
-  }).current;
+  }, []);
 
   if (slides.length === 0) {
     return null;

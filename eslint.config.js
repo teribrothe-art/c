@@ -6,5 +6,10 @@ module.exports = defineConfig([
   expoConfig,
   {
     ignores: ["dist/*"],
-  }
+  },
+  {
+    settings: {
+      "import/ignore": ["react-native-qrcode-svg"],
+    },
+  },
 ]);

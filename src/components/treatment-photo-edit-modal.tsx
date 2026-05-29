@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { getErrorMessage } from '../../lib/errors';
@@ -13,28 +13,18 @@ type TreatmentPhotoEditModalProps = {
   onConfirm: (editedUri: string) => void;
 };
 
-export function TreatmentPhotoEditModal({
-  visible,
-  imageUri,
-  onCancel,
-  onConfirm,
-}: TreatmentPhotoEditModalProps) {
-  const [draftUri, setDraftUri] = useState<string | null>(null);
+type TreatmentPhotoEditBodyProps = {
+  imageUri: string;
+  onCancel: () => void;
+  onConfirm: (editedUri: string) => void;
+};
+
+function TreatmentPhotoEditBody({ imageUri, onCancel, onConfirm }: TreatmentPhotoEditBodyProps) {
+  const [draftUri, setDraftUri] = useState(imageUri);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  useEffect(() => {
-    if (visible && imageUri) {
-      setDraftUri(imageUri);
-      setErrorMessage('');
-    }
-  }, [visible, imageUri]);
-
   const runEdit = async (action: () => Promise<string>) => {
-    if (!draftUri) {
-      return;
-    }
-
     try {
       setIsProcessing(true);
       setErrorMessage('');
@@ -55,63 +45,77 @@ export function TreatmentPhotoEditModal({
   };
 
   return (
-    <Modal animationType="slide" transparent visible={visible} onRequestClose={onCancel}>
-      <View style={styles.backdrop}>
-        <View style={styles.card}>
-          <Text style={styles.title}>사진 편집</Text>
-          <Text style={styles.subtitle}>회전·자르기 후 적용해 주세요</Text>
+    <View style={styles.backdrop}>
+      <View style={styles.card}>
+        <Text style={styles.title}>사진 편집</Text>
+        <Text style={styles.subtitle}>회전·자르기 후 적용해 주세요</Text>
 
-          <View style={styles.previewFrame}>
-            {draftUri ? (
-              <Image contentFit="contain" source={{ uri: draftUri }} style={styles.preview} />
+        <View style={styles.previewFrame}>
+          <Image contentFit="contain" source={{ uri: draftUri }} style={styles.preview} />
+        </View>
+
+        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
+        <View style={styles.toolRow}>
+          <Pressable
+            disabled={isProcessing}
+            onPress={() => runEdit(() => rotateTreatmentPhoto(draftUri, -90))}
+            style={({ pressed }) => [styles.toolButton, pressed && styles.pressed]}>
+            <Text style={styles.toolButtonText}>↺ 회전</Text>
+          </Pressable>
+          <Pressable
+            disabled={isProcessing}
+            onPress={() => runEdit(() => rotateTreatmentPhoto(draftUri, 90))}
+            style={({ pressed }) => [styles.toolButton, pressed && styles.pressed]}>
+            <Text style={styles.toolButtonText}>회전 ↻</Text>
+          </Pressable>
+          <Pressable
+            disabled={isProcessing}
+            onPress={() => runEdit(() => cropTreatmentPhotoToAspect(draftUri))}
+            style={({ pressed }) => [styles.toolButton, pressed && styles.pressed]}>
+            <Text style={styles.toolButtonText}>4:3 자르기</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.actions}>
+          <Pressable
+            disabled={isProcessing}
+            onPress={onCancel}
+            style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
+            <Text style={styles.cancelText}>취소</Text>
+          </Pressable>
+          <Pressable
+            disabled={isProcessing}
+            onPress={handleConfirm}
+            style={({ pressed }) => [styles.confirmButton, pressed && styles.pressed]}>
+            {isProcessing ? (
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <ActivityIndicator color={colors.coral} />
+              <Text style={styles.confirmText}>적용</Text>
             )}
-          </View>
-
-          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-
-          <View style={styles.toolRow}>
-            <Pressable
-              disabled={isProcessing || !draftUri}
-              onPress={() => runEdit(() => rotateTreatmentPhoto(draftUri!, -90))}
-              style={({ pressed }) => [styles.toolButton, pressed && styles.pressed]}>
-              <Text style={styles.toolButtonText}>↺ 회전</Text>
-            </Pressable>
-            <Pressable
-              disabled={isProcessing || !draftUri}
-              onPress={() => runEdit(() => rotateTreatmentPhoto(draftUri!, 90))}
-              style={({ pressed }) => [styles.toolButton, pressed && styles.pressed]}>
-              <Text style={styles.toolButtonText}>회전 ↻</Text>
-            </Pressable>
-            <Pressable
-              disabled={isProcessing || !draftUri}
-              onPress={() => runEdit(() => cropTreatmentPhotoToAspect(draftUri!))}
-              style={({ pressed }) => [styles.toolButton, pressed && styles.pressed]}>
-              <Text style={styles.toolButtonText}>4:3 자르기</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.actions}>
-            <Pressable
-              disabled={isProcessing}
-              onPress={onCancel}
-              style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
-              <Text style={styles.cancelText}>취소</Text>
-            </Pressable>
-            <Pressable
-              disabled={isProcessing || !draftUri}
-              onPress={handleConfirm}
-              style={({ pressed }) => [styles.confirmButton, pressed && styles.pressed]}>
-              {isProcessing ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.confirmText}>적용</Text>
-              )}
-            </Pressable>
-          </View>
+          </Pressable>
         </View>
       </View>
+    </View>
+  );
+}
+
+export function TreatmentPhotoEditModal({
+  visible,
+  imageUri,
+  onCancel,
+  onConfirm,
+}: TreatmentPhotoEditModalProps) {
+  return (
+    <Modal animationType="slide" transparent visible={visible} onRequestClose={onCancel}>
+      {visible && imageUri ? (
+        <TreatmentPhotoEditBody
+          key={imageUri}
+          imageUri={imageUri}
+          onCancel={onCancel}
+          onConfirm={onConfirm}
+        />
+      ) : null}
     </Modal>
   );
 }
