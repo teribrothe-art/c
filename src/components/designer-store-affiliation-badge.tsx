@@ -1,19 +1,24 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 type DesignerStoreAffiliationBadgeProps = {
   storeName: string;
   storeRegion?: string;
   compact?: boolean;
+  onPress?: () => void;
 };
 
 export function DesignerStoreAffiliationBadge({
   storeName,
   storeRegion,
   compact = false,
+  onPress,
 }: DesignerStoreAffiliationBadgeProps) {
-  return (
-    <View style={[styles.badge, compact && styles.badgeCompact]}>
-      <Text style={[styles.label, compact && styles.labelCompact]}>소속 매장</Text>
+  const content = (
+    <>
+      <View style={styles.labelRow}>
+        <Text style={[styles.label, compact && styles.labelCompact]}>소속 매장</Text>
+        {onPress ? <Text style={styles.tapHint}>탭하여 분배 보기 ›</Text> : null}
+      </View>
       <Text style={[styles.storeName, compact && styles.storeNameCompact]} numberOfLines={1}>
         {storeName}
       </Text>
@@ -22,7 +27,25 @@ export function DesignerStoreAffiliationBadge({
           {storeRegion}
         </Text>
       ) : null}
-    </View>
+    </>
+  );
+
+  if (!onPress) {
+    return <View style={[styles.badge, compact && styles.badgeCompact]}>{content}</View>;
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.badge,
+        compact && styles.badgeCompact,
+        styles.badgePressable,
+        pressed && styles.badgePressed,
+      ]}>
+      {content}
+    </Pressable>
   );
 }
 
@@ -43,6 +66,22 @@ const styles = StyleSheet.create({
     gap: 2,
     paddingHorizontal: 10,
     paddingVertical: 8,
+  },
+  badgePressable: {
+    borderColor: '#5EEAD4',
+  },
+  badgePressed: {
+    opacity: 0.92,
+  },
+  labelRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  tapHint: {
+    color: '#0D9488',
+    fontSize: 11,
+    fontWeight: '800',
   },
   label: {
     color: '#0F766E',

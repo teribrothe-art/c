@@ -136,7 +136,11 @@ export default function DesignerAccountScreen() {
                 <Text style={styles.roleBadgeText}>디자이너</Text>
               </View>
               {storeName ? (
-                <DesignerStoreAffiliationBadge storeName={storeName} storeRegion={storeRegion ?? undefined} />
+                <DesignerStoreAffiliationBadge
+                  onPress={() => router.push('/designer/store')}
+                  storeName={storeName}
+                  storeRegion={storeRegion ?? undefined}
+                />
               ) : (
                 <View style={styles.unlinkedStoreBox}>
                   <Text style={styles.unlinkedStoreText}>연결된 매장 정보가 없습니다</Text>
