@@ -60,7 +60,7 @@ export default function TodayCareScreen() {
         }
 
         if (!care) {
-          router.replace('/home');
+          router.replace('/customer-home');
           return;
         }
 
@@ -68,7 +68,7 @@ export default function TodayCareScreen() {
       })
       .catch(() => {
         if (isMounted) {
-          router.replace('/home');
+          router.replace('/customer-home');
         }
       })
       .finally(() => {
@@ -125,9 +125,9 @@ export default function TodayCareScreen() {
       <View style={styles.flexFill} />
 
       <Pressable
-        onPress={() => router.replace('/home')}
+        onPress={() => router.replace('/customer-home')}
         style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryPressed]}>
-        <Text style={styles.primaryButtonText}>내 다이어리 보기 →</Text>
+        <Text style={styles.primaryButtonText}>홈으로 이동 →</Text>
       </Pressable>
 
       <View style={styles.bottomSpacer} />
