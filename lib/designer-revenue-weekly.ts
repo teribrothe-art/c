@@ -8,6 +8,8 @@ const CALENDAR_WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'
 export type WeekdayRevenueCell = {
   date: string;
   weekdayLabel: (typeof WEEKDAY_LABELS)[number];
+  /** 예: 5.25 월 */
+  weekdayDateLabel: string;
   dateWithWeekdayLabel: string;
   displayDate: string;
   totalAmount: number;
@@ -30,6 +32,12 @@ export function toLocalDateString(date = new Date()) {
   const day = String(date.getDate()).padStart(2, '0');
 
   return `${year}-${month}-${day}`;
+}
+
+export function formatWeekdayDateLabel(date: string, weekdayLabel: string) {
+  const [, month, day] = date.split('-');
+
+  return `${Number(month)}.${Number(day)} ${weekdayLabel}`;
 }
 
 export function formatDateWithWeekday(date: string) {
@@ -68,8 +76,25 @@ function payoutOf(payment: PaymentRecord) {
   return payment.designer_payout ?? calculatePaymentFees(payment.amount).designerPayout;
 }
 
+/** 정산·매출 집계 기준일 (로컬 타임존) */
+export function settlementDateOfPayment(payment: PaymentRecord): string {
+  const raw = payment.settled_at ?? payment.paid_at ?? payment.created_at;
+
+  if (!raw) {
+    return '';
+  }
+
+  const parsed = new Date(raw);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return raw.slice(0, 10);
+  }
+
+  return toLocalDateString(parsed);
+}
+
 function settlementDateOf(payment: PaymentRecord) {
-  return (payment.settled_at ?? payment.paid_at ?? payment.created_at).slice(0, 10);
+  return settlementDateOfPayment(payment);
 }
 
 function buildDayTotals(completed: PaymentRecord[]) {
@@ -100,6 +125,7 @@ function buildWeekCells(
     return {
       date,
       weekdayLabel,
+      weekdayDateLabel: formatWeekdayDateLabel(date, weekdayLabel),
       dateWithWeekdayLabel: formatDateWithWeekday(date),
       displayDate: date.replaceAll('-', '.'),
       totalAmount: stats.totalAmount,
