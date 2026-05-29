@@ -14,10 +14,9 @@ import {
 
 import {
   ACCUMULATED_LOGIN_CUSTOMER_COUNT,
-  ADMIN_LOGIN_COUNT,
-  DEMO_LOGIN_GROUPS,
   DESIGNER_LOGIN_COUNT,
   STORE_LOGIN_COUNT,
+  getDemoLoginGroups,
   type DemoLoginAccount,
   type DemoLoginGroupKey,
   demoLoginGroupListsAllWhenExpanded,
@@ -133,9 +132,7 @@ function DemoLoginGroupSection({
               : listAllWhenExpanded
                 ? title === '매장'
                   ? `총 ${STORE_LOGIN_COUNT}곳 · 아래에서 탭하면 로그인`
-                  : title === '본사'
-                    ? `총 ${ADMIN_LOGIN_COUNT}계정 · 아래에서 탭하면 로그인`
-                    : `총 ${DESIGNER_LOGIN_COUNT}명 · 아래에서 탭하면 로그인`
+                  : `총 ${DESIGNER_LOGIN_COUNT}명 · 아래에서 탭하면 로그인`
                 : `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT}명(디자이너 연동 전체) — 검색어를 입력하면 목록이 표시됩니다`}
           </Text>
         </View>
@@ -207,6 +204,10 @@ export default function TestLoginScreen() {
   const [storeSearch, setStoreSearch] = useState('');
   const [designerSearch, setDesignerSearch] = useState('');
   const [signupCustomerSearch, setSignupCustomerSearch] = useState('');
+  const demoLoginGroups = useMemo(
+    () => getDemoLoginGroups({ includeRegisteredCustomers: Boolean(expandedGroups['가입고객']) }),
+    [expandedGroups],
+  );
 
   const handleAccountLogin = useCallback(async (id: string, email: string, password: string) => {
     if (loadingId) {
@@ -259,7 +260,7 @@ export default function TestLoginScreen() {
           <Text style={styles.subtitle}>탭하면 바로 로그인됩니다.</Text>
         </View>
 
-        {DEMO_LOGIN_GROUPS.map((group) => (
+        {demoLoginGroups.map((group) => (
           <DemoLoginGroupSection
             key={group.title}
             accounts={group.accounts}

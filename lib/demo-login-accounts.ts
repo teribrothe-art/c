@@ -1,14 +1,13 @@
 import { ADMIN_TEST_PUBLIC } from './admin-test-accounts';
 import { DEMO_LOGIN_HINT } from './auth';
 import { BETA_DESIGNERS, BETA_TEST_PASSWORD } from './beta-test-accounts';
-import { ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE } from './demo-accumulated-test-data';
 import {
   ACCUMULATED_TEST_DESIGNERS_PUBLIC,
   EXPANDED_STORE_DESIGNER_COUNT,
 } from './demo-accumulated-test-accounts';
 import {
   DESIGNER_LINKED_CUSTOMER_COUNT,
-  DESIGNER_LINKED_CUSTOMER_LOGIN_SOURCES,
+  getDesignerLinkedCustomerLoginSources,
 } from './demo-designer-linked-customers';
 import { formatDesignerStoreLabel, ORG_STORE_DEFINITIONS } from './org-store-affiliation';
 import { STORE_TEST_ACCOUNTS } from './store-test-accounts';
@@ -84,6 +83,25 @@ function designerSearchHaystack(parts: string[]) {
   return parts.join(' ').toLowerCase();
 }
 
+function accumulatedDesignerYearLabel(profileKey: string) {
+  if (profileKey === '1y') {
+    return '1년';
+  }
+
+  if (profileKey === '3y') {
+    return '3년';
+  }
+
+  if (profileKey === '5y') {
+    return '5년';
+  }
+
+  if (profileKey.startsWith('exp-')) {
+    return '증원';
+  }
+
+  return '2년';
+}
 function accumulatedDesignerAccent(profileKey: string) {
   if (profileKey === '1y') {
     return '#00C2A8';
@@ -144,8 +162,8 @@ function accumulatedDesignerRoleLabel(profileKey: string) {
 
 const ACCUMULATED_DESIGNER_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_DESIGNERS_PUBLIC.map(
   (designer) => {
-    const stats = ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE[designer.profileKey];
     const roleLabel = accumulatedDesignerRoleLabel(designer.profileKey);
+    const yearLabel = accumulatedDesignerYearLabel(designer.profileKey);
 
     return {
       id: designer.id,
@@ -154,9 +172,7 @@ const ACCUMULATED_DESIGNER_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_DESIG
       loginLabel: designer.loginLabel,
       email: designer.email,
       password: designer.password,
-      meta: stats
-        ? `${formatDesignerStoreLabel(designer.id)} · ${stats.yearSpanLabel} · 시술 ${stats.treatmentCount}건`
-        : formatDesignerStoreLabel(designer.id),
+      meta: `${formatDesignerStoreLabel(designer.id)} · ${yearLabel} 누적`,
       accent: accumulatedDesignerAccent(designer.profileKey),
       searchHaystack: designerSearchHaystack([
         roleLabel,
@@ -239,14 +255,16 @@ const ADMIN_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
     password: ADMIN_TEST_PUBLIC.password,
     meta: '전체 핫플레이스 · 디자이너 · 매출',
     accent: '#4B5563',
-    searchHaystack: ['본사', '어드민', 'admin', ADMIN_TEST_PUBLIC.email, 'hq-admin'],
+    searchHaystack: ['본사', '어드민', 'admin', ADMIN_TEST_PUBLIC.email, 'hq-admin']
+      .join(' ')
+      .toLowerCase(),
   },
 ];
 
 export const ADMIN_LOGIN_COUNT = ADMIN_LOGIN_ACCOUNTS.length;
 
-const REGISTERED_CUSTOMER_ACCOUNTS: DemoLoginAccount[] =
-  DESIGNER_LINKED_CUSTOMER_LOGIN_SOURCES.flatMap(
+function buildRegisteredCustomerLoginAccounts(): DemoLoginAccount[] {
+  return getDesignerLinkedCustomerLoginSources().flatMap(
     ({ profileLabel, designerName, designerId, customers, password }) =>
       customers.map((customer, index) => {
         const haystack = [
@@ -278,17 +296,48 @@ const REGISTERED_CUSTOMER_ACCOUNTS: DemoLoginAccount[] =
         };
       }),
   );
+}
 
-export const DEMO_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
+let registeredCustomerAccountsCache: DemoLoginAccount[] | null = null;
+
+export function getRegisteredCustomerLoginAccounts(): DemoLoginAccount[] {
+  if (!registeredCustomerAccountsCache) {
+    registeredCustomerAccountsCache = buildRegisteredCustomerLoginAccounts();
+  }
+
+  return registeredCustomerAccountsCache;
+}
+
+const STATIC_DEMO_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
   ...BASIC_ACCOUNTS,
   ...ADMIN_LOGIN_ACCOUNTS,
   ...STORE_LOGIN_ACCOUNTS,
   ...ALL_DESIGNER_LOGIN_ACCOUNTS,
-  ...REGISTERED_CUSTOMER_ACCOUNTS,
 ];
 
+export function getDemoLoginGroups(options?: { includeRegisteredCustomers?: boolean }) {
+  const includeRegisteredCustomers = options?.includeRegisteredCustomers ?? false;
+
+  return DEMO_LOGIN_GROUP_ORDER.map((title) => ({
+    title,
+    description: DEMO_LOGIN_GROUP_DESCRIPTIONS[title],
+    accounts:
+      title === '가입고객'
+        ? includeRegisteredCustomers
+          ? getRegisteredCustomerLoginAccounts()
+          : []
+        : STATIC_DEMO_LOGIN_ACCOUNTS.filter((account) => account.group === title),
+  }));
+}
+
+/** @deprecated getDemoLoginGroups() 사용 — 가입고객 행은 첫 접근 시 생성 */
+export const DEMO_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
+  ...STATIC_DEMO_LOGIN_ACCOUNTS,
+];
+
+/** @deprecated getDemoLoginGroups() 사용 */
 export const DEMO_LOGIN_GROUPS = DEMO_LOGIN_GROUP_ORDER.map((title) => ({
   title,
   description: DEMO_LOGIN_GROUP_DESCRIPTIONS[title],
-  accounts: DEMO_LOGIN_ACCOUNTS.filter((account) => account.group === title),
+  accounts: STATIC_DEMO_LOGIN_ACCOUNTS.filter((account) => account.group === title),
 }));

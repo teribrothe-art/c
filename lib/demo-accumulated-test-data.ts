@@ -13,6 +13,10 @@ export {
 } from './demo-accumulated-test-accounts';
 
 export {
+  getAccumulatedDemoPayments,
+  getAccumulatedDemoSeedStatsByProfile,
+  getAccumulatedDemoTreatments,
+  getAccumulatedTestProfiles,
   ACCUMULATED_DEMO_PAYMENTS,
   ACCUMULATED_DEMO_SEED_STATS,
   ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE,

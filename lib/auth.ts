@@ -1,9 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { ADMIN_TEST_ACCOUNT } from './admin-test-accounts';
-import { STORE_TEST_ACCOUNTS } from './store-test-accounts';
-import { BETA_CUSTOMERS, BETA_DESIGNERS } from './beta-test-accounts';
-import { ACCUMULATED_TEST_ACCOUNTS } from './demo-accumulated-test-accounts';
+import { lookupDemoCatalogUser } from './demo-user-catalog';
 import { isSupabaseConfigured, supabase } from './supabase';
 
 export type UserRole = 'customer' | 'designer' | 'store' | 'admin';
@@ -99,14 +96,7 @@ async function ensureDemoUsersSeeded() {
   const byEmail = new Map(existing.map((user) => [user.email, user]));
   let changed = false;
 
-  for (const seeded of [
-    ...SEEDED_DEMO_USERS,
-    ...STORE_TEST_ACCOUNTS,
-    ADMIN_TEST_ACCOUNT,
-    ...BETA_DESIGNERS,
-    ...BETA_CUSTOMERS,
-    ...ACCUMULATED_TEST_ACCOUNTS,
-  ]) {
+  for (const seeded of SEEDED_DEMO_USERS) {
     const stored = byEmail.get(seeded.email);
 
     if (!stored) {
@@ -136,6 +126,38 @@ async function ensureDemoUsersSeeded() {
   }
 
   return existing;
+}
+
+async function registerDemoCatalogUser(catalogUser: {
+  id: string;
+  email: string;
+  name: string | null;
+  password: string;
+  role: UserRole;
+}) {
+  const users = await readDemoUsersFromStorage();
+  const normalizedEmail = normalizeEmail(catalogUser.email);
+  const existing = users.find((item) => normalizeEmail(item.email) === normalizedEmail);
+
+  if (existing) {
+    Object.assign(existing, {
+      id: catalogUser.id,
+      role: catalogUser.role,
+      password: catalogUser.password,
+      name: catalogUser.name ?? existing.name,
+    });
+  } else {
+    users.push({
+      id: catalogUser.id,
+      email: catalogUser.email,
+      name: catalogUser.name,
+      password: catalogUser.password,
+      role: catalogUser.role,
+    });
+  }
+
+  await saveDemoUsers(users);
+  return users.find((item) => normalizeEmail(item.email) === normalizedEmail)!;
 }
 
 async function getDemoUsers() {
@@ -287,7 +309,15 @@ export async function signInWithEmail({ email, password }: LoginInput) {
   }
 
   const users = await getDemoUsers();
-  const user = users.find((item) => item.email === normalizedEmail && item.password === password);
+  let user = users.find((item) => item.email === normalizedEmail && item.password === password);
+
+  if (!user) {
+    const catalogUser = lookupDemoCatalogUser(normalizedEmail, password);
+
+    if (catalogUser) {
+      user = await registerDemoCatalogUser(catalogUser);
+    }
+  }
 
   if (!user) {
     throw new Error('이메일 또는 비밀번호가 올바르지 않습니다.');

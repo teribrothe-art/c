@@ -189,12 +189,19 @@ async function cmdShare() {
 async function cmdStart() {
   const config = loadConnectConfig();
   const port = config.metroPort;
+  const clearCache = process.argv.includes('--clear');
 
   console.log('=== Expo 연합 서버 시작 ===\n');
   console.log('1) Metro (LAN) 기동');
   console.log('2) 접속 경로 자동 탐색 (터널·ngrok·LAN·원격 Metro)\n');
 
-  const metro = spawn('npx', ['expo', 'start', '--lan', '--clear', '--port', String(port)], {
+  const metroArgs = ['expo', 'start', '--lan', '--port', String(port)];
+
+  if (clearCache) {
+    metroArgs.push('--clear');
+  }
+
+  const metro = spawn('npx', metroArgs, {
     cwd: projectRoot,
     stdio: 'inherit',
     env: { ...process.env },

@@ -1,10 +1,29 @@
 import { isAccumulatedTestPaymentId, isAccumulatedTestTreatmentId } from './demo-accumulated-ids';
-import { ACCUMULATED_TEST_PROFILES } from './demo-accumulated-test-seeds';
+import { getAccumulatedTestProfiles } from './demo-accumulated-test-seeds';
 import { applyAccumulatedTreatmentPatch } from './demo-accumulated-treatment-patches';
 import type { PaymentRecord } from './payment-types';
 import type { Treatment } from './treatment-types';
+import type { BuiltAccumulatedSeedProfile } from './demo-accumulated-seed-builder';
 
 export { isAccumulatedTestPaymentId, isAccumulatedTestTreatmentId } from './demo-accumulated-ids';
+
+let customerIdToProfileCache: Map<string, BuiltAccumulatedSeedProfile> | null = null;
+
+function ensureCustomerProfileIndex() {
+  if (customerIdToProfileCache) {
+    return customerIdToProfileCache;
+  }
+
+  customerIdToProfileCache = new Map();
+
+  for (const profile of getAccumulatedTestProfiles()) {
+    for (const customer of profile.customers) {
+      customerIdToProfileCache.set(customer.id, profile);
+    }
+  }
+
+  return customerIdToProfileCache;
+}
 
 function findProfileForUser(user: { id: string; role?: string | null } | null) {
   if (!user) {
@@ -12,15 +31,11 @@ function findProfileForUser(user: { id: string; role?: string | null } | null) {
   }
 
   if (user.role === 'designer') {
-    return ACCUMULATED_TEST_PROFILES.find((profile) => profile.designer.id === user.id) ?? null;
+    return getAccumulatedTestProfiles().find((profile) => profile.designer.id === user.id) ?? null;
   }
 
   if (user.role === 'customer') {
-    return (
-      ACCUMULATED_TEST_PROFILES.find((profile) =>
-        profile.customers.some((customer) => customer.id === user.id),
-      ) ?? null
-    );
+    return ensureCustomerProfileIndex().get(user.id) ?? null;
   }
 
   return null;
@@ -43,11 +58,13 @@ export function mergeAccumulatedTreatmentsIntoStore(
     return false;
   }
 
+  const existingIds = new Set(demoTreatments.map((item) => item.id));
   let merged = false;
 
   for (const seed of profile.treatments) {
-    if (!demoTreatments.some((item) => item.id === seed.id)) {
+    if (!existingIds.has(seed.id)) {
       demoTreatments.push(applyAccumulatedTreatmentPatch({ ...(seed as Treatment) }));
+      existingIds.add(seed.id);
       merged = true;
     }
   }
@@ -69,7 +86,7 @@ export function mergeAccumulatedPaymentsIntoStore(
 }
 
 export function findAccumulatedProfileByDesignerId(designerId: string) {
-  return ACCUMULATED_TEST_PROFILES.find((profile) => profile.designer.id === designerId) ?? null;
+  return getAccumulatedTestProfiles().find((profile) => profile.designer.id === designerId) ?? null;
 }
 
 export function mergeAccumulatedPaymentsForDesignerId(
@@ -87,13 +104,15 @@ export function mergeAccumulatedPaymentsForDesignerId(
 
 function mergeAccumulatedProfilePaymentsIntoStore(
   demoPayments: PaymentRecord[],
-  profile: (typeof ACCUMULATED_TEST_PROFILES)[number],
+  profile: BuiltAccumulatedSeedProfile,
 ): boolean {
+  const existingIds = new Set(demoPayments.map((payment) => payment.id));
   let merged = false;
 
   for (const seed of profile.payments) {
-    if (!demoPayments.some((payment) => payment.id === seed.id)) {
+    if (!existingIds.has(seed.id)) {
       demoPayments.push({ ...seed });
+      existingIds.add(seed.id);
       merged = true;
     }
   }

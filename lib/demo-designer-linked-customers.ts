@@ -5,8 +5,8 @@ import {
   BETA_TEST_PASSWORD,
   type BetaTestAccount,
 } from './beta-test-accounts';
-import { ACCUMULATED_TEST_PASSWORD } from './demo-accumulated-test-accounts';
-import { ACCUMULATED_TEST_PROFILES } from './demo-accumulated-test-seeds';
+import { ACCUMULATED_TEST_PASSWORD, ACCUMULATED_TEST_PROFILE_CONFIGS } from './demo-accumulated-test-accounts';
+import { getAccumulatedTestProfiles } from './demo-accumulated-test-seeds';
 
 export type DesignerLinkedCustomerSource = {
   profileLabel: string;
@@ -16,15 +16,15 @@ export type DesignerLinkedCustomerSource = {
   password: string;
 };
 
-/** 누적·증원 시드 프로필 고객 (디자이너별 전원) */
-const ACCUMULATED_PROFILE_CUSTOMER_SOURCES: DesignerLinkedCustomerSource[] =
-  ACCUMULATED_TEST_PROFILES.map((profile) => ({
+function getAccumulatedProfileCustomerSources(): DesignerLinkedCustomerSource[] {
+  return getAccumulatedTestProfiles().map((profile) => ({
     profileLabel: profile.stats.yearSpanLabel,
     designerName: profile.designer.name ?? profile.designer.email,
     designerId: profile.designer.id,
     customers: profile.customers,
     password: ACCUMULATED_TEST_PASSWORD,
   }));
+}
 
 /** 베타 디자이너 1:1 연동 고객 */
 const BETA_CUSTOMER_SOURCES: DesignerLinkedCustomerSource[] = BETA_CUSTOMERS.map(
@@ -69,14 +69,41 @@ const DEMO_DESIGNER_CUSTOMER_SOURCES: DesignerLinkedCustomerSource[] = [
   },
 ];
 
-/** 테스트 로그인 · 가입고객 탭 — 디자이너와 연동된 전체 고객 */
-export const DESIGNER_LINKED_CUSTOMER_LOGIN_SOURCES: DesignerLinkedCustomerSource[] = [
-  ...DEMO_DESIGNER_CUSTOMER_SOURCES,
-  ...BETA_CUSTOMER_SOURCES,
-  ...ACCUMULATED_PROFILE_CUSTOMER_SOURCES,
-];
+let designerLinkedCustomerSourcesCache: DesignerLinkedCustomerSource[] | null = null;
 
-export const DESIGNER_LINKED_CUSTOMER_COUNT = DESIGNER_LINKED_CUSTOMER_LOGIN_SOURCES.reduce(
-  (sum, source) => sum + source.customers.length,
+/** 테스트 로그인 · 가입고객 탭 — 디자이너와 연동된 전체 고객 (첫 접근 시 생성) */
+export function getDesignerLinkedCustomerLoginSources(): DesignerLinkedCustomerSource[] {
+  if (!designerLinkedCustomerSourcesCache) {
+    designerLinkedCustomerSourcesCache = [
+      ...DEMO_DESIGNER_CUSTOMER_SOURCES,
+      ...BETA_CUSTOMER_SOURCES,
+      ...getAccumulatedProfileCustomerSources(),
+    ];
+  }
+
+  return designerLinkedCustomerSourcesCache;
+}
+
+/** @deprecated getDesignerLinkedCustomerLoginSources() 사용 */
+export const DESIGNER_LINKED_CUSTOMER_LOGIN_SOURCES = new Proxy(
+  [] as DesignerLinkedCustomerSource[],
+  {
+    get(_target, prop) {
+      const sources = getDesignerLinkedCustomerLoginSources();
+      const value = Reflect.get(sources, prop);
+
+      return typeof value === 'function' ? value.bind(sources) : value;
+    },
+  },
+);
+
+const STATIC_LINKED_CUSTOMER_COUNT =
+  DEMO_DESIGNER_LINKED_CUSTOMERS.length + BETA_CUSTOMERS.length;
+
+const ACCUMULATED_LINKED_CUSTOMER_COUNT = ACCUMULATED_TEST_PROFILE_CONFIGS.reduce(
+  (sum, config) => sum + config.customers.length,
   0,
 );
+
+export const DESIGNER_LINKED_CUSTOMER_COUNT =
+  STATIC_LINKED_CUSTOMER_COUNT + ACCUMULATED_LINKED_CUSTOMER_COUNT;

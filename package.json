@@ -56,6 +56,7 @@
     "start:clear": "expo start --clear",
     "start:phone": "expo start --tunnel --clear",
     "start:connect": "node scripts/expo-connect.mjs start",
+    "start:connect:clear": "node scripts/expo-connect.mjs start --clear",
     "connect": "node scripts/expo-connect.mjs probe",
     "share:connect": "node scripts/expo-connect.mjs share",
     "share": "node scripts/share-expo-go.mjs",
