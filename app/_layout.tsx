@@ -6,7 +6,6 @@ import { LogBox } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { DevMetroConnectionBanner } from '../src/components/dev-metro-connection-banner';
 import { ErrorBoundary } from '../src/components/error-boundary';
 import { InviteDeepLinkHandler } from '../src/components/invite-deep-link-handler';
 import { NetworkStatusBanner } from '../src/components/network-status-banner';
@@ -24,7 +23,6 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ErrorBoundary>
           <InviteDeepLinkHandler />
-          {__DEV__ ? <DevMetroConnectionBanner /> : null}
           <NetworkStatusBanner />
           <StatusBar style="dark" />
           <Stack screenOptions={{ headerShown: false }} />

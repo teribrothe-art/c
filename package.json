@@ -51,10 +51,11 @@
   },
   "scripts": {
     "start": "expo start",
+    "dev": "expo start --clear",
     "start:lan": "expo start --lan",
     "start:tunnel": "expo start --tunnel",
     "start:clear": "expo start --clear",
-    "start:phone": "node scripts/ensure-expo-tunnel.mjs && expo start --tunnel --clear",
+    "start:phone": "expo start --tunnel --clear",
     "share": "node scripts/share-expo-go.mjs",
     "phone:pc": "node -e \"console.log('터미널1: npm run start:phone\\n터미널2: npm run share\\nWindows: scripts\\\\start-phone-pc.cmd → scripts\\\\share-expo-pc.cmd')\"",
     "reset-project": "node ./scripts/reset-project.js",

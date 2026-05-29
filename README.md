@@ -2,7 +2,7 @@
 
 Expo Router와 TypeScript를 사용하는 Expo React Native 프로젝트입니다.
 
-## 시작하기
+## 시작하기 (처음 개발할 때와 동일)
 
 ```sh
 npm install
@@ -10,11 +10,19 @@ cp .env.example .env
 npm start
 ```
 
+- 터미널에 **QR 코드**가 나옵니다 → Expo Go로 스캔 (PC·폰이 **같은 Wi‑Fi**)
+- Windows: `scripts\start-dev.cmd` 도 동일 (`npm start`)
+
+Wi‑Fi가 다르거나 QR이 `172.x`만 보이면:
+
+```sh
+npm run start:phone
+npm run share
+```
+
+접속 점검: `npm run connect`
+
 ## 휴대폰에서 접속 (Expo Go) — PC 공유
-
-**접속오류** (연결 안 됨 / Unable to connect / 로딩만 멈춤) → 대부분 **터널 미실행** 또는 **`@expo/ngrok` 미설치**입니다. `npm install` 후 `npm run connect` 로 확인하고 아래 **start:phone** 순서대로 진행하세요.
-
-> `exp://172.x` / `exp://192.168.x` 만 보이고 `.exp.direct` 가 없으면 터널이 안 켜진 상태입니다. `npm install` 로 `@expo/ngrok` 설치 후 `start:phone` 을 다시 실행하세요.
 
 **브라우저용** `npm run web` / `web:clear` 만 켜 두면 휴대폰 QR이 안 보이거나 접속이 실패할 수 있습니다.
 
