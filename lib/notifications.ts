@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { getCurrentUser, isDemoAuthMode } from './auth';
+import { getCurrentUser, isDemoAuthMode, type UserRole } from './auth';
 import { toAppError } from './errors';
 import { PaymentRecord } from './payment-record';
 import { supabase } from './supabase';
@@ -243,7 +243,7 @@ export async function notifyCustomerTreatmentRecorded(treatment: Treatment) {
 /** 알림 탭 시 이동 경로 (역할·타입 기준) */
 export function resolveNotificationHref(
   item: AppNotification,
-  role: 'customer' | 'designer' | null | undefined,
+  role: UserRole | null | undefined,
 ) {
   if (item.href) {
     return item.href;
@@ -263,6 +263,14 @@ export function resolveNotificationHref(
 
   if (item.type === 'invite_customer_joined' && role === 'designer') {
     return '/designer/clients';
+  }
+
+  if (role === 'admin') {
+    return '/admin';
+  }
+
+  if (role === 'store') {
+    return '/store';
   }
 
   if (role === 'customer') {

@@ -1,5 +1,5 @@
 import { Link, router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -197,32 +197,41 @@ function AccountRow({
   );
 }
 
+function initialExpandedGroups(
+  groupParam: string | string[] | undefined,
+): Partial<Record<DemoLoginGroupKey, boolean>> {
+  const raw = Array.isArray(groupParam) ? groupParam[0] : groupParam;
+
+  if (!raw || !(DEMO_LOGIN_GROUP_ORDER as readonly string[]).includes(raw)) {
+    return {};
+  }
+
+  return { [raw as DemoLoginGroupKey]: true };
+}
+
 export default function TestLoginScreen() {
   const { group: groupParam } = useLocalSearchParams<{ group?: string | string[] }>();
   const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [expandedGroups, setExpandedGroups] = useState<Partial<Record<DemoLoginGroupKey, boolean>>>(
-    {},
-  );
-
-  useEffect(() => {
-    const raw = Array.isArray(groupParam) ? groupParam[0] : groupParam;
-
-    if (!raw || !(DEMO_LOGIN_GROUP_ORDER as readonly string[]).includes(raw)) {
-      return;
-    }
-
-    const groupKey = raw as DemoLoginGroupKey;
-    setExpandedGroups((prev) => ({
-      ...prev,
-      [groupKey]: true,
-    }));
-  }, [groupParam]);
+  const [expandedGroups, setExpandedGroups] = useState<
+    Partial<Record<DemoLoginGroupKey, boolean>>
+  >(() => initialExpandedGroups(groupParam));
   const [storeSearch, setStoreSearch] = useState('');
   const [designerSearch, setDesignerSearch] = useState('');
   const [signupCustomerSearch, setSignupCustomerSearch] = useState('');
+  const routeExpandedGroups = useMemo(
+    () => initialExpandedGroups(groupParam),
+    [groupParam],
+  );
+  const activeExpandedGroups = useMemo(
+    () => ({ ...routeExpandedGroups, ...expandedGroups }),
+    [expandedGroups, routeExpandedGroups],
+  );
   const demoLoginGroups = useMemo(
-    () => getDemoLoginGroups({ includeRegisteredCustomers: Boolean(expandedGroups['가입고객']) }),
-    [expandedGroups],
+    () =>
+      getDemoLoginGroups({
+        includeRegisteredCustomers: Boolean(activeExpandedGroups['가입고객']),
+      }),
+    [activeExpandedGroups],
   );
 
   const handleAccountLogin = useCallback(async (id: string, email: string, password: string) => {
@@ -281,7 +290,7 @@ export default function TestLoginScreen() {
             key={group.title}
             accounts={group.accounts}
             description={group.description}
-            expanded={Boolean(expandedGroups[group.title])}
+            expanded={Boolean(activeExpandedGroups[group.title])}
             groupSearch={
               group.title === '매장'
                 ? storeSearch

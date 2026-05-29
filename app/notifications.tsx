@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 
-import { getCurrentUser } from '../lib/auth';
+import { getCurrentUser, type UserRole } from '../lib/auth';
 import { getErrorMessage } from '../lib/errors';
 import {
   AppNotification,
@@ -20,7 +20,7 @@ const CORAL = '#FF5A5F';
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<AppNotification[]>([]);
-  const [userRole, setUserRole] = useState<'customer' | 'designer' | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
