@@ -2,6 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { WeekdayRevenueCell, WeeklyRevenueWeek } from '../../lib/designer-revenue-analytics';
 import { RevenueBarChart } from './revenue-bar-chart';
+import { WeekdayRevenueTabs } from './week-day-tabs';
 
 const PURPLE = '#7B5EE6';
 const MINT = '#00C2A8';
@@ -84,6 +85,18 @@ export function WeeklyRevenuePanel({
           {selectedWeek.settlementCount}건
         </Text>
       ) : null}
+
+      <WeekdayRevenueTabs
+        days={days}
+        onSelectDate={(date) => {
+          const day = days.find((item) => item.date === date);
+
+          if (day) {
+            onSelectDay(day);
+          }
+        }}
+        selectedDate={selectedDate}
+      />
 
       <RevenueBarChart
         barColor={MINT}
