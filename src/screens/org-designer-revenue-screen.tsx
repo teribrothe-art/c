@@ -1,5 +1,5 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -22,6 +22,7 @@ export function OrgDesignerRevenueScreen({ scope }: Props) {
   const { designerId } = useLocalSearchParams<{ designerId: string }>();
   const insets = useSafeAreaInsets();
   const [analytics, setAnalytics] = useState<DesignerRevenueAnalytics | null>(null);
+  const [selectedWeekKey, setSelectedWeekKey] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [designerName, setDesignerName] = useState('');
@@ -57,6 +58,13 @@ export function OrgDesignerRevenueScreen({ scope }: Props) {
       setDesignerStoreLabel(`${access.designer.storeName} · ${access.designer.storeRegion}`);
       const data = await fetchDesignerRevenueAnalytics(undefined, undefined, designerId);
       setAnalytics(data);
+      setSelectedWeekKey((prev) => {
+        if (prev && data.weeklyWeeks.some((week) => week.weekKey === prev)) {
+          return prev;
+        }
+
+        return data.selectedWeekKey;
+      });
       setErrorMessage('');
     } catch (error) {
       setErrorMessage(getErrorMessage(error, '매출을 불러오지 못했습니다.'));
@@ -71,7 +79,19 @@ export function OrgDesignerRevenueScreen({ scope }: Props) {
     }, [load]),
   );
 
-  const selectedWeek = analytics?.selectedWeek;
+  const selectedWeek = useMemo(() => {
+    if (!analytics) {
+      return null;
+    }
+
+    return (
+      analytics.weeklyWeeks.find((week) => week.weekKey === selectedWeekKey) ?? analytics.selectedWeek
+    );
+  }, [analytics, selectedWeekKey]);
+
+  const handleSelectWeek = useCallback((weekKey: string) => {
+    setSelectedWeekKey(weekKey);
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -110,19 +130,50 @@ export function OrgDesignerRevenueScreen({ scope }: Props) {
               </View>
             </View>
 
-            {selectedWeek ? (
+            {analytics.weeklyWeeks.length > 0 ? (
               <View style={styles.weekCard}>
-                <Text style={styles.weekLabel}>{selectedWeek.label || '선택 주'}</Text>
-                <Text style={styles.weekTotal}>
-                  주간 매출 {selectedWeek.weekTotal.toLocaleString('ko-KR')}원 · 정산{' '}
-                  {selectedWeek.settlementCount}건
-                </Text>
-                {selectedWeek.days.map((day) => (
-                  <View key={day.date} style={styles.dayRow}>
-                    <Text style={styles.dayLabel}>{day.weekdayLabel}</Text>
-                    <Text style={styles.dayValue}>{day.totalAmount.toLocaleString('ko-KR')}원</Text>
+                <Text style={styles.sectionLabel}>주간 매출 (월~일)</Text>
+
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.weekTabRow}>
+                    {analytics.weeklyWeeks.map((week) => {
+                      const selected = week.weekKey === selectedWeekKey;
+
+                      return (
+                        <Pressable
+                          key={week.weekKey}
+                          onPress={() => handleSelectWeek(week.weekKey)}
+                          style={({ pressed }) => [
+                            styles.weekTab,
+                            selected && styles.weekTabSelected,
+                            pressed && styles.weekTabPressed,
+                          ]}>
+                          <Text style={[styles.weekTabLabel, selected && styles.weekTabLabelSelected]}>
+                            {week.label}
+                          </Text>
+                          <Text style={styles.weekTabAmount}>
+                            {week.weekTotal.toLocaleString('ko-KR')}원
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
-                ))}
+                </ScrollView>
+
+                {selectedWeek ? (
+                  <>
+                    <Text style={styles.weekTotal}>
+                      주간 매출 {selectedWeek.weekTotal.toLocaleString('ko-KR')}원 · 정산{' '}
+                      {selectedWeek.settlementCount}건
+                    </Text>
+                    {selectedWeek.days.map((day) => (
+                      <View key={day.date} style={styles.dayRow}>
+                        <Text style={styles.dayLabel}>{day.weekdayDateLabel}</Text>
+                        <Text style={styles.dayValue}>{day.totalAmount.toLocaleString('ko-KR')}원</Text>
+                      </View>
+                    ))}
+                  </>
+                ) : null}
               </View>
             ) : null}
 
@@ -182,7 +233,6 @@ const styles = StyleSheet.create({
     color: '#6B6B7B',
     fontSize: 13,
     fontWeight: '600',
-    marginBottom: 4,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -207,25 +257,96 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
   },
+  weekCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 10,
+    padding: 14,
+  },
+  sectionLabel: {
+    color: '#1A1A2E',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  weekTabRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingBottom: 4,
+  },
+  weekTab: {
+    backgroundColor: '#F5F5F8',
+    borderColor: '#E8E8F0',
+    borderRadius: 12,
+    borderWidth: 1,
+    minWidth: 120,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  weekTabSelected: {
+    backgroundColor: '#F0EBFF',
+    borderColor: '#7B5EE6',
+  },
+  weekTabPressed: {
+    opacity: 0.9,
+  },
+  weekTabLabel: {
+    color: '#1A1A2E',
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  weekTabLabelSelected: {
+    color: '#7B5EE6',
+  },
+  weekTabAmount: {
+    color: '#FF5A5F',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  weekTotal: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  dayRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  dayLabel: {
+    color: '#1A1A2E',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  dayValue: {
+    color: '#1A1A2E',
+    fontSize: 14,
+    fontWeight: '900',
+  },
   sectionTitle: {
     color: '#1A1A2E',
     fontSize: 16,
     fontWeight: '900',
-    marginTop: 4,
   },
   emptySettlements: {
-    color: '#9CA3AF',
+    color: '#6B6B7B',
     fontSize: 13,
     fontWeight: '600',
   },
   settlementRow: {
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderColor: '#E8E8F0',
     borderRadius: 12,
     borderWidth: 1,
     flexDirection: 'row',
-    gap: 10,
-    padding: 12,
+    gap: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   settlementMain: {
     flex: 1,
@@ -237,46 +358,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   settlementMeta: {
-    color: '#9CA3AF',
-    fontSize: 11,
+    color: '#6B6B7B',
+    fontSize: 12,
     fontWeight: '600',
   },
   settlementAmount: {
     color: '#00C2A8',
     fontSize: 14,
     fontWeight: '900',
-  },
-  weekCard: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E8E8F0',
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 8,
-    padding: 14,
-  },
-  weekLabel: {
-    color: '#1A1A2E',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  weekTotal: {
-    color: '#6B6B7B',
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  dayRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  dayLabel: {
-    color: '#6B6B7B',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  dayValue: {
-    color: '#1A1A2E',
-    fontSize: 13,
-    fontWeight: '800',
   },
 });

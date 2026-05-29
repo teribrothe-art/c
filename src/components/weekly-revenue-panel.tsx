@@ -6,12 +6,6 @@ import { RevenueBarChart } from './revenue-bar-chart';
 const PURPLE = '#7B5EE6';
 const MINT = '#00C2A8';
 
-function formatDayDateLabel(date: string) {
-  const [, month, day] = date.split('-');
-
-  return `${Number(month)}.${Number(day)}`;
-}
-
 type WeeklyRevenuePanelProps = {
   weeks: WeeklyRevenueWeek[];
   selectedWeekKey: string;
@@ -33,10 +27,9 @@ export function WeeklyRevenuePanel({
 
   const chartPoints = days.map((day) => ({
     key: day.date,
-    label: day.weekdayLabel,
+    label: day.weekdayDateLabel,
     value: day.totalAmount,
     subLabel: `${day.settlementCount}건`,
-    dateLabel: formatDayDateLabel(day.date),
     selected: day.date === selectedDate,
     dimmed: !day.inSelectedMonth,
     isToday: day.isToday,
