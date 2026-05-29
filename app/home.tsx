@@ -70,9 +70,7 @@ export default function DiaryHomeScreen() {
       const message = getErrorMessage(error, '시술 기록을 불러오지 못했습니다.');
       setErrorMessage(message);
     } finally {
-      if (!silent) {
-        setIsLoading(false);
-      }
+      setIsLoading(false);
       setIsRefreshing(false);
     }
   }, []);

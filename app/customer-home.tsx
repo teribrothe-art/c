@@ -1,5 +1,5 @@
 import { Href, router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Dimensions,
   Pressable,
@@ -15,7 +15,7 @@ import type { DailyCareSnapshot } from '../lib/daily-care';
 import { getTodayDailyCare } from '../lib/daily-insights';
 import { getErrorMessage } from '../lib/errors';
 import { buildHomePromoSlides, type HomePromoSlide } from '../lib/home-promo-slides';
-import { getCustomerPendingPayments } from '../lib/payments';
+import { normalizePaymentStatus } from '../lib/payment-status';
 import { safePush } from '../lib/safe-navigate';
 import { getTreatments, Treatment } from '../lib/treatments';
 import { getWeatherHairCareAdvice, type WeatherHairCareAdvice } from '../lib/weather-hair-care';
@@ -73,26 +73,34 @@ export default function CustomerHomeScreen() {
       }
 
       setTreatments(nextTreatments);
-      const pending = await getCustomerPendingPayments();
-      setPendingPayments(pending);
-      const care = await getTodayDailyCare(nextTreatments);
-      setDailyCare(care);
+      setPendingPayments(
+        nextTreatments.filter(
+          (treatment) => normalizePaymentStatus(treatment.payment_status) === 'payment_requested',
+        ),
+      );
+      setErrorMessage('');
+
+      void getTodayDailyCare(nextTreatments)
+        .then(setDailyCare)
+        .catch(() => setDailyCare(null));
+
       setIsWeatherLoading(true);
       getWeatherHairCareAdvice(nextTreatments)
         .then(setWeatherCare)
         .catch(() => setWeatherCare(null))
         .finally(() => setIsWeatherLoading(false));
-      setErrorMessage('');
     } catch (error) {
       const message = getErrorMessage(error, '홈 정보를 불러오지 못했습니다.');
       setErrorMessage(message);
     } finally {
-      if (!silent) {
-        setIsLoading(false);
-      }
+      setIsLoading(false);
       setIsRefreshing(false);
     }
   }, []);
+
+  useEffect(() => {
+    void loadHomeData();
+  }, [loadHomeData]);
 
   useFocusEffect(
     useCallback(() => {
