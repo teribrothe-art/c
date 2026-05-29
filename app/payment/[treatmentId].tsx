@@ -34,6 +34,8 @@ import { colors, disabledButtonStyle } from '../../lib/theme';
 import { getTreatmentById, Treatment } from '../../lib/treatments';
 import { LoadingState } from '../../src/components/loading-state';
 import { TossPaymentWebView } from '../../src/components/toss-payment-webview';
+import { BottomTabBar } from '../../src/components/bottom-tab-bar';
+import { TAB_BAR_BOTTOM_INSET } from '../../src/components/role-bottom-tab-bar';
 
 const CORAL = '#FF5A5F';
 const MINT = '#00C2A8';
@@ -345,7 +347,7 @@ export default function CustomerPaymentScreen() {
         ) : null}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16), marginBottom: TAB_BAR_BOTTOM_INSET }]}>
         <Pressable
           style={[styles.payButton, isPaying && disabledButtonStyle]}
           disabled={isPaying}
@@ -368,6 +370,8 @@ export default function CustomerPaymentScreen() {
         onSuccess={onWebViewSuccess}
         onFail={onWebViewFail}
       />
+
+      <BottomTabBar />
     </View>
   );
 }

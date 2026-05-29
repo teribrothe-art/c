@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const tabs: { href: Href; label: string }[] = [
-  { href: '/designer/clients' as Href, label: '고객' },
+  { href: '/designer/clients' as Href, label: '홈' },
   { href: '/designer/input' as Href, label: '입력' },
   { href: '/designer/revenue' as Href, label: '매출' },
   { href: '/profile' as Href, label: '마이' },
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     color: '#6B6B7B',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   tabLabelSelected: {

@@ -11,6 +11,8 @@ import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { StoreBottomTabBar } from '../components/store-bottom-tab-bar';
+import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
+import { TAB_BAR_BOTTOM_INSET } from '../components/role-bottom-tab-bar';
 import { VirtualSimulationBanner } from '../components/virtual-simulation-banner';
 
 type Props = {
@@ -87,7 +89,7 @@ export function OrgCustomersScreen({ scope }: Props) {
   }, [designerFilter, items, searchQuery]);
 
   const treatmentPath = scope === 'store' ? '/store/treatment' : '/admin/treatment';
-  const showStoreTabBar = scope === 'store';
+  const TabBar = scope === 'store' ? StoreBottomTabBar : AdminBottomTabBar;
 
   return (
     <View style={styles.container}>
@@ -96,7 +98,7 @@ export function OrgCustomersScreen({ scope }: Props) {
           styles.content,
           {
             paddingTop: insets.top + 16,
-            paddingBottom: Math.max(insets.bottom, 20) + (showStoreTabBar ? 100 : 24),
+            paddingBottom: Math.max(insets.bottom, 20) + TAB_BAR_BOTTOM_INSET,
           },
         ]}
         keyboardShouldPersistTaps="handled"
@@ -174,7 +176,7 @@ export function OrgCustomersScreen({ scope }: Props) {
           ))
         )}
       </ScrollView>
-      {showStoreTabBar ? <StoreBottomTabBar /> : null}
+      <TabBar />
     </View>
   );
 }

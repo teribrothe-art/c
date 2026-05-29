@@ -11,6 +11,8 @@ import { supabase } from '../../../lib/supabase';
 import { isDemoAuthMode } from '../../../lib/auth';
 import { getTreatmentById, Treatment } from '../../../lib/treatments';
 import { LoadingState } from '../../../src/components/loading-state';
+import { BottomTabBar } from '../../../src/components/bottom-tab-bar';
+import { TAB_BAR_BOTTOM_INSET } from '../../../src/components/role-bottom-tab-bar';
 
 const MINT = '#00C2A8';
 const PURPLE = '#7B5EE6';
@@ -166,7 +168,7 @@ export default function PaymentReceiptScreen() {
         )}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_BOTTOM_INSET + insets.bottom }]}>
         <Text style={styles.receiptTitle}>결제 영수증</Text>
         <Text style={styles.merchant}>{treatment?.designer_name || '헤어 다이어리'} · 강남점</Text>
 
@@ -184,6 +186,7 @@ export default function PaymentReceiptScreen() {
           </Text>
         ) : null}
       </ScrollView>
+      <BottomTabBar />
     </View>
   );
 }

@@ -18,6 +18,8 @@ import { getPaymentByTreatmentId } from '../../lib/payments';
 import { getTreatmentNavigation } from '../../lib/treatment-navigation';
 import { getTreatmentById, getTreatments, Treatment } from '../../lib/treatments';
 import { LoadingState } from '../../src/components/loading-state';
+import { BottomTabBar } from '../../src/components/bottom-tab-bar';
+import { TAB_BAR_BOTTOM_INSET } from '../../src/components/role-bottom-tab-bar';
 
 function formatDate(date?: string) {
   return date ? date.replaceAll('-', '.') : '-';
@@ -161,7 +163,7 @@ export default function TreatmentDetailScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_BOTTOM_INSET + insets.bottom }]}
         keyboardShouldPersistTaps="always"
         nestedScrollEnabled
         showsVerticalScrollIndicator={false}>
@@ -253,6 +255,7 @@ export default function TreatmentDetailScreen() {
           </>
         )}
       </ScrollView>
+      <BottomTabBar />
     </View>
   );
 }

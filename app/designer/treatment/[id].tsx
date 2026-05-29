@@ -13,6 +13,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CustomerInviteModal } from '../../../src/components/customer-invite-modal';
+import { DesignerBottomTabBar } from '../../../src/components/designer-bottom-tab-bar';
+import { TAB_BAR_BOTTOM_INSET } from '../../../src/components/role-bottom-tab-bar';
 import { TreatmentPhotoEditModal } from '../../../src/components/treatment-photo-edit-modal';
 import { TreatmentPhotoPreviewModal } from '../../../src/components/treatment-photo-preview-modal';
 import { TreatmentPhotoSlot } from '../../../src/components/treatment-photo-slot';
@@ -882,7 +884,10 @@ export default function DesignerTreatmentInputScreen() {
   return (
     <View style={styles.container}>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 14 }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + 14, paddingBottom: TAB_BAR_BOTTOM_INSET + insets.bottom },
+        ]}
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.closeButton}>
@@ -1289,6 +1294,7 @@ export default function DesignerTreatmentInputScreen() {
           }}
         />
       ) : null}
+      <DesignerBottomTabBar />
     </View>
   );
 }

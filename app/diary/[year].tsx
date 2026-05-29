@@ -24,6 +24,8 @@ import { colors } from '../../lib/theme';
 import { EmptyState } from '../../src/components/empty-state';
 import { LoadingState } from '../../src/components/loading-state';
 import { TreatmentDiaryCard } from '../../src/components/treatment-diary-card';
+import { BottomTabBar } from '../../src/components/bottom-tab-bar';
+import { TAB_BAR_BOTTOM_INSET } from '../../src/components/role-bottom-tab-bar';
 
 export default function DiaryYearDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -116,7 +118,7 @@ export default function DiaryYearDetailScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_BOTTOM_INSET + insets.bottom }]}
         keyboardShouldPersistTaps="always"
         nestedScrollEnabled
         showsVerticalScrollIndicator={false}>
@@ -185,6 +187,7 @@ export default function DiaryYearDetailScreen() {
           </View>
         )}
       </ScrollView>
+      <BottomTabBar />
     </View>
   );
 }

@@ -14,6 +14,7 @@ import {
 } from '../lib/notifications';
 import { LoadingState } from '../src/components/loading-state';
 import { EmptyState } from '../src/components/empty-state';
+import { RoleBottomTabBar, TAB_BAR_BOTTOM_INSET } from '../src/components/role-bottom-tab-bar';
 
 const CORAL = '#FF5A5F';
 
@@ -75,7 +76,7 @@ export default function NotificationsScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: Math.max(insets.bottom, 20) + 20 },
+          { paddingBottom: Math.max(insets.bottom, 20) + TAB_BAR_BOTTOM_INSET },
         ]}
         showsVerticalScrollIndicator={false}>
         {isLoading ? (
@@ -105,6 +106,7 @@ export default function NotificationsScreen() {
           ))
         )}
       </ScrollView>
+      <RoleBottomTabBar role={userRole} />
     </View>
   );
 }

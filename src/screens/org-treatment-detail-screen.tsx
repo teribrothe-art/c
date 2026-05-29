@@ -13,6 +13,7 @@ import { getErrorMessage } from '../../lib/errors';
 import { navigateBackOrOrgHome } from '../../lib/navigation';
 import { colors } from '../../lib/theme';
 import { LoadingState } from '../components/loading-state';
+import { OrgScopeTabBar, TAB_BAR_BOTTOM_INSET } from '../components/role-bottom-tab-bar';
 
 type Props = {
   scope: OrgScope;
@@ -118,7 +119,10 @@ export function OrgTreatmentDetailScreen({ scope }: Props) {
   return (
     <View style={styles.container}>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32 }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + 16, paddingBottom: Math.max(insets.bottom, 20) + TAB_BAR_BOTTOM_INSET },
+        ]}
         showsVerticalScrollIndicator={false}>
         <Pressable onPress={() => navigateBackOrOrgHome(scope)} style={styles.backLink}>
           <Text style={styles.backLinkText}>‹ 목록</Text>
@@ -156,6 +160,7 @@ export function OrgTreatmentDetailScreen({ scope }: Props) {
           </View>
         ) : null}
       </ScrollView>
+      <OrgScopeTabBar scope={scope} />
     </View>
   );
 }

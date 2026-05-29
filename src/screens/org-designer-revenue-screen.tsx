@@ -14,6 +14,7 @@ import { getErrorMessage } from '../../lib/errors';
 import { navigateBackOrOrgHome } from '../../lib/navigation';
 import { LoadingState } from '../components/loading-state';
 import { EmptyState } from '../components/empty-state';
+import { OrgScopeTabBar, TAB_BAR_BOTTOM_INSET } from '../components/role-bottom-tab-bar';
 
 type Props = {
   scope: OrgScope;
@@ -79,7 +80,7 @@ export function OrgDesignerRevenueScreen({ scope }: Props) {
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 },
+          { paddingTop: insets.top + 12, paddingBottom: Math.max(insets.bottom, 20) + TAB_BAR_BOTTOM_INSET },
         ]}
         showsVerticalScrollIndicator={false}>
         <Pressable onPress={() => navigateBackOrOrgHome(scope)} style={styles.backLink}>
@@ -146,6 +147,7 @@ export function OrgDesignerRevenueScreen({ scope }: Props) {
           </>
         ) : null}
       </ScrollView>
+      <OrgScopeTabBar scope={scope} />
     </View>
   );
 }
