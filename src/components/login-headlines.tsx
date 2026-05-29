@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../lib/theme';
 import { LoginHeroAnimation } from './login-hero-animation';
+import { LoginHopeQuotesAnimation } from './login-hope-quotes-animation';
 import { LoginIntroAnimation } from './login-intro-animation';
 
 const SALON_TITLE = '나만의 살롱';
@@ -14,6 +15,7 @@ export function LoginHeadlines() {
       <Text style={styles.app}>{APP_TITLE}</Text>
       <LoginHeroAnimation />
       <LoginIntroAnimation />
+      <LoginHopeQuotesAnimation />
     </View>
   );
 }

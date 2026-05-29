@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 8,
     marginTop: 4,
-    minHeight: 148,
+    minHeight: 132,
     paddingHorizontal: 18,
     paddingVertical: 16,
     width: '100%',
