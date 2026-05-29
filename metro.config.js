@@ -5,10 +5,11 @@ const { resolve: metroResolve } = require('metro-resolver');
 const config = getDefaultConfig(__dirname);
 
 const projectRoot = __dirname;
+const stubsRoot = path.join(projectRoot, 'lib', 'metro-stubs');
 
 config.resolver.resolverMainFields = ['react-native', 'browser', 'main'];
 
-const stubPath = (name) => path.join(projectRoot, 'lib', 'metro-stubs', name);
+const stubPath = (name) => path.join(stubsRoot, name);
 
 config.resolver.extraNodeModules = {
   fs: stubPath('empty.js'),
@@ -16,13 +17,6 @@ config.resolver.extraNodeModules = {
 };
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (moduleName === 'react-native-svg') {
-    return {
-      type: 'sourceFile',
-      filePath: path.join(projectRoot, 'node_modules', 'react-native-svg', 'lib', 'commonjs', 'index.js'),
-    };
-  }
-
   if (moduleName === 'qrcode') {
     return {
       type: 'sourceFile',

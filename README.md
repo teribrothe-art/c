@@ -64,7 +64,7 @@ npm run check:phone
 - `check:phone` OK + 폰만 실패 → Wi‑Fi/터널 문제 → `start:phone` 재시도, Expo Go **Reload**(↻)  
 - `check:phone` FAIL → 터미널 빨간 Metro 오류 확인 후 `npm run start:phone`  
 4. 빨간 번들 오류가 나면 캐시 삭제 후 재시작: `npm run start:phone`  
-5. `react-native-svg` / QR 관련 500 오류는 `metro.config.js`의 스텁 설정으로 해결됨 — 의존성 변경 후에는 반드시 `--clear`로 재시작
+5. QR 관련 Metro 500 (`Failed to get the SHA-1 for …/metro-stubs/…`) → `react-native-qrcode-svg` 제거됨. `npm run start:phone` 으로 캐시 삭제 후 재시작
 
 ### 어플(Expo Go)로 접속이 안 될 때
 
