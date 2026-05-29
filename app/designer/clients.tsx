@@ -20,6 +20,10 @@ import {
 } from '../../lib/customer-invitations';
 import { groupDesignerClientListItems } from '../../lib/designer-client-groups';
 import {
+  groupClientItemsByMonthAndCategory,
+  type DesignerClientMonthSection,
+} from '../../lib/designer-client-treatment-timeline';
+import {
   DESIGNER_ONBOARDING_SLIDES,
   markOnboardingSeen,
   shouldShowOnboarding,
@@ -171,6 +175,51 @@ function CustomerGridTile({
       </Text>
       <Text style={styles.gridCount}>{group.items.length}건</Text>
     </Pressable>
+  );
+}
+
+function CustomerMonthTimeline({
+  sections,
+  onTreatmentPress,
+  onReinvite,
+}: {
+  sections: DesignerClientMonthSection[];
+  onTreatmentPress: (treatmentId: string) => void;
+  onReinvite: (item: DesignerClientListItem) => void;
+}) {
+  return (
+    <View style={styles.monthTimeline}>
+      {sections.map((section) => (
+        <View key={section.monthKey} style={styles.monthSection}>
+          <View style={styles.monthSectionHeader}>
+            <Text style={styles.monthSectionTitle}>{section.monthLabel}</Text>
+            <Text style={styles.monthSectionCount}>{section.totalCount}건</Text>
+          </View>
+
+          {section.categories.map((category) => (
+            <View key={`${section.monthKey}-${category.categoryKey}`} style={styles.categorySection}>
+              <View style={styles.categorySectionHeader}>
+                <Text style={styles.categorySectionIcon}>{category.icon}</Text>
+                <Text style={styles.categorySectionTitle}>{category.categoryLabel}</Text>
+                <Text style={styles.categorySectionCount}>{category.items.length}건</Text>
+              </View>
+
+              <View style={styles.categoryCards}>
+                {category.items.map((item) => (
+                  <DesignerClientCard
+                    key={item.key}
+                    compact
+                    item={item}
+                    onPress={() => onTreatmentPress(item.treatmentId)}
+                    onReinvite={() => onReinvite(item)}
+                  />
+                ))}
+              </View>
+            </View>
+          ))}
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -349,6 +398,14 @@ export default function DesignerClientsScreen() {
     return clientGroups.find((group) => group.key === expandedGroupKey) ?? null;
   }, [clientGroups, expandedGroupKey]);
 
+  const expandedMonthSections = useMemo(() => {
+    if (!expandedGroup) {
+      return [];
+    }
+
+    return groupClientItemsByMonthAndCategory(expandedGroup.items);
+  }, [expandedGroup]);
+
   const allCustomerGroups = useMemo(
     () => groupDesignerClientListItems(clientItems),
     [clientItems],
@@ -521,7 +578,7 @@ export default function DesignerClientsScreen() {
         {allTreatments ? (
           <View style={styles.scopeHintCard}>
             <Text style={styles.scopeHintText}>
-              최근 시술순 {summary.customerCount}명 · 탭하면 시술내역을 볼 수 있어요
+              최근 시술순 {summary.customerCount}명 · 탭하면 월별·시술 종류별 내역
             </Text>
           </View>
         ) : listFilterActive ? (
@@ -602,19 +659,13 @@ export default function DesignerClientsScreen() {
                             시술 {expandedGroup.items.length}건
                           </Text>
                         </View>
-                        <View style={styles.groupCards}>
-                          {expandedGroup.items.map((item) => (
-                            <DesignerClientCard
-                              key={item.key}
-                              compact
-                              item={item}
-                              onPress={() =>
-                                detailRouter.push(`/designer/treatment/${item.treatmentId}`)
-                              }
-                              onReinvite={() => handleReinvite(item)}
-                            />
-                          ))}
-                        </View>
+                        <CustomerMonthTimeline
+                          onReinvite={handleReinvite}
+                          onTreatmentPress={(treatmentId) =>
+                            detailRouter.push(`/designer/treatment/${treatmentId}`)
+                          }
+                          sections={expandedMonthSections}
+                        />
                       </View>
                     </View>
                   ) : null}
@@ -877,9 +928,57 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  groupCards: {
+  monthTimeline: {
+    gap: 16,
+    paddingLeft: 4,
+  },
+  monthSection: {
+    gap: 10,
+  },
+  monthSectionHeader: {
+    alignItems: 'center',
+    backgroundColor: '#F3F4F8',
+    borderRadius: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  monthSectionTitle: {
+    color: '#1A1A2E',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  monthSectionCount: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  categorySection: {
     gap: 8,
-    paddingLeft: 8,
+    paddingLeft: 6,
+  },
+  categorySectionHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  categorySectionIcon: {
+    fontSize: 14,
+  },
+  categorySectionTitle: {
+    color: '#1A1A2E',
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  categorySectionCount: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  categoryCards: {
+    gap: 8,
   },
   treatmentRow: {
     backgroundColor: '#FFFFFF',
