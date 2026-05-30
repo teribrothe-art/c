@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { formatAmount } from '../../lib/currency-input';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import { buildVirtualStoreSummaries } from '../../lib/org-virtual-simulation';
 import { getErrorMessage } from '../../lib/errors';
@@ -79,8 +80,7 @@ export default function AdminHomeScreen() {
                 {
                   key: 'revenue',
                   label: '이번 달 매출',
-                  value: summary.monthRevenue.toLocaleString('ko-KR'),
-                  meta: '원',
+                  value: formatAmount(summary.monthRevenue),
                   onPress: () => router.push('/admin/revenue' as Href),
                 },
                 {
@@ -101,7 +101,7 @@ export default function AdminHomeScreen() {
                   <Text style={styles.virtualStoreName}>{store.name}</Text>
                   <Text style={styles.virtualStoreMeta}>
                     {store.region} · 디자이너 {store.designerCount}명 · 매출{' '}
-                    {store.monthRevenue.toLocaleString('ko-KR')}원
+                    {formatAmount(store.monthRevenue)}
                   </Text>
                   <Text style={styles.virtualStoreHotPlace}>{store.hotPlace}</Text>
                   <Text style={styles.virtualStoreDesigners} numberOfLines={2}>
@@ -148,7 +148,7 @@ export default function AdminHomeScreen() {
                     </Text>
                   </View>
                   <Text style={styles.menuAmount}>
-                    {designer.monthRevenue.toLocaleString('ko-KR')}원
+                    {formatAmount(designer.monthRevenue)}
                   </Text>
                 </Pressable>
               ))}

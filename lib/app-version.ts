@@ -9,7 +9,7 @@ export const APP_VERSION = appConfig.expo.version;
 export const APP_BUILD_LABEL =
   (Constants.expoConfig?.extra?.buildLabel as string | undefined)?.trim() ||
   process.env.EXPO_PUBLIC_APP_BUILD_LABEL?.trim() ||
-  '2026-05-30 · 일자별 고객·탭·촬영';
+  '2026-05-30 · 매출·고객달력·스파·계정3칸';
 
 export function formatAppVersionLine() {
   return `v${APP_VERSION} · ${APP_BUILD_LABEL}`;

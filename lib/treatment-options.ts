@@ -10,6 +10,7 @@ export const TREATMENT_TYPE_OPTIONS: TreatmentTypeOption[] = [
   { icon: '✨', label: '탈색' },
   { icon: '💧', label: '트리트먼트' },
   { icon: '🪄', label: '매직' },
+  { icon: '🧖', label: '스파' },
 ];
 
 export const DURATION_OPTIONS = [
@@ -31,6 +32,7 @@ export const TREATMENT_TITLE_PRESETS: Record<string, string[]> = {
   탈색: ['탈색 + 토닝', '브리칭', '탈색'],
   트리트먼트: ['단백질 트리트먼트', '케라틴 케어', '두피 케어'],
   매직: ['매직', '셋팅 펌', '스트레이트'],
+  스파: ['헤드 스파', '두피 스파', '아로마 스파', '스케일링 스파', '탈모 케어 스파'],
 };
 
 export const PRODUCT_PRESETS = [

@@ -2,6 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { DesignerClientDateGroup } from '../../lib/designer-customer-grid';
 import { CustomerGrid } from './customer-grid';
+import { DesignerDateOverviewGrid } from './designer-date-overview-grid';
 
 type CustomerGridByDateProps = {
   groups: DesignerClientDateGroup[];
@@ -16,12 +17,14 @@ export function CustomerGridByDate({
   selectedDate = null,
   onSelectDate,
 }: CustomerGridByDateProps) {
-  const visibleGroups =
-    selectedDate === null ? groups : groups.filter((group) => group.date === selectedDate);
+  const showOverview = selectedDate === null && onSelectDate !== undefined;
+  const visibleGroups = showOverview
+    ? []
+    : groups.filter((group) => (selectedDate === null ? true : group.date === selectedDate));
 
   return (
     <View style={styles.wrapper}>
-      {onSelectDate && groups.length > 1 ? (
+      {onSelectDate && groups.length > 0 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
           <View style={styles.chipRow}>
             <Pressable
@@ -54,6 +57,10 @@ export function CustomerGridByDate({
             })}
           </View>
         </ScrollView>
+      ) : null}
+
+      {showOverview ? (
+        <DesignerDateOverviewGrid groups={groups} onPressDate={onSelectDate} />
       ) : null}
 
       {visibleGroups.map((group) => (

@@ -10,12 +10,21 @@ import {
   fetchDesignerPaymentDashboard,
   type DesignerPaymentDashboard,
 } from '../../lib/designer-payment-stats';
-import { mapDesignerClientsToGridItems } from '../../lib/designer-customer-grid';
+import { formatAmount } from '../../lib/currency-input';
+import {
+  buildDesignerHomeActionItems,
+  buildDesignerHomeRecentItems,
+  countTodayTreatments,
+} from '../../lib/designer-home-feed';
+import {
+  peekDesignerClientListCache,
+  peekDesignerPaymentDashboardCache,
+} from '../../lib/designer-workspace-cache';
 import { countUniqueDesignerCustomers } from '../../lib/designer-home-stats';
 import { getErrorMessage } from '../../lib/errors';
 import { formatDesignerStoreLabel } from '../../lib/org-store-affiliation';
-import { CustomerGrid } from '../../src/components/customer-grid';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
+import { DesignerHomeSections } from '../../src/components/designer-home-sections';
 import {
   currentDesignerMonthKey,
   DesignerHomeStatGrid,
@@ -35,8 +44,18 @@ export default function DesignerHomeScreen() {
 
   const loadHome = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
+    const cachedClients = peekDesignerClientListCache();
+    const cachedDashboard = peekDesignerPaymentDashboardCache();
 
-    if (!silent) {
+    if (cachedClients && cachedDashboard) {
+      setDashboard(cachedDashboard);
+      setClientItems(cachedClients);
+      setErrorMessage('');
+
+      if (!silent) {
+        setIsLoading(false);
+      }
+    } else if (!silent) {
       setIsLoading(true);
     }
 
@@ -89,7 +108,7 @@ export default function DesignerHomeScreen() {
       {
         key: 'month-revenue',
         label: '이번 달 정산',
-        value: `${(dashboard?.monthRevenue ?? 0).toLocaleString('ko-KR')}원`,
+        value: formatAmount(dashboard?.monthRevenue ?? 0),
         href: `/designer/revenue?month=${monthKey}` as const,
       },
       {
@@ -107,24 +126,20 @@ export default function DesignerHomeScreen() {
       {
         key: 'pending-payout',
         label: '정산 대기',
-        value: `${(dashboard?.pendingPayoutAmount ?? 0).toLocaleString('ko-KR')}원`,
+        value: formatAmount(dashboard?.pendingPayoutAmount ?? 0),
         href: '/designer/revenue' as const,
       },
     ];
   }, [dashboard, uniqueCustomerCount]);
 
-  const gridItems = useMemo(() => mapDesignerClientsToGridItems(clientItems), [clientItems]);
+  const todayTreatmentCount = useMemo(() => countTodayTreatments(clientItems), [clientItems]);
 
-  const handleGridPress = useCallback(
-    (key: string) => {
-      const item = clientItems.find((row) => row.key === key);
-
-      if (item) {
-        router.push(`/designer/treatment/${item.treatmentId}`);
-      }
-    },
+  const actionItems = useMemo(
+    () => buildDesignerHomeActionItems(clientItems),
     [clientItems],
   );
+
+  const recentItems = useMemo(() => buildDesignerHomeRecentItems(clientItems), [clientItems]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -168,13 +183,13 @@ export default function DesignerHomeScreen() {
         ) : (
           <>
             <DesignerHomeStatGrid items={homeStatItems} />
-
-            {gridItems.length > 0 ? (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>고객</Text>
-                <CustomerGrid items={gridItems} onPressItem={handleGridPress} />
-              </View>
-            ) : null}
+            <DesignerHomeSections
+              actionItems={actionItems}
+              pendingPayoutCount={dashboard?.pendingPayoutCount ?? 0}
+              recentItems={recentItems}
+              recentSettlements={dashboard?.recentSettlements ?? []}
+              todayTreatmentCount={todayTreatmentCount}
+            />
           </>
         )}
       </ScrollView>
@@ -229,14 +244,6 @@ const styles = StyleSheet.create({
   },
   iconButtonText: {
     fontSize: 22,
-  },
-  section: {
-    gap: 8,
-  },
-  sectionTitle: {
-    color: '#1A1A2E',
-    fontSize: 16,
-    fontWeight: '800',
   },
   stateBox: {
     alignItems: 'center',

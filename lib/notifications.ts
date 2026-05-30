@@ -174,7 +174,7 @@ export async function notifyDesignerSettlementCompleted(
     user_id: treatment.designer_id,
     type: 'settlement_completed',
     title: '정산 완료',
-    message: `${customerName} 시술 정산 완료 - ${payout}원 입금 예정`,
+    message: `${customerName} 시술 정산 완료 - ${payout} 입금 예정`,
     treatment_id: treatment.id,
     href: '/designer/revenue',
   });

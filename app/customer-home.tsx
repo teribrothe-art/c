@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { DailyCareSnapshot } from '../lib/daily-care';
 import { getTodayDailyCare } from '../lib/daily-insights';
+import { formatAmount } from '../lib/currency-input';
 import { getErrorMessage } from '../lib/errors';
 import { buildHomePromoSlides, type HomePromoSlide } from '../lib/home-promo-slides';
 import { normalizePaymentStatus } from '../lib/payment-status';
@@ -164,7 +165,7 @@ export default function CustomerHomeScreen() {
             <Text style={styles.paymentBannerSub}>
               {pendingPayments.length > 1
                 ? '시술을 선택해 금액·영수증을 확인하고 결제하세요'
-                : `${pendingPayments[0].designer_name} · ${(pendingPayments[0].price ?? 0).toLocaleString()}원 · 결제하기`}
+                : `${pendingPayments[0].designer_name} · ${formatAmount(pendingPayments[0].price ?? 0)} · 결제하기`}
             </Text>
           </Pressable>
         ) : null}

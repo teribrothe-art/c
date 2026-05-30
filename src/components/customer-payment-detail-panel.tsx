@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { CustomerPaymentEntry } from '../../lib/customer-payment-entries';
+import { formatAmount } from '../../lib/currency-input';
 
 const CORAL = '#FF5A5F';
 const MINT = '#00C2A8';
@@ -59,7 +60,7 @@ export function CustomerPaymentDetailPanel({
       <View style={styles.amountBox}>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>시술 금액</Text>
-          <Text style={styles.rowValue}>{amount.toLocaleString('ko-KR')}원</Text>
+          <Text style={styles.rowValue}>{formatAmount(amount)}</Text>
         </View>
         {entry.payment?.paid_at ? (
           <View style={styles.row}>
@@ -80,7 +81,7 @@ export function CustomerPaymentDetailPanel({
       <View style={styles.actions}>
         {entry.canPay ? (
           <Pressable onPress={onPay} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
-            <Text style={styles.primaryButtonText}>{amount.toLocaleString('ko-KR')}원 결제하기</Text>
+            <Text style={styles.primaryButtonText}>{formatAmount(amount)} 결제하기</Text>
           </Pressable>
         ) : null}
         {entry.canViewReceipt && entry.receiptPaymentId ? (

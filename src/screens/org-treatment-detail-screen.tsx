@@ -9,6 +9,7 @@ import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
 import { getCurrentUser } from '../../lib/auth';
 import { normalizePaymentStatus } from '../../lib/payment-status';
 import { getTreatmentById, type Treatment } from '../../lib/treatments';
+import { formatAmount } from '../../lib/currency-input';
 import { getErrorMessage } from '../../lib/errors';
 import { navigateBackOrOrgHome } from '../../lib/navigation';
 import { colors } from '../../lib/theme';
@@ -139,10 +140,10 @@ export function OrgTreatmentDetailScreen({ scope }: Props) {
           <Row label="시술 종류" value={treatment.treatment_type} />
           <Row label="결제 상태" value={paymentLabel(paymentStatus)} />
           {typeof treatment.price === 'number' ? (
-            <Row label="시술 금액" value={`${treatment.price.toLocaleString('ko-KR')}원`} />
+            <Row label="시술 금액" value={formatAmount(treatment.price)} />
           ) : null}
           {typeof payout === 'number' ? (
-            <Row label="정산 예정/완료" value={`${payout.toLocaleString('ko-KR')}원`} />
+            <Row label="정산 예정/완료" value={formatAmount(payout)} />
           ) : null}
         </View>
 

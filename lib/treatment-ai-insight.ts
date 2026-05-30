@@ -22,6 +22,10 @@ function treatmentTypeNextVisitHint(type: string) {
     return '6개월';
   }
 
+  if (normalized.includes('스파')) {
+    return '2~4주';
+  }
+
   if (normalized.includes('케어') || normalized.includes('트리트먼트')) {
     return '4주';
   }

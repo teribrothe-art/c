@@ -1,6 +1,10 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
+import {
+  peekDesignerPaymentDashboardCache,
+  storeDesignerPaymentDashboard,
+} from './designer-workspace-cache';
 import { toAppError } from './errors';
-import { calculatePaymentFees, getPaymentByTreatmentId, PaymentRecord } from './payment-record';
+import { calculatePaymentFees, listPaymentsForDesignerId, PaymentRecord } from './payment-record';
 import { supabase } from './supabase';
 import { getDesignerTreatments, Treatment } from './treatments';
 
@@ -36,17 +40,7 @@ function isAwaitingSettlement(status: PaymentRecord['status']) {
 
 async function loadDesignerPayments(designerId: string): Promise<PaymentRecord[]> {
   if (isDemoAuthMode || !supabase) {
-    const { treatments } = await getDesignerTreatments();
-    const records: PaymentRecord[] = [];
-
-    for (const treatment of treatments) {
-      const payment = await getPaymentByTreatmentId(treatment.id);
-      if (payment) {
-        records.push(payment);
-      }
-    }
-
-    return records;
+    return listPaymentsForDesignerId(designerId);
   }
 
   const { data, error } = await supabase
@@ -74,6 +68,12 @@ export async function fetchDesignerPaymentDashboard(): Promise<DesignerPaymentDa
       pendingPayoutCount: 0,
       recentSettlements: [],
     };
+  }
+
+  const cached = peekDesignerPaymentDashboardCache();
+
+  if (cached) {
+    return cached;
   }
 
   const { treatments } = await getDesignerTreatments();
@@ -118,7 +118,7 @@ export async function fetchDesignerPaymentDashboard(): Promise<DesignerPaymentDa
       };
     });
 
-  return {
+  const dashboard = {
     monthRevenue,
     monthSettlementCount,
     averageTreatmentPrice,
@@ -126,6 +126,10 @@ export async function fetchDesignerPaymentDashboard(): Promise<DesignerPaymentDa
     pendingPayoutCount: paidPending.length,
     recentSettlements,
   };
+
+  storeDesignerPaymentDashboard(dashboard);
+
+  return dashboard;
 }
 
 export type MonthlySettlementTotal = {
@@ -135,9 +139,14 @@ export type MonthlySettlementTotal = {
   settlementCount: number;
 };
 
+export function formatMonthYearLabel(monthKey: string) {
+  const [year, month] = monthKey.split('-');
+
+  return `${year}년 ${Number(month)}월`;
+}
+
 export function formatMonthSettlementLabel(monthKey: string) {
-  const [, month] = monthKey.split('-');
-  return `${Number(month)}월 정산 총액`;
+  return `${formatMonthYearLabel(monthKey)} 정산 총액`;
 }
 
 function settlementMonthKey(payment: PaymentRecord) {

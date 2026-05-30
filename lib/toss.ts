@@ -141,7 +141,7 @@ export function buildTossPaymentWebViewHtml(
 </head>
 <body>
   <h1>토스 테스트 결제</h1>
-  <p>${safeOrderName}<br/>${params.amount.toLocaleString('ko-KR')}원</p>
+  <p>${safeOrderName}<br/>${params.amount.toLocaleString('ko-KR')}</p>
   <button type="button" id="pay">테스트 결제 완료</button>
   <p class="sub">데모 모드 · 실제 카드 결제 없음</p>
   <script>

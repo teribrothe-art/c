@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { OrgScope } from '../../lib/org-access';
+import { formatAmount } from '../../lib/currency-input';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
@@ -68,12 +69,12 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
         ) : summary ? (
           <>
             <View style={styles.grid}>
-              <StatCard label="이번 달 매출" value={`${summary.monthRevenue.toLocaleString('ko-KR')}원`} />
+              <StatCard label="이번 달 매출" value={formatAmount(summary.monthRevenue)} />
               <StatCard
                 label="이번 달 시술"
                 value={`${summary.monthTreatmentCount.toLocaleString('ko-KR')}건`}
               />
-              <StatCard label="정산 대기" value={`${summary.pendingPayoutAmount.toLocaleString('ko-KR')}원`} />
+              <StatCard label="정산 대기" value={formatAmount(summary.pendingPayoutAmount)} />
               <StatCard label="연결 고객" value={`${summary.customerCount.toLocaleString('ko-KR')}명`} />
             </View>
 
@@ -92,7 +93,7 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
                 </View>
                 <View style={styles.rowStats}>
                   <Text style={styles.rowAmount}>
-                    {designer.monthRevenue.toLocaleString('ko-KR')}원
+                    {formatAmount(designer.monthRevenue)}
                   </Text>
                   <Text style={styles.rowSub}>
                     시술 {designer.monthTreatmentCount}건 · 고객 {designer.customerCount}명

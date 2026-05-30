@@ -18,6 +18,13 @@ import { toAppError } from './errors';
 import type { PaymentStatus } from './payment-status';
 import { filterTreatmentsForCustomerUser, sortTreatmentsForDiaryList } from './diary-list';
 import { sanitizeTreatmentsForCustomer, sanitizeTreatmentForCustomer } from './treatment-privacy';
+import { resolveRegisteredCustomerForDesigner } from './designer-customer-link';
+import {
+  invalidateDesignerWorkspaceCache,
+  peekDesignerTreatmentsCache,
+  storeDesignerTreatments,
+} from './designer-workspace-cache';
+import { ensureDesignerCustomerRelationship } from './registered-customers';
 import { defaultTreatmentTitle, DEFAULT_TREATMENT_DURATION } from './treatment-options';
 import { supabase } from './supabase';
 
@@ -249,6 +256,7 @@ const INITIAL_DEMO_TREATMENTS: Treatment[] = [
 const demoTreatments: Treatment[] = INITIAL_DEMO_TREATMENTS.map((item) => ({ ...item }));
 
 let demoHydratePromise: Promise<void> | null = null;
+const accumulatedTreatmentMergeDone = new Set<string>();
 
 async function hydrateDemoTreatments() {
   if (!demoHydratePromise) {
@@ -316,13 +324,28 @@ async function ensureAccumulatedDemoTreatmentsMerged(options?: {
 
   let merged = false;
 
-  if (options?.user) {
+  if (options?.user?.role === 'customer') {
     merged = mergeAccumulatedTreatmentsIntoStore(demoTreatments, options.user) || merged;
   }
 
+  const designerIds = new Set<string>();
+
   if (options?.designerId) {
+    designerIds.add(options.designerId);
+  }
+
+  if (options?.user?.role === 'designer') {
+    designerIds.add(options.user.id);
+  }
+
+  for (const designerId of designerIds) {
+    if (accumulatedTreatmentMergeDone.has(designerId)) {
+      continue;
+    }
+
     merged =
-      mergeAccumulatedTreatmentsForDesignerId(demoTreatments, options.designerId) || merged;
+      mergeAccumulatedTreatmentsForDesignerId(demoTreatments, designerId) || merged;
+    accumulatedTreatmentMergeDone.add(designerId);
   }
 
   if (merged) {
@@ -414,26 +437,38 @@ export async function getTreatmentById(id: string) {
 
 /** 매장·본사 조회 — 특정 디자이너 시술 목록 */
 export async function listTreatmentsForDesignerId(designerId: string): Promise<Treatment[]> {
+  const cached = peekDesignerTreatmentsCache(designerId);
+
+  if (cached) {
+    return cached;
+  }
+
+  let treatments: Treatment[];
+
   if (isDemoAuthMode || !supabase) {
     await hydrateDemoTreatments();
     await ensureAccumulatedDemoTreatmentsMerged({ designerId });
 
-    return demoTreatments
+    treatments = demoTreatments
       .filter((treatment) => treatment.designer_id === designerId)
       .sort((a, b) => b.treatment_date.localeCompare(a.treatment_date));
+  } else {
+    const { data, error } = await supabase
+      .from('treatments')
+      .select(treatmentSelectFields)
+      .eq('designer_id', designerId)
+      .order('treatment_date', { ascending: false });
+
+    if (error) {
+      throw toAppError(error);
+    }
+
+    treatments = (data ?? []) as Treatment[];
   }
 
-  const { data, error } = await supabase
-    .from('treatments')
-    .select(treatmentSelectFields)
-    .eq('designer_id', designerId)
-    .order('treatment_date', { ascending: false });
+  storeDesignerTreatments(designerId, treatments);
 
-  if (error) {
-    throw toAppError(error);
-  }
-
-  return (data ?? []) as Treatment[];
+  return treatments;
 }
 
 export async function getDesignerTreatments() {
@@ -447,33 +482,14 @@ export async function getDesignerTreatments() {
     return { user, treatments: [] as Treatment[] };
   }
 
-  if (isDemoAuthMode || !supabase) {
-    await hydrateDemoTreatments();
-    await ensureAccumulatedDemoTreatmentsMerged({ user });
+  const treatments = await listTreatmentsForDesignerId(user.id);
 
-    return {
-      user,
-      treatments: demoTreatments
-        .filter((treatment) => treatment.designer_id === user.id)
-        .sort((a, b) => b.treatment_date.localeCompare(a.treatment_date)),
-    };
-  }
-
-  const { data, error } = await supabase
-    .from('treatments')
-    .select(treatmentSelectFields)
-    .eq('designer_id', user.id)
-    .order('treatment_date', { ascending: false });
-
-  if (error) {
-    throw toAppError(error);
-  }
-
-  return { user, treatments: (data ?? []) as Treatment[] };
+  return { user, treatments };
 }
 
 export type CreateDesignerTreatmentInput = {
   customerName: string;
+  customerId?: string | null;
   treatmentType: string;
   treatmentTitle?: string;
   price?: number;
@@ -538,11 +554,23 @@ export async function createDesignerTreatment(input: CreateDesignerTreatmentInpu
       ? input.products.map((item) => item.trim()).filter(Boolean)
       : null;
 
+  let linkedCustomerId = input.customerId?.trim() || null;
+  let linkedCustomerName = customerName;
+
+  if (!linkedCustomerId) {
+    const matched = await resolveRegisteredCustomerForDesigner(user.id, customerName);
+
+    if (matched) {
+      linkedCustomerId = matched.id;
+      linkedCustomerName = matched.name;
+    }
+  }
+
   const baseRow = {
-    customer_id: null as string | null,
+    customer_id: linkedCustomerId,
     designer_id: user.id,
     designer_name: '디자이너',
-    customer_name: customerName,
+    customer_name: linkedCustomerName,
     treatment_date: treatmentDate,
     treatment_type: treatmentType,
     treatment_title: treatmentTitle,
@@ -576,6 +604,12 @@ export async function createDesignerTreatment(input: CreateDesignerTreatmentInpu
     demoTreatments.unshift(treatment);
     await persistDemoTreatments();
 
+    if (linkedCustomerId) {
+      await ensureDesignerCustomerRelationship(user.id, linkedCustomerId);
+    }
+
+    invalidateDesignerWorkspaceCache();
+
     return treatment;
   }
 
@@ -598,7 +632,15 @@ export async function createDesignerTreatment(input: CreateDesignerTreatmentInpu
     throw toAppError(error);
   }
 
-  return data as Treatment;
+  const created = data as Treatment;
+
+  if (linkedCustomerId) {
+    await ensureDesignerCustomerRelationship(user.id, linkedCustomerId);
+  }
+
+  invalidateDesignerWorkspaceCache();
+
+  return created;
 }
 
 export async function updateTreatment(id: string, updates: TreatmentUpdateInput) {
@@ -622,6 +664,8 @@ export async function updateTreatment(id: string, updates: TreatmentUpdateInput)
 
     await persistDemoTreatments();
 
+    invalidateDesignerWorkspaceCache();
+
     return demoTreatments[index];
   }
 
@@ -639,6 +683,8 @@ export async function updateTreatment(id: string, updates: TreatmentUpdateInput)
     throw toAppError(error);
   }
 
+  invalidateDesignerWorkspaceCache();
+
   return data as Treatment;
 }
 
@@ -653,7 +699,9 @@ export async function purgeAccumulatedFromDemoTreatmentStore(): Promise<number> 
   demoTreatments.length = 0;
   demoTreatments.push(...cleaned);
   await persistDemoTreatments();
+  accumulatedTreatmentMergeDone.clear();
   demoHydratePromise = null;
+  invalidateDesignerWorkspaceCache();
 
   return before - cleaned.length;
 }

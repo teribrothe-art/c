@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebView from 'react-native-webview';
 
 import { getCurrentUser } from '../../../lib/auth';
+import { formatAmount } from '../../../lib/currency-input';
 import { getErrorMessage } from '../../../lib/errors';
 import { getPaymentByTreatmentId, PaymentRecord } from '../../../lib/payment-record';
 import { supabase } from '../../../lib/supabase';
@@ -175,14 +176,14 @@ export default function PaymentReceiptScreen() {
         <View style={styles.block}>
           <Row label="결제 일시" value={paidAtLabel} />
           <Row label="시술 내역" value={treatment?.treatment_title || '-'} />
-          <Row label="결제 금액" value={`${payment.amount.toLocaleString('ko-KR')}원`} highlight />
+          <Row label="결제 금액" value={formatAmount(payment.amount)} highlight />
           <Row label="결제 수단" value={`카드 ****${maskCardLast4(payment.toss_payment_key)}`} />
           <Row label="거래 ID" value={payment.toss_payment_key || payment.toss_order_id || '-'} small />
         </View>
 
         {(payment.fee_amount ?? 0) > 0 ? (
           <Text style={styles.feeNote}>
-            플랫폼 수수료 {payment.fee_amount?.toLocaleString('ko-KR')}원 포함
+            플랫폼 수수료 {formatAmount(payment.fee_amount ?? 0)} 포함
           </Text>
         ) : null}
       </ScrollView>

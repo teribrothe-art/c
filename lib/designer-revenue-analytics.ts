@@ -3,18 +3,20 @@ import { toAppError } from './errors';
 import { calculatePaymentFees, getPaymentByTreatmentId, listPaymentsForDesignerId, PaymentRecord } from './payment-record';
 import { canViewOrgDesignerData } from './org-access';
 import {
+  buildMonthWeekdayTotals,
   buildWeeklyRevenueWeeks,
   formatDateWithWeekday,
   getWeekStartMonday,
   resolveDefaultWeekKey,
   toLocalDateString,
+  type MonthWeekdayTotal,
   type WeeklyRevenueWeek,
   type WeekdayRevenueCell,
 } from './designer-revenue-weekly';
 import { supabase } from './supabase';
 import { getDesignerTreatments, listTreatmentsForDesignerId, type Treatment } from './treatments';
 
-export type { WeekdayRevenueCell, WeeklyRevenueWeek };
+export type { MonthWeekdayTotal, WeekdayRevenueCell, WeeklyRevenueWeek };
 export { formatDateWithWeekday };
 
 export type MonthlyRevenueBucket = {
@@ -39,10 +41,20 @@ export type DesignerRevenueAnalytics = {
   selectedWeekKey: string;
   selectedWeek: WeeklyRevenueWeek;
   dailyTotals: DailyRevenuePoint[];
+  monthWeekdayTotals: MonthWeekdayTotal[];
   pendingPayoutAmount: number;
   pendingPayoutCount: number;
   averageTreatmentPrice: number;
   selectedMonthTreatmentCount: number;
+  selectedMonthSettlements: {
+    paymentId: string;
+    treatmentId: string;
+    customerName: string;
+    treatmentTitle: string;
+    date: string;
+    dateWithWeekdayLabel: string;
+    payout: number;
+  }[];
   recentSettlements: {
     paymentId: string;
     treatmentId: string;
@@ -183,10 +195,12 @@ function emptyAnalytics(monthKey: string): DesignerRevenueAnalytics {
       settlementCount: 0,
     },
     dailyTotals: [],
+    monthWeekdayTotals: buildMonthWeekdayTotals([], monthKey),
     pendingPayoutAmount: 0,
     pendingPayoutCount: 0,
     averageTreatmentPrice: 0,
     selectedMonthTreatmentCount: 0,
+    selectedMonthSettlements: [],
     recentSettlements: [],
     pendingSettlements: [],
   };
@@ -265,6 +279,7 @@ export async function fetchDesignerRevenueAnalytics(
       settlementCount: 0,
     };
   const dailyTotals = buildDailyTotals(completed, resolvedMonthKey);
+  const monthWeekdayTotals = buildMonthWeekdayTotals(completed, resolvedMonthKey);
 
   const paidPending = payments.filter(
     (payment) => payment.status === 'paid' || payment.status === 'in_escrow',
@@ -280,12 +295,13 @@ export async function fetchDesignerRevenueAnalytics(
       ? Math.round(priced.reduce((sum, treatment) => sum + (treatment.price ?? 0), 0) / priced.length)
       : 0;
 
-  const recentSettlements = payments
+  const selectedMonthSettlements = payments
     .filter((payment) => payment.status === 'completed' && payment.settled_at)
     .filter((payment) => monthKeyFromDate(settlementDateOf(payment)) === resolvedMonthKey)
     .sort((a, b) => (b.settled_at ?? '').localeCompare(a.settled_at ?? ''))
-    .slice(0, 8)
     .map((payment) => mapPaymentToSettlementRow(payment, treatmentMap));
+
+  const recentSettlements = selectedMonthSettlements.slice(0, 8);
 
   const pendingSettlements = paidPending
     .map((payment) => mapPaymentToSettlementRow(payment, treatmentMap))
@@ -299,10 +315,12 @@ export async function fetchDesignerRevenueAnalytics(
     selectedWeekKey: resolvedWeekKey,
     selectedWeek,
     dailyTotals,
+    monthWeekdayTotals,
     pendingPayoutAmount,
     pendingPayoutCount: paidPending.length,
     averageTreatmentPrice,
     selectedMonthTreatmentCount: monthTreatments.length,
+    selectedMonthSettlements,
     recentSettlements,
     pendingSettlements,
   };

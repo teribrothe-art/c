@@ -75,6 +75,7 @@ const TREATMENT_TEMPLATES = [
   { type: '펌', title: '볼륨 디지털 펌', price: 220000, duration: '3시간' },
   { type: '매직', title: '매직스트레이트', price: 280000, duration: '4시간' },
   { type: '트리트먼트', title: '단백질 딥 케어', price: 90000, duration: '1시간' },
+  { type: '스파', title: '헤드 스파', price: 110000, duration: '1시간' },
   { type: '탈색', title: '탈색 + 톤다운', price: 260000, duration: '3시간 40분' },
 ] as const;
 
