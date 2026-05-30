@@ -20,7 +20,7 @@ const styles = StyleSheet.create({
   block: {
     alignItems: 'center',
     gap: 10,
-    marginBottom: 28,
+    marginBottom: 12,
     maxWidth: loginLayout.maxContentWidth,
     width: '100%',
   },

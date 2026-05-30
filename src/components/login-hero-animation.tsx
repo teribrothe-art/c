@@ -12,9 +12,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, getLoginContentWidth } from '../../lib/theme';
 
-/** 로그인 배너 그리드 (가로 3 × 세로 1) — 인라인용 */
-const GRID_COLUMNS = 3;
-const GRID_ROWS = 1;
+/** 인라인 배너 — content 너비 대비 세로 비율 (기존 1/3 → 약 46%) */
+const INLINE_BANNER_HEIGHT_RATIO = 0.46;
 const DOCKED_BANNER_HEIGHT = 96;
 
 const HERO_MESSAGES = [
@@ -51,11 +50,10 @@ export function LoginHeroAnimation({ docked = false }: LoginHeroAnimationProps) 
     }
 
     const contentWidth = getLoginContentWidth(windowWidth);
-    const unit = contentWidth / GRID_COLUMNS;
 
     return {
       width: contentWidth,
-      height: unit * GRID_ROWS,
+      height: Math.round(contentWidth * INLINE_BANNER_HEIGHT_RATIO),
       paddingBottom: 0,
     };
   }, [docked, insets.bottom, windowWidth]);
@@ -230,7 +228,6 @@ const styles = StyleSheet.create({
   wrapInline: {
     alignSelf: 'center',
     borderRadius: 24,
-    marginTop: 8,
   },
   wrapDocked: {
     alignSelf: 'stretch',

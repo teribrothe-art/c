@@ -87,7 +87,9 @@ export default function LoginScreen() {
           {showQrEntry && activeView === 'qr' ? (
             <ConnectQrPanel embedded />
           ) : (
-            <View style={styles.form}>
+            <>
+              <LoginHeroAnimation />
+              <View style={styles.form}>
               <View>
                 <TextInput
                   autoCapitalize="none"
@@ -145,6 +147,7 @@ export default function LoginScreen() {
                 <Text style={styles.loginButtonText}>{isLoading ? '로그인 중...' : '로그인'}</Text>
               </Pressable>
             </View>
+            </>
           )}
 
           <View style={styles.footerLinks}>
@@ -187,7 +190,6 @@ export default function LoginScreen() {
           <AppVersionBadge pinned />
         </View>
       </ScrollView>
-      <LoginHeroAnimation docked />
     </KeyboardAvoidingView>
   );
 }
@@ -207,7 +209,7 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: 'center',
-    gap: 22,
+    gap: 18,
     maxWidth: loginLayout.maxContentWidth,
     width: '100%',
   },
