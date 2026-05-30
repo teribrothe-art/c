@@ -19,6 +19,7 @@ import {
   DesignerClientListItem,
   getDesignerClientListItems,
 } from '../../lib/customer-invitations';
+import { peekDesignerClientListCache } from '../../lib/designer-workspace-cache';
 import {
   DESIGNER_ONBOARDING_SLIDES,
   markOnboardingSeen,
@@ -42,7 +43,15 @@ export default function DesignerClientsScreen() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const loadClients = useCallback(() => {
-    setIsLoading(true);
+    const cached = peekDesignerClientListCache();
+
+    if (cached) {
+      setClientItems(cached);
+      setErrorMessage('');
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
+    }
 
     getDesignerClientListItems()
       .then((items) => {

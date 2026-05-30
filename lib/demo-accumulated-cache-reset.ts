@@ -1,4 +1,5 @@
 import { clearAccumulatedDemoHydrateCache } from './demo-accumulated-demo-hydrate';
+import { invalidateDesignerWorkspaceCache } from './designer-workspace-cache';
 import { stripAccumulatedRelationshipsFromStorage } from './demo-accumulated-relationships';
 import { clearAccumulatedTestProfilesCache } from './demo-accumulated-test-seeds';
 import { clearAccumulatedTreatmentPatchesStorage } from './demo-accumulated-treatment-patches';
@@ -23,6 +24,7 @@ export async function clearAccumulatedDemoCache(): Promise<ClearAccumulatedDemoC
 
   clearAccumulatedTestProfilesCache();
   clearAccumulatedDemoHydrateCache();
+  invalidateDesignerWorkspaceCache();
 
   return {
     removedTreatments,

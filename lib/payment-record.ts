@@ -9,6 +9,7 @@ import {
 } from './demo-accumulated-demo-hydrate';
 import { isAccumulatedTestTreatmentId } from './demo-accumulated-ids';
 import { getAccumulatedTestProfiles } from './demo-accumulated-test-seeds';
+import { invalidateDesignerWorkspaceCache } from './designer-workspace-cache';
 import { toAppError } from './errors';
 import { supabase } from './supabase';
 import { getTreatmentById, Treatment } from './treatments';
@@ -75,6 +76,7 @@ const INITIAL_DEMO_PAYMENTS: PaymentRecord[] = [
 const demoPayments: PaymentRecord[] = INITIAL_DEMO_PAYMENTS.map((item) => ({ ...item }));
 
 let demoPaymentsHydratePromise: Promise<void> | null = null;
+const accumulatedPaymentMergeDone = new Set<string>();
 
 async function hydrateDemoPayments() {
   if (!isDemoAuthMode) {
@@ -110,6 +112,7 @@ async function persistDemoPayments() {
     DEMO_PAYMENTS_KEY,
     JSON.stringify(paymentsForDemoPersistence(demoPayments)),
   );
+  invalidateDesignerWorkspaceCache();
 }
 
 async function ensureAccumulatedDemoPaymentsMerged(options?: {
@@ -118,12 +121,27 @@ async function ensureAccumulatedDemoPaymentsMerged(options?: {
 }) {
   let merged = false;
 
-  if (options?.user) {
+  if (options?.user?.role === 'customer') {
     merged = mergeAccumulatedPaymentsIntoStore(demoPayments, options.user) || merged;
   }
 
+  const designerIds = new Set<string>();
+
   if (options?.designerId) {
-    merged = mergeAccumulatedPaymentsForDesignerId(demoPayments, options.designerId) || merged;
+    designerIds.add(options.designerId);
+  }
+
+  if (options?.user?.role === 'designer') {
+    designerIds.add(options.user.id);
+  }
+
+  for (const designerId of designerIds) {
+    if (accumulatedPaymentMergeDone.has(designerId)) {
+      continue;
+    }
+
+    merged = mergeAccumulatedPaymentsForDesignerId(demoPayments, designerId) || merged;
+    accumulatedPaymentMergeDone.add(designerId);
   }
 
   return merged;
@@ -567,6 +585,7 @@ export async function purgeAccumulatedFromDemoPaymentStore(): Promise<number> {
   demoPayments.length = 0;
   demoPayments.push(...cleaned);
   await persistDemoPayments();
+  accumulatedPaymentMergeDone.clear();
   demoPaymentsHydratePromise = null;
 
   return before - cleaned.length;

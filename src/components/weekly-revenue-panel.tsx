@@ -1,32 +1,42 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import type { WeekdayRevenueCell } from '../../lib/designer-revenue-analytics';
+import type { WeekdayRevenueCell, WeeklyRevenueWeek } from '../../lib/designer-revenue-analytics';
 import { RevenueBarChart } from './revenue-bar-chart';
 
-const CORAL = '#FF5A5F';
 const MINT = '#00C2A8';
 const PURPLE = '#7B5EE6';
 
 type WeeklyRevenuePanelProps = {
-  weekLabel: string;
+  weeklyWeeks: WeeklyRevenueWeek[];
+  selectedWeekKey: string;
+  onSelectWeek: (weekKey: string) => void;
   days: WeekdayRevenueCell[];
   selectedDate: string | null;
   onSelectDay: (day: WeekdayRevenueCell) => void;
-  onPrevWeek?: () => void;
-  onNextWeek?: () => void;
-  canGoPrev?: boolean;
-  canGoNext?: boolean;
+  /** 상위 탭 카드 안에 넣을 때 제목·외곽 카드 생략 */
+  embedded?: boolean;
 };
 
+function formatWeekTabAmount(total: number) {
+  if (total <= 0) {
+    return '0원';
+  }
+
+  if (total >= 10000) {
+    return `${Math.round(total / 10000).toLocaleString('ko-KR')}만`;
+  }
+
+  return `${total.toLocaleString('ko-KR')}원`;
+}
+
 export function WeeklyRevenuePanel({
-  weekLabel,
+  weeklyWeeks,
+  selectedWeekKey,
+  onSelectWeek,
   days,
   selectedDate,
   onSelectDay,
-  onPrevWeek,
-  onNextWeek,
-  canGoPrev = false,
-  canGoNext = false,
+  embedded = false,
 }: WeeklyRevenuePanelProps) {
   const chartPoints = days.map((day) => ({
     key: day.date,
@@ -37,61 +47,58 @@ export function WeeklyRevenuePanel({
 
   const selectedDay = days.find((day) => day.date === selectedDate) ?? null;
 
-  return (
-    <View style={styles.card}>
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>주간 매출 (월~일)</Text>
-        <View style={styles.weekNav}>
-          <Pressable
-            disabled={!canGoPrev}
-            onPress={onPrevWeek}
-            style={[styles.navButton, !canGoPrev && styles.navButtonDisabled]}>
-            <Text style={styles.navButtonText}>‹</Text>
-          </Pressable>
-          <Text style={styles.weekLabel}>{weekLabel}</Text>
-          <Pressable
-            disabled={!canGoNext}
-            onPress={onNextWeek}
-            style={[styles.navButton, !canGoNext && styles.navButtonDisabled]}>
-            <Text style={styles.navButtonText}>›</Text>
-          </Pressable>
-        </View>
-      </View>
+  const handlePressChartDay = (dateKey: string) => {
+    const day = days.find((item) => item.date === dateKey);
 
-      <View style={styles.weekGrid}>
-        {days.map((day) => {
-          const selected = day.date === selectedDate;
+    if (day) {
+      onSelectDay(day);
+    }
+  };
 
-          return (
-            <Pressable
-              key={day.date}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              onPress={() => onSelectDay(day)}
-              style={({ pressed }) => [
-                styles.dayCell,
-                !day.inSelectedMonth && styles.dayCellOutsideMonth,
-                day.isToday && styles.dayCellToday,
-                selected && styles.dayCellSelected,
-                pressed && styles.dayCellPressed,
-              ]}>
-              <Text style={[styles.weekday, selected && styles.weekdaySelected]}>{day.weekdayLabel}</Text>
-              <Text style={[styles.dayAmount, selected && styles.dayAmountSelected]}>
-                {day.totalAmount > 0 ? `${(day.totalAmount / 10000).toFixed(0)}만` : '-'}
-              </Text>
-              <Text style={[styles.dayCount, selected && styles.dayCountSelected]}>
-                {day.settlementCount}건
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+  const body = (
+    <>
+      {!embedded ? <Text style={styles.title}>요일별 합계</Text> : null}
+
+      {weeklyWeeks.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.weekTabScroll}>
+          <View style={styles.weekTabRow}>
+            {weeklyWeeks.map((week) => {
+              const selected = week.weekKey === selectedWeekKey;
+
+              return (
+                <Pressable
+                  key={week.weekKey}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected }}
+                  onPress={() => onSelectWeek(week.weekKey)}
+                  style={({ pressed }) => [
+                    styles.weekTab,
+                    selected && styles.weekTabSelected,
+                    pressed && styles.weekTabPressed,
+                  ]}>
+                  <Text style={[styles.weekTabLabel, selected && styles.weekTabLabelSelected]}>
+                    {week.label}
+                  </Text>
+                  <Text style={[styles.weekTabAmount, selected && styles.weekTabAmountSelected]}>
+                    {formatWeekTabAmount(week.weekTotal)}
+                  </Text>
+                  <Text style={[styles.weekTabMeta, selected && styles.weekTabMetaSelected]}>
+                    {week.settlementCount}건
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </ScrollView>
+      ) : null}
 
       <RevenueBarChart
         barColor={MINT}
+        embedded
         maxBarHeight={100}
+        onPressPoint={handlePressChartDay}
         points={chartPoints}
-        title="요일별 합계"
+        selectedKey={selectedDate}
       />
 
       {selectedDay ? (
@@ -101,10 +108,16 @@ export function WeeklyRevenuePanel({
           <Text style={styles.detailMeta}>정산 {selectedDay.settlementCount}건</Text>
         </View>
       ) : (
-        <Text style={styles.hint}>요일을 누르면 날짜·요일과 합계 금액을 확인할 수 있어요</Text>
+        <Text style={styles.hint}>주간 탭·막대를 누르면 날짜별 정산 합계를 확인할 수 있어요</Text>
       )}
-    </View>
+    </>
   );
+
+  if (embedded) {
+    return <View style={styles.embedded}>{body}</View>;
+  }
+
+  return <View style={styles.card}>{body}</View>;
 }
 
 const styles = StyleSheet.create({
@@ -115,94 +128,63 @@ const styles = StyleSheet.create({
     gap: 14,
     padding: 16,
   },
-  headerRow: {
-    gap: 10,
+  embedded: {
+    gap: 14,
   },
   title: {
     color: '#1A1A2E',
     fontSize: 16,
     fontWeight: '800',
   },
-  weekNav: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'center',
+  weekTabScroll: {
+    marginHorizontal: -4,
   },
-  navButton: {
-    alignItems: 'center',
+  weekTabRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingBottom: 4,
+    paddingHorizontal: 4,
+  },
+  weekTab: {
     backgroundColor: '#F5F5F8',
-    borderRadius: 10,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
-  },
-  navButtonDisabled: {
-    opacity: 0.35,
-  },
-  navButtonText: {
-    color: '#1A1A2E',
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  weekLabel: {
-    color: PURPLE,
-    fontSize: 14,
-    fontWeight: '800',
-    minWidth: 140,
-    textAlign: 'center',
-  },
-  weekGrid: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  dayCell: {
-    alignItems: 'center',
-    backgroundColor: '#FAFAFC',
     borderColor: '#E8E8F0',
     borderRadius: 12,
     borderWidth: 1,
-    flex: 1,
-    gap: 4,
-    minHeight: 88,
+    minWidth: 108,
+    paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  dayCellOutsideMonth: {
-    opacity: 0.55,
-  },
-  dayCellToday: {
-    borderColor: '#FFD4D5',
-  },
-  dayCellSelected: {
+  weekTabSelected: {
     backgroundColor: '#F0EBFF',
     borderColor: PURPLE,
-    borderWidth: 2,
   },
-  dayCellPressed: {
-    opacity: 0.9,
+  weekTabPressed: {
+    opacity: 0.92,
   },
-  weekday: {
-    color: '#6B6B7B',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  weekdaySelected: {
-    color: PURPLE,
-  },
-  dayAmount: {
+  weekTabLabel: {
     color: '#1A1A2E',
     fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  weekTabLabelSelected: {
+    color: PURPLE,
+  },
+  weekTabAmount: {
+    color: '#FF5A5F',
+    fontSize: 15,
     fontWeight: '900',
   },
-  dayAmountSelected: {
-    color: CORAL,
+  weekTabAmountSelected: {
+    color: '#FF5A5F',
   },
-  dayCount: {
-    color: '#9CA3AF',
-    fontSize: 10,
+  weekTabMeta: {
+    color: '#6B6B7B',
+    fontSize: 11,
     fontWeight: '600',
+    marginTop: 2,
   },
-  dayCountSelected: {
+  weekTabMetaSelected: {
     color: '#6B6B7B',
   },
   detailBox: {
