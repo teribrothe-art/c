@@ -14,6 +14,7 @@ import { colors } from '../../lib/theme';
 import { OrgDashboardStatGrid } from '../../src/components/org-dashboard-stat-grid';
 import { LoadingState } from '../../src/components/loading-state';
 import { AdminBottomTabBar } from '../../src/components/admin-bottom-tab-bar';
+import { RevenueSplitStructureCard } from '../../src/components/revenue-split-structure-card';
 import { VirtualSimulationBanner } from '../../src/components/virtual-simulation-banner';
 
 export default function AdminHomeScreen() {
@@ -66,6 +67,8 @@ export default function AdminHomeScreen() {
           <Text style={styles.errorText}>{errorMessage}</Text>
         ) : summary ? (
           <>
+            <RevenueSplitStructureCard sampleGrossAmount={summary.monthRevenue || 100_000} />
+
             <OrgDashboardStatGrid
               items={[
                 {
@@ -131,6 +134,12 @@ export default function AdminHomeScreen() {
                 <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
                   <Text style={styles.quickTitle}>매출</Text>
                   <Text style={styles.quickMeta}>전체 매출·정산</Text>
+                </Pressable>
+              </Link>
+              <Link href="/admin/revenue-split" asChild>
+                <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
+                  <Text style={styles.quickTitle}>수수료</Text>
+                  <Text style={styles.quickMeta}>구조·상호 승인</Text>
                 </Pressable>
               </Link>
             </View>

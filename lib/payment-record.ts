@@ -14,8 +14,11 @@ import { toAppError } from './errors';
 import { supabase } from './supabase';
 import { getTreatmentById, Treatment } from './treatments';
 
-/** DB `payments.fee_rate` 기본값(0.04)과 동일 */
-export const PLATFORM_FEE_RATE = 0.04;
+import { getActiveRevenueSplitConfig } from './revenue-split-approval';
+import { calculateRevenueSplit, DEFAULT_REVENUE_SPLIT_CONFIG } from './revenue-split-config';
+
+/** DB `payments.fee_rate` 기본값(0.04)과 동일 — 본사 매출 수수료 */
+export const PLATFORM_FEE_RATE = DEFAULT_REVENUE_SPLIT_CONFIG.hqFeePercent / 100;
 
 export type PaymentRecordStatus =
   | 'pending'
@@ -173,13 +176,31 @@ function requireTreatmentParties(treatment: Treatment) {
 }
 
 export function calculatePaymentFees(amount: number, feeRate = PLATFORM_FEE_RATE) {
-  const feeAmount = Math.round(amount * feeRate);
-  const designerPayout = amount - feeAmount;
+  const config = {
+    ...DEFAULT_REVENUE_SPLIT_CONFIG,
+    hqFeePercent: feeRate * 100,
+  };
+  const split = calculateRevenueSplit(amount, config);
 
   return {
-    feeRate,
-    feeAmount,
-    designerPayout,
+    feeRate: config.hqFeePercent / 100,
+    feeAmount: split.hqFeeAmount,
+    designerPayout: split.designerPayout,
+    storePayout: split.storePayout,
+    cardFeeAmount: split.cardFeeAmount,
+  };
+}
+
+export async function calculatePaymentFeesWithActiveConfig(amount: number) {
+  const config = await getActiveRevenueSplitConfig();
+  const split = calculateRevenueSplit(amount, config);
+
+  return {
+    feeRate: config.hqFeePercent / 100,
+    feeAmount: split.hqFeeAmount,
+    designerPayout: split.designerPayout,
+    storePayout: split.storePayout,
+    cardFeeAmount: split.cardFeeAmount,
   };
 }
 
@@ -392,7 +413,7 @@ export async function markPaymentPaid(
   input: { tossPaymentKey: string; tossOrderId?: string | null; receiptUrl?: string | null },
 ) {
   const amount = (await getTreatmentById(treatmentId)).treatment?.price ?? 0;
-  const { feeRate, feeAmount, designerPayout } = calculatePaymentFees(amount);
+  const { feeRate, feeAmount, designerPayout } = await calculatePaymentFeesWithActiveConfig(amount);
   const now = new Date().toISOString();
 
   if (isDemoAuthMode || !supabase) {
@@ -509,7 +530,7 @@ export async function markPaymentCompleted(
   }
 
   const amount = (await getTreatmentById(treatmentId)).treatment?.price ?? 0;
-  const fees = calculatePaymentFees(amount);
+  const fees = await calculatePaymentFeesWithActiveConfig(amount);
 
   const { data, error } = await supabase
     .from('payments')
