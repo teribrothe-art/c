@@ -241,7 +241,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   storeList: {
-    gap: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
   },
   storeCard: {
     backgroundColor: '#E8F5E9',
@@ -249,8 +251,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     gap: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    width: '48%',
   },
   storeCardPressed: {
     backgroundColor: '#DFF2E0',
@@ -258,9 +261,9 @@ const styles = StyleSheet.create({
   },
   storeTapHint: {
     color: '#2E7D32',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '800',
-    marginTop: 6,
+    marginTop: 4,
   },
   storeSection: {
     gap: 10,
@@ -281,12 +284,12 @@ const styles = StyleSheet.create({
   },
   storeName: {
     color: '#1B5E20',
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '900',
   },
   storeRegion: {
     color: '#388E3C',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
   designerList: {

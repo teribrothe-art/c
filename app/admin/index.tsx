@@ -106,24 +106,30 @@ export default function AdminHomeScreen() {
             />
 
             <Text style={styles.sectionTitle}>지역별 플랜비</Text>
-            {virtualStores.map((store) => {
-              const storeDesigners = summary.designers.filter((designer) => designer.storeId === store.id);
+            <View style={styles.virtualStoreGrid}>
+              {virtualStores.map((store) => {
+                const storeDesigners = summary.designers.filter((designer) => designer.storeId === store.id);
 
-              return (
-                <View key={store.id} style={styles.virtualStoreRow}>
-                  <Text style={styles.virtualStoreName}>{store.name}</Text>
-                  <Text style={styles.virtualStoreMeta}>
-                    {store.region} · 디자이너 {store.designerCount}명 · 매출{' '}
-                    {formatAmount(store.monthGrossSales)} · 본사{' '}
-                    {formatAmount(store.monthHqRevenue)}
-                  </Text>
-                  <Text style={styles.virtualStoreHotPlace}>{store.hotPlace}</Text>
-                  <Text style={styles.virtualStoreDesigners} numberOfLines={1}>
-                    {formatDesignerNamePreview(storeDesigners.map((designer) => designer.name))}
-                  </Text>
-                </View>
-              );
-            })}
+                return (
+                  <View key={store.id} style={styles.virtualStoreRow}>
+                    <Text style={styles.virtualStoreName}>{store.name}</Text>
+                    <Text style={styles.virtualStoreMeta}>
+                      {store.region} · 디자이너 {store.designerCount}명
+                    </Text>
+                    <Text style={styles.virtualStoreMeta}>
+                      매출 {formatAmount(store.monthGrossSales)} · 본사{' '}
+                      {formatAmount(store.monthHqRevenue)}
+                    </Text>
+                    <Text style={styles.virtualStoreHotPlace} numberOfLines={2}>
+                      {store.hotPlace}
+                    </Text>
+                    <Text style={styles.virtualStoreDesigners} numberOfLines={2}>
+                      {formatDesignerNamePreview(storeDesigners.map((designer) => designer.name))}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
 
             <View style={styles.quickRow}>
               <Link href={'/admin/reservations' as Href} asChild>
@@ -219,25 +225,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  virtualStoreGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
   virtualStoreRow: {
     backgroundColor: '#FFFFFF',
     borderColor: '#E8E8F0',
     borderRadius: 12,
     borderWidth: 1,
     gap: 4,
-    marginBottom: 8,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 12,
+    width: '48%',
   },
   virtualStoreName: {
     color: '#1A1A2E',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '900',
   },
   virtualStoreMeta: {
     color: '#6B6B7B',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
+    lineHeight: 14,
   },
   virtualStoreHotPlace: {
     color: '#0F766E',
@@ -263,9 +275,9 @@ const styles = StyleSheet.create({
     borderColor: '#E8E8F0',
     borderRadius: 14,
     borderWidth: 1,
-    flex: 1,
     gap: 4,
     padding: 14,
+    width: '48%',
   },
   quickPressed: {
     opacity: 0.9,
