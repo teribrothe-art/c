@@ -1,6 +1,5 @@
 import { router } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
-import { useMemo } from 'react';
 import {
   Platform,
   Pressable,
@@ -14,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   formatExpoConnectShareMessage,
-  getExpoConnectShareUrl,
+  getExpoConnectShareStatus,
 } from '../lib/expo-connect-share';
 import { showErrorAlert, showSuccessAlert } from '../lib/alerts';
 import { colors } from '../lib/theme';
@@ -22,11 +21,8 @@ import { ConnectQrPanel } from '../src/components/connect-qr-panel';
 
 export default function ConnectShareScreen() {
   const insets = useSafeAreaInsets();
-  const connectUrl = useMemo(() => getExpoConnectShareUrl(), []);
-  const shareMessage = useMemo(
-    () => (connectUrl ? formatExpoConnectShareMessage(connectUrl) : ''),
-    [connectUrl],
-  );
+  const { url: connectUrl } = getExpoConnectShareStatus();
+  const shareMessage = connectUrl ? formatExpoConnectShareMessage(connectUrl) : '';
 
   const handleCopy = async () => {
     if (!connectUrl) {

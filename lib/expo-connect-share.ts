@@ -1,14 +1,25 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-/** Expo Go / Metro 접속 주소 (공유·복사용) */
-export function getExpoConnectShareUrl(): string | null {
-  const fromEnv = process.env.EXPO_PUBLIC_DEV_CONNECT_URL?.trim();
+import {
+  getManifestConnectUrl,
+  isConnectManifestPendingShare,
+  isConnectManifestStale,
+  readExpoConnectManifest,
+} from './expo-connect-manifest';
 
-  if (fromEnv) {
-    return fromEnv;
-  }
+export type ExpoConnectShareStatus = {
+  url: string | null;
+  /** manifest URL이 현재 버전과 맞게 등록됨 */
+  manifestSynced: boolean;
+  /** 버전은 맞지만 npm run share 전 */
+  pendingShare: boolean;
+  /** 구버전 manifest URL 보유 */
+  staleManifest: boolean;
+  manifestVersion: string | null;
+};
 
+function getRuntimeConnectUrl(): string | null {
   const hostUri = Constants.expoConfig?.hostUri?.trim();
 
   if (hostUri) {
@@ -27,6 +38,36 @@ export function getExpoConnectShareUrl(): string | null {
   }
 
   return null;
+}
+
+/** Expo Go / Metro 접속 주소 (공유·QR용) — app.json 버전과 manifest가 일치할 때 우선 */
+export function getExpoConnectShareUrl(): string | null {
+  const fromEnv = process.env.EXPO_PUBLIC_DEV_CONNECT_URL?.trim();
+
+  if (fromEnv) {
+    return fromEnv;
+  }
+
+  const fromManifest = getManifestConnectUrl();
+
+  if (fromManifest) {
+    return fromManifest;
+  }
+
+  return getRuntimeConnectUrl();
+}
+
+export function getExpoConnectShareStatus(): ExpoConnectShareStatus {
+  const manifest = readExpoConnectManifest();
+  const url = getExpoConnectShareUrl();
+
+  return {
+    url,
+    manifestSynced: Boolean(getManifestConnectUrl()),
+    pendingShare: isConnectManifestPendingShare(),
+    staleManifest: isConnectManifestStale(),
+    manifestVersion: manifest.version ?? null,
+  };
 }
 
 export function formatExpoConnectShareMessage(url: string) {
