@@ -1,33 +1,59 @@
-import { BETA_DESIGNERS } from './beta-test-accounts';
-import { ACCUMULATED_TEST_PROFILE_CONFIGS } from './demo-accumulated-test-accounts';
+import { getDesignerLinkedCustomerLoginSources } from './demo-designer-linked-customers';
+import { getAccumulatedTestProfiles } from './demo-accumulated-test-seeds';
 
-/** 데모 디자이너 연동 가입 고객 (김지원·박민지·이서연·서정현) */
-const DEMO_DESIGNER_CUSTOMER_COUNT = 4;
+function countUniqueCustomersInTreatments(
+  treatments: { customer_id?: string | null; customer_name?: string | null }[],
+) {
+  const ids = new Set<string>();
 
-const BETA_DESIGNER_CUSTOMER_COUNT = 1;
+  for (const treatment of treatments) {
+    const key = treatment.customer_id ?? treatment.customer_name;
+
+    if (key) {
+      ids.add(key);
+    }
+  }
+
+  return ids.size;
+}
 
 function buildDemoDesignerCustomerCountMap() {
   const map = new Map<string, number>();
 
-  map.set('demo-designer-local', DEMO_DESIGNER_CUSTOMER_COUNT);
-
-  for (const designer of BETA_DESIGNERS) {
-    map.set(designer.id, BETA_DESIGNER_CUSTOMER_COUNT);
+  for (const source of getDesignerLinkedCustomerLoginSources()) {
+    map.set(source.designerId, source.customers.length);
   }
 
-  for (const config of ACCUMULATED_TEST_PROFILE_CONFIGS) {
-    map.set(config.designer.id, config.customers.length);
+  for (const profile of getAccumulatedTestProfiles()) {
+    const linkedCount = profile.customers.length;
+    const activeCount = countUniqueCustomersInTreatments(profile.treatments);
+    map.set(profile.designer.id, activeCount > 0 ? activeCount : linkedCount);
   }
 
   return map;
 }
 
-export const DEMO_DESIGNER_CUSTOMER_COUNT_MAP = buildDemoDesignerCustomerCountMap();
+let customerCountMapCache: Map<string, number> | null = null;
+
+function getDemoDesignerCustomerCountMap() {
+  if (!customerCountMapCache) {
+    customerCountMapCache = buildDemoDesignerCustomerCountMap();
+  }
+
+  return customerCountMapCache;
+}
+
+/** 누적 시드 재빌드 후 고객수 캐시 초기화 */
+export function clearDemoDesignerCustomerCountCache() {
+  customerCountMapCache = null;
+}
 
 export function getDemoDesignerCustomerCount(designerId: string) {
-  return DEMO_DESIGNER_CUSTOMER_COUNT_MAP.get(designerId) ?? 0;
+  return getDemoDesignerCustomerCountMap().get(designerId) ?? 0;
 }
 
 export function formatDemoDesignerCustomerCount(count: number) {
   return `고객 ${count.toLocaleString('ko-KR')}명`;
 }
+
+export { countUniqueCustomersInTreatments };
