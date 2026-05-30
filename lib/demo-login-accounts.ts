@@ -10,10 +10,6 @@ import {
   getDesignerLinkedCustomerLoginSources,
 } from './demo-designer-linked-customers';
 import { formatDesignerStoreLabel, ORG_STORE_DEFINITIONS } from './org-store-affiliation';
-import {
-  SEO_JUNGHYUN_CUSTOMER_META,
-  SEO_JUNGHYUN_TEST_ACCOUNT,
-} from './demo-customer-seo-junghyun';
 import { STORE_TEST_ACCOUNTS } from './store-test-accounts';
 import { colors } from './theme';
 
@@ -30,12 +26,11 @@ export type DemoLoginAccount = {
 };
 
 /** 테스트 로그인 화면 분류 순서 */
-export const DEMO_LOGIN_GROUP_ORDER = ['기본', '본사', '매장', '디자이너', '가입고객'] as const;
+export const DEMO_LOGIN_GROUP_ORDER = ['본사', '매장', '디자이너', '가입고객'] as const;
 
 export type DemoLoginGroupKey = (typeof DEMO_LOGIN_GROUP_ORDER)[number];
 
 export const DEMO_LOGIN_GROUP_DESCRIPTIONS: Record<DemoLoginGroupKey, string> = {
-  기본: '데모 고객 계정',
   본사: '본사 어드민 · 전체 매장·디자이너·매출 조회',
   매장: '지역 핫플레이스 매장 전체 — 펼치면 목록 · 검색 가능',
   디자이너: `데모 · 베타 · 누적 · 증원 ${EXPANDED_STORE_DESIGNER_COUNT}명 — 펼치면 목록 · 검색 가능`,
@@ -237,40 +232,6 @@ const STORE_LOGIN_ACCOUNTS: DemoLoginAccount[] = STORE_TEST_ACCOUNTS.map((accoun
 
 export const STORE_LOGIN_COUNT = STORE_LOGIN_ACCOUNTS.length;
 
-const BASIC_ACCOUNTS: DemoLoginAccount[] = [
-  {
-    id: 'demo-customer-kim-jiwon',
-    group: '기본',
-    roleLabel: '고객',
-    loginLabel: '데모 고객 · 김지원',
-    email: DEMO_LOGIN_HINT.customerEmail,
-    password: DEMO_LOGIN_HINT.customerPassword,
-    accent: colors.coral,
-  },
-  {
-    id: 'demo-customer-lee-seoyeon',
-    group: '기본',
-    roleLabel: '고객',
-    loginLabel: '데모 고객 · 이서연',
-    email: 'customer@hair.app',
-    password: DEMO_LOGIN_HINT.customerPassword,
-    accent: colors.coral,
-  },
-  {
-    id: SEO_JUNGHYUN_TEST_ACCOUNT.id,
-    group: '기본',
-    roleLabel: '고객',
-    loginLabel: '서정현 · 2년 이력',
-    email: SEO_JUNGHYUN_TEST_ACCOUNT.email,
-    password: SEO_JUNGHYUN_TEST_ACCOUNT.password,
-    meta: SEO_JUNGHYUN_CUSTOMER_META,
-    accent: '#2563EB',
-    searchHaystack: ['서정현', 'seo-junghyun', '노원구', '남', '2년', '쉐도우펌', '다운펌']
-      .join(' ')
-      .toLowerCase(),
-  },
-];
-
 const ADMIN_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
   {
     id: ADMIN_TEST_PUBLIC.id,
@@ -335,7 +296,6 @@ export function getRegisteredCustomerLoginAccounts(): DemoLoginAccount[] {
 }
 
 const STATIC_DEMO_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
-  ...BASIC_ACCOUNTS,
   ...ADMIN_LOGIN_ACCOUNTS,
   ...STORE_LOGIN_ACCOUNTS,
   ...ALL_DESIGNER_LOGIN_ACCOUNTS,
@@ -346,9 +306,6 @@ export function getDemoLoginGroupCountLabel(title: DemoLoginGroupKey) {
   let count = 0;
 
   switch (title) {
-    case '기본':
-      count = BASIC_ACCOUNTS.length;
-      break;
     case '본사':
       count = ADMIN_LOGIN_COUNT;
       break;
