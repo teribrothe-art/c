@@ -1,4 +1,4 @@
-import { Link, router, useLocalSearchParams } from 'expo-router';
+import { Link, useLocalSearchParams } from 'expo-router';
 import type { Href } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {

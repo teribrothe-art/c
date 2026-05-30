@@ -1,13 +1,13 @@
 import { useFocusEffect, useLocalSearchParams, router } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   fetchDesignerRevenueAnalytics,
+  type DailyRevenuePoint,
   type DesignerRevenueAnalytics,
 } from '../../lib/designer-revenue-analytics';
-import type { DailyRevenuePoint } from '../../lib/designer-revenue-analytics';
 import { formatDateWithWeekday } from '../../lib/designer-revenue-weekly';
 import { formatAmount } from '../../lib/currency-input';
 import { getErrorMessage } from '../../lib/errors';
@@ -23,8 +23,6 @@ import {
 } from '../../src/components/designer-revenue-metric-grid';
 import { WeeklyRevenuePanel } from '../../src/components/weekly-revenue-panel';
 
-const CORAL = '#FF5A5F';
-const MINT = '#00C2A8';
 const PURPLE = '#7B5EE6';
 
 type SettlementListMode = 'month' | 'pending';

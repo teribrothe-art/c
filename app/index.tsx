@@ -90,8 +90,8 @@ export default function LoginScreen() {
             <>
               <LoginHeroAnimation />
               <View style={styles.form}>
-              <View>
-                <TextInput
+                <View>
+                  <TextInput
                   autoCapitalize="none"
                   autoComplete="email"
                   editable={!isLoading}
@@ -146,7 +146,7 @@ export default function LoginScreen() {
                 ]}>
                 <Text style={styles.loginButtonText}>{isLoading ? '로그인 중...' : '로그인'}</Text>
               </Pressable>
-            </View>
+              </View>
             </>
           )}
 
