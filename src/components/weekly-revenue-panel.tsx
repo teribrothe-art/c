@@ -13,6 +13,8 @@ type WeeklyRevenuePanelProps = {
   days: WeekdayRevenueCell[];
   selectedDate: string | null;
   onSelectDay: (day: WeekdayRevenueCell) => void;
+  /** 상위 탭 카드 안에 넣을 때 제목·외곽 카드 생략 */
+  embedded?: boolean;
 };
 
 function formatWeekTabAmount(total: number) {
@@ -34,6 +36,7 @@ export function WeeklyRevenuePanel({
   days,
   selectedDate,
   onSelectDay,
+  embedded = false,
 }: WeeklyRevenuePanelProps) {
   const chartPoints = days.map((day) => ({
     key: day.date,
@@ -52,9 +55,9 @@ export function WeeklyRevenuePanel({
     }
   };
 
-  return (
-    <View style={styles.card}>
-      <Text style={styles.title}>요일별 합계</Text>
+  const body = (
+    <>
+      {!embedded ? <Text style={styles.title}>요일별 합계</Text> : null}
 
       {weeklyWeeks.length > 0 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.weekTabScroll}>
@@ -107,8 +110,14 @@ export function WeeklyRevenuePanel({
       ) : (
         <Text style={styles.hint}>주간 탭·막대를 누르면 날짜별 정산 합계를 확인할 수 있어요</Text>
       )}
-    </View>
+    </>
   );
+
+  if (embedded) {
+    return <View style={styles.embedded}>{body}</View>;
+  }
+
+  return <View style={styles.card}>{body}</View>;
 }
 
 const styles = StyleSheet.create({
@@ -118,6 +127,9 @@ const styles = StyleSheet.create({
     elevation: 3,
     gap: 14,
     padding: 16,
+  },
+  embedded: {
+    gap: 14,
   },
   title: {
     color: '#1A1A2E',

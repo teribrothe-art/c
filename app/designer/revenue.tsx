@@ -19,6 +19,10 @@ import {
   DesignerRevenueMetricGrid,
   type DesignerRevenueMetricItem,
 } from '../../src/components/designer-revenue-metric-grid';
+import {
+  RevenueChartTabBar,
+  type RevenueChartTabKey,
+} from '../../src/components/revenue-chart-tab-bar';
 import { WeeklyRevenuePanel } from '../../src/components/weekly-revenue-panel';
 
 const CORAL = '#FF5A5F';
@@ -35,6 +39,7 @@ export default function DesignerRevenueScreen() {
   const [selectedWeekKey, setSelectedWeekKey] = useState<string | undefined>(undefined);
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
   const [settlementListMode, setSettlementListMode] = useState<SettlementListMode>('month');
+  const [chartTab, setChartTab] = useState<RevenueChartTabKey>('monthly');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const scrollRef = useRef<ScrollView>(null);
@@ -218,11 +223,17 @@ export default function DesignerRevenueScreen() {
         onPress: () => {
           setSettlementListMode('month');
           setSelectedDayDate(null);
+          setChartTab('weekday');
           scrollToSection(weekSectionY.current);
         },
       },
     ];
   }, [analytics, scrollToSection, showPendingSettlements]);
+
+  const handlePressMonthChart = (monthKey: string) => {
+    handleSelectMonth(monthKey);
+    scrollToSection(monthSectionY.current);
+  };
 
   const settlementGridItems = useMemo(
     () => mapRevenueSettlementsToGridItems(visibleSettlements),
@@ -266,12 +277,33 @@ export default function DesignerRevenueScreen() {
           />
         ) : (
           <>
-            <RevenueBarChart
-              barColor={PURPLE}
-              emptyMessage="월별 정산 매출이 없습니다"
-              points={monthlyChartPoints}
-              title="월별 매출 (정산 완료)"
-            />
+            <View
+              style={styles.chartCard}
+              onLayout={(event) => {
+                weekSectionY.current = event.nativeEvent.layout.y;
+              }}>
+              <RevenueChartTabBar activeTab={chartTab} onSelectTab={setChartTab} />
+              {chartTab === 'monthly' ? (
+                <RevenueBarChart
+                  barColor={PURPLE}
+                  embedded
+                  emptyMessage="월별 정산 매출이 없습니다"
+                  onPressPoint={handlePressMonthChart}
+                  points={monthlyChartPoints}
+                  selectedKey={analytics.selectedMonthKey}
+                />
+              ) : (
+                <WeeklyRevenuePanel
+                  days={analytics.selectedWeek.days}
+                  embedded
+                  onSelectDay={handleSelectDay}
+                  onSelectWeek={handleSelectWeek}
+                  selectedDate={selectedDayDate}
+                  selectedWeekKey={analytics.selectedWeekKey}
+                  weeklyWeeks={analytics.weeklyWeeks}
+                />
+              )}
+            </View>
 
             <View
               style={styles.card}
@@ -328,20 +360,6 @@ export default function DesignerRevenueScreen() {
             <DesignerRevenueMetricGrid items={revenueMetricItems} />
 
             <View
-              onLayout={(event) => {
-                weekSectionY.current = event.nativeEvent.layout.y;
-              }}>
-              <WeeklyRevenuePanel
-                days={analytics.selectedWeek.days}
-                onSelectDay={handleSelectDay}
-                onSelectWeek={handleSelectWeek}
-                selectedDate={selectedDayDate}
-                selectedWeekKey={analytics.selectedWeekKey}
-                weeklyWeeks={analytics.weeklyWeeks}
-              />
-            </View>
-
-            <View
               style={styles.card}
               onLayout={(event) => {
                 settlementSectionY.current = event.nativeEvent.layout.y;
@@ -393,6 +411,13 @@ const styles = StyleSheet.create({
   heroLabel: { color: '#6B6B7B', fontSize: 14, fontWeight: '700', marginBottom: 8 },
   heroValue: { color: '#1A1A2E', fontSize: 40, fontWeight: '900' },
   heroUnit: { color: '#6B6B7B', fontSize: 14, fontWeight: '600', marginTop: 4 },
+  chartCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    elevation: 3,
+    gap: 14,
+    padding: 16,
+  },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
