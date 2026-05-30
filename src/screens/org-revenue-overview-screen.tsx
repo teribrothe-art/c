@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { OrgScope } from '../../lib/org-access';
 import { formatAmount } from '../../lib/currency-input';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
+import type { VirtualSimulationScenario } from '../../lib/org-virtual-simulation';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
@@ -23,13 +24,14 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   useOrgRoleGuard(scope);
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
+  const [scenario, setScenario] = useState<VirtualSimulationScenario>('weekday');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
   const load = useCallback(() => {
     setIsLoading(true);
 
-    fetchOrgDashboardSummary(scope)
+    fetchOrgDashboardSummary(scope, { scenario, withVirtualSimulation: true })
       .then((data) => {
         setSummary(data);
         setErrorMessage('');
@@ -38,7 +40,7 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
         setErrorMessage(getErrorMessage(error, '매출을 불러오지 못했습니다.'));
       })
       .finally(() => setIsLoading(false));
-  }, [scope]);
+  }, [scenario, scope]);
 
   useFocusEffect(
     useCallback(() => {
@@ -60,7 +62,7 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
         <Text style={styles.title}>{scope === 'store' ? '매장 매출' : '본사 매출'}</Text>
         <Text style={styles.subtitle}>디자이너 매출·정산 화면과 동일 데이터를 합산합니다.</Text>
 
-        <VirtualSimulationBanner scenario="weekday" />
+        <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />

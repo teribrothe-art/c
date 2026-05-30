@@ -7,7 +7,10 @@ import { formatAmount } from '../../lib/currency-input';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import { getOrgStoreForAccountUser } from '../../lib/org-store-affiliation';
 import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
-import { getVirtualStoreForScope } from '../../lib/org-virtual-simulation';
+import {
+  getVirtualStoreForScope,
+  type VirtualSimulationScenario,
+} from '../../lib/org-virtual-simulation';
 import { getCurrentUser } from '../../lib/auth';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
@@ -21,6 +24,7 @@ export default function StoreHomeScreen() {
   useOrgRoleGuard('store');
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
+  const [scenario, setScenario] = useState<VirtualSimulationScenario>('weekday');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [linkedStoreName, setLinkedStoreName] = useState<string | null>(null);
@@ -33,7 +37,11 @@ export default function StoreHomeScreen() {
 
     Promise.all([getCurrentUser(), resolveCurrentStoreOrgId()])
       .then(([user, storeOrgId]) =>
-        fetchOrgDashboardSummary('store', { storeOrgId }).then((data) => ({
+        fetchOrgDashboardSummary('store', {
+          storeOrgId,
+          scenario,
+          withVirtualSimulation: true,
+        }).then((data) => ({
           user,
           data,
           storeOrgId,
@@ -52,7 +60,7 @@ export default function StoreHomeScreen() {
         setErrorMessage(getErrorMessage(error, '매장 현황을 불러오지 못했습니다.'));
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [scenario]);
 
   useFocusEffect(
     useCallback(() => {
@@ -73,7 +81,7 @@ export default function StoreHomeScreen() {
         <Text style={styles.title}>매장</Text>
         <Text style={styles.subtitle}>지역 플랜비 매장과 연동된 디자이너·매출을 확인합니다.</Text>
 
-        <VirtualSimulationBanner scenario="weekday" />
+        <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />

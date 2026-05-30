@@ -23,8 +23,8 @@ export const VIRTUAL_SIMULATION_SCENARIOS: {
   },
   {
     key: 'weekend_peak',
-    label: '주말 피크',
-    description: '주말 예약·시술이 몰리는 피크 시나리오',
+    label: '주말 운영',
+    description: '주말 예약·시술이 몰리는 운영 시나리오',
   },
   {
     key: 'month_end',

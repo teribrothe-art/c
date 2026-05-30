@@ -1,5 +1,6 @@
 import { Link, router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useState } from 'react';
+import type { VirtualSimulationScenario } from '../../lib/org-virtual-simulation';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,13 +21,14 @@ export default function AdminHomeScreen() {
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [virtualStores, setVirtualStores] = useState<ReturnType<typeof buildVirtualStoreSummaries>>([]);
+  const [scenario, setScenario] = useState<VirtualSimulationScenario>('weekday');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
   const load = useCallback(() => {
     setIsLoading(true);
 
-    fetchOrgDashboardSummary('admin')
+    fetchOrgDashboardSummary('admin', { scenario, withVirtualSimulation: true })
       .then((data) => {
         setSummary(data);
         setVirtualStores(buildVirtualStoreSummaries(data));
@@ -36,7 +38,7 @@ export default function AdminHomeScreen() {
         setErrorMessage(getErrorMessage(error, '본사 현황을 불러오지 못했습니다.'));
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [scenario]);
 
   useFocusEffect(
     useCallback(() => {
@@ -56,7 +58,7 @@ export default function AdminHomeScreen() {
         <Text style={styles.title}>본사</Text>
         <Text style={styles.subtitle}>지역별 플랜비 매장과 디자이너 매출·시술 데이터를 함께 봅니다.</Text>
 
-        <VirtualSimulationBanner scenario="weekday" />
+        <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
