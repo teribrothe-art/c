@@ -94,6 +94,7 @@ function ActivityCard({ stats }: { stats: ProfileStats }) {
               <Text style={styles.monthlySettlementTitle}>월별 정산</Text>
               <MonthlySettlementGrid
                 items={stats.monthlySettlementTotals}
+                onPressAll={() => router.push('/designer/revenue')}
                 onPressItem={(monthKey) =>
                   router.push({ pathname: '/designer/revenue', params: { month: monthKey } })
                 }
