@@ -85,7 +85,7 @@ export function TreatmentPhotoSlot({
         ) : (
           <View style={styles.centerContent}>
             <Text style={styles.cameraIcon}>📷</Text>
-            <Text style={styles.placeholderText}>사진 추가</Text>
+            <Text style={styles.placeholderText}>탭하여 촬영·선택</Text>
           </View>
         )}
       </Pressable>

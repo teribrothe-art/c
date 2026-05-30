@@ -23,7 +23,8 @@ import { prepareImageForUpload } from '../../../lib/prepare-upload-image';
 import { WonAmountInput } from '../../../src/components/won-amount-input';
 import {
   getTreatmentPhotoSignedUrl,
-  pickTreatmentPhotoFromLibrary,
+  pickTreatmentPhoto,
+  type TreatmentPhotoPickSource,
   removeTreatmentPhoto,
   TreatmentPhotoKind,
   uploadTreatmentPhoto,
@@ -31,6 +32,7 @@ import {
 
 import {
   showConfirmAlert,
+  showTreatmentPhotoSourceAlert,
   showErrorAlert,
   showSettlementCompleteAlert,
   showSuccessAlert,
@@ -770,13 +772,13 @@ export default function DesignerTreatmentInputScreen() {
         photoPreviews[kind],
     );
 
-  const runPickPhoto = async (kind: TreatmentPhotoKind) => {
+  const runPickPhoto = async (kind: TreatmentPhotoKind, source: TreatmentPhotoPickSource) => {
     if (!treatment || photoUploadStatus[kind] === 'uploading') {
       return;
     }
 
     try {
-      const pickedUri = await pickTreatmentPhotoFromLibrary();
+      const pickedUri = await pickTreatmentPhoto(source);
 
       if (!pickedUri) {
         return;
@@ -790,11 +792,14 @@ export default function DesignerTreatmentInputScreen() {
       await uploadPreparedPhoto(kind, pickedUri);
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
+      const failureTitle = source === 'camera' ? '촬영 실패' : '사진 선택 실패';
+      const failureFallback =
+        source === 'camera' ? '사진을 촬영하지 못했습니다.' : '사진을 선택하지 못했습니다.';
 
       if (message === 'PHOTO_TOO_LARGE') {
         showWarningAlert('사진 용량은 5MB 이하만 업로드할 수 있습니다. 다른 사진을 선택해주세요.', '용량 초과');
       } else {
-        showErrorAlert(getErrorMessage(error, '사진을 선택하지 못했습니다.'), '사진 선택 실패');
+        showErrorAlert(getErrorMessage(error, failureFallback), failureTitle);
       }
     }
   };
@@ -807,14 +812,16 @@ export default function DesignerTreatmentInputScreen() {
     const label = photoKindLabel(kind);
     const isChange = hasTreatmentPhoto(kind);
 
-    showConfirmAlert({
-      title: isChange ? '사진 변경' : '사진 등록',
+    showTreatmentPhotoSourceAlert({
+      title: isChange ? '사진 변경' : '사진 추가',
       message: isChange
-        ? `${label} 사진을 다른 사진으로 바꿀까요?`
-        : `${label} 사진을 등록할까요?`,
-      confirmLabel: isChange ? '변경' : '등록',
-      onConfirm: () => {
-        void runPickPhoto(kind);
+        ? `${label} 사진을 바로 촬영하거나 앨범에서 선택하세요.`
+        : `${label} 사진을 바로 촬영하거나 앨범에서 선택하세요.`,
+      onCamera: () => {
+        void runPickPhoto(kind, 'camera');
+      },
+      onLibrary: () => {
+        void runPickPhoto(kind, 'library');
       },
     });
   };
