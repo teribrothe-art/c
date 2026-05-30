@@ -134,10 +134,10 @@ export default function StoreHomeScreen() {
             ) : null}
 
             <View style={styles.quickRow}>
-              <Link href="/store/simulation" asChild>
+              <Link href="/store/reservations" asChild>
                 <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
-                  <Text style={styles.quickTitle}>시뮬</Text>
-                  <Text style={styles.quickMeta}>시나리오·타임라인</Text>
+                  <Text style={styles.quickTitle}>예약</Text>
+                  <Text style={styles.quickMeta}>가입 고객 시술·예약 현황</Text>
                 </Pressable>
               </Link>
               <Link href="/store/customers" asChild>

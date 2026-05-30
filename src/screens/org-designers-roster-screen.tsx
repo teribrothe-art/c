@@ -10,19 +10,26 @@ import {
   type OrgDesignerMetrics,
   type OrgDesignerStoreGroup,
 } from '../../lib/org-aggregates';
-import { formatAmount } from '../../lib/currency-input';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
+import {
+  GlobalStoreMetricTabs,
+  metricsFromStoreGroup,
+  StoreMetricDetail,
+  type StoreMetricTab,
+} from '../components/store-metric-tabs';
 
 function StoreGroupCard({
   group,
+  tab,
   onPress,
 }: {
   group: OrgDesignerStoreGroup;
+  tab: StoreMetricTab;
   onPress: () => void;
 }) {
   return (
@@ -34,11 +41,7 @@ function StoreGroupCard({
       <Text style={styles.storeLabel}>소속 매장</Text>
       <Text style={styles.storeName}>{group.storeName}</Text>
       <Text style={styles.storeRegion}>{group.storeRegion}</Text>
-      <Text style={styles.storeStats}>
-        디자이너 {group.designers.length}명 · 고객 {group.customerCount}명 · 이번 달 시술{' '}
-        {group.monthTreatmentCount}건 · 매출 {formatAmount(group.monthGrossSales)} · 본사{' '}
-        {formatAmount(group.monthHqRevenue)}
-      </Text>
+      <StoreMetricDetail snapshot={metricsFromStoreGroup(group)} tab={tab} />
       <Text style={styles.storeTapHint}>탭하여 소속 디자이너 보기 →</Text>
     </Pressable>
   );
@@ -81,6 +84,7 @@ export function OrgDesignersRosterScreen() {
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  const [globalMetricTab, setGlobalMetricTab] = useState<StoreMetricTab>('designers');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -122,12 +126,31 @@ export function OrgDesignersRosterScreen() {
           { paddingTop: insets.top + 16, paddingBottom: Math.max(insets.bottom, 20) + 100 },
         ]}
         showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>디자이너</Text>
-        <Text style={styles.subtitle}>
-          {selectedGroup
-            ? '소속 디자이너의 매출·고객·시술을 조회하세요.'
-            : '소속 매장을 선택한 뒤 디자이너 목록을 확인하세요.'}
-        </Text>
+        <View style={styles.headerBlock}>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>매장</Text>
+            <View style={styles.globalMetricsTabHost}>
+              <GlobalStoreMetricTabs tab={globalMetricTab} onTabChange={setGlobalMetricTab} />
+            </View>
+            {selectedGroup ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="소속 매장 목록으로"
+                onPress={() => setSelectedStoreId(null)}
+                style={({ pressed }) => [
+                  styles.headerBackEmoji,
+                  pressed && styles.headerBackEmojiPressed,
+                ]}>
+                <Text style={styles.headerBackEmojiIcon}>↩️</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          <Text style={styles.subtitle}>
+            {selectedGroup
+              ? '소속 디자이너의 매출·고객·시술을 조회하세요.'
+              : '상단 탭으로 전체 매장 지표를 함께 전환합니다.'}
+          </Text>
+        </View>
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -135,22 +158,11 @@ export function OrgDesignersRosterScreen() {
           <EmptyState title="불러오기 실패" subtitle={errorMessage} />
         ) : summary && selectedGroup ? (
           <View style={styles.storeSection}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setSelectedStoreId(null)}
-              style={({ pressed }) => [styles.backToStores, pressed && styles.actionPressed]}>
-              <Text style={styles.backToStoresText}>‹ 소속 매장</Text>
-            </Pressable>
             <View style={styles.storeHeader}>
               <Text style={styles.storeLabel}>소속 매장</Text>
               <Text style={styles.storeName}>{selectedGroup.storeName}</Text>
               <Text style={styles.storeRegion}>{selectedGroup.storeRegion}</Text>
-              <Text style={styles.storeStats}>
-                디자이너 {selectedGroup.designers.length}명 · 고객 {selectedGroup.customerCount}명 · 이번
-                달 시술 {selectedGroup.monthTreatmentCount}건 · 매출{' '}
-                {formatAmount(selectedGroup.monthGrossSales)} · 본사{' '}
-                {formatAmount(selectedGroup.monthHqRevenue)}
-              </Text>
+              <StoreMetricDetail snapshot={metricsFromStoreGroup(selectedGroup)} tab={globalMetricTab} />
             </View>
             <View style={styles.designerList}>
               {selectedGroup.designers.map((designer) => (
@@ -164,6 +176,7 @@ export function OrgDesignersRosterScreen() {
               <StoreGroupCard
                 key={group.storeId}
                 group={group}
+                tab={globalMetricTab}
                 onPress={() => setSelectedStoreId(group.storeId)}
               />
             ))}
@@ -184,10 +197,42 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingHorizontal: 18,
   },
+  headerBlock: {
+    gap: 6,
+  },
+  titleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
   title: {
     color: '#1A1A2E',
+    flexShrink: 0,
     fontSize: 24,
     fontWeight: '900',
+  },
+  globalMetricsTabHost: {
+    flex: 1,
+    minWidth: 0,
+  },
+  headerBackEmoji: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexShrink: 0,
+    height: 34,
+    justifyContent: 'center',
+    width: 34,
+  },
+  headerBackEmojiPressed: {
+    backgroundColor: '#F5F5F8',
+    opacity: 0.92,
+  },
+  headerBackEmojiIcon: {
+    fontSize: 16,
+    lineHeight: 20,
   },
   subtitle: {
     color: '#6B6B7B',
@@ -217,15 +262,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 6,
   },
-  backToStores: {
-    alignSelf: 'flex-start',
-    paddingVertical: 4,
-  },
-  backToStoresText: {
-    color: colors.purple,
-    fontSize: 14,
-    fontWeight: '800',
-  },
   storeSection: {
     gap: 10,
   },
@@ -252,12 +288,6 @@ const styles = StyleSheet.create({
     color: '#388E3C',
     fontSize: 12,
     fontWeight: '600',
-  },
-  storeStats: {
-    color: '#4B5563',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 4,
   },
   designerList: {
     gap: 10,

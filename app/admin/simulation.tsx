@@ -1,5 +1,5 @@
-import { OrgSimulationScreen } from '../../src/screens/org-simulation-screen';
+import { Redirect } from 'expo-router';
 
-export default function AdminSimulationScreen() {
-  return <OrgSimulationScreen scope="admin" />;
+export default function AdminSimulationRedirect() {
+  return <Redirect href="/admin/reservations" />;
 }

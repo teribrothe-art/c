@@ -6,8 +6,8 @@ import { colors } from '../../lib/theme';
 
 const tabs: { href: Href; label: string }[] = [
   { href: '/admin' as Href, label: '홈' },
-  { href: '/admin/designers' as Href, label: '디자이너' },
-  { href: '/admin/simulation' as Href, label: '시뮬' },
+  { href: '/admin/designers' as Href, label: '매장' },
+  { href: '/admin/reservations' as Href, label: '예약' },
   { href: '/admin/revenue' as Href, label: '매출' },
   { href: '/admin/profile' as Href, label: '계정' },
 ];
