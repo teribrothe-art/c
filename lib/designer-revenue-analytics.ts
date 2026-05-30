@@ -12,7 +12,7 @@ import {
   type WeekdayRevenueCell,
 } from './designer-revenue-weekly';
 import { supabase } from './supabase';
-import { getDesignerTreatments, listTreatmentsForDesignerId } from './treatments';
+import { getDesignerTreatments, listTreatmentsForDesignerId, type Treatment } from './treatments';
 
 export type { WeekdayRevenueCell, WeeklyRevenueWeek };
 export { formatDateWithWeekday };
@@ -44,6 +44,15 @@ export type DesignerRevenueAnalytics = {
   averageTreatmentPrice: number;
   selectedMonthTreatmentCount: number;
   recentSettlements: {
+    paymentId: string;
+    treatmentId: string;
+    customerName: string;
+    treatmentTitle: string;
+    date: string;
+    dateWithWeekdayLabel: string;
+    payout: number;
+  }[];
+  pendingSettlements: {
     paymentId: string;
     treatmentId: string;
     customerName: string;
@@ -179,6 +188,22 @@ function emptyAnalytics(monthKey: string): DesignerRevenueAnalytics {
     averageTreatmentPrice: 0,
     selectedMonthTreatmentCount: 0,
     recentSettlements: [],
+    pendingSettlements: [],
+  };
+}
+
+function mapPaymentToSettlementRow(payment: PaymentRecord, treatmentMap: Map<string, Treatment>) {
+  const treatment = treatmentMap.get(payment.treatment_id);
+  const date = (payment.paid_at ?? payment.created_at).slice(0, 10);
+
+  return {
+    paymentId: payment.id,
+    treatmentId: payment.treatment_id,
+    customerName: treatment?.customer_name || '고객',
+    treatmentTitle: treatment?.treatment_title || '시술',
+    date,
+    dateWithWeekdayLabel: formatDateWithWeekday(date),
+    payout: payoutOf(payment),
   };
 }
 
@@ -260,21 +285,11 @@ export async function fetchDesignerRevenueAnalytics(
     .filter((payment) => monthKeyFromDate(settlementDateOf(payment)) === resolvedMonthKey)
     .sort((a, b) => (b.settled_at ?? '').localeCompare(a.settled_at ?? ''))
     .slice(0, 8)
-    .map((payment) => {
-      const treatment = treatmentMap.get(payment.treatment_id);
+    .map((payment) => mapPaymentToSettlementRow(payment, treatmentMap));
 
-      const date = settlementDateOf(payment);
-
-      return {
-        paymentId: payment.id,
-        treatmentId: payment.treatment_id,
-        customerName: treatment?.customer_name || '고객',
-        treatmentTitle: treatment?.treatment_title || '시술',
-        date,
-        dateWithWeekdayLabel: formatDateWithWeekday(date),
-        payout: payoutOf(payment),
-      };
-    });
+  const pendingSettlements = paidPending
+    .map((payment) => mapPaymentToSettlementRow(payment, treatmentMap))
+    .sort((a, b) => b.date.localeCompare(a.date));
 
   return {
     months,
@@ -289,5 +304,6 @@ export async function fetchDesignerRevenueAnalytics(
     averageTreatmentPrice,
     selectedMonthTreatmentCount: monthTreatments.length,
     recentSettlements,
+    pendingSettlements,
   };
 }
