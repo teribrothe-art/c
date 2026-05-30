@@ -1,9 +1,9 @@
 {
   "version": "1.0.4",
   "buildLabel": "2026-05-27 · QR·본사수익·정산·시뮬·매출차트",
-  "url": null,
-  "updatedAt": "2026-05-27T00:00:00.000Z",
-  "mode": null,
-  "shareable": null,
-  "ngrokPublicUrl": null
+  "url": "exp://etgwoos-anonymous-8081.exp.direct",
+  "updatedAt": "2026-05-30T17:24:51.912Z",
+  "mode": "tunnel",
+  "shareable": true,
+  "ngrokPublicUrl": "https://etgwoos-anonymous-8081.exp.direct"
 }
