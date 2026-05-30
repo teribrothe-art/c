@@ -43,6 +43,7 @@ import {
 import { getErrorMessage } from '../lib/errors';
 import { navigateBackOrReplace } from '../lib/navigation';
 import { signInAndNavigate } from '../lib/quick-login-flow';
+import { formatDemoDesignerCustomerCount } from '../lib/demo-designer-customer-counts';
 import { colors } from '../lib/theme';
 import { AppVersionBadge } from '../src/components/app-version-badge';
 import { TestLoginAccountGrid } from '../src/components/test-login-account-grid';
@@ -343,6 +344,11 @@ function AccountRow({
         <Text style={styles.rowMeta}>
           {account.email} · {account.password}
         </Text>
+        {typeof account.customerCount === 'number' ? (
+          <Text style={styles.rowCustomerCount}>
+            {formatDemoDesignerCustomerCount(account.customerCount)}
+          </Text>
+        ) : null}
         {account.meta ? <Text style={styles.rowMeta}>{account.meta}</Text> : null}
       </View>
       {isLoading ? (
@@ -773,6 +779,12 @@ const styles = StyleSheet.create({
     color: '#6B6B7B',
     fontSize: 11,
     fontWeight: '600',
+    lineHeight: 16,
+  },
+  rowCustomerCount: {
+    color: '#00C2A8',
+    fontSize: 12,
+    fontWeight: '900',
     lineHeight: 16,
   },
   rowAction: {

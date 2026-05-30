@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { DemoLoginAccount } from '../../lib/demo-login-accounts';
+import { formatDemoDesignerCustomerCount } from '../../lib/demo-designer-customer-counts';
 
 type TestLoginAccountGridProps = {
   accounts: DemoLoginAccount[];
@@ -38,6 +39,11 @@ export function TestLoginAccountGrid({ accounts, loadingId, onLogin }: TestLogin
                 {account.loginLabel}
               </Text>
               <Text style={styles.badge}>{account.roleLabel}</Text>
+              {typeof account.customerCount === 'number' ? (
+                <Text style={styles.customerCount}>
+                  {formatDemoDesignerCustomerCount(account.customerCount)}
+                </Text>
+              ) : null}
               {account.meta ? (
                 <Text style={styles.meta} numberOfLines={2}>
                   {account.meta}
@@ -107,6 +113,13 @@ const styles = StyleSheet.create({
     color: '#6B6B7B',
     fontSize: 8,
     fontWeight: '800',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  customerCount: {
+    color: '#00C2A8',
+    fontSize: 8,
+    fontWeight: '900',
     marginTop: 2,
     textAlign: 'center',
   },

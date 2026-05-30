@@ -11,6 +11,7 @@ import {
 } from './demo-designer-linked-customers';
 import { formatDesignerStoreLabel, ORG_STORE_DEFINITIONS } from './org-store-affiliation';
 import { DESIGNER_APP_TAB_LABELS } from './designer-app-tabs';
+import { getDemoDesignerCustomerCount, formatDemoDesignerCustomerCount } from './demo-designer-customer-counts';
 import { STORE_TEST_ACCOUNTS } from './store-test-accounts';
 import { colors } from './theme';
 
@@ -22,6 +23,7 @@ export type DemoLoginAccount = {
   email: string;
   password: string;
   meta?: string;
+  customerCount?: number;
   accent: string;
   searchHaystack?: string;
 };
@@ -83,6 +85,20 @@ function designerSearchHaystack(parts: string[]) {
   return parts.join(' ').toLowerCase();
 }
 
+function withDesignerCustomerCount(
+  account: Omit<DemoLoginAccount, 'customerCount'>,
+): DemoLoginAccount {
+  const customerCount = getDemoDesignerCustomerCount(account.id);
+
+  return {
+    ...account,
+    customerCount,
+    searchHaystack: `${account.searchHaystack ?? ''} ${formatDemoDesignerCustomerCount(customerCount)} ${customerCount}`
+      .trim()
+      .toLowerCase(),
+  };
+}
+
 function accumulatedDesignerYearLabel(profileKey: string) {
   if (profileKey === '1y') {
     return '1년';
@@ -118,7 +134,7 @@ function accumulatedDesignerAccent(profileKey: string) {
   return '#7B5EE6';
 }
 
-const DEMO_DESIGNER_ACCOUNT: DemoLoginAccount = {
+const DEMO_DESIGNER_ACCOUNT: DemoLoginAccount = withDesignerCustomerCount({
   id: 'demo-designer-local',
   group: '디자이너',
   roleLabel: '데모',
@@ -135,26 +151,28 @@ const DEMO_DESIGNER_ACCOUNT: DemoLoginAccount = {
     'demo-designer-local',
     formatDesignerStoreLabel('demo-designer-local'),
   ]),
-};
+});
 
-const BETA_DESIGNER_ACCOUNTS: DemoLoginAccount[] = BETA_DESIGNERS.map((designer) => ({
-  id: designer.id,
-  group: '디자이너',
-  roleLabel: '베타',
-  loginLabel: designer.name,
-  email: designer.email,
-  password: designer.password,
-  meta: formatDesignerStoreLabel(designer.id),
-  accent: '#9B8AFB',
-  searchHaystack: designerSearchHaystack([
-    '베타',
-    '디자이너',
-    designer.name,
-    designer.email,
-    designer.id,
-    formatDesignerStoreLabel(designer.id),
-  ]),
-}));
+const BETA_DESIGNER_ACCOUNTS: DemoLoginAccount[] = BETA_DESIGNERS.map((designer) =>
+  withDesignerCustomerCount({
+    id: designer.id,
+    group: '디자이너',
+    roleLabel: '베타',
+    loginLabel: designer.name,
+    email: designer.email,
+    password: designer.password,
+    meta: formatDesignerStoreLabel(designer.id),
+    accent: '#9B8AFB',
+    searchHaystack: designerSearchHaystack([
+      '베타',
+      '디자이너',
+      designer.name,
+      designer.email,
+      designer.id,
+      formatDesignerStoreLabel(designer.id),
+    ]),
+  }),
+);
 
 function accumulatedDesignerRoleLabel(profileKey: string) {
   return profileKey.startsWith('exp-') ? '증원' : '누적';
@@ -165,7 +183,7 @@ const ACCUMULATED_DESIGNER_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_DESIG
     const roleLabel = accumulatedDesignerRoleLabel(designer.profileKey);
     const yearLabel = accumulatedDesignerYearLabel(designer.profileKey);
 
-    return {
+    return withDesignerCustomerCount({
       id: designer.id,
       group: '디자이너',
       roleLabel,
@@ -185,7 +203,7 @@ const ACCUMULATED_DESIGNER_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_DESIG
         designer.id,
         formatDesignerStoreLabel(designer.id),
       ]),
-    };
+    });
   },
 );
 
