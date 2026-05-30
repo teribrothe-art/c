@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -16,6 +16,7 @@ import { colors } from '../../lib/theme';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
+import { AdminSectionTabBar } from '../components/admin-section-tab-bar';
 import {
   GlobalStoreMetricTabs,
   metricsFromStoreGroup,
@@ -85,6 +86,7 @@ export function OrgDesignersRosterScreen() {
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [globalMetricTab, setGlobalMetricTab] = useState<StoreMetricTab>('designers');
+  const [storeSearch, setStoreSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -118,6 +120,21 @@ export function OrgDesignersRosterScreen() {
     [selectedStoreId, storeGroups],
   );
 
+  const filteredStoreGroups = useMemo(() => {
+    const query = storeSearch.trim().toLowerCase();
+
+    if (!query) {
+      return storeGroups;
+    }
+
+    return storeGroups.filter(
+      (group) =>
+        group.storeName.toLowerCase().includes(query) ||
+        group.storeRegion.toLowerCase().includes(query) ||
+        group.storeId.toLowerCase().includes(query),
+    );
+  }, [storeGroups, storeSearch]);
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -126,6 +143,8 @@ export function OrgDesignersRosterScreen() {
           { paddingTop: insets.top + 16, paddingBottom: Math.max(insets.bottom, 20) + 100 },
         ]}
         showsVerticalScrollIndicator={false}>
+        <AdminSectionTabBar />
+
         <View style={styles.headerBlock}>
           <View style={styles.titleRow}>
             <Text style={styles.title}>매장</Text>
@@ -148,8 +167,20 @@ export function OrgDesignersRosterScreen() {
           <Text style={styles.subtitle}>
             {selectedGroup
               ? '소속 디자이너의 매출·고객·시술을 조회하세요.'
-              : '상단 탭으로 전체 매장 지표를 함께 전환합니다.'}
+              : `전국 ${storeGroups.length.toLocaleString('ko-KR')}개 매장 · 검색으로 찾기`}
           </Text>
+          {!selectedGroup ? (
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+              onChangeText={setStoreSearch}
+              placeholder="매장명 · 지역 · ID 검색"
+              placeholderTextColor="#9CA3AF"
+              style={styles.storeSearchInput}
+              value={storeSearch}
+            />
+          ) : null}
         </View>
 
         {isLoading ? (
@@ -171,16 +202,22 @@ export function OrgDesignersRosterScreen() {
             </View>
           </View>
         ) : summary ? (
-          <View style={styles.storeList}>
-            {storeGroups.map((group) => (
+          <FlatList
+            data={filteredStoreGroups}
+            keyExtractor={(item) => item.storeId}
+            scrollEnabled={false}
+            contentContainerStyle={styles.storeList}
+            ListEmptyComponent={
+              <EmptyState title="검색 결과 없음" subtitle="다른 키워드로 검색해 보세요." />
+            }
+            renderItem={({ item }) => (
               <StoreGroupCard
-                key={group.storeId}
-                group={group}
+                group={item}
                 tab={globalMetricTab}
-                onPress={() => setSelectedStoreId(group.storeId)}
+                onPress={() => setSelectedStoreId(item.storeId)}
               />
-            ))}
-          </View>
+            )}
+          />
         ) : null}
       </ScrollView>
       <AdminBottomTabBar />
@@ -239,6 +276,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 4,
+  },
+  storeSearchInput: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 12,
+    borderWidth: 1,
+    color: '#1A1A2E',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   storeList: {
     gap: 12,

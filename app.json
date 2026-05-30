@@ -2,7 +2,7 @@
   "expo": {
     "name": "헤어 다이어리",
     "slug": "hair-diary-app",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "splash": {
@@ -79,7 +79,7 @@
       "policy": "appVersion"
     },
     "extra": {
-      "buildLabel": "2026-05-30 · 카드·PG·예약·매출검색·본사탭"
+      "buildLabel": "2026-05-27 · 전국 1000 디자이너 · 600매장"
     }
   }
 }

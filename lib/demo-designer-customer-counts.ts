@@ -1,5 +1,8 @@
 import { BETA_DESIGNERS } from './beta-test-accounts';
 import { ACCUMULATED_TEST_PROFILE_CONFIGS } from './demo-accumulated-test-accounts';
+import {
+  NATIONWIDE_DESIGNER_DEFINITIONS,
+} from './nationwide-org-catalog';
 
 /** 데모 디자이너 연동 가입 고객 (김지원·박민지·이서연·서정현) */
 const DEMO_DESIGNER_CUSTOMER_COUNT = 4;
@@ -17,6 +20,10 @@ function buildDemoDesignerCustomerCountMap() {
 
   for (const config of ACCUMULATED_TEST_PROFILE_CONFIGS) {
     map.set(config.designer.id, config.customers.length);
+  }
+
+  for (const definition of NATIONWIDE_DESIGNER_DEFINITIONS) {
+    map.set(definition.designer.id, definition.customers.length);
   }
 
   return map;

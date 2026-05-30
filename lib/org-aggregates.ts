@@ -14,6 +14,8 @@ import {
 } from './org-virtual-simulation';
 import type { Treatment } from './treatments';
 import { ORG_STORE_DEFINITIONS } from './org-store-affiliation';
+import { isNationwideDesignerId } from './nationwide-org-catalog';
+import { computeNationwideDesignerMetrics } from './nationwide-designer-metrics';
 
 export type OrgDesignerMetrics = OrgDesignerRosterEntry & {
   treatmentCount: number;
@@ -82,6 +84,10 @@ async function metricsForDesigner(
   monthKey: string,
   config: Awaited<ReturnType<typeof getActiveRevenueSplitConfig>>,
 ): Promise<OrgDesignerMetrics> {
+  if (isNationwideDesignerId(entry.id)) {
+    return computeNationwideDesignerMetrics(entry, config);
+  }
+
   const treatments = await listTreatmentsForDesignerId(entry.id);
   const payments = await listPaymentsForDesignerId(entry.id);
   const monthTreatments = treatments.filter(
@@ -132,13 +138,15 @@ export async function fetchOrgDashboardSummary(
     ...settlement,
   };
 
-  const useSimulation = options?.withVirtualSimulation ?? isDemoAuthMode;
+  const useSimulation = options?.withVirtualSimulation === true;
 
   if (useSimulation) {
     summary = applyVirtualSimulationToSummary(
       filterSummaryForStoreScope(summary, scope, storeOrgId),
       options?.scenario ?? 'weekday',
     );
+  } else if (scope === 'store') {
+    summary = filterSummaryForStoreScope(summary, scope, storeOrgId);
   }
 
   return summary;

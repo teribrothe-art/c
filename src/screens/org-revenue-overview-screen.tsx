@@ -6,15 +6,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { OrgScope } from '../../lib/org-access';
 import { formatAmount } from '../../lib/currency-input';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
-import type { VirtualSimulationScenario } from '../../lib/org-virtual-simulation';
+import {
+  fetchOrgWeeklySalesSummary,
+  getWeeklySalesBucket,
+  type OrgWeeklySalesSummary,
+  type WeeklySalesSegment,
+} from '../../lib/org-weekly-sales';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { HqRevenueSummaryCard } from '../components/hq-revenue-summary-card';
-import { VirtualSimulationBanner } from '../components/virtual-simulation-banner';
+import { WeeklySalesTabBar } from '../components/weekly-sales-tab-bar';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
+import { AdminSectionTabBar } from '../components/admin-section-tab-bar';
 import { StoreBottomTabBar } from '../components/store-bottom-tab-bar';
 
 type Props = {
@@ -25,7 +31,8 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   useOrgRoleGuard(scope);
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
-  const [scenario, setScenario] = useState<VirtualSimulationScenario>('weekday');
+  const [weeklySales, setWeeklySales] = useState<OrgWeeklySalesSummary | null>(null);
+  const [weeklySegment, setWeeklySegment] = useState<WeeklySalesSegment>('weekday');
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -33,16 +40,20 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   const load = useCallback(() => {
     setIsLoading(true);
 
-    fetchOrgDashboardSummary(scope, { scenario, withVirtualSimulation: true })
-      .then((data) => {
+    Promise.all([
+      fetchOrgDashboardSummary(scope),
+      fetchOrgWeeklySalesSummary(scope),
+    ])
+      .then(([data, weekData]) => {
         setSummary(data);
+        setWeeklySales(weekData);
         setErrorMessage('');
       })
       .catch((error) => {
         setErrorMessage(getErrorMessage(error, '매출을 불러오지 못했습니다.'));
       })
       .finally(() => setIsLoading(false));
-  }, [scenario, scope]);
+  }, [scope]);
 
   useFocusEffect(
     useCallback(() => {
@@ -72,6 +83,9 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
     );
   }, [searchQuery, summary]);
 
+  const weekBucket = weeklySales ? getWeeklySalesBucket(weeklySales, weeklySegment) : null;
+  const weekScopeLabel = weeklySegment === 'weekend' ? '이번 주 주말' : '이번 주 평일';
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -88,7 +102,15 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
             : '디자이너 매출·정산 화면과 동일 데이터를 합산합니다.'}
         </Text>
 
-        <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
+        {weeklySales ? (
+          <WeeklySalesTabBar
+            segment={weeklySegment}
+            summary={weeklySales}
+            onSegmentChange={setWeeklySegment}
+          />
+        ) : null}
+
+        {scope === 'admin' ? <AdminSectionTabBar /> : null}
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -100,15 +122,21 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
 
             <View style={styles.grid}>
               <StatCard
-                label={scope === 'admin' ? '이번 달 매출' : '이번 달 정산'}
-                value={formatAmount(scope === 'admin' ? summary.monthGrossSales : summary.monthDesignerPayout)}
+                label={weekBucket ? `${weekScopeLabel} 매출` : scope === 'admin' ? '이번 달 매출' : '이번 달 정산'}
+                value={formatAmount(
+                  weekBucket?.grossSales ??
+                    (scope === 'admin' ? summary.monthGrossSales : summary.monthDesignerPayout),
+                )}
               />
               {scope === 'admin' ? (
-                <StatCard label="본사 수익" value={formatAmount(summary.monthHqRevenue)} />
+                <StatCard
+                  label={weekBucket ? `${weekScopeLabel} 본사 수익` : '본사 수익'}
+                  value={formatAmount(weekBucket?.hqRevenue ?? summary.monthHqRevenue)}
+                />
               ) : null}
               <StatCard
-                label="이번 달 시술"
-                value={`${summary.monthTreatmentCount.toLocaleString('ko-KR')}건`}
+                label={weekBucket ? `${weekScopeLabel} 시술` : '이번 달 시술'}
+                value={`${(weekBucket?.treatmentCount ?? summary.monthTreatmentCount).toLocaleString('ko-KR')}건`}
               />
               <StatCard label="정산 대기" value={formatAmount(summary.pendingPayoutAmount)} />
             </View>
