@@ -178,8 +178,12 @@ function FieldCard({ item, onPress }: { item: InputItem; onPress?: () => void })
             <Text style={styles.requiredLabel}>필수</Text>
           )}
         </View>
-        <Text style={[styles.fieldValue, !item.complete && styles.emptyValue]}>
-          {item.value || '빈 칸'}
+        <Text
+          style={[
+            styles.fieldValue,
+            !item.complete && (item.label === '시술 금액' ? styles.emptyPriceHint : styles.emptyValue),
+          ]}>
+          {item.value || (item.label === '시술 금액' ? '금액 입력' : '빈 칸')}
         </Text>
       </View>
     </Pressable>
@@ -1642,6 +1646,11 @@ const styles = StyleSheet.create({
   emptyValue: {
     color: '#6B6B7B',
   },
+  emptyPriceHint: {
+    color: '#4B5563',
+    fontSize: 15,
+    fontWeight: '700',
+  },
   paymentRequestButton: {
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
@@ -1784,9 +1793,11 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   modalPriceInput: {
-    borderColor: '#E3E3EA',
+    backgroundColor: '#F5F5F8',
+    borderColor: '#D1D5DB',
     borderRadius: 16,
     borderWidth: 1,
+    fontSize: 17,
     minHeight: 52,
     paddingHorizontal: 16,
     paddingVertical: 12,

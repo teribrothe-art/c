@@ -198,10 +198,9 @@ export default function DesignerInputScreen() {
               onChange={setDuration}
             />
 
-            <Text style={styles.label}>시술 금액</Text>
+            <Text style={styles.fieldLabel}>시술 금액</Text>
             <WonAmountInput
               placeholder="금액 입력"
-              style={styles.priceInput}
               value={priceText}
               onChangeValue={setPriceText}
             />
@@ -347,6 +346,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  fieldLabel: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '800',
+    marginTop: 4,
+  },
   input: {
     borderColor: '#E8E8F0',
     borderRadius: 12,
@@ -355,11 +360,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,
-  },
-  priceInput: {
-    borderWidth: 0,
-    paddingHorizontal: 0,
-    paddingVertical: 0,
   },
   createButton: {
     alignItems: 'center',
