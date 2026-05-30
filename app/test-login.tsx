@@ -32,8 +32,9 @@ import {
   CUSTOMER_CONSONANT_TABS,
   type CustomerConsonantTab,
 } from '../lib/korean-consonant';
-import { showLoginFailureAlert } from '../lib/alerts';
+import { showConfirmAlert, showLoginFailureAlert, showSuccessAlert } from '../lib/alerts';
 import { isDemoAuthMode } from '../lib/auth';
+import { clearAccumulatedDemoCache } from '../lib/demo-accumulated-cache-reset';
 import { getErrorMessage } from '../lib/errors';
 import { navigateBackOrReplace } from '../lib/navigation';
 import { signInAndNavigate } from '../lib/quick-login-flow';
@@ -302,6 +303,7 @@ function initialExpandedGroups(
 export default function TestLoginScreen() {
   const { group: groupParam } = useLocalSearchParams<{ group?: string | string[] }>();
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [isClearingCache, setIsClearingCache] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<
     Partial<Record<DemoLoginGroupKey, boolean>>
   >(() => initialExpandedGroups(groupParam));
@@ -346,6 +348,36 @@ export default function TestLoginScreen() {
       [title]: !prev[title],
     }));
   }, []);
+
+  const handleClearAccumulatedCache = useCallback(() => {
+    if (loadingId || isClearingCache) {
+      return;
+    }
+
+    showConfirmAlert({
+      title: '누적 캐시 삭제',
+      message:
+        '누적 테스트 시술·결제·패치·관계 캐시를 삭제합니다.\n다음 로그인 시 시드가 다시 불러와집니다.',
+      confirmLabel: '삭제',
+      destructive: true,
+      onConfirm: () => {
+        setIsClearingCache(true);
+
+        clearAccumulatedDemoCache()
+          .then((result) => {
+            showSuccessAlert(
+              `시술 ${result.removedTreatments}건 · 결제 ${result.removedPayments}건 · 관계 ${result.removedRelationships}건 캐시를 삭제했습니다.`,
+            );
+          })
+          .catch((error) => {
+            showLoginFailureAlert(getErrorMessage(error, '누적 캐시 삭제에 실패했습니다.'));
+          })
+          .finally(() => {
+            setIsClearingCache(false);
+          });
+      },
+    });
+  }, [isClearingCache, loadingId]);
 
   if (!isDemoAuthMode) {
     return (
@@ -403,7 +435,22 @@ export default function TestLoginScreen() {
         ))}
 
         <Pressable
-          disabled={Boolean(loadingId)}
+          disabled={Boolean(loadingId) || isClearingCache}
+          onPress={handleClearAccumulatedCache}
+          style={({ pressed }) => [
+            styles.cacheClearButton,
+            (loadingId || isClearingCache) && styles.cacheClearButtonDisabled,
+            pressed && !loadingId && !isClearingCache && styles.cacheClearButtonPressed,
+          ]}>
+          {isClearingCache ? (
+            <ActivityIndicator color="#6B6B7B" size="small" />
+          ) : (
+            <Text style={styles.cacheClearButtonText}>누적 캐시 삭제</Text>
+          )}
+        </Pressable>
+
+        <Pressable
+          disabled={Boolean(loadingId) || isClearingCache}
           onPress={() => navigateBackOrReplace('/')}
           style={styles.backButton}>
           <Text style={styles.backButtonText}>일반 로그인으로 돌아가기</Text>
@@ -608,6 +655,29 @@ const styles = StyleSheet.create({
   backButtonText: {
     color: colors.coral,
     fontSize: 15,
+    fontWeight: '700',
+  },
+  cacheClearButton: {
+    alignItems: 'center',
+    backgroundColor: '#F5F5F8',
+    borderColor: '#E8E8F0',
+    borderRadius: 12,
+    borderWidth: 1,
+    justifyContent: 'center',
+    marginTop: 12,
+    minHeight: 48,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  cacheClearButtonDisabled: {
+    opacity: 0.6,
+  },
+  cacheClearButtonPressed: {
+    backgroundColor: '#ECECF4',
+  },
+  cacheClearButtonText: {
+    color: '#6B6B7B',
+    fontSize: 14,
     fontWeight: '700',
   },
   unavailable: {

@@ -178,3 +178,8 @@ export function treatmentsForDemoPersistence(demoTreatments: Treatment[]) {
 export function paymentsForDemoPersistence(demoPayments: PaymentRecord[]) {
   return stripAccumulatedPaymentsFromStore(demoPayments);
 }
+
+/** 고객 ID → 프로필 인덱스 캐시 초기화 */
+export function clearAccumulatedDemoHydrateCache() {
+  customerIdToProfileCache = null;
+}

@@ -8,3 +8,29 @@ export function isAccumulatedTestTreatmentId(id: string) {
 export function isAccumulatedTestPaymentId(id: string) {
   return ACCUMULATED_TEST_PROFILE_CONFIGS.some((config) => id.startsWith(config.paymentIdPrefix));
 }
+
+/** 누적 테스트 고객 ID (관계·저장소 정리용) */
+export function isAccumulatedTestCustomerId(id: string) {
+  if (id.startsWith('test-customer-')) {
+    return true;
+  }
+
+  if (id.startsWith('test-1y-customer-')) {
+    return true;
+  }
+
+  if (id.startsWith('test-3y-customer-')) {
+    return true;
+  }
+
+  if (id.startsWith('test-5y-customer-')) {
+    return true;
+  }
+
+  return /^test-exp-\d+-customer-/.test(id);
+}
+
+/** 누적 테스트 디자이너 ID (관계·저장소 정리용) */
+export function isAccumulatedTestDesignerId(id: string) {
+  return ACCUMULATED_TEST_PROFILE_CONFIGS.some((config) => config.designer.id === id);
+}

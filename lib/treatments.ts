@@ -4,6 +4,7 @@ import { getCurrentUser, isDemoAuthMode } from './auth';
 import {
   mergeAccumulatedTreatmentsForDesignerId,
   mergeAccumulatedTreatmentsIntoStore,
+  stripAccumulatedTreatmentsFromStore,
   treatmentsForDemoPersistence,
 } from './demo-accumulated-demo-hydrate';
 import { isAccumulatedTestTreatmentId } from './demo-accumulated-ids';
@@ -639,4 +640,20 @@ export async function updateTreatment(id: string, updates: TreatmentUpdateInput)
   }
 
   return data as Treatment;
+}
+
+/** 메모리·AsyncStorage에서 누적 테스트 시술 제거 후 hydrate 캐시 초기화 */
+export async function purgeAccumulatedFromDemoTreatmentStore(): Promise<number> {
+  if (demoHydratePromise) {
+    await demoHydratePromise;
+  }
+
+  const before = demoTreatments.length;
+  const cleaned = stripAccumulatedTreatmentsFromStore(demoTreatments);
+  demoTreatments.length = 0;
+  demoTreatments.push(...cleaned);
+  await persistDemoTreatments();
+  demoHydratePromise = null;
+
+  return before - cleaned.length;
 }

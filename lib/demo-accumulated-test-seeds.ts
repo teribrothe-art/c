@@ -21,6 +21,11 @@ export function getAccumulatedTestProfiles(): BuiltAccumulatedSeedProfile[] {
   return builtProfilesCache;
 }
 
+/** 메모리에 빌드된 누적 프로필 캐시 초기화 */
+export function clearAccumulatedTestProfilesCache() {
+  builtProfilesCache = null;
+}
+
 export function getAccumulatedDemoTreatments() {
   return getAccumulatedTestProfiles().flatMap((profile) => profile.treatments);
 }

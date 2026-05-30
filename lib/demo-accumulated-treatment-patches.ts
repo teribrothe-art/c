@@ -139,3 +139,10 @@ export function reapplyAccumulatedTreatmentPatchesInStore(demoTreatments: Treatm
     }
   }
 }
+
+/** AsyncStorage·메모리의 누적 시술 패치 캐시 삭제 */
+export async function clearAccumulatedTreatmentPatchesStorage() {
+  patchesCache = null;
+  patchesPromise = null;
+  await AsyncStorage.removeItem(PATCHES_KEY);
+}

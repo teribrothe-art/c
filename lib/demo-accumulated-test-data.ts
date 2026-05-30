@@ -25,3 +25,7 @@ export {
 } from './demo-accumulated-test-seeds';
 
 export { mergeAccumulatedDesignerRelationships } from './demo-accumulated-relationships';
+export {
+  clearAccumulatedDemoCache,
+  type ClearAccumulatedDemoCacheResult,
+} from './demo-accumulated-cache-reset';

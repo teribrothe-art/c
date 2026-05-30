@@ -5,6 +5,7 @@ import {
   mergeAccumulatedPaymentsForDesignerId,
   mergeAccumulatedPaymentsIntoStore,
   paymentsForDemoPersistence,
+  stripAccumulatedPaymentsFromStore,
 } from './demo-accumulated-demo-hydrate';
 import { isAccumulatedTestTreatmentId } from './demo-accumulated-ids';
 import { getAccumulatedTestProfiles } from './demo-accumulated-test-seeds';
@@ -553,4 +554,20 @@ export async function recordPaymentRefund(
   }
 
   return data as PaymentRecord;
+}
+
+/** 메모리·AsyncStorage에서 누적 테스트 결제 제거 후 hydrate 캐시 초기화 */
+export async function purgeAccumulatedFromDemoPaymentStore(): Promise<number> {
+  if (demoPaymentsHydratePromise) {
+    await demoPaymentsHydratePromise;
+  }
+
+  const before = demoPayments.length;
+  const cleaned = stripAccumulatedPaymentsFromStore(demoPayments);
+  demoPayments.length = 0;
+  demoPayments.push(...cleaned);
+  await persistDemoPayments();
+  demoPaymentsHydratePromise = null;
+
+  return before - cleaned.length;
 }
