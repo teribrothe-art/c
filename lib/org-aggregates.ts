@@ -10,6 +10,7 @@ import {
   type VirtualSimulationScenario,
 } from './org-virtual-simulation';
 import type { Treatment } from './treatments';
+import { ORG_STORE_DEFINITIONS } from './org-store-affiliation';
 
 export type OrgDesignerMetrics = OrgDesignerRosterEntry & {
   treatmentCount: number;
@@ -140,4 +141,64 @@ export async function fetchOrgDashboardSummary(
   }
 
   return summary;
+}
+
+export type OrgDesignerStoreGroup = {
+  storeId: string;
+  storeName: string;
+  storeRegion: string;
+  designers: OrgDesignerMetrics[];
+  customerCount: number;
+  treatmentCount: number;
+  monthTreatmentCount: number;
+  monthRevenue: number;
+};
+
+export function groupOrgDesignersByStore(designers: OrgDesignerMetrics[]): OrgDesignerStoreGroup[] {
+  const grouped = new Map<string, OrgDesignerStoreGroup>();
+
+  for (const designer of designers) {
+    const current = grouped.get(designer.storeId);
+
+    if (current) {
+      current.designers.push(designer);
+      current.customerCount += designer.customerCount;
+      current.treatmentCount += designer.treatmentCount;
+      current.monthTreatmentCount += designer.monthTreatmentCount;
+      current.monthRevenue += designer.monthRevenue;
+      continue;
+    }
+
+    grouped.set(designer.storeId, {
+      storeId: designer.storeId,
+      storeName: designer.storeName,
+      storeRegion: designer.storeRegion,
+      designers: [designer],
+      customerCount: designer.customerCount,
+      treatmentCount: designer.treatmentCount,
+      monthTreatmentCount: designer.monthTreatmentCount,
+      monthRevenue: designer.monthRevenue,
+    });
+  }
+
+  const storeOrder = ORG_STORE_DEFINITIONS.map((store) => store.id);
+
+  return [...grouped.values()].sort((a, b) => {
+    const left = storeOrder.indexOf(a.storeId);
+    const right = storeOrder.indexOf(b.storeId);
+
+    if (left === -1 && right === -1) {
+      return a.storeName.localeCompare(b.storeName, 'ko');
+    }
+
+    if (left === -1) {
+      return 1;
+    }
+
+    if (right === -1) {
+      return -1;
+    }
+
+    return left - right;
+  });
 }
