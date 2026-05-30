@@ -2,7 +2,7 @@
   "expo": {
     "name": "헤어 다이어리",
     "slug": "hair-diary-app",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "splash": {
@@ -79,7 +79,7 @@
       "policy": "appVersion"
     },
     "extra": {
-      "buildLabel": "2026-05-30 07:27 · designer UI"
+      "buildLabel": "2026-05-30 · 매출·고객달력·스파·계정3칸"
     }
   }
 }
