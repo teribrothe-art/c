@@ -6,11 +6,11 @@ import { resolveStoreOrgIdForUser } from './store-test-accounts';
 
 export type OrgStore = {
   id: string;
-  /** 매장명 (핫플레이스 브랜드) */
+  /** 매장명 (플랜비 브랜드) */
   name: string;
   /** 행정·상권 지역 */
   region: string;
-  /** 지역 핫플레이스 한 줄 설명 */
+  /** 지역·상권 한 줄 설명 */
   hotPlace: string;
   designerIds: string[];
 };
@@ -18,28 +18,28 @@ export type OrgStore = {
 const ORG_STORE_DEFINITIONS_BASE: OrgStore[] = [
   {
     id: 'virtual-store-hot-gangnam',
-    name: '강남 핫플레이스',
+    name: '강남 플랜비',
     region: '서울 강남',
     hotPlace: '역삼·청담·압구정 상권',
     designerIds: ['demo-designer-local', 'beta-designer-01', 'beta-designer-02'],
   },
   {
     id: 'virtual-store-hot-hongdae',
-    name: '홍대·연남 핫플레이스',
+    name: '홍대·연남 플랜비',
     region: '서울 마포',
     hotPlace: '홍익대·연남동·망원 상권',
     designerIds: ['beta-designer-03', 'beta-designer-04'],
   },
   {
     id: 'virtual-store-hot-seongsu',
-    name: '성수 핫플레이스',
+    name: '성수 플랜비',
     region: '서울 성동',
     hotPlace: '성수·뚝섬 카페·살롱 거리',
     designerIds: ['beta-designer-05', 'test-designer-1y'],
   },
   {
     id: 'virtual-store-hot-busan',
-    name: '해운대·광안리 핫플레이스',
+    name: '해운대·광안리 플랜비',
     region: '부산 해운대',
     hotPlace: '해운대·광안리·센텀',
     designerIds: ['test-designer-3y', 'test-designer-accum-3y', 'test-designer-accum-5y'],
@@ -47,7 +47,7 @@ const ORG_STORE_DEFINITIONS_BASE: OrgStore[] = [
 ];
 
 /**
- * 지역별 핫플레이스 매장 — 디자이너 2~8명 (증원 15명 포함)
+ * 지역별 플랜비 매장 — 디자이너 2~8명 (증원 15명 포함)
  */
 export const ORG_STORE_DEFINITIONS: OrgStore[] = ORG_STORE_DEFINITIONS_BASE.map((store) => ({
   ...store,
@@ -57,10 +57,10 @@ export const ORG_STORE_DEFINITIONS: OrgStore[] = ORG_STORE_DEFINITIONS_BASE.map(
   ],
 }));
 
-/** 매장 로그인(`store@hair.app`)이 관리하는 핫플레이스 */
+/** 매장 로그인(`store@hair.app`)이 관리하는 플랜비 매장 */
 export const STORE_ACCOUNT_LINKED_STORE_ID = 'virtual-store-hot-gangnam';
 
-/** @deprecated 강남 핫플레이스 ID 변경 전 호환 */
+/** @deprecated 강남 플랜비(구 핫플레이스) ID 변경 전 호환 */
 export const LEGACY_STORE_IDS = {
   gangnam: 'virtual-store-gangnam',
   hongdae: 'virtual-store-hongdae',
@@ -111,7 +111,7 @@ export function getOrgStoreById(storeId: string): OrgStore | undefined {
   return ORG_STORE_DEFINITIONS.find((store) => store.id === storeId);
 }
 
-/** 레거시 매장 ID → 현재 핫플레이스 매장 */
+/** 레거시 매장 ID → 현재 플랜비 매장 */
 export function resolveOrgStoreId(storeId: string): string {
   if (getOrgStoreById(storeId)) {
     return storeId;
@@ -191,5 +191,5 @@ export const DEMO_DESIGNER_ROSTER_SEED = {
   id: 'demo-designer-local',
   name: '김미용 디자이너',
   email: DEMO_LOGIN_HINT.designerEmail,
-  subtitle: '강남 핫플레이스',
+  subtitle: '강남 플랜비',
 } as const;

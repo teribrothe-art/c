@@ -134,7 +134,7 @@ export function OrgSimulationScreen({ scope }: Props) {
 
             {scope === 'admin' ? (
               <>
-                <Text style={styles.sectionLabel}>지역별 핫플레이스</Text>
+                <Text style={styles.sectionLabel}>지역별 플랜비</Text>
                 {stores.map((store) => {
                   const storeDesigners = summary.designers.filter(
                     (designer) => designer.storeId === store.id,

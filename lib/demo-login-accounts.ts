@@ -35,7 +35,7 @@ export type DemoLoginGroupKey = (typeof DEMO_LOGIN_GROUP_ORDER)[number];
 
 export const DEMO_LOGIN_GROUP_DESCRIPTIONS: Record<DemoLoginGroupKey, string> = {
   본사: '본사 어드민 · 전체 매장·디자이너·매출 조회',
-  매장: '지역 핫플레이스 매장 전체 — 펼치면 목록 · 검색 가능',
+  매장: '지역 플랜비 매장 전체 — 펼치면 목록 · 검색 가능',
   디자이너: `데모 · 베타 · 누적 · 증원 ${EXPANDED_STORE_DESIGNER_COUNT}명 — ${DESIGNER_APP_TAB_LABELS} · 펼치면 목록`,
   가입고객: '디자이너 연동 고객 전체(데모·베타·누적·증원) — 펼친 뒤 검색',
 };
@@ -64,7 +64,7 @@ export function demoLoginGroupListsAllWhenExpanded(title: DemoLoginGroupKey) {
 
 export function getDemoLoginSearchPlaceholder(title: DemoLoginGroupKey) {
   if (title === '매장') {
-    return '매장명 · 지역 · 핫플레이스 · 이메일';
+    return '매장명 · 지역 · 상권 · 이메일';
   }
 
   if (title === '디자이너') {
@@ -259,7 +259,7 @@ const ADMIN_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
     loginLabel: ADMIN_TEST_PUBLIC.loginLabel,
     email: ADMIN_TEST_PUBLIC.email,
     password: ADMIN_TEST_PUBLIC.password,
-    meta: '전체 핫플레이스 · 디자이너 · 매출',
+    meta: '전체 플랜비 · 디자이너 · 매출',
     accent: '#4B5563',
     searchHaystack: ['본사', '어드민', 'admin', ADMIN_TEST_PUBLIC.email, 'hq-admin']
       .join(' ')

@@ -8,10 +8,10 @@ export type StoreTestAccount = BetaTestAccount & {
 };
 
 const HOT_PLACE_STORES = [
-  { id: 'virtual-store-hot-gangnam', slug: 'gangnam', name: '강남 핫플레이스' },
-  { id: 'virtual-store-hot-hongdae', slug: 'hongdae', name: '홍대·연남 핫플레이스' },
-  { id: 'virtual-store-hot-seongsu', slug: 'seongsu', name: '성수 핫플레이스' },
-  { id: 'virtual-store-hot-busan', slug: 'busan', name: '해운대·광안리 핫플레이스' },
+  { id: 'virtual-store-hot-gangnam', slug: 'gangnam', name: '강남 플랜비' },
+  { id: 'virtual-store-hot-hongdae', slug: 'hongdae', name: '홍대·연남 플랜비' },
+  { id: 'virtual-store-hot-seongsu', slug: 'seongsu', name: '성수 플랜비' },
+  { id: 'virtual-store-hot-busan', slug: 'busan', name: '해운대·광안리 플랜비' },
 ] as const;
 
 function buildRegionalStoreAccount(store: (typeof HOT_PLACE_STORES)[number]): StoreTestAccount {
@@ -25,7 +25,7 @@ function buildRegionalStoreAccount(store: (typeof HOT_PLACE_STORES)[number]): St
   };
 }
 
-/** 지역별 핫플레이스 매장 로그인 (4곳) */
+/** 지역별 플랜비 매장 로그인 (4곳) */
 export const REGIONAL_STORE_TEST_ACCOUNTS: StoreTestAccount[] = HOT_PLACE_STORES.map(
   buildRegionalStoreAccount,
 );
@@ -34,7 +34,7 @@ export const REGIONAL_STORE_TEST_ACCOUNTS: StoreTestAccount[] = HOT_PLACE_STORES
 export const STORE_TEST_ACCOUNT: StoreTestAccount = {
   id: 'store-test',
   email: 'store@hair.app',
-  name: '강남 핫플레이스',
+  name: '강남 플랜비',
   password: STORE_TEST_PASSWORD,
   role: 'store' as UserRole,
   linkedOrgStoreId: 'virtual-store-hot-gangnam',
@@ -81,5 +81,5 @@ export const STORE_TEST_PUBLIC = {
   id: STORE_TEST_ACCOUNT.id,
   email: STORE_TEST_ACCOUNT.email,
   password: STORE_TEST_ACCOUNT.password,
-  loginLabel: '강남 핫플레이스 (store@)',
+  loginLabel: '강남 플랜비 (store@)',
 } as const;
