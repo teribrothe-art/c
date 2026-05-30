@@ -10,7 +10,10 @@ import {
   fetchDesignerPaymentDashboard,
   type DesignerPaymentDashboard,
 } from '../../lib/designer-payment-stats';
-import { mapDesignerClientsToGridItems } from '../../lib/designer-customer-grid';
+import {
+  groupDesignerClientsByCustomer,
+  mapDesignerClientsToGridItems,
+} from '../../lib/designer-customer-grid';
 import { getErrorMessage } from '../../lib/errors';
 import { formatDesignerStoreLabel } from '../../lib/org-store-affiliation';
 import { CustomerGrid } from '../../src/components/customer-grid';
@@ -84,17 +87,22 @@ export default function DesignerHomeScreen() {
     }, [loadHome]),
   );
 
+  const groupedClients = useMemo(
+    () => groupDesignerClientsByCustomer(clientItems),
+    [clientItems],
+  );
+
   const gridItems = useMemo(() => mapDesignerClientsToGridItems(clientItems), [clientItems]);
 
   const handleGridPress = useCallback(
     (key: string) => {
-      const item = clientItems.find((row) => row.key === key);
+      const group = groupedClients.find((row) => row.groupKey === key);
 
-      if (item) {
-        router.push(`/designer/treatment/${item.treatmentId}`);
+      if (group) {
+        router.push(`/designer/treatment/${group.latest.treatmentId}`);
       }
     },
-    [clientItems],
+    [groupedClients],
   );
 
   const handleRefresh = () => {
@@ -144,7 +152,7 @@ export default function DesignerHomeScreen() {
                 value={`${(dashboard?.monthRevenue ?? 0).toLocaleString('ko-KR')}원`}
               />
               <StatTile label="이번 달 시술" value={`${dashboard?.monthSettlementCount ?? 0}건`} />
-              <StatTile label="고객 기록" value={`${clientItems.length}건`} />
+              <StatTile label="보유 고객" value={`${groupedClients.length}명`} />
               <StatTile
                 label="정산 대기"
                 value={`${(dashboard?.pendingPayoutAmount ?? 0).toLocaleString('ko-KR')}원`}

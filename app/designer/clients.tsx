@@ -14,7 +14,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
 import { getErrorMessage } from '../../lib/errors';
 import { normalizePaymentStatus } from '../../lib/payment-status';
-import { mapDesignerClientsToGridItems } from '../../lib/designer-customer-grid';
+import {
+  groupDesignerClientsByCustomer,
+  mapDesignerClientsToGridItems,
+} from '../../lib/designer-customer-grid';
 import {
   DesignerClientListItem,
   getDesignerClientListItems,
@@ -96,17 +99,27 @@ export default function DesignerClientsScreen() {
     };
   }, [clientItems]);
 
+  const groupedAllClients = useMemo(
+    () => groupDesignerClientsByCustomer(clientItems),
+    [clientItems],
+  );
+
+  const groupedClients = useMemo(
+    () => groupDesignerClientsByCustomer(visibleItems),
+    [visibleItems],
+  );
+
   const gridItems = useMemo(() => mapDesignerClientsToGridItems(visibleItems), [visibleItems]);
 
   const handleGridPress = useCallback(
     (key: string) => {
-      const item = visibleItems.find((row) => row.key === key);
+      const group = groupedClients.find((row) => row.groupKey === key);
 
-      if (item) {
-        detailRouter.push(`/designer/treatment/${item.treatmentId}`);
+      if (group) {
+        detailRouter.push(`/designer/treatment/${group.latest.treatmentId}`);
       }
     },
-    [detailRouter, visibleItems],
+    [detailRouter, groupedClients],
   );
 
   return (
@@ -141,6 +154,11 @@ export default function DesignerClientsScreen() {
         ) : null}
 
         <View style={styles.summaryCard}>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>보유 고객</Text>
+            <Text style={styles.summaryValue}>{groupedAllClients.length}명</Text>
+          </View>
+          <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>이번 달 시술</Text>
             <Text style={styles.summaryValue}>{summary.monthCount}건</Text>

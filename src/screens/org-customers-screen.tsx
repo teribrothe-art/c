@@ -15,14 +15,14 @@ import { StoreBottomTabBar } from '../components/store-bottom-tab-bar';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
 import { TAB_BAR_BOTTOM_INSET } from '../components/role-bottom-tab-bar';
 import { VirtualSimulationBanner } from '../components/virtual-simulation-banner';
+import {
+  groupDesignerClientsByCustomer,
+  mapGroupedDesignerClientsToGridItems,
+} from '../../lib/designer-customer-grid';
 
 type Props = {
   scope: OrgScope;
 };
-
-function formatDate(date: string) {
-  return date.replaceAll('-', '.');
-}
 
 export function OrgCustomersScreen({ scope }: Props) {
   useOrgRoleGuard(scope);
@@ -92,27 +92,32 @@ export function OrgCustomersScreen({ scope }: Props) {
   const treatmentPath = scope === 'store' ? '/store/treatment' : '/admin/treatment';
   const TabBar = scope === 'store' ? StoreBottomTabBar : AdminBottomTabBar;
 
+  const groupedClients = useMemo(
+    () =>
+      groupDesignerClientsByCustomer(visibleItems, {
+        groupKeyPrefix: (item) => `${item.designerId}:`,
+      }),
+    [visibleItems],
+  );
+
   const gridItems = useMemo(
     () =>
-      visibleItems.map((item) => ({
-        key: item.key,
-        name: item.customerName,
-        subtitle: item.treatmentTitle,
-        meta: `${formatDate(item.treatmentDate)} · ${item.treatment?.treatment_type ?? '시술'}`,
-        badge: item.designerName,
+      mapGroupedDesignerClientsToGridItems(groupedClients).map((gridItem, index) => ({
+        ...gridItem,
+        badge: groupedClients[index]?.latest.designerName ?? gridItem.badge,
       })),
-    [visibleItems],
+    [groupedClients],
   );
 
   const handleGridPress = useCallback(
     (key: string) => {
-      const item = visibleItems.find((row) => row.key === key);
+      const group = groupedClients.find((row) => row.groupKey === key);
 
-      if (item?.treatmentId) {
-        router.push(`${treatmentPath}/${item.treatmentId}` as '/store/treatment/[id]');
+      if (group?.latest.treatmentId) {
+        router.push(`${treatmentPath}/${group.latest.treatmentId}` as '/store/treatment/[id]');
       }
     },
-    [treatmentPath, visibleItems],
+    [groupedClients, treatmentPath],
   );
 
   return (
