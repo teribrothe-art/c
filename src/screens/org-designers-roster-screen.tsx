@@ -8,6 +8,7 @@ import {
   groupOrgDesignersByStore,
   type OrgDashboardSummary,
   type OrgDesignerMetrics,
+  type OrgDesignerStoreGroup,
 } from '../../lib/org-aggregates';
 import { formatAmount } from '../../lib/currency-input';
 import { getErrorMessage } from '../../lib/errors';
@@ -16,6 +17,31 @@ import { colors } from '../../lib/theme';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
+
+function StoreGroupCard({
+  group,
+  onPress,
+}: {
+  group: OrgDesignerStoreGroup;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${group.storeName} 디자이너 보기`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.storeCard, pressed && styles.storeCardPressed]}>
+      <Text style={styles.storeLabel}>소속 매장</Text>
+      <Text style={styles.storeName}>{group.storeName}</Text>
+      <Text style={styles.storeRegion}>{group.storeRegion}</Text>
+      <Text style={styles.storeStats}>
+        디자이너 {group.designers.length}명 · 고객 {group.customerCount}명 · 이번 달 시술{' '}
+        {group.monthTreatmentCount}건 · 매출 {formatAmount(group.monthRevenue)}
+      </Text>
+      <Text style={styles.storeTapHint}>탭하여 소속 디자이너 보기 →</Text>
+    </Pressable>
+  );
+}
 
 function DesignerRosterCard({ designer }: { designer: OrgDesignerMetrics }) {
   return (
@@ -53,6 +79,7 @@ export function OrgDesignersRosterScreen() {
   useOrgRoleGuard('admin');
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -81,6 +108,11 @@ export function OrgDesignersRosterScreen() {
     [summary],
   );
 
+  const selectedGroup = useMemo(
+    () => storeGroups.find((group) => group.storeId === selectedStoreId) ?? null,
+    [selectedStoreId, storeGroups],
+  );
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -91,32 +123,49 @@ export function OrgDesignersRosterScreen() {
         showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>디자이너</Text>
         <Text style={styles.subtitle}>
-          소속 매장별로 분류되어 있습니다. 매장을 확인한 뒤 매출·고객을 조회하세요.
+          {selectedGroup
+            ? '소속 디자이너의 매출·고객·시술을 조회하세요.'
+            : '소속 매장을 선택한 뒤 디자이너 목록을 확인하세요.'}
         </Text>
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
         ) : errorMessage ? (
           <EmptyState title="불러오기 실패" subtitle={errorMessage} />
-        ) : summary ? (
-          storeGroups.map((group) => (
-            <View key={group.storeId} style={styles.storeSection}>
-              <View style={styles.storeHeader}>
-                <Text style={styles.storeLabel}>소속 매장</Text>
-                <Text style={styles.storeName}>{group.storeName}</Text>
-                <Text style={styles.storeRegion}>{group.storeRegion}</Text>
-                <Text style={styles.storeStats}>
-                  디자이너 {group.designers.length}명 · 고객 {group.customerCount}명 · 이번 달 시술{' '}
-                  {group.monthTreatmentCount}건 · 매출 {formatAmount(group.monthRevenue)}
-                </Text>
-              </View>
-              <View style={styles.designerList}>
-                {group.designers.map((designer) => (
-                  <DesignerRosterCard key={designer.id} designer={designer} />
-                ))}
-              </View>
+        ) : summary && selectedGroup ? (
+          <View style={styles.storeSection}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setSelectedStoreId(null)}
+              style={({ pressed }) => [styles.backToStores, pressed && styles.actionPressed]}>
+              <Text style={styles.backToStoresText}>‹ 소속 매장</Text>
+            </Pressable>
+            <View style={styles.storeHeader}>
+              <Text style={styles.storeLabel}>소속 매장</Text>
+              <Text style={styles.storeName}>{selectedGroup.storeName}</Text>
+              <Text style={styles.storeRegion}>{selectedGroup.storeRegion}</Text>
+              <Text style={styles.storeStats}>
+                디자이너 {selectedGroup.designers.length}명 · 고객 {selectedGroup.customerCount}명 · 이번
+                달 시술 {selectedGroup.monthTreatmentCount}건 · 매출{' '}
+                {formatAmount(selectedGroup.monthRevenue)}
+              </Text>
             </View>
-          ))
+            <View style={styles.designerList}>
+              {selectedGroup.designers.map((designer) => (
+                <DesignerRosterCard key={designer.id} designer={designer} />
+              ))}
+            </View>
+          </View>
+        ) : summary ? (
+          <View style={styles.storeList}>
+            {storeGroups.map((group) => (
+              <StoreGroupCard
+                key={group.storeId}
+                group={group}
+                onPress={() => setSelectedStoreId(group.storeId)}
+              />
+            ))}
+          </View>
         ) : null}
       </ScrollView>
       <AdminBottomTabBar />
@@ -143,6 +192,37 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 4,
+  },
+  storeList: {
+    gap: 12,
+  },
+  storeCard: {
+    backgroundColor: '#E8F5E9',
+    borderColor: '#C8E6C9',
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  storeCardPressed: {
+    backgroundColor: '#DFF2E0',
+    opacity: 0.95,
+  },
+  storeTapHint: {
+    color: '#2E7D32',
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 6,
+  },
+  backToStores: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+  },
+  backToStoresText: {
+    color: colors.purple,
+    fontSize: 14,
+    fontWeight: '800',
   },
   storeSection: {
     gap: 10,
