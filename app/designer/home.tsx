@@ -10,10 +10,16 @@ import {
   fetchDesignerPaymentDashboard,
   type DesignerPaymentDashboard,
 } from '../../lib/designer-payment-stats';
+import {
+  buildDesignerHomeActionItems,
+  buildDesignerHomeRecentItems,
+  countTodayTreatments,
+} from '../../lib/designer-home-feed';
 import { countUniqueDesignerCustomers } from '../../lib/designer-home-stats';
 import { getErrorMessage } from '../../lib/errors';
 import { formatDesignerStoreLabel } from '../../lib/org-store-affiliation';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
+import { DesignerHomeSections } from '../../src/components/designer-home-sections';
 import {
   currentDesignerMonthKey,
   DesignerHomeStatGrid,
@@ -111,6 +117,15 @@ export default function DesignerHomeScreen() {
     ];
   }, [dashboard, uniqueCustomerCount]);
 
+  const todayTreatmentCount = useMemo(() => countTodayTreatments(clientItems), [clientItems]);
+
+  const actionItems = useMemo(
+    () => buildDesignerHomeActionItems(clientItems),
+    [clientItems],
+  );
+
+  const recentItems = useMemo(() => buildDesignerHomeRecentItems(clientItems), [clientItems]);
+
   const handleRefresh = () => {
     setIsRefreshing(true);
     void loadHome({ silent: true });
@@ -151,7 +166,16 @@ export default function DesignerHomeScreen() {
             </Pressable>
           </View>
         ) : (
-          <DesignerHomeStatGrid items={homeStatItems} />
+          <>
+            <DesignerHomeStatGrid items={homeStatItems} />
+            <DesignerHomeSections
+              actionItems={actionItems}
+              pendingPayoutCount={dashboard?.pendingPayoutCount ?? 0}
+              recentItems={recentItems}
+              recentSettlements={dashboard?.recentSettlements ?? []}
+              todayTreatmentCount={todayTreatmentCount}
+            />
+          </>
         )}
       </ScrollView>
 
