@@ -70,6 +70,9 @@
     "qr:html": "node scripts/generate-expo-qr.mjs --html",
     "lint": "expo lint",
     "beta:smoke": "node scripts/beta-smoke-demo.mjs",
+    "designer:link-mock": "node scripts/designer-customer-link-mock.mjs",
+    "verify:login": "node scripts/verify-login-screen.mjs",
+    "verify:designer-home": "node scripts/verify-designer-home-feed.mjs",
     "verify:diary": "node scripts/verify-diary-home.mjs",
     "beta:e2e": "node scripts/beta-e2e-ten-users.mjs",
     "update:preview": "eas update --branch preview --message \"베타 v1.0\""

@@ -4,6 +4,10 @@ import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
 import { addNotification } from './notifications';
 import { supabase } from './supabase';
+import {
+  peekDesignerClientListCache,
+  storeDesignerClientList,
+} from './designer-workspace-cache';
 import { getTreatmentById, Treatment, updateTreatment } from './treatments';
 
 const DEMO_INVITATIONS_KEY = 'hair-diary-customer-invitations';
@@ -701,7 +705,16 @@ export async function getDesignerClientListItems(): Promise<DesignerClientListIt
     return [];
   }
 
-  return getDesignerClientListItemsForDesigner(user.id);
+  const cached = peekDesignerClientListCache();
+
+  if (cached) {
+    return cached;
+  }
+
+  const items = await getDesignerClientListItemsForDesigner(user.id);
+  storeDesignerClientList(items);
+
+  return items;
 }
 
 export async function renewCustomerInvitation(input: {
