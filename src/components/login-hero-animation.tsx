@@ -8,12 +8,13 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, getLoginContentWidth } from '../../lib/theme';
 
-/** 로그인 배너 그리드 (가로 3 × 세로 1) */
-const GRID_COLUMNS = 3;
-const GRID_ROWS = 1;
+/** 인라인 배너 — content 너비 대비 세로 비율 (기존 1/3 → 약 46%) */
+const INLINE_BANNER_HEIGHT_RATIO = 0.46;
+const DOCKED_BANNER_HEIGHT = 96;
 
 const HERO_MESSAGES = [
   '당신의 손끝이 만드는 아름다움',
@@ -24,7 +25,13 @@ const HERO_MESSAGES = [
 
 const FLOATING_ICONS = ['✨', '💇‍♀️', '💜', '✨'] as const;
 
-export function LoginHeroAnimation() {
+type LoginHeroAnimationProps = {
+  /** 화면 하단에 전폭으로 붙임 */
+  docked?: boolean;
+};
+
+export function LoginHeroAnimation({ docked = false }: LoginHeroAnimationProps) {
+  const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const [messageIndex, setMessageIndex] = useState(0);
   const messageOpacity = useRef(new Animated.Value(1)).current;
@@ -33,15 +40,23 @@ export function LoginHeroAnimation() {
   const floatB = useRef(new Animated.Value(0)).current;
   const glowScale = useRef(new Animated.Value(1)).current;
 
-  const gridSize = useMemo(() => {
+  const bannerSize = useMemo(() => {
+    if (docked) {
+      return {
+        width: windowWidth,
+        height: DOCKED_BANNER_HEIGHT + insets.bottom,
+        paddingBottom: insets.bottom,
+      };
+    }
+
     const contentWidth = getLoginContentWidth(windowWidth);
-    const unit = contentWidth / GRID_COLUMNS;
 
     return {
       width: contentWidth,
-      height: unit * GRID_ROWS,
+      height: Math.round(contentWidth * INLINE_BANNER_HEIGHT_RATIO),
+      paddingBottom: 0,
     };
-  }, [windowWidth]);
+  }, [docked, insets.bottom, windowWidth]);
 
   useEffect(() => {
     const floatLoop = Animated.loop(
@@ -153,8 +168,22 @@ export function LoginHeroAnimation() {
   });
 
   return (
-    <View style={[styles.wrap, { width: gridSize.width, height: gridSize.height }]}>
-      <Animated.View style={[styles.glow, { transform: [{ scale: glowScale }] }]}>
+    <View
+      style={[
+        styles.wrap,
+        docked ? styles.wrapDocked : styles.wrapInline,
+        {
+          width: bannerSize.width,
+          height: bannerSize.height,
+          paddingBottom: bannerSize.paddingBottom,
+        },
+      ]}>
+      <Animated.View
+        style={[
+          styles.glow,
+          docked ? styles.glowDocked : styles.glowInline,
+          { transform: [{ scale: glowScale }] },
+        ]}>
         <LinearGradient
           colors={['#F0EBFF', '#FFE8EA']}
           end={{ x: 1, y: 1 }}
@@ -194,15 +223,27 @@ export function LoginHeroAnimation() {
 
 const styles = StyleSheet.create({
   wrap: {
+    overflow: 'hidden',
+  },
+  wrapInline: {
     alignSelf: 'center',
     borderRadius: 24,
-    marginTop: 8,
-    overflow: 'hidden',
+  },
+  wrapDocked: {
+    alignSelf: 'stretch',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   glow: {
     ...StyleSheet.absoluteFill,
-    borderRadius: 24,
     overflow: 'hidden',
+  },
+  glowInline: {
+    borderRadius: 24,
+  },
+  glowDocked: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   gradient: {
     flex: 1,
@@ -213,17 +254,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   floatTopLeft: {
-    left: 10,
-    top: 6,
+    left: 16,
+    top: 10,
   },
   floatTopRight: {
-    right: 10,
-    top: 6,
+    right: 16,
+    top: 10,
   },
   floatBottomRight: {
-    bottom: 6,
+    bottom: 10,
     fontSize: 20,
-    right: 10,
+    right: 16,
   },
   messageCenter: {
     alignItems: 'center',
@@ -231,7 +272,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 12,
   },
   badge: {

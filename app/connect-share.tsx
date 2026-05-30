@@ -1,6 +1,5 @@
 import { router } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
-import { useMemo } from 'react';
 import {
   Platform,
   Pressable,
@@ -14,19 +13,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   formatExpoConnectShareMessage,
-  getExpoConnectShareUrl,
+  getExpoConnectShareStatus,
 } from '../lib/expo-connect-share';
 import { showErrorAlert, showSuccessAlert } from '../lib/alerts';
 import { colors } from '../lib/theme';
-import { InviteQrCode } from '../src/components/invite-qr-code';
+import { ConnectQrPanel } from '../src/components/connect-qr-panel';
 
 export default function ConnectShareScreen() {
   const insets = useSafeAreaInsets();
-  const connectUrl = useMemo(() => getExpoConnectShareUrl(), []);
-  const shareMessage = useMemo(
-    () => (connectUrl ? formatExpoConnectShareMessage(connectUrl) : ''),
-    [connectUrl],
-  );
+  const { url: connectUrl } = getExpoConnectShareStatus();
+  const shareMessage = connectUrl ? formatExpoConnectShareMessage(connectUrl) : '';
 
   const handleCopy = async () => {
     if (!connectUrl) {
@@ -68,20 +64,13 @@ export default function ConnectShareScreen() {
         <Text style={styles.backText}>‹ 뒤로</Text>
       </Pressable>
 
-      <Text style={styles.title}>접속 주소 공유</Text>
-      <Text style={styles.subtitle}>
-        휴대폰 Expo Go에서 이 주소로 접속하거나, 카톡·메일로 보내세요.
-      </Text>
+      <Text style={styles.title}>QR 접속</Text>
+      <Text style={styles.subtitle}>Expo Go에서 QR을 스캔하거나 주소를 복사·공유하세요.</Text>
+
+      <ConnectQrPanel />
 
       {connectUrl ? (
-        <View style={styles.card}>
-          <Text style={styles.urlLabel}>접속 주소</Text>
-          <Text selectable style={styles.url}>
-            {connectUrl}
-          </Text>
-          <View style={styles.qrWrap}>
-            <InviteQrCode size={220} value={connectUrl} />
-          </View>
+        <View style={styles.actions}>
           <Pressable
             onPress={() => void handleCopy()}
             style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
@@ -94,8 +83,8 @@ export default function ConnectShareScreen() {
           </Pressable>
         </View>
       ) : (
-        <View style={styles.card}>
-          <Text style={styles.emptyTitle}>지금은 접속 주소를 불러올 수 없어요</Text>
+        <View style={styles.helpCard}>
+          <Text style={styles.emptyTitle}>지금은 QR을 표시할 수 없어요</Text>
           <Text style={styles.emptyText}>
             PC에서 Metro를 켠 뒤 이 화면을 다시 열거나, 아래 순서로 공유 파일을 만드세요.
           </Text>
@@ -144,29 +133,10 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     marginTop: 8,
   },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E8E8F0',
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 14,
+  actions: {
+    gap: 10,
     marginBottom: 16,
-    padding: 18,
-  },
-  urlLabel: {
-    color: '#6B6B7B',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  url: {
-    color: '#1A1A2E',
-    fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 20,
-  },
-  qrWrap: {
-    alignItems: 'center',
-    paddingVertical: 8,
+    marginTop: 4,
   },
   primaryButton: {
     alignItems: 'center',

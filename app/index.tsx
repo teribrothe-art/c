@@ -18,8 +18,12 @@ import { signInAndNavigate } from '../lib/quick-login-flow';
 import { colors, disabledButtonStyle, loginLayout } from '../lib/theme';
 import { validateEmail } from '../lib/validation';
 import { AppVersionBadge } from '../src/components/app-version-badge';
+import { ConnectQrPanel } from '../src/components/connect-qr-panel';
 import { InlineFieldError } from '../src/components/inline-field-error';
 import { LoginHeadlines } from '../src/components/login-headlines';
+import { LoginHeroAnimation } from '../src/components/login-hero-animation';
+
+type LoginView = 'login' | 'qr';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -28,8 +32,10 @@ export default function LoginScreen() {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<LoginView>('login');
 
   const isSubmitDisabled = isLoading;
+  const showQrEntry = isDemoAuthMode;
 
   const validateForm = () => {
     const nextEmailError = validateEmail(email);
@@ -78,86 +84,105 @@ export default function LoginScreen() {
         <View style={styles.content}>
           <LoginHeadlines />
 
-          <View style={styles.form}>
-            <View>
-              <TextInput
-                autoCapitalize="none"
-                autoComplete="email"
-                editable={!isLoading}
-                keyboardType="email-address"
-                onChangeText={(value) => {
-                  setEmail(value);
-                  if (emailError) {
-                    setEmailError(null);
-                  }
-                }}
-                placeholder="이메일"
-                placeholderTextColor="#A0A0A0"
-                style={[styles.input, inputBorder.email]}
-                value={email}
-              />
-              <InlineFieldError message={emailError} />
-            </View>
+          {showQrEntry && activeView === 'qr' ? (
+            <ConnectQrPanel embedded />
+          ) : (
+            <>
+              <LoginHeroAnimation />
+              <View style={styles.form}>
+                <View>
+                  <TextInput
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  editable={!isLoading}
+                  keyboardType="email-address"
+                  onChangeText={(value) => {
+                    setEmail(value);
+                    if (emailError) {
+                      setEmailError(null);
+                    }
+                  }}
+                  placeholder="이메일"
+                  placeholderTextColor="#A0A0A0"
+                  style={[styles.input, inputBorder.email]}
+                  value={email}
+                />
+                <InlineFieldError message={emailError} />
+              </View>
 
-            <View>
-              <TextInput
-                autoCapitalize="none"
-                editable={!isLoading}
-                onChangeText={(value) => {
-                  setPassword(value);
-                  if (passwordError) {
-                    setPasswordError(null);
-                  }
-                  if (loginError) {
-                    setLoginError(null);
-                  }
-                }}
-                onSubmitEditing={() => void handleLogin()}
-                placeholder="비밀번호"
-                placeholderTextColor="#A0A0A0"
-                returnKeyType="go"
-                secureTextEntry
-                style={[styles.input, inputBorder.password]}
-                value={password}
-              />
-              <InlineFieldError message={passwordError} />
-            </View>
+              <View>
+                <TextInput
+                  autoCapitalize="none"
+                  editable={!isLoading}
+                  onChangeText={(value) => {
+                    setPassword(value);
+                    if (passwordError) {
+                      setPasswordError(null);
+                    }
+                    if (loginError) {
+                      setLoginError(null);
+                    }
+                  }}
+                  onSubmitEditing={() => void handleLogin()}
+                  placeholder="비밀번호"
+                  placeholderTextColor="#A0A0A0"
+                  returnKeyType="go"
+                  secureTextEntry
+                  style={[styles.input, inputBorder.password]}
+                  value={password}
+                />
+                <InlineFieldError message={passwordError} />
+              </View>
 
-            <InlineFieldError message={loginError} />
+              <InlineFieldError message={loginError} />
 
-            <Pressable
-              disabled={isSubmitDisabled}
-              onPress={() => void handleLogin()}
-              style={({ pressed }) => [
-                styles.loginButton,
-                isSubmitDisabled && styles.loginButtonDisabled,
-                pressed && !isSubmitDisabled && styles.loginButtonPressed,
-              ]}>
-              <Text style={styles.loginButtonText}>{isLoading ? '로그인 중...' : '로그인'}</Text>
-            </Pressable>
-          </View>
+              <Pressable
+                disabled={isSubmitDisabled}
+                onPress={() => void handleLogin()}
+                style={({ pressed }) => [
+                  styles.loginButton,
+                  isSubmitDisabled && styles.loginButtonDisabled,
+                  pressed && !isSubmitDisabled && styles.loginButtonPressed,
+                ]}>
+                <Text style={styles.loginButtonText}>{isLoading ? '로그인 중...' : '로그인'}</Text>
+              </Pressable>
+              </View>
+            </>
+          )}
 
           <View style={styles.footerLinks}>
             <Link href="/signup" asChild>
-              <Pressable disabled={isLoading} style={styles.footerLink}>
+              <Pressable
+                disabled={isLoading}
+                onPress={() => setActiveView('login')}
+                style={styles.footerLink}>
                 <Text style={styles.footerLinkText}>회원가입</Text>
               </Pressable>
             </Link>
 
-            {isDemoAuthMode ? (
+            {showQrEntry ? (
               <>
                 <Text style={styles.footerDivider}>·</Text>
                 <Link href="/test-login" asChild>
-                  <Pressable disabled={isLoading} style={styles.footerLink}>
+                  <Pressable
+                    disabled={isLoading}
+                    onPress={() => setActiveView('login')}
+                    style={styles.footerLink}>
                     <Text style={styles.footerLinkText}>테스트 계정</Text>
                   </Pressable>
                 </Link>
                 <Text style={styles.footerDivider}>·</Text>
-                <Link href="/connect-share" asChild>
-                  <Pressable disabled={isLoading} style={styles.footerLink}>
-                    <Text style={styles.footerLinkText}>접속 주소 공유</Text>
-                  </Pressable>
-                </Link>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: activeView === 'qr' }}
+                  disabled={isLoading}
+                  onPress={() => setActiveView((current) => (current === 'qr' ? 'login' : 'qr'))}
+                  style={styles.footerLink}>
+                  <Text
+                    style={[styles.footerLinkText, activeView === 'qr' && styles.footerLinkTextActive]}>
+                    QR
+                  </Text>
+                </Pressable>
               </>
             ) : null}
           </View>
@@ -178,11 +203,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexGrow: 1,
     justifyContent: 'center',
+    paddingBottom: 24,
     paddingHorizontal: loginLayout.horizontalPadding,
-    paddingVertical: 32,
+    paddingTop: 32,
   },
   content: {
     alignItems: 'center',
+    gap: 18,
     maxWidth: loginLayout.maxContentWidth,
     width: '100%',
   },
@@ -226,8 +253,9 @@ const styles = StyleSheet.create({
   footerLinks: {
     alignItems: 'center',
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
-    marginTop: 22,
+    justifyContent: 'center',
   },
   footerLink: {
     paddingHorizontal: 4,
@@ -237,6 +265,10 @@ const styles = StyleSheet.create({
     color: colors.coral,
     fontSize: 15,
     fontWeight: '600',
+  },
+  footerLinkTextActive: {
+    fontWeight: '900',
+    textDecorationLine: 'underline',
   },
   footerDivider: {
     color: '#C4C4D0',

@@ -55,6 +55,7 @@
     "start:lan": "expo start --lan",
     "start:tunnel": "expo start --tunnel",
     "start:clear": "expo start --clear",
+    "prestart:phone": "node scripts/invalidate-connect-manifest.mjs",
     "start:phone": "CI=false expo start --tunnel --clear",
     "share": "node scripts/share-expo-go.mjs",
     "phone:pc": "node -e \"console.log('터미널1: npm run start:phone\\n터미널2: npm run share\\nWindows: scripts\\\\start-phone-pc.cmd → scripts\\\\share-expo-pc.cmd')\"",

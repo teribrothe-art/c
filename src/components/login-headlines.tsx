@@ -1,7 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { colors, loginLayout } from '../../lib/theme';
-import { LoginHeroAnimation } from './login-hero-animation';
 import { LoginHopeQuotesAnimation } from './login-hope-quotes-animation';
 
 const SALON_TITLE = '나만의 살롱';
@@ -13,7 +12,6 @@ export function LoginHeadlines() {
       <Text style={styles.salon}>{SALON_TITLE}</Text>
       <Text style={styles.app}>{APP_TITLE}</Text>
       <LoginHopeQuotesAnimation />
-      <LoginHeroAnimation />
     </View>
   );
 }
@@ -22,7 +20,7 @@ const styles = StyleSheet.create({
   block: {
     alignItems: 'center',
     gap: 10,
-    marginBottom: 28,
+    marginBottom: 12,
     maxWidth: loginLayout.maxContentWidth,
     width: '100%',
   },

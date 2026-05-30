@@ -1,4 +1,4 @@
-import { Link, router, useLocalSearchParams } from 'expo-router';
+import { Link, useLocalSearchParams } from 'expo-router';
 import type { Href } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -426,7 +426,7 @@ export default function TestLoginScreen() {
           <Text style={styles.subtitle}>탭하면 바로 로그인됩니다.</Text>
           <Link href="/connect-share" asChild>
             <Pressable style={({ pressed }) => [styles.connectShareLink, pressed && { opacity: 0.85 }]}>
-              <Text style={styles.connectShareLinkText}>접속 주소 공유</Text>
+              <Text style={styles.connectShareLinkText}>QR</Text>
             </Pressable>
           </Link>
         </View>
