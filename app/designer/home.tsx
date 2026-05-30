@@ -11,24 +11,17 @@ import {
   type DesignerPaymentDashboard,
 } from '../../lib/designer-payment-stats';
 import { mapDesignerClientsToGridItems } from '../../lib/designer-customer-grid';
+import { countUniqueDesignerCustomers } from '../../lib/designer-home-stats';
 import { getErrorMessage } from '../../lib/errors';
 import { formatDesignerStoreLabel } from '../../lib/org-store-affiliation';
 import { CustomerGrid } from '../../src/components/customer-grid';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
+import {
+  currentDesignerMonthKey,
+  DesignerHomeStatGrid,
+  type DesignerHomeStatItem,
+} from '../../src/components/designer-home-stat-grid';
 import { LoadingState } from '../../src/components/loading-state';
-
-function StatTile({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.statTileWrap}>
-      <View style={styles.statTile}>
-        <Text style={styles.statLabel}>{label}</Text>
-        <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-          {value}
-        </Text>
-      </View>
-    </View>
-  );
-}
 
 export default function DesignerHomeScreen() {
   const insets = useSafeAreaInsets();
@@ -84,6 +77,42 @@ export default function DesignerHomeScreen() {
     }, [loadHome]),
   );
 
+  const uniqueCustomerCount = useMemo(
+    () => countUniqueDesignerCustomers(clientItems),
+    [clientItems],
+  );
+
+  const homeStatItems = useMemo((): DesignerHomeStatItem[] => {
+    const monthKey = currentDesignerMonthKey();
+
+    return [
+      {
+        key: 'month-revenue',
+        label: '이번 달 정산',
+        value: `${(dashboard?.monthRevenue ?? 0).toLocaleString('ko-KR')}원`,
+        href: `/designer/revenue?month=${monthKey}` as const,
+      },
+      {
+        key: 'month-treatments',
+        label: '이번 달 시술',
+        value: `${dashboard?.monthSettlementCount ?? 0}건`,
+        href: '/designer/clients' as const,
+      },
+      {
+        key: 'customers',
+        label: '보유 고객',
+        value: `${uniqueCustomerCount}명`,
+        href: '/designer/clients' as const,
+      },
+      {
+        key: 'pending-payout',
+        label: '정산 대기',
+        value: `${(dashboard?.pendingPayoutAmount ?? 0).toLocaleString('ko-KR')}원`,
+        href: '/designer/revenue' as const,
+      },
+    ];
+  }, [dashboard, uniqueCustomerCount]);
+
   const gridItems = useMemo(() => mapDesignerClientsToGridItems(clientItems), [clientItems]);
 
   const handleGridPress = useCallback(
@@ -138,18 +167,7 @@ export default function DesignerHomeScreen() {
           </View>
         ) : (
           <>
-            <View style={styles.statGrid}>
-              <StatTile
-                label="이번 달 정산"
-                value={`${(dashboard?.monthRevenue ?? 0).toLocaleString('ko-KR')}원`}
-              />
-              <StatTile label="이번 달 시술" value={`${dashboard?.monthSettlementCount ?? 0}건`} />
-              <StatTile label="고객 기록" value={`${clientItems.length}건`} />
-              <StatTile
-                label="정산 대기"
-                value={`${(dashboard?.pendingPayoutAmount ?? 0).toLocaleString('ko-KR')}원`}
-              />
-            </View>
+            <DesignerHomeStatGrid items={homeStatItems} />
 
             {gridItems.length > 0 ? (
               <View style={styles.section}>
@@ -211,40 +229,6 @@ const styles = StyleSheet.create({
   },
   iconButtonText: {
     fontSize: 22,
-  },
-  statGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -4,
-  },
-  statTileWrap: {
-    aspectRatio: 1,
-    padding: 4,
-    width: '25%',
-  },
-  statTile: {
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E8E8F0',
-    borderRadius: 12,
-    borderWidth: 1,
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 8,
-  },
-  statLabel: {
-    color: '#6B6B7B',
-    fontSize: 10,
-    fontWeight: '700',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  statValue: {
-    color: '#1A1A2E',
-    fontSize: 12,
-    fontWeight: '900',
-    textAlign: 'center',
   },
   section: {
     gap: 8,
