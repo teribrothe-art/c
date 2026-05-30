@@ -3,7 +3,13 @@ import { Platform } from 'react-native';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
-import { isDisplayableImageUri, normalizePickerAssetUri, treatmentPhotoPickerOptions } from './image-uri';
+import {
+  isDisplayableImageUri,
+  normalizePickerAssetUri,
+  pickImageFileOnWeb,
+  treatmentCameraPickerOptions,
+  treatmentPhotoPickerOptions,
+} from './image-uri';
 import { prepareImageForUpload } from './prepare-upload-image';
 import { supabase } from './supabase';
 import { Treatment, updateTreatment } from './treatments';
@@ -90,13 +96,21 @@ export async function pickTreatmentPhotoFromLibrary() {
 }
 
 export async function pickTreatmentPhotoFromCamera() {
+  if (Platform.OS === 'web') {
+    return pickImageFileOnWeb({ useCamera: true });
+  }
+
   const permission = await ImagePicker.requestCameraPermissionsAsync();
 
   if (!permission.granted) {
+    if (permission.canAskAgain === false) {
+      throw new Error('카메라 권한이 꺼져 있습니다. 기기 설정에서 허용해주세요.');
+    }
+
     throw new Error('카메라 접근 권한이 필요합니다.');
   }
 
-  const result = await ImagePicker.launchCameraAsync(treatmentPhotoPickerOptions());
+  const result = await ImagePicker.launchCameraAsync(treatmentCameraPickerOptions());
 
   return normalizePickedTreatmentPhoto(result);
 }
