@@ -18,7 +18,7 @@ import { TAB_BAR_BOTTOM_INSET } from '../../../src/components/role-bottom-tab-ba
 import { TreatmentPhotoEditModal } from '../../../src/components/treatment-photo-edit-modal';
 import { TreatmentPhotoPreviewModal } from '../../../src/components/treatment-photo-preview-modal';
 import { TreatmentPhotoSlot } from '../../../src/components/treatment-photo-slot';
-import { parseWonAmount, sanitizeWonDigits } from '../../../lib/currency-input';
+import { formatAmount, parseWonAmount, sanitizeWonDigits } from '../../../lib/currency-input';
 import { prepareImageForUpload } from '../../../lib/prepare-upload-image';
 import { WonAmountInput } from '../../../src/components/won-amount-input';
 import {
@@ -346,7 +346,7 @@ export default function DesignerTreatmentInputScreen() {
           },
           {
             label: '시술 금액',
-            value: treatment?.price ? `${treatment.price.toLocaleString('ko-KR')}원` : '',
+            value: treatment?.price ? formatAmount(treatment.price) : '',
             complete: Boolean(treatment?.price),
             editable: 'price',
           },
@@ -695,7 +695,7 @@ export default function DesignerTreatmentInputScreen() {
 
     showConfirmAlert({
       title: '결제 요청',
-      message: `고객 ${treatment.customer_name || '고객'}님에게 ${(treatment.price ?? 0).toLocaleString('ko-KR')}원 결제 요청을 보낼까요?`,
+      message: `고객 ${treatment.customer_name || '고객'}님에게 ${formatAmount(treatment.price ?? 0)} 결제 요청을 보낼까요?`,
       confirmLabel: '결제 요청',
       onConfirm: () => {
         Promise.resolve()
@@ -951,7 +951,7 @@ export default function DesignerTreatmentInputScreen() {
                 {isSettled
                   ? `✓ 정산 완료 (${formatDate(treatment.settled_at?.slice(0, 10) || treatment.treatment_date)})`
                   : isPaymentPaid
-                    ? `✓ 결제 완료. ${(paymentRecord?.designer_payout ?? 0).toLocaleString('ko-KR')}원 정산 가능`
+                    ? `✓ 결제 완료. ${formatAmount(paymentRecord?.designer_payout ?? 0)} 정산 가능`
                     : '고객 결제 대기 중'}
               </Text>
             </View>

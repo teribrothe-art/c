@@ -66,7 +66,7 @@ export function formatSettlementBadgeAmount(payout: number) {
     return `${Math.round(payout / 10000).toLocaleString('ko-KR')}만`;
   }
 
-  return `${payout.toLocaleString('ko-KR')}원`;
+  return payout.toLocaleString('ko-KR');
 }
 
 export function getDesignerClientStatusBadge(item: DesignerClientListItem) {

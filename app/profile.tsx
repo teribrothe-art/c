@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { signOut } from '../lib/auth';
+import { formatAmount } from '../lib/currency-input';
 import { showConfirmAlert, showErrorAlert, showWarningAlert } from '../lib/alerts';
 import { getErrorMessage } from '../lib/errors';
 import { LoadingState } from '../src/components/loading-state';
@@ -36,10 +37,6 @@ const settingItems: SettingItem[] = [
 
 function formatDate(date?: string | null) {
   return date ? date.replaceAll('-', '.') : '-';
-}
-
-function formatCurrency(amount: number) {
-  return `${amount.toLocaleString('ko-KR')}원`;
 }
 
 function getDisplayName(profile: ProfileData) {
@@ -90,8 +87,8 @@ function ActivityCard({ stats }: { stats: ProfileStats }) {
       ) : (
         <>
           <StatRow label="누적 시술 건수" value={`${stats.treatmentCount}건`} />
-          <StatRow label="누적 정산 총액" value={formatCurrency(stats.totalSettlementAmount)} />
-          <StatRow label="이번 달 정산" value={formatCurrency(stats.monthSettlementAmount)} />
+          <StatRow label="누적 정산 총액" value={formatAmount(stats.totalSettlementAmount)} />
+          <StatRow label="이번 달 정산" value={formatAmount(stats.monthSettlementAmount)} />
           {stats.monthlySettlementTotals.length > 0 ? (
             <View style={styles.monthlySettlementBlock}>
               <Text style={styles.monthlySettlementTitle}>월별 정산</Text>

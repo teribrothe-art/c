@@ -7,6 +7,7 @@ import {
   fetchDesignerRevenueAnalytics,
   type DesignerRevenueAnalytics,
 } from '../../lib/designer-revenue-analytics';
+import { formatAmount } from '../../lib/currency-input';
 import { resolveOrgDesignerAccess, type OrgScope } from '../../lib/org-access';
 import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
 import { getCurrentUser } from '../../lib/auth';
@@ -101,7 +102,7 @@ export function OrgDesignerRevenueScreen({ scope }: Props) {
               <View style={styles.summaryCard}>
                 <Text style={styles.summaryLabel}>이번 달 매출</Text>
                 <Text style={styles.summaryValue}>
-                  {analytics.selectedMonth.revenue.toLocaleString('ko-KR')}원
+                  {formatAmount(analytics.selectedMonth.revenue)}
                 </Text>
               </View>
               <View style={styles.summaryCard}>
@@ -116,13 +117,13 @@ export function OrgDesignerRevenueScreen({ scope }: Props) {
               <View style={styles.weekCard}>
                 <Text style={styles.weekLabel}>{selectedWeek.label || '선택 주'}</Text>
                 <Text style={styles.weekTotal}>
-                  주간 매출 {selectedWeek.weekTotal.toLocaleString('ko-KR')}원 · 정산{' '}
+                  주간 매출 {formatAmount(selectedWeek.weekTotal)} · 정산{' '}
                   {selectedWeek.settlementCount}건
                 </Text>
                 {selectedWeek.days.map((day) => (
                   <View key={day.date} style={styles.dayRow}>
                     <Text style={styles.dayLabel}>{day.weekdayLabel}</Text>
-                    <Text style={styles.dayValue}>{day.totalAmount.toLocaleString('ko-KR')}원</Text>
+                    <Text style={styles.dayValue}>{formatAmount(day.totalAmount)}</Text>
                   </View>
                 ))}
               </View>
@@ -140,7 +141,7 @@ export function OrgDesignerRevenueScreen({ scope }: Props) {
                       {item.treatmentTitle} · {item.dateWithWeekdayLabel}
                     </Text>
                   </View>
-                  <Text style={styles.settlementAmount}>{item.payout.toLocaleString('ko-KR')}원</Text>
+                  <Text style={styles.settlementAmount}>{formatAmount(item.payout)}</Text>
                 </View>
               ))
             )}

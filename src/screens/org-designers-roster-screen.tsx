@@ -9,6 +9,7 @@ import {
   type OrgDashboardSummary,
   type OrgDesignerMetrics,
 } from '../../lib/org-aggregates';
+import { formatAmount } from '../../lib/currency-input';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
@@ -106,7 +107,7 @@ export function OrgDesignersRosterScreen() {
                 <Text style={styles.storeRegion}>{group.storeRegion}</Text>
                 <Text style={styles.storeStats}>
                   디자이너 {group.designers.length}명 · 고객 {group.customerCount}명 · 이번 달 시술{' '}
-                  {group.monthTreatmentCount}건 · 매출 {group.monthRevenue.toLocaleString('ko-KR')}원
+                  {group.monthTreatmentCount}건 · 매출 {formatAmount(group.monthRevenue)}
                 </Text>
               </View>
               <View style={styles.designerList}>

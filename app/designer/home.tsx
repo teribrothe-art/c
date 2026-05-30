@@ -10,6 +10,7 @@ import {
   fetchDesignerPaymentDashboard,
   type DesignerPaymentDashboard,
 } from '../../lib/designer-payment-stats';
+import { formatAmount } from '../../lib/currency-input';
 import { mapDesignerClientsToGridItems } from '../../lib/designer-customer-grid';
 import { countUniqueDesignerCustomers } from '../../lib/designer-home-stats';
 import { getErrorMessage } from '../../lib/errors';
@@ -89,7 +90,7 @@ export default function DesignerHomeScreen() {
       {
         key: 'month-revenue',
         label: '이번 달 정산',
-        value: `${(dashboard?.monthRevenue ?? 0).toLocaleString('ko-KR')}원`,
+        value: formatAmount(dashboard?.monthRevenue ?? 0),
         href: `/designer/revenue?month=${monthKey}` as const,
       },
       {
@@ -107,7 +108,7 @@ export default function DesignerHomeScreen() {
       {
         key: 'pending-payout',
         label: '정산 대기',
-        value: `${(dashboard?.pendingPayoutAmount ?? 0).toLocaleString('ko-KR')}원`,
+        value: formatAmount(dashboard?.pendingPayoutAmount ?? 0),
         href: '/designer/revenue' as const,
       },
     ];

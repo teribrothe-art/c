@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { OrgScope } from '../../lib/org-access';
+import { formatAmount } from '../../lib/currency-input';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
 import {
@@ -114,7 +115,7 @@ export function OrgSimulationScreen({ scope }: Props) {
                   {storeEntity.region} · {storeEntity.hotPlace}
                 </Text>
                 <Text style={styles.storeStats}>
-                  이번 달 매출 {summary.monthRevenue.toLocaleString('ko-KR')}원 · 시술{' '}
+                  이번 달 매출 {formatAmount(summary.monthRevenue)} · 시술{' '}
                   {summary.monthTreatmentCount}건
                 </Text>
               </View>
@@ -146,9 +147,9 @@ export function OrgSimulationScreen({ scope }: Props) {
                         {store.hotPlace} · 디자이너 {store.designerCount}명
                       </Text>
                       <Text style={styles.storeStats}>
-                        매출 {store.monthRevenue.toLocaleString('ko-KR')}원 · 고객{' '}
+                        매출 {formatAmount(store.monthRevenue)} · 고객{' '}
                         {store.customerCount}명 · 정산대기{' '}
-                        {store.pendingPayoutAmount.toLocaleString('ko-KR')}원
+                        {formatAmount(store.pendingPayoutAmount)}
                       </Text>
                       <Text style={styles.storeDesignerNames} numberOfLines={2}>
                         {storeDesigners.map((designer) => designer.name).join(' · ')}
@@ -165,7 +166,7 @@ export function OrgSimulationScreen({ scope }: Props) {
                 <Text style={styles.designerName}>{designer.name}</Text>
                 <Text style={styles.designerMeta}>
                   {designer.storeName} · 시술 {designer.monthTreatmentCount}건 · 매출{' '}
-                  {designer.monthRevenue.toLocaleString('ko-KR')}원
+                  {formatAmount(designer.monthRevenue)}
                 </Text>
               </View>
             ))}

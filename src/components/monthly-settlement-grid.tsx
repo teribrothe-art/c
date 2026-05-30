@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { formatAmount } from '../../lib/currency-input';
 import type { MonthlySettlementTotal } from '../../lib/designer-payment-stats';
 
 type MonthlySettlementGridProps = {
@@ -26,14 +27,13 @@ export function MonthlySettlementGrid({ items, onPressItem }: MonthlySettlementG
         <View key={item.monthKey} style={styles.tileWrap}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${item.label} ${item.amount.toLocaleString('ko-KR')}원`}
+            accessibilityLabel={`${item.label} ${formatAmount(item.amount)}`}
             onPress={() => onPressItem(item.monthKey)}
             style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}>
             <Text style={styles.monthLabel}>{getShortMonthLabel(item.label)}</Text>
             <Text style={styles.amount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
               {formatTileAmount(item.amount)}
             </Text>
-            <Text style={styles.amountUnit}>원</Text>
             <Text style={styles.meta}>{item.settlementCount}건</Text>
           </Pressable>
         </View>
@@ -81,12 +81,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
     textAlign: 'center',
-  },
-  amountUnit: {
-    color: '#9CA3AF',
-    fontSize: 9,
-    fontWeight: '700',
-    marginBottom: 2,
   },
   meta: {
     color: '#9CA3AF',

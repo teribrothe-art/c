@@ -8,6 +8,7 @@ import {
   type DesignerRevenueAnalytics,
   type WeekdayRevenueCell,
 } from '../../lib/designer-revenue-analytics';
+import { formatAmount } from '../../lib/currency-input';
 import { getErrorMessage } from '../../lib/errors';
 import { mapRevenueSettlementsToGridItems } from '../../lib/designer-customer-grid';
 import { RevenueBarChart } from '../../src/components/revenue-bar-chart';
@@ -198,7 +199,7 @@ export default function DesignerRevenueScreen() {
       {
         key: 'avg-price',
         label: '월 평균 시술가',
-        value: `${analytics.averageTreatmentPrice.toLocaleString('ko-KR')}원`,
+        value: formatAmount(analytics.averageTreatmentPrice),
         onPress: () => {
           setSettlementListMode('month');
           scrollToSection(monthSectionY.current);
@@ -208,7 +209,7 @@ export default function DesignerRevenueScreen() {
         key: 'pending-amount',
         label: '정산 대기',
         tone: 'danger',
-        value: `${analytics.pendingPayoutAmount.toLocaleString('ko-KR')}원`,
+        value: formatAmount(analytics.pendingPayoutAmount),
         onPress: showPendingSettlements,
       },
       {
@@ -222,7 +223,7 @@ export default function DesignerRevenueScreen() {
         key: 'week-total',
         label: '선택 주 합계',
         tone: 'success',
-        value: `${analytics.selectedWeek.weekTotal.toLocaleString('ko-KR')}원`,
+        value: formatAmount(analytics.selectedWeek.weekTotal),
         onPress: () => {
           setSettlementListMode('month');
           setSelectedDayDate(null);
@@ -333,7 +334,7 @@ export default function DesignerRevenueScreen() {
                             styles.monthChipAmount,
                             selected && styles.monthChipAmountSelected,
                           ]}>
-                          {month.revenue.toLocaleString('ko-KR')}원
+                          {formatAmount(month.revenue)}
                         </Text>
                         <Text
                           style={[
@@ -352,9 +353,9 @@ export default function DesignerRevenueScreen() {
             <View style={styles.heroCard}>
               <Text style={styles.heroLabel}>{analytics.selectedMonth.label} 매출</Text>
               <Text style={styles.heroValue}>
-                {analytics.selectedMonth.revenue.toLocaleString('ko-KR')}
+                {formatAmount(analytics.selectedMonth.revenue)}
               </Text>
-              <Text style={styles.heroUnit}>원 · 정산 {analytics.selectedMonth.settlementCount}건</Text>
+              <Text style={styles.heroUnit}>정산 {analytics.selectedMonth.settlementCount}건</Text>
             </View>
 
             <DesignerRevenueMetricGrid items={revenueMetricItems} />

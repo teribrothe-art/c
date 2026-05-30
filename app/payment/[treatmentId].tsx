@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { showErrorAlert } from '../../lib/alerts';
+import { formatAmount } from '../../lib/currency-input';
 import { getErrorMessage } from '../../lib/errors';
 import { ensurePaymentRecordForTreatment } from '../../lib/payment-record';
 import {
@@ -47,10 +48,6 @@ function getInitials(name?: string | null) {
   }
 
   return name.trim().slice(0, 1);
-}
-
-function formatWon(value: number) {
-  return `${value.toLocaleString('ko-KR')}원`;
 }
 
 export default function CustomerPaymentScreen() {
@@ -299,7 +296,7 @@ export default function CustomerPaymentScreen() {
 
         <View style={styles.amountHero}>
           <Text style={styles.amountLabel}>결제 금액</Text>
-          <Text style={styles.amountValue}>{formatWon(amount)}</Text>
+          <Text style={styles.amountValue}>{formatAmount(amount)}</Text>
         </View>
 
         <View style={styles.methodCard}>
@@ -355,7 +352,7 @@ export default function CustomerPaymentScreen() {
           {isPaying ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.payButtonText}>{formatWon(amount)} 결제하기</Text>
+            <Text style={styles.payButtonText}>{formatAmount(amount)} 결제하기</Text>
           )}
         </Pressable>
       </View>

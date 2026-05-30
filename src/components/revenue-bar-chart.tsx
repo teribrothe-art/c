@@ -30,7 +30,7 @@ function formatCompactWon(value: number) {
 export function RevenueBarChart({
   title,
   points,
-  valueSuffix = '원',
+  valueSuffix = '',
   emptyMessage = '표시할 데이터가 없어요',
   barColor = MINT,
   maxBarHeight = 120,
@@ -86,7 +86,7 @@ export function RevenueBarChart({
       ) : (
         chartBody
       )}
-      <Text style={styles.unitHint}>합계 ({valueSuffix})</Text>
+      {valueSuffix ? <Text style={styles.unitHint}>합계 ({valueSuffix})</Text> : null}
     </View>
   );
 }

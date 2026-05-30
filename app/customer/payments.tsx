@@ -7,6 +7,7 @@ import {
   fetchCustomerPaymentEntries,
   type CustomerPaymentEntry,
 } from '../../lib/customer-payment-entries';
+import { formatAmount } from '../../lib/currency-input';
 import { getErrorMessage } from '../../lib/errors';
 import { BottomTabBar } from '../../src/components/bottom-tab-bar';
 import { CustomerPaymentDetailPanel } from '../../src/components/customer-payment-detail-panel';
@@ -137,7 +138,7 @@ export default function CustomerPaymentsScreen() {
                 </View>
                 <Text style={styles.designer}>{entry.treatment.designer_name || '디자이너'}</Text>
                 <Text style={styles.treatmentTitle}>{entry.treatment.treatment_title}</Text>
-                <Text style={styles.amount}>{entry.amount.toLocaleString('ko-KR')}원</Text>
+                <Text style={styles.amount}>{formatAmount(entry.amount)}</Text>
                 {selected ? <Text style={styles.selectedHint}>▼ 금액·영수증 확인 중</Text> : null}
               </Pressable>
             );

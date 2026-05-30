@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { formatAmount } from '../../lib/currency-input';
 import type { WeekdayRevenueCell } from '../../lib/designer-revenue-analytics';
 import { RevenueBarChart } from './revenue-bar-chart';
 
@@ -97,7 +98,7 @@ export function WeeklyRevenuePanel({
       {selectedDay ? (
         <View style={styles.detailBox}>
           <Text style={styles.detailTitle}>{selectedDay.dateWithWeekdayLabel}</Text>
-          <Text style={styles.detailAmount}>{selectedDay.totalAmount.toLocaleString('ko-KR')}원</Text>
+          <Text style={styles.detailAmount}>{formatAmount(selectedDay.totalAmount)}</Text>
           <Text style={styles.detailMeta}>정산 {selectedDay.settlementCount}건</Text>
         </View>
       ) : (

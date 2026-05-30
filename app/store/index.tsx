@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { formatAmount } from '../../lib/currency-input';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import { getOrgStoreForAccountUser } from '../../lib/org-store-affiliation';
 import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
@@ -102,8 +103,7 @@ export default function StoreHomeScreen() {
                 {
                   key: 'revenue',
                   label: '이번 달 매출',
-                  value: summary.monthRevenue.toLocaleString('ko-KR'),
-                  meta: '원',
+                  value: formatAmount(summary.monthRevenue),
                   onPress: () => router.push('/store/revenue'),
                 },
                 {
@@ -164,7 +164,7 @@ export default function StoreHomeScreen() {
                     </Text>
                   </View>
                   <Text style={styles.menuAmount}>
-                    {designer.monthRevenue.toLocaleString('ko-KR')}원
+                    {formatAmount(designer.monthRevenue)}
                   </Text>
                 </Pressable>
               ))}
