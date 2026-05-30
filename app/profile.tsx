@@ -60,6 +60,21 @@ function StatRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function ActivitySummaryColumn({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.activityColumn}>
+      <Text style={styles.activityColumnLabel}>{label}</Text>
+      <Text
+        style={styles.activityColumnValue}
+        numberOfLines={2}
+        adjustsFontSizeToFit
+        minimumFontScale={0.65}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
 function SettingsRow({
   icon,
   label,
@@ -89,9 +104,20 @@ function ActivityCard({ stats }: { stats: ProfileStats }) {
         </>
       ) : (
         <>
-          <StatRow label="누적 시술 건수" value={`${stats.treatmentCount}건`} />
-          <StatRow label="누적 정산 총액" value={formatCurrency(stats.totalSettlementAmount)} />
-          <StatRow label="이번 달 정산" value={formatCurrency(stats.monthSettlementAmount)} />
+          <View style={styles.activitySummaryGrid}>
+            <ActivitySummaryColumn
+              label="누적시술"
+              value={`${stats.treatmentCount.toLocaleString('ko-KR')}건`}
+            />
+            <ActivitySummaryColumn
+              label="누적정산"
+              value={formatCurrency(stats.totalSettlementAmount)}
+            />
+            <ActivitySummaryColumn
+              label="이달의정산"
+              value={formatCurrency(stats.monthSettlementAmount)}
+            />
+          </View>
           {stats.monthlySettlementTotals.length > 0 ? (
             <View style={styles.monthlySettlementBlock}>
               <Text style={styles.monthlySettlementTitle}>월별 정산</Text>
@@ -405,6 +431,34 @@ const styles = StyleSheet.create({
     color: '#1A1A2E',
     fontSize: 14,
     fontWeight: '800',
+  },
+  activitySummaryGrid: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  activityColumn: {
+    alignItems: 'center',
+    backgroundColor: '#F7F7FA',
+    borderRadius: 12,
+    flex: 1,
+    gap: 6,
+    minHeight: 72,
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 12,
+  },
+  activityColumnLabel: {
+    color: '#6B6B7B',
+    fontSize: 11,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  activityColumnValue: {
+    color: '#1A1A2E',
+    fontSize: 13,
+    fontWeight: '900',
+    textAlign: 'center',
   },
   monthlySettlementBlock: {
     borderTopColor: '#EFEFF4',
