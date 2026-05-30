@@ -122,12 +122,28 @@ export function OrgDesignersRosterScreen() {
           { paddingTop: insets.top + 16, paddingBottom: Math.max(insets.bottom, 20) + 100 },
         ]}
         showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>디자이너</Text>
-        <Text style={styles.subtitle}>
-          {selectedGroup
-            ? '소속 디자이너의 매출·고객·시술을 조회하세요.'
-            : '소속 매장을 선택한 뒤 디자이너 목록을 확인하세요.'}
-        </Text>
+        <View style={styles.headerRow}>
+          <View style={styles.headerCopy}>
+            <Text style={styles.title}>디자이너</Text>
+            <Text style={styles.subtitle}>
+              {selectedGroup
+                ? '소속 디자이너의 매출·고객·시술을 조회하세요.'
+                : '소속 매장을 선택한 뒤 디자이너 목록을 확인하세요.'}
+            </Text>
+          </View>
+          {selectedGroup ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="소속 매장 목록으로"
+              onPress={() => setSelectedStoreId(null)}
+              style={({ pressed }) => [
+                styles.headerBackEmoji,
+                pressed && styles.headerBackEmojiPressed,
+              ]}>
+              <Text style={styles.headerBackEmojiIcon}>↩️</Text>
+            </Pressable>
+          ) : null}
+        </View>
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -135,12 +151,6 @@ export function OrgDesignersRosterScreen() {
           <EmptyState title="불러오기 실패" subtitle={errorMessage} />
         ) : summary && selectedGroup ? (
           <View style={styles.storeSection}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setSelectedStoreId(null)}
-              style={({ pressed }) => [styles.backToStores, pressed && styles.actionPressed]}>
-              <Text style={styles.backToStoresText}>‹ 소속 매장</Text>
-            </Pressable>
             <View style={styles.storeHeader}>
               <Text style={styles.storeLabel}>소속 매장</Text>
               <Text style={styles.storeName}>{selectedGroup.storeName}</Text>
@@ -184,6 +194,35 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingHorizontal: 18,
   },
+  headerRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  headerCopy: {
+    flex: 1,
+    gap: 0,
+  },
+  headerBackEmoji: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: 'center',
+    marginTop: 2,
+    width: 40,
+  },
+  headerBackEmojiPressed: {
+    backgroundColor: '#F5F5F8',
+    opacity: 0.92,
+  },
+  headerBackEmojiIcon: {
+    fontSize: 18,
+    lineHeight: 22,
+  },
   title: {
     color: '#1A1A2E',
     fontSize: 24,
@@ -216,15 +255,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     marginTop: 6,
-  },
-  backToStores: {
-    alignSelf: 'flex-start',
-    paddingVertical: 4,
-  },
-  backToStoresText: {
-    color: colors.purple,
-    fontSize: 14,
-    fontWeight: '800',
   },
   storeSection: {
     gap: 10,
