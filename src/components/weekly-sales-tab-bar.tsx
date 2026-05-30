@@ -16,13 +16,13 @@ const SEGMENTS: {
 }[] = [
   {
     key: 'weekday',
-    label: '평일 매출',
-    hint: '월~금 · 이번 주 실제',
+    label: '평일',
+    hint: '월~금',
   },
   {
     key: 'weekend',
-    label: '주말 매출',
-    hint: '토~일 · 이번 주 실제',
+    label: '주말',
+    hint: '토~일',
   },
 ];
 
