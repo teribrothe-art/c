@@ -424,6 +424,11 @@ export default function TestLoginScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>테스트 계정</Text>
           <Text style={styles.subtitle}>탭하면 바로 로그인됩니다.</Text>
+          <Link href="/connect-share" asChild>
+            <Pressable style={({ pressed }) => [styles.connectShareLink, pressed && { opacity: 0.85 }]}>
+              <Text style={styles.connectShareLinkText}>접속 주소 공유</Text>
+            </Pressable>
+          </Link>
         </View>
 
         {demoLoginGroups.map((group) => (
@@ -504,6 +509,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginTop: 6,
+  },
+  connectShareLink: {
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    paddingVertical: 4,
+  },
+  connectShareLinkText: {
+    color: colors.purple,
+    fontSize: 14,
+    fontWeight: '800',
+    textDecorationLine: 'underline',
   },
   group: {
     marginBottom: 18,
