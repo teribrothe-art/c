@@ -2,19 +2,6 @@ import type { DesignerClientListItem } from './customer-invitations';
 import { formatTreatmentDisplayDate, getDesignerClientStatusBadge } from './designer-customer-grid';
 import { getPaymentStatusLabel, normalizePaymentStatus } from './payment-status';
 
-export type DesignerHomeQuickAction = {
-  key: string;
-  label: string;
-  icon: string;
-  href: '/designer/input' | '/designer/clients' | '/designer/revenue';
-};
-
-export const DESIGNER_HOME_QUICK_ACTIONS: DesignerHomeQuickAction[] = [
-  { key: 'input', label: '시술 추가', icon: '✂️', href: '/designer/input' },
-  { key: 'clients', label: '고객', icon: '👥', href: '/designer/clients' },
-  { key: 'revenue', label: '매출·정산', icon: '💰', href: '/designer/revenue' },
-];
-
 export type DesignerHomeActionItem = {
   key: string;
   treatmentId: string;

@@ -2,11 +2,7 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { SettlementListItem } from '../../lib/designer-payment-stats';
-import {
-  DESIGNER_HOME_QUICK_ACTIONS,
-  type DesignerHomeActionItem,
-  type DesignerHomeRecentItem,
-} from '../../lib/designer-home-feed';
+import type { DesignerHomeActionItem, DesignerHomeRecentItem } from '../../lib/designer-home-feed';
 import { colors } from '../../lib/theme';
 
 type DesignerHomeSectionsProps = {
@@ -55,21 +51,6 @@ export function DesignerHomeSections({
           </Pressable>
         </View>
       ) : null}
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>빠른 실행</Text>
-        <View style={styles.quickRow}>
-          {DESIGNER_HOME_QUICK_ACTIONS.map((action) => (
-            <Pressable
-              key={action.key}
-              onPress={() => router.push(action.href)}
-              style={({ pressed }) => [styles.quickTile, pressed && styles.tilePressed]}>
-              <Text style={styles.quickIcon}>{action.icon}</Text>
-              <Text style={styles.quickLabel}>{action.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
 
       {actionItems.length > 0 ? (
         <View style={styles.section}>
@@ -203,28 +184,6 @@ const styles = StyleSheet.create({
   sectionAction: {
     color: colors.coral,
     fontSize: 13,
-    fontWeight: '800',
-  },
-  quickRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  quickTile: {
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E8E8F0',
-    borderRadius: 12,
-    borderWidth: 1,
-    flex: 1,
-    gap: 6,
-    paddingVertical: 14,
-  },
-  quickIcon: {
-    fontSize: 22,
-  },
-  quickLabel: {
-    color: '#1A1A2E',
-    fontSize: 12,
     fontWeight: '800',
   },
   cardList: {
