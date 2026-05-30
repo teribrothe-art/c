@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../../lib/theme';
+import { colors, loginLayout } from '../../lib/theme';
 import { LoginHeroAnimation } from './login-hero-animation';
 import { LoginHopeQuotesAnimation } from './login-hope-quotes-animation';
 
@@ -23,7 +23,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     marginBottom: 28,
-    paddingHorizontal: 8,
+    maxWidth: loginLayout.maxContentWidth,
     width: '100%',
   },
   salon: {
