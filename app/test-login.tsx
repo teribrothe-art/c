@@ -36,10 +36,6 @@ import {
 import { showConfirmAlert, showLoginFailureAlert, showSuccessAlert } from '../lib/alerts';
 import { isDemoAuthMode } from '../lib/auth';
 import { clearAccumulatedDemoCache } from '../lib/demo-accumulated-cache-reset';
-import {
-  DESIGNER_APP_TABS,
-  DESIGNER_DEMO_TAB_LOGIN,
-} from '../lib/designer-app-tabs';
 import { getErrorMessage } from '../lib/errors';
 import { navigateBackOrReplace } from '../lib/navigation';
 import { signInAndNavigate } from '../lib/quick-login-flow';
@@ -57,60 +53,8 @@ type DemoLoginGroupSectionProps = {
   groupSearch: string;
   onToggle: () => void;
   onGroupSearchChange: (value: string) => void;
-  onLogin: (id: string, email: string, password: string, redirectTo?: Href) => void;
+  onLogin: (id: string, email: string, password: string) => void;
 };
-
-function DesignerTabShortcuts({
-  loadingId,
-  onLogin,
-}: {
-  loadingId: string | null;
-  onLogin: DemoLoginGroupSectionProps['onLogin'];
-}) {
-  return (
-    <View style={styles.designerTabSection}>
-      <Text style={styles.designerTabTitle}>디자이너 앱 · {DESIGNER_DEMO_TAB_LOGIN.label}</Text>
-      <Text style={styles.designerTabDescription}>
-        탭하면 데모 디자이너로 로그인 후 해당 화면으로 이동합니다
-      </Text>
-      <View style={styles.designerTabGrid}>
-        {DESIGNER_APP_TABS.map((tab) => {
-          const loadingKey = `designer-tab-${tab.key}`;
-          const isLoading = loadingId === loadingKey;
-
-          return (
-            <View key={tab.key} style={styles.designerTabWrap}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${tab.label} 화면으로 로그인`}
-                disabled={Boolean(loadingId)}
-                onPress={() =>
-                  onLogin(
-                    loadingKey,
-                    DESIGNER_DEMO_TAB_LOGIN.email,
-                    DESIGNER_DEMO_TAB_LOGIN.password,
-                    tab.href,
-                  )
-                }
-                style={({ pressed }) => [
-                  styles.designerTabTile,
-                  pressed && !loadingId && styles.designerTabTilePressed,
-                  isLoading && styles.designerTabTileLoading,
-                ]}>
-                <Text style={styles.designerTabLabel}>{tab.label}</Text>
-                {isLoading ? (
-                  <ActivityIndicator color={colors.coral} size="small" />
-                ) : (
-                  <Text style={styles.designerTabAction}>→</Text>
-                )}
-              </Pressable>
-            </View>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
 
 function DemoLoginGroupSection({
   title,
@@ -482,8 +426,6 @@ export default function TestLoginScreen() {
           <Text style={styles.subtitle}>탭하면 바로 로그인됩니다.</Text>
         </View>
 
-        <DesignerTabShortcuts loadingId={loadingId} onLogin={handleAccountLogin} />
-
         {demoLoginGroups.map((group) => (
           <DemoLoginGroupSection
             key={group.title}
@@ -562,68 +504,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginTop: 6,
-  },
-  designerTabSection: {
-    backgroundColor: '#FFF8F8',
-    borderColor: '#FFE0E1',
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 8,
-    marginBottom: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-  designerTabTitle: {
-    color: '#1A1A2E',
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  designerTabDescription: {
-    color: '#6B6B7B',
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 17,
-  },
-  designerTabGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -3,
-    marginTop: 4,
-  },
-  designerTabWrap: {
-    aspectRatio: 1,
-    padding: 3,
-    width: '20%',
-  },
-  designerTabTile: {
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderColor: '#FFD4D5',
-    borderRadius: 12,
-    borderWidth: 1,
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 2,
-    paddingVertical: 6,
-  },
-  designerTabTilePressed: {
-    backgroundColor: '#FFE8EA',
-    opacity: 0.92,
-  },
-  designerTabTileLoading: {
-    opacity: 0.65,
-  },
-  designerTabLabel: {
-    color: '#1A1A2E',
-    fontSize: 11,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  designerTabAction: {
-    color: colors.coral,
-    fontSize: 14,
-    fontWeight: '900',
-    marginTop: 2,
   },
   group: {
     marginBottom: 18,
