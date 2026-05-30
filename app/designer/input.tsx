@@ -1,6 +1,5 @@
 import { router } from 'expo-router';
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -25,14 +24,10 @@ import {
 } from '../../lib/treatment-options';
 import { parseWonAmount } from '../../lib/currency-input';
 import { createDesignerTreatment } from '../../lib/treatments';
-import type { DesignerClientListItem } from '../../lib/customer-invitations';
-import { getDesignerClientListItems } from '../../lib/customer-invitations';
 import {
   type RegisteredCustomerOption,
   searchRegisteredCustomers,
 } from '../../lib/registered-customers';
-import { mapDesignerClientsToGridItems } from '../../lib/designer-customer-grid';
-import { CustomerGrid } from '../../src/components/customer-grid';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
 import { TreatmentOptionChips } from '../../src/components/treatment-option-chips';
 import { WonAmountInput } from '../../src/components/won-amount-input';
@@ -46,31 +41,9 @@ export default function DesignerInputScreen() {
   const [duration, setDuration] = useState(DEFAULT_TREATMENT_DURATION);
   const [treatmentTitle, setTreatmentTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  const [clientItems, setClientItems] = useState<DesignerClientListItem[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [customerSuggestions, setCustomerSuggestions] = useState<RegisteredCustomerOption[]>([]);
   const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      getDesignerClientListItems()
-        .then(setClientItems)
-        .catch(() => setClientItems([]));
-    }, []),
-  );
-
-  const gridItems = useMemo(() => mapDesignerClientsToGridItems(clientItems), [clientItems]);
-
-  const handleGridPress = useCallback(
-    (key: string) => {
-      const item = clientItems.find((row) => row.key === key);
-
-      if (item) {
-        router.push(`/designer/treatment/${item.treatmentId}`);
-      }
-    },
-    [clientItems],
-  );
 
   const openCreateModal = (type: string) => {
     setSelectedType(type);
@@ -188,14 +161,9 @@ export default function DesignerInputScreen() {
           ))}
         </View>
 
-        {gridItems.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>고객</Text>
-            <CustomerGrid items={gridItems} onPressItem={handleGridPress} />
-          </View>
-        ) : null}
-
-        <Text style={styles.footerHint}>생성 후 시술 상세에서 입력·초대·결제 요청을 진행하세요</Text>
+        <Text style={styles.footerHint}>
+          고객 명단은 고객 탭에서 확인하세요. 시술 추가 후 상세에서 입력·초대·결제 요청을 진행하세요.
+        </Text>
       </ScrollView>
 
       <Modal animationType="slide" transparent visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
@@ -390,14 +358,6 @@ const styles = StyleSheet.create({
   typeTilePressed: {
     backgroundColor: '#F5F5F8',
     opacity: 0.92,
-  },
-  section: {
-    gap: 8,
-  },
-  sectionTitle: {
-    color: '#1A1A2E',
-    fontSize: 16,
-    fontWeight: '800',
   },
   quickIcon: {
     fontSize: 24,

@@ -10,11 +10,9 @@ import {
   fetchDesignerPaymentDashboard,
   type DesignerPaymentDashboard,
 } from '../../lib/designer-payment-stats';
-import { mapDesignerClientsToGridItems } from '../../lib/designer-customer-grid';
 import { countUniqueDesignerCustomers } from '../../lib/designer-home-stats';
 import { getErrorMessage } from '../../lib/errors';
 import { formatDesignerStoreLabel } from '../../lib/org-store-affiliation';
-import { CustomerGrid } from '../../src/components/customer-grid';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
 import {
   currentDesignerMonthKey,
@@ -113,19 +111,6 @@ export default function DesignerHomeScreen() {
     ];
   }, [dashboard, uniqueCustomerCount]);
 
-  const gridItems = useMemo(() => mapDesignerClientsToGridItems(clientItems), [clientItems]);
-
-  const handleGridPress = useCallback(
-    (key: string) => {
-      const item = clientItems.find((row) => row.key === key);
-
-      if (item) {
-        router.push(`/designer/treatment/${item.treatmentId}`);
-      }
-    },
-    [clientItems],
-  );
-
   const handleRefresh = () => {
     setIsRefreshing(true);
     void loadHome({ silent: true });
@@ -166,16 +151,7 @@ export default function DesignerHomeScreen() {
             </Pressable>
           </View>
         ) : (
-          <>
-            <DesignerHomeStatGrid items={homeStatItems} />
-
-            {gridItems.length > 0 ? (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>고객</Text>
-                <CustomerGrid items={gridItems} onPressItem={handleGridPress} />
-              </View>
-            ) : null}
-          </>
+          <DesignerHomeStatGrid items={homeStatItems} />
         )}
       </ScrollView>
 
@@ -229,14 +205,6 @@ const styles = StyleSheet.create({
   },
   iconButtonText: {
     fontSize: 22,
-  },
-  section: {
-    gap: 8,
-  },
-  sectionTitle: {
-    color: '#1A1A2E',
-    fontSize: 16,
-    fontWeight: '800',
   },
   stateBox: {
     alignItems: 'center',
