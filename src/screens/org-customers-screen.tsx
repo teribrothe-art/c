@@ -10,6 +10,7 @@ import { navigateBackOrOrgHome } from '../../lib/navigation';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
+import { CustomerGrid } from '../components/customer-grid';
 import { StoreBottomTabBar } from '../components/store-bottom-tab-bar';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
 import { TAB_BAR_BOTTOM_INSET } from '../components/role-bottom-tab-bar';
@@ -91,6 +92,29 @@ export function OrgCustomersScreen({ scope }: Props) {
   const treatmentPath = scope === 'store' ? '/store/treatment' : '/admin/treatment';
   const TabBar = scope === 'store' ? StoreBottomTabBar : AdminBottomTabBar;
 
+  const gridItems = useMemo(
+    () =>
+      visibleItems.map((item) => ({
+        key: item.key,
+        name: item.customerName,
+        subtitle: item.treatmentTitle,
+        meta: `${formatDate(item.treatmentDate)} · ${item.treatment?.treatment_type ?? '시술'}`,
+        badge: item.designerName,
+      })),
+    [visibleItems],
+  );
+
+  const handleGridPress = useCallback(
+    (key: string) => {
+      const item = visibleItems.find((row) => row.key === key);
+
+      if (item?.treatmentId) {
+        router.push(`${treatmentPath}/${item.treatmentId}` as '/store/treatment/[id]');
+      }
+    },
+    [treatmentPath, visibleItems],
+  );
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -151,29 +175,7 @@ export function OrgCustomersScreen({ scope }: Props) {
             subtitle="디자이너 시술 기록이 연결되면 여기에 표시됩니다."
           />
         ) : (
-          visibleItems.map((item) => (
-            <Pressable
-              key={item.key}
-              onPress={() =>
-                item.treatmentId
-                  ? router.push(`${treatmentPath}/${item.treatmentId}` as '/store/treatment/[id]')
-                  : undefined
-              }
-              style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
-              <View style={styles.cardTop}>
-                <Text style={styles.customerName}>{item.customerName}</Text>
-                <View style={styles.designerBadge}>
-                  <Text style={styles.designerBadgeText}>
-                    {item.designerName} · {item.designerStoreName}
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.treatmentTitle}>{item.treatmentTitle}</Text>
-              <Text style={styles.meta}>
-                {formatDate(item.treatmentDate)} · {item.treatment?.treatment_type ?? '시술'}
-              </Text>
-            </Pressable>
-          ))
+          <CustomerGrid items={gridItems} onPressItem={handleGridPress} />
         )}
       </ScrollView>
       <TabBar />
@@ -245,48 +247,5 @@ const styles = StyleSheet.create({
   },
   chipTextSelected: {
     color: '#0284C7',
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E8E8F0',
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 6,
-    padding: 14,
-  },
-  cardPressed: {
-    opacity: 0.9,
-  },
-  cardTop: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  customerName: {
-    color: '#1A1A2E',
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  designerBadge: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  designerBadgeText: {
-    color: '#4B5563',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  treatmentTitle: {
-    color: '#374151',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  meta: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    fontWeight: '600',
   },
 });

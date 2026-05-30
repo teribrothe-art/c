@@ -15,9 +15,7 @@ import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-b
 import { getErrorMessage } from '../../lib/errors';
 import { normalizePaymentStatus } from '../../lib/payment-status';
 import {
-  createCustomerInvitation,
   DesignerClientListItem,
-  expireInvitation,
   getDesignerClientListItems,
 } from '../../lib/customer-invitations';
 import {
@@ -25,104 +23,47 @@ import {
   markOnboardingSeen,
   shouldShowOnboarding,
 } from '../../lib/onboarding';
-import { showErrorAlert, showSuccessAlert } from '../../lib/alerts';
+import { CustomerGrid } from '../../src/components/customer-grid';
 import { EmptyState } from '../../src/components/empty-state';
 import { LoadingState } from '../../src/components/loading-state';
 import { OnboardingModal } from '../../src/components/onboarding-modal';
-import { Treatment } from '../../lib/treatments';
 
 function formatDate(date: string) {
   return date.replaceAll('-', '.');
 }
 
-function getInitial(name?: string | null) {
-  return name?.trim().slice(0, 1) || '?';
-}
+function getStatusBadgeLabel(item: DesignerClientListItem) {
+  if (!item.isRegistered) {
+    if (item.inviteStatus === 'pending') {
+      return '초대';
+    }
 
-function getInviteBadgeMeta(status?: DesignerClientListItem['inviteStatus']) {
-  if (status === 'pending') {
-    return { label: '초대 발송됨', style: styles.inviteActiveBadge, textStyle: styles.inviteActiveText };
+    if (item.inviteStatus === 'expired') {
+      return '만료';
+    }
+
+    if (item.inviteStatus === 'used') {
+      return '가입';
+    }
+
+    return undefined;
   }
 
-  if (status === 'expired') {
-    return { label: '만료됨', style: styles.inviteExpiredBadge, textStyle: styles.inviteExpiredText };
-  }
-
-  if (status === 'used') {
-    return { label: '가입 완료', style: styles.inviteUsedBadge, textStyle: styles.inviteUsedText };
-  }
-
-  return null;
-}
-
-function getPaymentBadge(treatment?: Treatment) {
-  const normalized = normalizePaymentStatus(treatment?.payment_status);
+  const normalized = normalizePaymentStatus(item.treatment?.payment_status);
 
   if (normalized === 'completed') {
-    return { label: '정산 완료', style: styles.completedBadge, textStyle: styles.completedBadgeText };
+    return '정산';
   }
 
   if (normalized === 'escrow') {
-    return {
-      label: '결제 완료, 피드백 대기',
-      style: styles.paidWaitingBadge,
-      textStyle: styles.paidWaitingBadgeText,
-    };
+    return '대기';
   }
 
   if (normalized === 'payment_requested') {
-    return { label: '결제 요청', style: styles.pendingBadge, textStyle: styles.pendingBadgeText };
+    return '요청';
   }
 
-  return { label: '결제 대기', style: styles.pendingBadge, textStyle: styles.pendingBadgeText };
-}
-
-function DesignerClientCard({
-  item,
-  onPress,
-  onReinvite,
-}: {
-  item: DesignerClientListItem;
-  onPress: () => void;
-  onReinvite?: () => void;
-}) {
-  const inviteBadge = getInviteBadgeMeta(item.inviteStatus);
-  const paymentBadge = item.isRegistered ? getPaymentBadge(item.treatment) : inviteBadge;
-
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.clientCard, pressed && styles.clientCardPressed]}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{getInitial(item.customerName)}</Text>
-      </View>
-      <View style={styles.clientInfo}>
-        <View style={styles.cardTopRow}>
-          <Text style={styles.customerName}>{item.customerName}</Text>
-          {paymentBadge ? (
-            <View style={[styles.statusBadge, paymentBadge.style]}>
-              <Text style={[styles.statusText, paymentBadge.textStyle]}>{paymentBadge.label}</Text>
-            </View>
-          ) : null}
-        </View>
-        <Text style={styles.treatmentMeta}>
-          {formatDate(item.treatmentDate)} · {item.treatment?.treatment_type ?? '시술'}
-        </Text>
-        <Text style={styles.treatmentTitle}>{item.treatmentTitle}</Text>
-        {item.inviteCode && item.inviteStatus === 'pending' ? (
-          <Text style={styles.inviteCodeText}>코드 {item.inviteCode}</Text>
-        ) : null}
-        {item.inviteStatus === 'expired' && onReinvite ? (
-          <Pressable
-            onPress={(event) => {
-              event.stopPropagation?.();
-              onReinvite();
-            }}
-            style={styles.reinviteButton}>
-            <Text style={styles.reinviteText}>재초대</Text>
-          </Pressable>
-        ) : null}
-      </View>
-    </Pressable>
-  );
+  return '미결제';
 }
 
 export default function DesignerClientsScreen() {
@@ -191,25 +132,28 @@ export default function DesignerClientsScreen() {
     };
   }, [clientItems]);
 
-  const handleReinvite = (item: DesignerClientListItem) => {
-    if (!item.invitationId) {
-      return;
-    }
+  const gridItems = useMemo(
+    () =>
+      visibleItems.map((item) => ({
+        key: item.key,
+        name: item.customerName,
+        subtitle: item.treatmentTitle,
+        meta: `${formatDate(item.treatmentDate)} · ${item.treatment?.treatment_type ?? '시술'}`,
+        badge: getStatusBadgeLabel(item),
+      })),
+    [visibleItems],
+  );
 
-    Promise.resolve()
-      .then(async () => {
-        await expireInvitation(item.invitationId!);
-        await createCustomerInvitation({
-          treatmentId: item.treatmentId,
-          customerName: item.customerName,
-        });
-        showSuccessAlert('새 초대 코드를 만들었어요.');
-        loadClients();
-      })
-      .catch((error) => {
-        showErrorAlert(getErrorMessage(error, '재초대에 실패했습니다.'));
-      });
-  };
+  const handleGridPress = useCallback(
+    (key: string) => {
+      const item = visibleItems.find((row) => row.key === key);
+
+      if (item) {
+        detailRouter.push(`/designer/treatment/${item.treatmentId}`);
+      }
+    },
+    [detailRouter, visibleItems],
+  );
 
   return (
     <View style={styles.container}>
@@ -272,16 +216,7 @@ export default function DesignerClientsScreen() {
         ) : visibleItems.length === 0 ? (
           <EmptyState icon="🔍" title="검색 결과가 없어요" subtitle="다른 검색어를 시도해보세요" />
         ) : (
-          <View style={styles.list}>
-            {visibleItems.map((item) => (
-              <DesignerClientCard
-                key={item.key}
-                item={item}
-                onPress={() => detailRouter.push(`/designer/treatment/${item.treatmentId}`)}
-                onReinvite={() => handleReinvite(item)}
-              />
-            ))}
-          </View>
+          <CustomerGrid items={gridItems} onPressItem={handleGridPress} />
         )}
       </ScrollView>
 
@@ -375,137 +310,6 @@ const styles = StyleSheet.create({
     width: 1,
     height: 44,
     backgroundColor: '#EFEFF4',
-  },
-  list: {
-    gap: 14,
-  },
-  clientCard: {
-    alignItems: 'flex-start',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    flexDirection: 'row',
-    gap: 14,
-    padding: 18,
-    shadowColor: '#1A1A2E',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 4,
-  },
-  clientCardPressed: {
-    opacity: 0.82,
-  },
-  avatar: {
-    alignItems: 'center',
-    backgroundColor: '#FFD4D5',
-    borderRadius: 24,
-    height: 48,
-    justifyContent: 'center',
-    width: 48,
-  },
-  avatarText: {
-    color: '#FF5A5F',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  clientInfo: {
-    flex: 1,
-  },
-  cardTopRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  customerName: {
-    color: '#1A1A2E',
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  treatmentMeta: {
-    color: '#6B6B7B',
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 5,
-  },
-  treatmentTitle: {
-    color: '#1A1A2E',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  inviteCodeText: {
-    color: '#7B5EE6',
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 6,
-  },
-  reinviteButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#FFD4D5',
-    borderRadius: 8,
-    marginTop: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  reinviteText: {
-    color: '#FF5A5F',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  priceText: {
-    color: '#6B6B7B',
-    fontSize: 13,
-    fontWeight: '800',
-    marginTop: 8,
-  },
-  statusBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  completedBadge: {
-    backgroundColor: '#CCF2EC',
-  },
-  completedBadgeText: {
-    color: '#00C2A8',
-  },
-  inviteActiveBadge: {
-    backgroundColor: '#E0D7FA',
-  },
-  inviteActiveText: {
-    color: '#7B5EE6',
-  },
-  inviteExpiredBadge: {
-    backgroundColor: '#FFD4D5',
-  },
-  inviteExpiredText: {
-    color: '#FF5A5F',
-  },
-  inviteUsedBadge: {
-    backgroundColor: '#CCF2EC',
-  },
-  inviteUsedText: {
-    color: '#00C2A8',
-  },
-  paidWaitingBadge: {
-    backgroundColor: '#FFE8E9',
-  },
-  paidWaitingBadgeText: {
-    color: '#FF5A5F',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  pendingBadge: {
-    backgroundColor: '#FFF0C7',
-  },
-  pendingBadgeText: {
-    color: '#FFB627',
   },
   stateBox: {
     alignItems: 'center',
