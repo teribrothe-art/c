@@ -206,20 +206,6 @@ export default function DesignerRevenueScreen() {
         },
       },
       {
-        key: 'pending-amount',
-        label: '정산 대기',
-        tone: 'danger',
-        value: formatAmount(analytics.pendingPayoutAmount),
-        onPress: showPendingSettlements,
-      },
-      {
-        key: 'pending-count',
-        label: '대기 건수',
-        tone: 'danger',
-        value: `${analytics.pendingPayoutCount}건`,
-        onPress: showPendingSettlements,
-      },
-      {
         key: 'week-total',
         label: '선택 주 합계',
         tone: 'success',
@@ -229,6 +215,20 @@ export default function DesignerRevenueScreen() {
           setSelectedDayDate(null);
           scrollToSection(weekSectionY.current);
         },
+      },
+      {
+        key: 'pending-count',
+        label: '대기 건수',
+        tone: 'danger',
+        value: `${analytics.pendingPayoutCount}건`,
+        onPress: showPendingSettlements,
+      },
+      {
+        key: 'pending-amount',
+        label: '정산 대기',
+        tone: 'danger',
+        value: formatAmount(analytics.pendingPayoutAmount),
+        onPress: showPendingSettlements,
       },
     ];
   }, [analytics, scrollToSection, showPendingSettlements]);
