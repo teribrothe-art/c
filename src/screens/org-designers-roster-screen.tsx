@@ -219,7 +219,7 @@ export function OrgDesignersRosterScreen() {
         showsVerticalScrollIndicator={false}>
         <View style={styles.headerBlock}>
           <View style={styles.titleRow}>
-            <Text style={styles.title}>디자이너</Text>
+            <Text style={styles.title}>매장</Text>
             <View style={styles.globalMetricsTabHost}>
               <GlobalStoreMetricTabs tab={globalMetricTab} onTabChange={setGlobalMetricTab} />
             </View>

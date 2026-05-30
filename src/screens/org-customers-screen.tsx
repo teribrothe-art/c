@@ -127,7 +127,7 @@ export function OrgCustomersScreen({ scope }: Props) {
         showsVerticalScrollIndicator={false}>
         {scope === 'admin' ? (
           <Pressable onPress={() => navigateBackOrOrgHome(scope)} style={styles.backLink}>
-            <Text style={styles.backLinkText}>‹ 디자이너</Text>
+            <Text style={styles.backLinkText}>‹ 매장</Text>
           </Pressable>
         ) : null}
         <Text style={styles.title}>{scope === 'store' ? '매장 고객' : '고객·시술'}</Text>

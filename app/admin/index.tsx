@@ -134,7 +134,7 @@ export default function AdminHomeScreen() {
               </Link>
               <Link href="/admin/designers" asChild>
                 <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
-                  <Text style={styles.quickTitle}>디자이너</Text>
+                  <Text style={styles.quickTitle}>매장</Text>
                   <Text style={styles.quickMeta}>소속·누적 테스트 포함</Text>
                 </Pressable>
               </Link>
