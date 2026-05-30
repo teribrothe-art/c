@@ -9,7 +9,7 @@ export const APP_VERSION = appConfig.expo.version;
 export const APP_BUILD_LABEL =
   (Constants.expoConfig?.extra?.buildLabel as string | undefined)?.trim() ||
   process.env.EXPO_PUBLIC_APP_BUILD_LABEL?.trim() ||
-  '2026-05-27 12:00';
+  '2026-05-30 07:27 · designer UI';
 
 export function formatAppVersionLine() {
   return `v${APP_VERSION} · ${APP_BUILD_LABEL}`;
