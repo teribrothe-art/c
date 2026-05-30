@@ -21,6 +21,8 @@ type RevenueBarChartProps = {
   embedded?: boolean;
   selectedKey?: string | null;
   onPressPoint?: (key: string) => void;
+  /** 막대 안쪽 하단에 날짜 라벨 표시 (일별 차트) */
+  labelPosition?: 'below' | 'insideBar';
 };
 
 function formatCompactWon(value: number) {
@@ -41,6 +43,7 @@ export function RevenueBarChart({
   embedded = false,
   selectedKey = null,
   onPressPoint,
+  labelPosition = 'below',
 }: RevenueBarChartProps) {
   const maxValue = Math.max(...points.map((point) => point.value), 1);
   const useHorizontalScroll = points.length > 7;
@@ -65,21 +68,41 @@ export function RevenueBarChart({
       {points.map((point) => {
         const height = Math.max(8, Math.round((point.value / maxValue) * maxBarHeight));
         const selected = selectedKey === point.key;
+        const labelInsideBar = labelPosition === 'insideBar';
         const column = (
           <>
             <Text style={styles.barValue} numberOfLines={1}>
               {formatCompactWon(point.value)}
             </Text>
             <View style={[styles.barTrack, { height: maxBarHeight }]}>
-              <View style={[styles.barFill, { height, backgroundColor: barColor }]} />
+              <View
+                style={[
+                  styles.barFill,
+                  labelInsideBar && styles.barFillWithLabel,
+                  { height, backgroundColor: barColor },
+                ]}>
+                {labelInsideBar ? (
+                  <Text
+                    style={[styles.barInsideLabel, selected && styles.barInsideLabelSelected]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}>
+                    {point.label}
+                  </Text>
+                ) : null}
+              </View>
             </View>
-            <Text style={[styles.barLabel, selected && styles.barLabelSelected]} numberOfLines={1}>
-              {point.label}
-            </Text>
-            {point.subLabel ? (
-              <Text style={styles.barSubLabel} numberOfLines={1}>
-                {point.subLabel}
-              </Text>
+            {!labelInsideBar ? (
+              <>
+                <Text style={[styles.barLabel, selected && styles.barLabelSelected]} numberOfLines={1}>
+                  {point.label}
+                </Text>
+                {point.subLabel ? (
+                  <Text style={styles.barSubLabel} numberOfLines={1}>
+                    {point.subLabel}
+                  </Text>
+                ) : null}
+              </>
             ) : null}
           </>
         );
@@ -204,6 +227,25 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     minHeight: 8,
     width: '72%',
+  },
+  barFillWithLabel: {
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    minHeight: 28,
+    paddingBottom: 5,
+    paddingHorizontal: 2,
+  },
+  barInsideLabel: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.25)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  barInsideLabelSelected: {
+    color: '#F0EBFF',
   },
   barLabel: {
     color: '#1A1A2E',

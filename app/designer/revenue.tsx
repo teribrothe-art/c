@@ -7,7 +7,8 @@ import {
   fetchDesignerRevenueAnalytics,
   type DesignerRevenueAnalytics,
 } from '../../lib/designer-revenue-analytics';
-import { getWeekdayLabelForDate, type MonthWeekdayTotal } from '../../lib/designer-revenue-weekly';
+import type { DailyRevenuePoint } from '../../lib/designer-revenue-analytics';
+import { formatDateWithWeekday } from '../../lib/designer-revenue-weekly';
 import { formatAmount } from '../../lib/currency-input';
 import { getErrorMessage } from '../../lib/errors';
 import { mapRevenueSettlementsToGridItems } from '../../lib/designer-customer-grid';
@@ -33,7 +34,7 @@ export default function DesignerRevenueScreen() {
   const { month: monthParam } = useLocalSearchParams<{ month?: string | string[] }>();
   const [analytics, setAnalytics] = useState<DesignerRevenueAnalytics | null>(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | undefined>(undefined);
-  const [selectedWeekdayLabel, setSelectedWeekdayLabel] = useState<string | null>(null);
+  const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
   const [settlementListMode, setSettlementListMode] = useState<SettlementListMode>('month');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -56,7 +57,7 @@ export default function DesignerRevenueScreen() {
       .then((data) => {
         setAnalytics(data);
         setSelectedMonthKey(data.selectedMonthKey);
-        setSelectedWeekdayLabel(null);
+        setSelectedDayDate(null);
         setErrorMessage('');
       })
       .catch((error) => {
@@ -101,14 +102,12 @@ export default function DesignerRevenueScreen() {
       return analytics.pendingSettlements;
     }
 
-    if (!selectedWeekdayLabel) {
+    if (!selectedDayDate) {
       return analytics.selectedMonthSettlements;
     }
 
-    return analytics.selectedMonthSettlements.filter(
-      (item) => getWeekdayLabelForDate(item.date) === selectedWeekdayLabel,
-    );
-  }, [analytics, selectedWeekdayLabel, settlementListMode]);
+    return analytics.selectedMonthSettlements.filter((item) => item.date === selectedDayDate);
+  }, [analytics, selectedDayDate, settlementListMode]);
 
   const settlementSectionTitle = useMemo(() => {
     if (!analytics) {
@@ -119,12 +118,12 @@ export default function DesignerRevenueScreen() {
       return '정산 대기';
     }
 
-    if (selectedWeekdayLabel) {
-      return `${analytics.selectedMonth.label} · ${selectedWeekdayLabel}요일 정산`;
+    if (selectedDayDate) {
+      return `${formatDateWithWeekday(selectedDayDate)} 정산`;
     }
 
     return `${analytics.selectedMonth.label} 정산 상세`;
-  }, [analytics, selectedWeekdayLabel, settlementListMode]);
+  }, [analytics, selectedDayDate, settlementListMode]);
 
   const hasAnyRevenue = Boolean(
     analytics &&
@@ -138,18 +137,18 @@ export default function DesignerRevenueScreen() {
 
     setSettlementListMode('month');
     setSelectedMonthKey(monthKey);
-    setSelectedWeekdayLabel(null);
+    setSelectedDayDate(null);
     loadRevenue(monthKey);
   };
 
-  const handleSelectWeekday = (weekday: MonthWeekdayTotal) => {
+  const handleSelectDay = (day: DailyRevenuePoint) => {
     setSettlementListMode('month');
-    setSelectedWeekdayLabel(weekday.weekdayLabel);
+    setSelectedDayDate(day.date);
   };
 
   const showPendingSettlements = useCallback(() => {
     setSettlementListMode('pending');
-    setSelectedWeekdayLabel(null);
+    setSelectedDayDate(null);
     scrollToSection(settlementSectionY.current);
   }, [scrollToSection]);
 
@@ -175,7 +174,7 @@ export default function DesignerRevenueScreen() {
         value: formatAmount(analytics.selectedMonth.revenue),
         onPress: () => {
           setSettlementListMode('month');
-          setSelectedWeekdayLabel(null);
+          setSelectedDayDate(null);
           scrollToSection(weekSectionY.current);
         },
       },
@@ -304,10 +303,10 @@ export default function DesignerRevenueScreen() {
                 weekSectionY.current = event.nativeEvent.layout.y;
               }}>
               <WeeklyRevenuePanel
+                dailyTotals={analytics.dailyTotals}
                 monthLabel={analytics.selectedMonth.label}
-                onSelectWeekday={handleSelectWeekday}
-                selectedWeekdayLabel={selectedWeekdayLabel}
-                weekdayTotals={analytics.monthWeekdayTotals}
+                onSelectDay={handleSelectDay}
+                selectedDate={selectedDayDate}
               />
             </View>
 
@@ -321,8 +320,8 @@ export default function DesignerRevenueScreen() {
                 <Text style={styles.emptyText}>
                   {settlementListMode === 'pending'
                     ? '정산 대기 중인 시술이 없습니다.'
-                    : selectedWeekdayLabel
-                      ? '해당 요일에 정산 완료 내역이 없습니다.'
+                    : selectedDayDate
+                      ? '해당 날짜에 정산 완료 내역이 없습니다.'
                       : '해당 월 정산 완료 내역이 없습니다.'}
                 </Text>
               ) : (
