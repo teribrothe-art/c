@@ -71,7 +71,7 @@ export default function StoreHomeScreen() {
         showsVerticalScrollIndicator={false}>
         <Text style={styles.badge}>STORE</Text>
         <Text style={styles.title}>매장</Text>
-        <Text style={styles.subtitle}>지역 핫플레이스 매장과 연동된 디자이너·매출을 확인합니다.</Text>
+        <Text style={styles.subtitle}>지역 플랜비 매장과 연동된 디자이너·매출을 확인합니다.</Text>
 
         <VirtualSimulationBanner scenario="weekday" />
 
