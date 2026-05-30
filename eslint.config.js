@@ -9,7 +9,7 @@ module.exports = defineConfig([
   },
   {
     settings: {
-      'import/ignore': ['react-native', 'react-native-qrcode-svg'],
+      'import/ignore': ['react-native'],
     },
     rules: {
       // react-native package types are not parsed reliably by import/namespace
