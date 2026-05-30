@@ -10,109 +10,18 @@ import {
   type OrgDesignerMetrics,
   type OrgDesignerStoreGroup,
 } from '../../lib/org-aggregates';
-import { formatAmount } from '../../lib/currency-input';
-import { formatDesignerNamePreview } from '../../lib/designer-name-preview';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
-
-type StoreMetricTab = 'designers' | 'customers' | 'treatments' | 'sales' | 'hq';
-
-const STORE_METRIC_TABS: { key: StoreMetricTab; label: string }[] = [
-  { key: 'designers', label: '디자이너' },
-  { key: 'customers', label: '고객' },
-  { key: 'treatments', label: '시술' },
-  { key: 'sales', label: '매출' },
-  { key: 'hq', label: '본사' },
-];
-
-function getStoreMetricDetail(group: OrgDesignerStoreGroup, tab: StoreMetricTab) {
-  switch (tab) {
-    case 'designers':
-      return {
-        value: `${group.designers.length}명`,
-        meta: formatDesignerNamePreview(group.designers.map((designer) => designer.name)),
-      };
-    case 'customers':
-      return {
-        value: `${group.customerCount}명`,
-        meta: '소속 디자이너 연결 고객 합계',
-      };
-    case 'treatments':
-      return {
-        value: `${group.monthTreatmentCount.toLocaleString('ko-KR')}건`,
-        meta: '이번 달 시술 건수',
-      };
-    case 'sales':
-      return {
-        value: formatAmount(group.monthGrossSales),
-        meta: '이번 달 매출',
-      };
-    case 'hq':
-      return {
-        value: formatAmount(group.monthHqRevenue),
-        meta: '이번 달 본사 수익',
-      };
-  }
-}
-
-function GlobalStoreMetricTabs({
-  tab,
-  onTabChange,
-}: {
-  tab: StoreMetricTab;
-  onTabChange: (next: StoreMetricTab) => void;
-}) {
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.globalMetricsTabScroll}>
-      <View style={styles.globalMetricsTabRow}>
-        {STORE_METRIC_TABS.map(({ key, label }) => {
-          const active = tab === key;
-
-          return (
-            <Pressable
-              key={key}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              onPress={() => onTabChange(key)}
-              style={({ pressed }) => [
-                styles.globalMetricsTab,
-                active && styles.globalMetricsTabActive,
-                pressed && styles.globalMetricsTabPressed,
-              ]}>
-              <Text style={[styles.globalMetricsTabLabel, active && styles.globalMetricsTabLabelActive]}>
-                {label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </ScrollView>
-  );
-}
-
-function StoreGroupMetricsDetail({
-  group,
-  tab,
-}: {
-  group: OrgDesignerStoreGroup;
-  tab: StoreMetricTab;
-}) {
-  const detail = getStoreMetricDetail(group, tab);
-
-  return (
-    <View style={styles.metricsDetail}>
-      <Text style={styles.metricsValue}>{detail.value}</Text>
-      <Text style={styles.metricsMeta}>{detail.meta}</Text>
-    </View>
-  );
-}
+import {
+  GlobalStoreMetricTabs,
+  metricsFromStoreGroup,
+  StoreMetricDetail,
+  type StoreMetricTab,
+} from '../components/store-metric-tabs';
 
 function StoreGroupCard({
   group,
@@ -132,7 +41,7 @@ function StoreGroupCard({
       <Text style={styles.storeLabel}>소속 매장</Text>
       <Text style={styles.storeName}>{group.storeName}</Text>
       <Text style={styles.storeRegion}>{group.storeRegion}</Text>
-      <StoreGroupMetricsDetail group={group} tab={tab} />
+      <StoreMetricDetail snapshot={metricsFromStoreGroup(group)} tab={tab} />
       <Text style={styles.storeTapHint}>탭하여 소속 디자이너 보기 →</Text>
     </Pressable>
   );
@@ -253,7 +162,7 @@ export function OrgDesignersRosterScreen() {
               <Text style={styles.storeLabel}>소속 매장</Text>
               <Text style={styles.storeName}>{selectedGroup.storeName}</Text>
               <Text style={styles.storeRegion}>{selectedGroup.storeRegion}</Text>
-              <StoreGroupMetricsDetail group={selectedGroup} tab={globalMetricTab} />
+              <StoreMetricDetail snapshot={metricsFromStoreGroup(selectedGroup)} tab={globalMetricTab} />
             </View>
             <View style={styles.designerList}>
               {selectedGroup.designers.map((designer) => (
@@ -305,39 +214,6 @@ const styles = StyleSheet.create({
   globalMetricsTabHost: {
     flex: 1,
     minWidth: 0,
-  },
-  globalMetricsTabScroll: {
-    flexGrow: 1,
-    justifyContent: 'flex-end',
-  },
-  globalMetricsTabRow: {
-    flexDirection: 'row',
-    gap: 4,
-    justifyContent: 'flex-end',
-  },
-  globalMetricsTab: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E8E8F0',
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-  },
-  globalMetricsTabActive: {
-    backgroundColor: '#EDE9FE',
-    borderColor: colors.purple,
-  },
-  globalMetricsTabPressed: {
-    opacity: 0.92,
-  },
-  globalMetricsTabLabel: {
-    color: '#6B6B7B',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  globalMetricsTabLabelActive: {
-    color: colors.purple,
-    fontWeight: '900',
   },
   headerBackEmoji: {
     alignItems: 'center',
@@ -412,26 +288,6 @@ const styles = StyleSheet.create({
     color: '#388E3C',
     fontSize: 12,
     fontWeight: '600',
-  },
-  metricsDetail: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#C8E6C9',
-    borderRadius: 10,
-    gap: 2,
-    marginTop: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  metricsValue: {
-    color: '#1B5E20',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  metricsMeta: {
-    color: '#4B5563',
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 16,
   },
   designerList: {
     gap: 10,

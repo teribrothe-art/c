@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { OrgScope } from '../../lib/org-access';
 import { formatAmount } from '../../lib/currency-input';
-import { formatDesignerNamePreview } from '../../lib/designer-name-preview';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
 import {
@@ -24,15 +23,36 @@ import { VirtualSimulationBanner } from '../components/virtual-simulation-banner
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
 import { StoreBottomTabBar } from '../components/store-bottom-tab-bar';
 import { LoadingState } from '../components/loading-state';
+import {
+  GlobalStoreMetricTabs,
+  StoreMetricDetail,
+  type StoreMetricSnapshot,
+  type StoreMetricTab,
+} from '../components/store-metric-tabs';
 
 type Props = {
   scope: OrgScope;
 };
 
+function metricsFromVirtualStore(
+  store: VirtualStoreSummary,
+  designerNames: string[],
+): StoreMetricSnapshot {
+  return {
+    designerCount: store.designerCount,
+    designerNames,
+    customerCount: store.customerCount,
+    monthTreatmentCount: store.monthTreatmentCount,
+    monthGrossSales: store.monthGrossSales,
+    monthHqRevenue: store.monthHqRevenue,
+  };
+}
+
 export function OrgSimulationScreen({ scope }: Props) {
   useOrgRoleGuard(scope);
   const insets = useSafeAreaInsets();
   const [scenario, setScenario] = useState<VirtualSimulationScenario>('weekday');
+  const [globalMetricTab, setGlobalMetricTab] = useState<StoreMetricTab>('designers');
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [stores, setStores] = useState<VirtualStoreSummary[]>([]);
   const [storeEntity, setStoreEntity] = useState<VirtualStore | null>(null);
@@ -80,11 +100,21 @@ export function OrgSimulationScreen({ scope }: Props) {
           { paddingTop: insets.top + 16, paddingBottom: Math.max(insets.bottom, 20) + 100 },
         ]}
         showsVerticalScrollIndicator={false}>
-        <Text style={styles.pageTitle}>가상 시뮬레이션</Text>
-        <Text style={styles.pageSubtitle}>
-          등록된 디자이너·시술·시술 금액을 불러온 뒤, 평일·주말·월말 시나리오 배율로 운영 지표를
-          조정해 봅니다.
-        </Text>
+        <View style={styles.headerBlock}>
+          <View style={styles.titleRow}>
+            <Text style={styles.pageTitle}>가상</Text>
+            {scope === 'admin' ? (
+              <View style={styles.globalMetricsTabHost}>
+                <GlobalStoreMetricTabs tab={globalMetricTab} onTabChange={setGlobalMetricTab} />
+              </View>
+            ) : null}
+          </View>
+          <Text style={styles.pageSubtitle}>
+            등록된 디자이너·시술·시술 금액을 불러온 뒤, 평일·주말·월말 시나리오 배율로 운영 지표를
+            조정해 봅니다.
+            {scope === 'admin' ? ' 상단 탭으로 지역별 플랜비 지표를 함께 전환합니다.' : ''}
+          </Text>
+        </View>
 
         <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
 
@@ -118,8 +148,7 @@ export function OrgSimulationScreen({ scope }: Props) {
                 </Text>
                 <Text style={styles.storeStats}>
                   이번 달 매출 {formatAmount(summary.monthGrossSales)} · 본사{' '}
-                  {formatAmount(summary.monthHqRevenue)} · 시술{' '}
-                  {summary.monthTreatmentCount}건
+                  {formatAmount(summary.monthHqRevenue)} · 시술 {summary.monthTreatmentCount}건
                 </Text>
               </View>
             ) : null}
@@ -146,18 +175,15 @@ export function OrgSimulationScreen({ scope }: Props) {
                   return (
                     <View key={store.id} style={styles.storeCard}>
                       <Text style={styles.storeName}>{store.name}</Text>
-                      <Text style={styles.storeRegion}>
-                        {store.hotPlace} · 디자이너 {store.designerCount}명
-                      </Text>
-                      <Text style={styles.storeStats}>
-                        매출 {formatAmount(store.monthGrossSales)} · 본사{' '}
-                        {formatAmount(store.monthHqRevenue)} · 고객{' '}
-                        {store.customerCount}명 · 정산대기{' '}
-                        {formatAmount(store.pendingPayoutAmount)}
-                      </Text>
-                      <Text style={styles.storeDesignerNames} numberOfLines={1}>
-                        {formatDesignerNamePreview(storeDesigners.map((designer) => designer.name))}
-                      </Text>
+                      <Text style={styles.storeRegion}>{store.hotPlace}</Text>
+                      <StoreMetricDetail
+                        snapshot={metricsFromVirtualStore(
+                          store,
+                          storeDesigners.map((designer) => designer.name),
+                        )}
+                        tab={globalMetricTab}
+                        variant="neutral"
+                      />
                     </View>
                   );
                 })}
@@ -193,10 +219,23 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 18,
   },
+  headerBlock: {
+    gap: 6,
+  },
+  titleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
   pageTitle: {
     color: '#1A1A2E',
+    flexShrink: 0,
     fontSize: 24,
     fontWeight: '900',
+  },
+  globalMetricsTabHost: {
+    flex: 1,
+    minWidth: 0,
   },
   pageSubtitle: {
     color: '#6B6B7B',
@@ -257,13 +296,6 @@ const styles = StyleSheet.create({
     color: '#0F766E',
     fontSize: 13,
     fontWeight: '700',
-  },
-  storeDesignerNames: {
-    color: '#374151',
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 16,
-    marginTop: 6,
   },
   timelineRow: {
     backgroundColor: '#FFFFFF',
