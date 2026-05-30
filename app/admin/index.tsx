@@ -58,7 +58,10 @@ export default function AdminHomeScreen() {
         showsVerticalScrollIndicator={false}>
         <Text style={styles.badge}>ADMIN</Text>
         <Text style={styles.title}>본사</Text>
-        <Text style={styles.subtitle}>지역별 플랜비 매장과 디자이너 매출·시술 데이터를 함께 봅니다.</Text>
+        <Text style={styles.subtitle}>
+          등록된 디자이너·시술·시술 금액을 불러오고, 가상 시나리오(평일·주말)로 운영 지표를 조정해
+          봅니다.
+        </Text>
 
         <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
 

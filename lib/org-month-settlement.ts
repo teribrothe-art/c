@@ -18,14 +18,42 @@ export type OrgMonthSettlementTotals = {
   configuredHqRate: number;
 };
 
-function isCompletedInMonth(payment: PaymentRecord, monthKey: string) {
-  if (payment.status !== 'completed') {
+const RECOGNIZED_REVENUE_STATUSES = new Set<PaymentRecord['status']>([
+  'completed',
+  'paid',
+  'in_escrow',
+]);
+
+function revenueMonthKey(payment: PaymentRecord) {
+  return (payment.settled_at ?? payment.paid_at ?? payment.created_at ?? '').slice(0, 7);
+}
+
+/** 정산 완료 + 입금·에스크로 — 해당 월 매출 인식 */
+function isRecognizedRevenueInMonth(payment: PaymentRecord, monthKey: string) {
+  if (!RECOGNIZED_REVENUE_STATUSES.has(payment.status)) {
     return false;
   }
 
-  const date = (payment.settled_at ?? payment.paid_at ?? payment.created_at).slice(0, 7);
+  return revenueMonthKey(payment) === monthKey;
+}
 
-  return date === monthKey;
+export function settlementTotalsFromGross(
+  monthGrossSales: number,
+  config: RevenueSplitConfig,
+): OrgMonthSettlementTotals {
+  const split = calculateRevenueSplit(monthGrossSales, config);
+  const hqYieldRate =
+    monthGrossSales > 0 ? Math.round((split.hqFeeAmount / monthGrossSales) * 1000) / 10 : 0;
+
+  return {
+    monthGrossSales: split.grossAmount,
+    monthCardFee: split.cardFeeAmount,
+    monthHqRevenue: split.hqFeeAmount,
+    monthDesignerPayout: split.designerPayout,
+    monthStoreShare: split.storePayout,
+    hqYieldRate,
+    configuredHqRate: config.hqFeePercent,
+  };
 }
 
 export function aggregateMonthSettlementFromPayments(
@@ -40,7 +68,7 @@ export function aggregateMonthSettlementFromPayments(
   let monthStoreShare = 0;
 
   for (const payment of payments) {
-    if (!isCompletedInMonth(payment, monthKey)) {
+    if (!isRecognizedRevenueInMonth(payment, monthKey)) {
       continue;
     }
 
@@ -52,18 +80,7 @@ export function aggregateMonthSettlementFromPayments(
     monthStoreShare += split.storePayout;
   }
 
-  const hqYieldRate =
-    monthGrossSales > 0 ? Math.round((monthHqRevenue / monthGrossSales) * 1000) / 10 : 0;
-
-  return {
-    monthGrossSales,
-    monthCardFee,
-    monthHqRevenue,
-    monthDesignerPayout,
-    monthStoreShare,
-    hqYieldRate,
-    configuredHqRate: config.hqFeePercent,
-  };
+  return settlementTotalsFromGross(monthGrossSales, config);
 }
 
 export async function aggregateMonthSettlementForPayments(

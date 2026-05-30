@@ -28,7 +28,7 @@ export function VirtualSimulationBanner({
         <Text style={styles.badge}>가상 시뮬레이션</Text>
         <Text style={styles.title}>{meta?.label ?? '평일 운영'}</Text>
         <Text style={styles.subtitle}>
-          {meta?.description ?? '실제 디자이너·고객 데이터와 합성된 운영 시나리오입니다.'}
+          {meta?.description ?? '등록된 디자이너·시술·시술 금액에 시나리오 배율을 적용합니다.'}
         </Text>
       </View>
     );

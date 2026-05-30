@@ -1,7 +1,10 @@
 import type { OrgScope } from './org-access';
 import type { OrgDashboardSummary, OrgDesignerMetrics } from './org-aggregates';
-import { calculateRevenueSplit, DEFAULT_REVENUE_SPLIT_CONFIG } from './revenue-split-config';
-import { getOrgDesignerRoster, type OrgDesignerRosterEntry } from './org-designer-roster';
+import {
+  calculateRevenueSplit,
+  DEFAULT_REVENUE_SPLIT_CONFIG,
+  type RevenueSplitConfig,
+} from './revenue-split-config';
 import {
   ORG_STORE_DEFINITIONS,
   STORE_SCOPE_STORE_ID,
@@ -20,7 +23,7 @@ export const VIRTUAL_SIMULATION_SCENARIOS: {
   {
     key: 'weekday',
     label: '평일 운영',
-    description: '일반적인 평일 매장·디자이너 흐름',
+    description: '실제 시술·금액 기준 (배율 1.0)',
   },
   {
     key: 'weekend_peak',
@@ -39,17 +42,6 @@ export const VIRTUAL_STORES: VirtualStore[] = ORG_STORE_DEFINITIONS;
 
 export { STORE_SCOPE_STORE_ID };
 
-function hashString(value: string) {
-  let hash = 0;
-
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash << 5) - hash + value.charCodeAt(index);
-    hash |= 0;
-  }
-
-  return Math.abs(hash);
-}
-
 function scenarioMultiplier(scenario: VirtualSimulationScenario) {
   if (scenario === 'weekend_peak') {
     return { revenue: 1.35, treatments: 1.28, pending: 0.85, customers: 1.15 };
@@ -62,63 +54,59 @@ function scenarioMultiplier(scenario: VirtualSimulationScenario) {
   return { revenue: 1, treatments: 1, pending: 1, customers: 1 };
 }
 
-function virtualBaselineForDesigner(
-  entry: OrgDesignerRosterEntry,
-  scenario: VirtualSimulationScenario,
-): Omit<OrgDesignerMetrics, keyof OrgDesignerRosterEntry> {
-  const hash = hashString(`${entry.id}-${scenario}`);
-  const mult = scenarioMultiplier(scenario);
-
-  const treatmentCount = Math.round((48 + (hash % 72)) * mult.treatments);
-  const customerCount = Math.round((18 + (hash % 22)) * mult.customers);
-  const monthGrossSales = Math.round((3_200_000 + (hash % 9) * 480_000) * mult.revenue);
-  const split = calculateRevenueSplit(monthGrossSales, DEFAULT_REVENUE_SPLIT_CONFIG);
-  const monthTreatmentCount = Math.round((12 + (hash % 18)) * mult.treatments);
-  const pendingPayoutAmount = Math.round((180_000 + (hash % 7) * 95_000) * mult.pending);
-
+function splitConfigFromSummary(summary: OrgDashboardSummary): RevenueSplitConfig {
   return {
-    treatmentCount,
-    customerCount,
-    monthGrossSales,
-    monthHqRevenue: split.hqFeeAmount,
-    monthDesignerPayout: split.designerPayout,
-    monthStoreShare: split.storePayout,
-    monthRevenue: split.designerPayout,
-    monthTreatmentCount,
-    pendingPayoutAmount,
+    ...DEFAULT_REVENUE_SPLIT_CONFIG,
+    hqFeePercent: summary.configuredHqRate,
   };
 }
 
-function mergeDesignerMetrics(
+function scenarioSuffix(scenario: VirtualSimulationScenario) {
+  if (scenario === 'weekend_peak') {
+    return '주말 시나리오';
+  }
+
+  if (scenario === 'month_end') {
+    return '월말 시나리오';
+  }
+
+  return '실제 데이터';
+}
+
+function scaleCount(value: number, multiplier: number) {
+  return Math.max(0, Math.round(value * multiplier));
+}
+
+/** 실제 디자이너 지표에 시나리오 배율만 적용 (가짜 베이스라인 없음) */
+function scaleDesignerMetrics(
   real: OrgDesignerMetrics,
   scenario: VirtualSimulationScenario,
+  config: RevenueSplitConfig,
 ): OrgDesignerMetrics {
-  const virtual = virtualBaselineForDesigner(real, scenario);
-
-  const monthGrossSales = Math.max(real.monthGrossSales, virtual.monthGrossSales);
-  const split = calculateRevenueSplit(monthGrossSales, DEFAULT_REVENUE_SPLIT_CONFIG);
+  const mult = scenarioMultiplier(scenario);
+  const monthGrossSales = Math.round(real.monthGrossSales * mult.revenue);
+  const split = calculateRevenueSplit(monthGrossSales, config);
+  const suffix = scenarioSuffix(scenario);
 
   return {
     ...real,
-    treatmentCount: Math.max(real.treatmentCount, virtual.treatmentCount),
-    customerCount: Math.max(real.customerCount, virtual.customerCount),
+    treatmentCount: scaleCount(real.treatmentCount, mult.treatments),
+    customerCount: scaleCount(real.customerCount, mult.customers),
     monthGrossSales,
     monthHqRevenue: split.hqFeeAmount,
     monthDesignerPayout: split.designerPayout,
     monthStoreShare: split.storePayout,
     monthRevenue: split.designerPayout,
-    monthTreatmentCount: Math.max(real.monthTreatmentCount, virtual.monthTreatmentCount),
-    pendingPayoutAmount: Math.max(real.pendingPayoutAmount, virtual.pendingPayoutAmount),
-    subtitle: real.subtitle ? `${real.subtitle} · 가상 연동` : '가상 시뮬레이션',
+    monthTreatmentCount: scaleCount(real.monthTreatmentCount, mult.treatments),
+    pendingPayoutAmount: Math.round(real.pendingPayoutAmount * mult.pending),
+    subtitle: real.subtitle ? `${real.subtitle} · ${suffix}` : suffix,
   };
 }
 
-export function applyVirtualSimulationToSummary(
-  summary: OrgDashboardSummary,
-  scenario: VirtualSimulationScenario = 'weekday',
+function aggregateSummaryFromDesigners(
+  designers: OrgDesignerMetrics[],
+  configuredHqRate: number,
 ): OrgDashboardSummary {
-  const designers = summary.designers.map((designer) => mergeDesignerMetrics(designer, scenario));
-
   const monthGrossSales = designers.reduce((sum, item) => sum + item.monthGrossSales, 0);
   const monthHqRevenue = designers.reduce((sum, item) => sum + item.monthHqRevenue, 0);
   const monthDesignerPayout = designers.reduce((sum, item) => sum + item.monthDesignerPayout, 0);
@@ -132,19 +120,30 @@ export function applyVirtualSimulationToSummary(
     customerCount: designers.reduce((sum, item) => sum + item.customerCount, 0),
     monthGrossSales,
     monthCardFee: designers.reduce(
-      (sum, item) => sum + Math.round((item.monthGrossSales * DEFAULT_REVENUE_SPLIT_CONFIG.cardFeePercent) / 100),
+      (sum, item) =>
+        sum + Math.round((item.monthGrossSales * DEFAULT_REVENUE_SPLIT_CONFIG.cardFeePercent) / 100),
       0,
     ),
     monthHqRevenue,
     monthDesignerPayout,
     monthStoreShare,
     hqYieldRate,
-    configuredHqRate: summary.configuredHqRate,
+    configuredHqRate,
     monthTreatmentCount: designers.reduce((sum, item) => sum + item.monthTreatmentCount, 0),
     pendingPayoutAmount: designers.reduce((sum, item) => sum + item.pendingPayoutAmount, 0),
     monthRevenue: monthDesignerPayout,
     designers,
   };
+}
+
+export function applyVirtualSimulationToSummary(
+  summary: OrgDashboardSummary,
+  scenario: VirtualSimulationScenario = 'weekday',
+): OrgDashboardSummary {
+  const config = splitConfigFromSummary(summary);
+  const designers = summary.designers.map((designer) => scaleDesignerMetrics(designer, scenario, config));
+
+  return aggregateSummaryFromDesigners(designers, summary.configuredHqRate);
 }
 
 export type VirtualStoreSummary = VirtualStore & {
@@ -188,14 +187,18 @@ export function getVirtualStoreForScope(scope: OrgScope, storeOrgId?: string) {
   return null;
 }
 
-export function getSimulationTimeline(scenario: VirtualSimulationScenario) {
+export function getSimulationTimeline(
+  scenario: VirtualSimulationScenario,
+  monthTreatmentCount = 0,
+) {
   const mult = scenarioMultiplier(scenario);
+  const dailyBase = Math.max(1, Math.round((monthTreatmentCount / 22) * mult.treatments));
 
   return [
-    { hour: '10:00', label: '오전 예약 체크인', value: Math.round(4 * mult.treatments) },
-    { hour: '13:00', label: '점심 피크 시술', value: Math.round(7 * mult.treatments) },
-    { hour: '16:00', label: '컬러·펌 집중', value: Math.round(6 * mult.treatments) },
-    { hour: '19:00', label: '저녁 마감 정산', value: Math.round(5 * mult.treatments) },
+    { hour: '10:00', label: '오전 예약 체크인', value: Math.max(1, Math.round(dailyBase * 0.22)) },
+    { hour: '13:00', label: '점심 피크 시술', value: Math.max(1, Math.round(dailyBase * 0.32)) },
+    { hour: '16:00', label: '컬러·펌 집중', value: Math.max(1, Math.round(dailyBase * 0.28)) },
+    { hour: '19:00', label: '저녁 마감 정산', value: Math.max(1, Math.round(dailyBase * 0.18)) },
   ];
 }
 
@@ -212,28 +215,5 @@ export function filterSummaryForStoreScope(
   const allowed = new Set(store?.designerIds ?? []);
   const designers = summary.designers.filter((designer) => allowed.has(designer.id));
 
-  const monthGrossSales = designers.reduce((sum, item) => sum + item.monthGrossSales, 0);
-  const monthHqRevenue = designers.reduce((sum, item) => sum + item.monthHqRevenue, 0);
-  const hqYieldRate =
-    monthGrossSales > 0 ? Math.round((monthHqRevenue / monthGrossSales) * 1000) / 10 : 0;
-
-  return {
-    designerCount: designers.length,
-    treatmentCount: designers.reduce((sum, item) => sum + item.treatmentCount, 0),
-    customerCount: designers.reduce((sum, item) => sum + item.customerCount, 0),
-    monthGrossSales,
-    monthCardFee: designers.reduce(
-      (sum, item) => sum + Math.round((item.monthGrossSales * DEFAULT_REVENUE_SPLIT_CONFIG.cardFeePercent) / 100),
-      0,
-    ),
-    monthHqRevenue,
-    monthDesignerPayout: designers.reduce((sum, item) => sum + item.monthDesignerPayout, 0),
-    monthStoreShare: designers.reduce((sum, item) => sum + item.monthStoreShare, 0),
-    hqYieldRate,
-    configuredHqRate: summary.configuredHqRate,
-    monthTreatmentCount: designers.reduce((sum, item) => sum + item.monthTreatmentCount, 0),
-    pendingPayoutAmount: designers.reduce((sum, item) => sum + item.pendingPayoutAmount, 0),
-    monthRevenue: designers.reduce((sum, item) => sum + item.monthDesignerPayout, 0),
-    designers,
-  };
+  return aggregateSummaryFromDesigners(designers, summary.configuredHqRate);
 }

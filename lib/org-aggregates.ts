@@ -1,11 +1,7 @@
 import { isDemoAuthMode } from './auth';
-import {
-  aggregateMonthSettlementForPayments,
-  aggregateMonthSettlementFromPayments,
-  type OrgMonthSettlementTotals,
-} from './org-month-settlement';
+import { settlementTotalsFromGross, type OrgMonthSettlementTotals } from './org-month-settlement';
+import { resolveDesignerMonthSettlement } from './org-designer-month-metrics';
 import { getActiveRevenueSplitConfig } from './revenue-split-approval';
-import { calculateRevenueSplit, DEFAULT_REVENUE_SPLIT_CONFIG } from './revenue-split-config';
 import { calculatePaymentFees, listPaymentsForDesignerId, type PaymentRecord } from './payment-record';
 import { listTreatmentsForDesignerId } from './treatments';
 import { getOrgDesignerRoster, type OrgDesignerRosterEntry } from './org-designer-roster';
@@ -84,14 +80,14 @@ function pendingPayoutFromPayments(payments: PaymentRecord[], treatments: Treatm
 async function metricsForDesigner(
   entry: OrgDesignerRosterEntry,
   monthKey: string,
+  config: Awaited<ReturnType<typeof getActiveRevenueSplitConfig>>,
 ): Promise<OrgDesignerMetrics> {
   const treatments = await listTreatmentsForDesignerId(entry.id);
   const payments = await listPaymentsForDesignerId(entry.id);
   const monthTreatments = treatments.filter(
-    (treatment) => treatment.treatment_date.slice(0, 7) === monthKey,
+    (treatment) => (treatment.treatment_date ?? '').slice(0, 7) === monthKey,
   );
-  const config = await getActiveRevenueSplitConfig();
-  const settlement = aggregateMonthSettlementFromPayments(payments, monthKey, config);
+  const settlement = resolveDesignerMonthSettlement(treatments, payments, monthKey, config);
 
   return {
     ...entry,
@@ -118,13 +114,12 @@ export async function fetchOrgDashboardSummary(
   const monthKey = currentMonthKey();
   const storeOrgId = await resolveStoreOrgIdForOrgScope(scope, options?.storeOrgId);
   const roster = getOrgDesignerRoster(scope, storeOrgId);
-  const designers = await Promise.all(roster.map((entry) => metricsForDesigner(entry, monthKey)));
-
-  const allPayments = (
-    await Promise.all(roster.map((entry) => listPaymentsForDesignerId(entry.id)))
-  ).flat();
-
-  const settlement = await aggregateMonthSettlementForPayments(allPayments, monthKey);
+  const config = await getActiveRevenueSplitConfig();
+  const designers = await Promise.all(
+    roster.map((entry) => metricsForDesigner(entry, monthKey, config)),
+  );
+  const monthGrossSales = designers.reduce((sum, item) => sum + item.monthGrossSales, 0);
+  const settlement = settlementTotalsFromGross(monthGrossSales, config);
 
   let summary: OrgDashboardSummary = {
     designerCount: designers.length,

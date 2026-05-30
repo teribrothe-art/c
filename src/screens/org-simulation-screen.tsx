@@ -69,7 +69,7 @@ export function OrgSimulationScreen({ scope }: Props) {
     }, [load]),
   );
 
-  const timeline = getSimulationTimeline(scenario);
+  const timeline = getSimulationTimeline(scenario, summary?.monthTreatmentCount ?? 0);
   const TabBar = scope === 'store' ? StoreBottomTabBar : AdminBottomTabBar;
 
   return (
@@ -82,7 +82,8 @@ export function OrgSimulationScreen({ scope }: Props) {
         showsVerticalScrollIndicator={false}>
         <Text style={styles.pageTitle}>가상 시뮬레이션</Text>
         <Text style={styles.pageSubtitle}>
-          매장·디자이너·고객 데이터를 합성해 운영 시나리오를 미리 봅니다.
+          등록된 디자이너·시술·시술 금액을 불러온 뒤, 평일·주말·월말 시나리오 배율로 운영 지표를
+          조정해 봅니다.
         </Text>
 
         <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
@@ -163,7 +164,7 @@ export function OrgSimulationScreen({ scope }: Props) {
               </>
             ) : null}
 
-            <Text style={styles.sectionLabel}>디자이너 합성 지표</Text>
+            <Text style={styles.sectionLabel}>디자이너 지표 (실데이터 + 시나리오)</Text>
             {summary.designers.map((designer) => (
               <View key={designer.id} style={styles.designerRow}>
                 <Text style={styles.designerName}>{designer.name}</Text>
