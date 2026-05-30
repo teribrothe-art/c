@@ -15,6 +15,10 @@ import {
   buildDesignerHomeRecentItems,
   countTodayTreatments,
 } from '../../lib/designer-home-feed';
+import {
+  peekDesignerClientListCache,
+  peekDesignerPaymentDashboardCache,
+} from '../../lib/designer-workspace-cache';
 import { countUniqueDesignerCustomers } from '../../lib/designer-home-stats';
 import { getErrorMessage } from '../../lib/errors';
 import { formatDesignerStoreLabel } from '../../lib/org-store-affiliation';
@@ -39,8 +43,18 @@ export default function DesignerHomeScreen() {
 
   const loadHome = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
+    const cachedClients = peekDesignerClientListCache();
+    const cachedDashboard = peekDesignerPaymentDashboardCache();
 
-    if (!silent) {
+    if (cachedClients && cachedDashboard) {
+      setDashboard(cachedDashboard);
+      setClientItems(cachedClients);
+      setErrorMessage('');
+
+      if (!silent) {
+        setIsLoading(false);
+      }
+    } else if (!silent) {
       setIsLoading(true);
     }
 

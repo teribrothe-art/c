@@ -88,7 +88,12 @@ import {
   filterTreatmentsForSameCustomer,
   getTreatmentNavigation,
 } from '../../../lib/treatment-navigation';
-import { getDesignerTreatments, getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
+import {
+  getTreatmentById,
+  listTreatmentsForDesignerId,
+  Treatment,
+  updateTreatment,
+} from '../../../lib/treatments';
 import { DamageLevelPicker } from '../../../src/components/damage-level-picker';
 import { TreatmentRecordNav } from '../../../src/components/treatment-record-nav';
 import { TreatmentInputTabBar } from '../../../src/components/treatment-input-tab-bar';
@@ -235,8 +240,7 @@ export default function DesignerTreatmentInputScreen() {
 
         setIsLoading(true);
 
-        const [{ user, treatment: nextTreatment }, { treatments: designerTreatments }] =
-          await Promise.all([getTreatmentById(id), getDesignerTreatments()]);
+        const { user, treatment: nextTreatment } = await getTreatmentById(id);
 
         if (!isMounted) {
           return;
@@ -258,18 +262,26 @@ export default function DesignerTreatmentInputScreen() {
           return;
         }
 
+        void listTreatmentsForDesignerId(user.id)
+          .then((designerTreatments) => {
+            if (!isMounted) {
+              return;
+            }
+
+            const sameCustomerTreatments = filterTreatmentsForSameCustomer(
+              designerTreatments,
+              nextTreatment,
+            );
+            setRecordNav(getTreatmentNavigation(sameCustomerTreatments, id));
+          })
+          .catch(() => undefined);
+
         const payment = await getPaymentByTreatmentId(id);
         let loadedTreatment = nextTreatment;
 
         if (shouldSyncFeedbackCompleted(loadedTreatment)) {
           loadedTreatment = await updateTreatment(id, { feedback_completed: true });
         }
-
-        const sameCustomerTreatments = filterTreatmentsForSameCustomer(
-          designerTreatments,
-          loadedTreatment,
-        );
-        setRecordNav(getTreatmentNavigation(sameCustomerTreatments, id));
 
         if (treatmentIdRef.current !== id) {
           treatmentIdRef.current = id;
