@@ -1,4 +1,5 @@
 import { Link, router, useLocalSearchParams } from 'expo-router';
+import type { Href } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -35,11 +36,16 @@ import {
 import { showConfirmAlert, showLoginFailureAlert, showSuccessAlert } from '../lib/alerts';
 import { isDemoAuthMode } from '../lib/auth';
 import { clearAccumulatedDemoCache } from '../lib/demo-accumulated-cache-reset';
+import {
+  DESIGNER_APP_TABS,
+  DESIGNER_DEMO_TAB_LOGIN,
+} from '../lib/designer-app-tabs';
 import { getErrorMessage } from '../lib/errors';
 import { navigateBackOrReplace } from '../lib/navigation';
 import { signInAndNavigate } from '../lib/quick-login-flow';
 import { colors } from '../lib/theme';
 import { AppVersionBadge } from '../src/components/app-version-badge';
+import { TestLoginAccountGrid } from '../src/components/test-login-account-grid';
 
 type DemoLoginGroupSectionProps = {
   title: DemoLoginGroupKey;
@@ -50,8 +56,60 @@ type DemoLoginGroupSectionProps = {
   groupSearch: string;
   onToggle: () => void;
   onGroupSearchChange: (value: string) => void;
-  onLogin: (id: string, email: string, password: string) => void;
+  onLogin: (id: string, email: string, password: string, redirectTo?: Href) => void;
 };
+
+function DesignerTabShortcuts({
+  loadingId,
+  onLogin,
+}: {
+  loadingId: string | null;
+  onLogin: DemoLoginGroupSectionProps['onLogin'];
+}) {
+  return (
+    <View style={styles.designerTabSection}>
+      <Text style={styles.designerTabTitle}>디자이너 앱 · {DESIGNER_DEMO_TAB_LOGIN.label}</Text>
+      <Text style={styles.designerTabDescription}>
+        탭하면 데모 디자이너로 로그인 후 해당 화면으로 이동합니다
+      </Text>
+      <View style={styles.designerTabGrid}>
+        {DESIGNER_APP_TABS.map((tab) => {
+          const loadingKey = `designer-tab-${tab.key}`;
+          const isLoading = loadingId === loadingKey;
+
+          return (
+            <View key={tab.key} style={styles.designerTabWrap}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${tab.label} 화면으로 로그인`}
+                disabled={Boolean(loadingId)}
+                onPress={() =>
+                  onLogin(
+                    loadingKey,
+                    DESIGNER_DEMO_TAB_LOGIN.email,
+                    DESIGNER_DEMO_TAB_LOGIN.password,
+                    tab.href,
+                  )
+                }
+                style={({ pressed }) => [
+                  styles.designerTabTile,
+                  pressed && !loadingId && styles.designerTabTilePressed,
+                  isLoading && styles.designerTabTileLoading,
+                ]}>
+                <Text style={styles.designerTabLabel}>{tab.label}</Text>
+                {isLoading ? (
+                  <ActivityIndicator color={colors.coral} size="small" />
+                ) : (
+                  <Text style={styles.designerTabAction}>→</Text>
+                )}
+              </Pressable>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
 
 function DemoLoginGroupSection({
   title,
@@ -222,7 +280,7 @@ function DemoLoginGroupSection({
               : listAllWhenExpanded
                 ? title === '매장'
                   ? `총 ${STORE_LOGIN_COUNT.toLocaleString('ko-KR')} 곳 · 아래에서 탭하면 로그인`
-                  : `총 ${DESIGNER_LOGIN_COUNT.toLocaleString('ko-KR')} 명 · 아래에서 탭하면 로그인`
+                  : `총 ${DESIGNER_LOGIN_COUNT.toLocaleString('ko-KR')} 명 · 홈·고객·시술·매출·계정 · 탭하면 로그인`
                 : isRegisteredCustomerGroup
                   ? registeredCustomerHint()
                   : `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT.toLocaleString('ko-KR')} 명(디자이너 연동 전체) — 검색어를 입력하면 목록이 표시됩니다`}
@@ -231,17 +289,25 @@ function DemoLoginGroupSection({
       ) : null}
 
       {canShowList ? (
-        <View style={[styles.card, collapsible && styles.cardIndented]}>
-          {visibleAccounts.map((account, index) => (
-            <AccountRow
-              key={account.id}
-              account={account}
-              isLast={index === visibleAccounts.length - 1}
-              loadingId={loadingId}
-              onLogin={onLogin}
-            />
-          ))}
-        </View>
+        title === '디자이너' ? (
+          <TestLoginAccountGrid
+            accounts={visibleAccounts}
+            loadingId={loadingId}
+            onLogin={(account) => onLogin(account.id, account.email, account.password)}
+          />
+        ) : (
+          <View style={[styles.card, collapsible && styles.cardIndented]}>
+            {visibleAccounts.map((account, index) => (
+              <AccountRow
+                key={account.id}
+                account={account}
+                isLast={index === visibleAccounts.length - 1}
+                loadingId={loadingId}
+                onLogin={onLogin}
+              />
+            ))}
+          </View>
+        )
       ) : null}
     </View>
   );
@@ -256,7 +322,7 @@ function AccountRow({
   account: DemoLoginAccount;
   isLast: boolean;
   loadingId: string | null;
-  onLogin: (id: string, email: string, password: string) => void;
+  onLogin: (id: string, email: string, password: string, redirectTo?: Href) => void;
 }) {
   const isLoading = loadingId === account.id;
 
@@ -326,21 +392,24 @@ export default function TestLoginScreen() {
     [activeExpandedGroups],
   );
 
-  const handleAccountLogin = useCallback(async (id: string, email: string, password: string) => {
-    if (loadingId) {
-      return;
-    }
+  const handleAccountLogin = useCallback(
+    async (id: string, email: string, password: string, redirectTo?: Href) => {
+      if (loadingId) {
+        return;
+      }
 
-    try {
-      setLoadingId(id);
-      await signInAndNavigate(email, password);
-    } catch (error) {
-      const message = getErrorMessage(error, '로그인에 실패했습니다.');
-      showLoginFailureAlert(message);
-    } finally {
-      setLoadingId(null);
-    }
-  }, [loadingId]);
+      try {
+        setLoadingId(id);
+        await signInAndNavigate(email, password, redirectTo ? { redirectTo } : undefined);
+      } catch (error) {
+        const message = getErrorMessage(error, '로그인에 실패했습니다.');
+        showLoginFailureAlert(message);
+      } finally {
+        setLoadingId(null);
+      }
+    },
+    [loadingId],
+  );
 
   const toggleGroup = useCallback((title: DemoLoginGroupKey) => {
     setExpandedGroups((prev) => ({
@@ -406,6 +475,8 @@ export default function TestLoginScreen() {
           <Text style={styles.title}>테스트 계정</Text>
           <Text style={styles.subtitle}>탭하면 바로 로그인됩니다.</Text>
         </View>
+
+        <DesignerTabShortcuts loadingId={loadingId} onLogin={handleAccountLogin} />
 
         {demoLoginGroups.map((group) => (
           <DemoLoginGroupSection
@@ -485,6 +556,68 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginTop: 6,
+  },
+  designerTabSection: {
+    backgroundColor: '#FFF8F8',
+    borderColor: '#FFE0E1',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 8,
+    marginBottom: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  designerTabTitle: {
+    color: '#1A1A2E',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  designerTabDescription: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 17,
+  },
+  designerTabGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -3,
+    marginTop: 4,
+  },
+  designerTabWrap: {
+    aspectRatio: 1,
+    padding: 3,
+    width: '20%',
+  },
+  designerTabTile: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFD4D5',
+    borderRadius: 12,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+    paddingVertical: 6,
+  },
+  designerTabTilePressed: {
+    backgroundColor: '#FFE8EA',
+    opacity: 0.92,
+  },
+  designerTabTileLoading: {
+    opacity: 0.65,
+  },
+  designerTabLabel: {
+    color: '#1A1A2E',
+    fontSize: 11,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  designerTabAction: {
+    color: colors.coral,
+    fontSize: 14,
+    fontWeight: '900',
+    marginTop: 2,
   },
   group: {
     marginBottom: 18,

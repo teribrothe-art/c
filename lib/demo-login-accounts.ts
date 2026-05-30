@@ -10,6 +10,7 @@ import {
   getDesignerLinkedCustomerLoginSources,
 } from './demo-designer-linked-customers';
 import { formatDesignerStoreLabel, ORG_STORE_DEFINITIONS } from './org-store-affiliation';
+import { DESIGNER_APP_TAB_LABELS } from './designer-app-tabs';
 import { STORE_TEST_ACCOUNTS } from './store-test-accounts';
 import { colors } from './theme';
 
@@ -33,7 +34,7 @@ export type DemoLoginGroupKey = (typeof DEMO_LOGIN_GROUP_ORDER)[number];
 export const DEMO_LOGIN_GROUP_DESCRIPTIONS: Record<DemoLoginGroupKey, string> = {
   본사: '본사 어드민 · 전체 매장·디자이너·매출 조회',
   매장: '지역 핫플레이스 매장 전체 — 펼치면 목록 · 검색 가능',
-  디자이너: `데모 · 베타 · 누적 · 증원 ${EXPANDED_STORE_DESIGNER_COUNT}명 — 펼치면 목록 · 검색 가능`,
+  디자이너: `데모 · 베타 · 누적 · 증원 ${EXPANDED_STORE_DESIGNER_COUNT}명 — ${DESIGNER_APP_TAB_LABELS} · 펼치면 목록`,
   가입고객: '디자이너 연동 고객 전체(데모·베타·누적·증원) — 펼친 뒤 검색',
 };
 
@@ -65,7 +66,7 @@ export function getDemoLoginSearchPlaceholder(title: DemoLoginGroupKey) {
   }
 
   if (title === '디자이너') {
-    return '이름 · 이메일 · 데모/베타/누적 · 매장명';
+    return '이름 · 이메일 · 데모/베타/누적/증원 · 매장명';
   }
 
   if (title === '가입고객') {
@@ -124,7 +125,7 @@ const DEMO_DESIGNER_ACCOUNT: DemoLoginAccount = {
   loginLabel: '데모 디자이너 · 김미용',
   email: DEMO_LOGIN_HINT.designerEmail,
   password: DEMO_LOGIN_HINT.designerPassword,
-  meta: formatDesignerStoreLabel('demo-designer-local'),
+  meta: `${formatDesignerStoreLabel('demo-designer-local')} · ${DESIGNER_APP_TAB_LABELS}`,
   accent: '#7B5EE6',
   searchHaystack: designerSearchHaystack([
     '데모',
