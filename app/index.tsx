@@ -21,6 +21,7 @@ import { AppVersionBadge } from '../src/components/app-version-badge';
 import { ConnectQrPanel } from '../src/components/connect-qr-panel';
 import { InlineFieldError } from '../src/components/inline-field-error';
 import { LoginHeadlines } from '../src/components/login-headlines';
+import { LoginHeroAnimation } from '../src/components/login-hero-animation';
 
 type LoginView = 'login' | 'qr';
 
@@ -186,6 +187,7 @@ export default function LoginScreen() {
           <AppVersionBadge pinned />
         </View>
       </ScrollView>
+      <LoginHeroAnimation docked />
     </KeyboardAvoidingView>
   );
 }
@@ -199,8 +201,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexGrow: 1,
     justifyContent: 'center',
+    paddingBottom: 24,
     paddingHorizontal: loginLayout.horizontalPadding,
-    paddingVertical: 32,
+    paddingTop: 32,
   },
   content: {
     alignItems: 'center',
