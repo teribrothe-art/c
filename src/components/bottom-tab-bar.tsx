@@ -28,7 +28,7 @@ const tabs: { href: Href; label: string; match?: (pathname: string) => boolean }
   },
   {
     href: '/profile',
-    label: '마이',
+    label: '계정',
     match: (pathname) =>
       pathname === '/profile' ||
       pathname.startsWith('/profile/') ||
