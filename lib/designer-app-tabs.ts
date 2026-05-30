@@ -16,9 +16,3 @@ export const DESIGNER_APP_TABS: DesignerAppTab[] = [
 ];
 
 export const DESIGNER_APP_TAB_LABELS = DESIGNER_APP_TABS.map((tab) => tab.label).join(' · ');
-
-export const DESIGNER_DEMO_TAB_LOGIN = {
-  email: 'designer@hair.app',
-  password: 'demo1234',
-  label: '데모 디자이너 · 김미용',
-} as const;
