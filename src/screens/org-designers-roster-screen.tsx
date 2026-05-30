@@ -59,49 +59,68 @@ function getStoreMetricDetail(group: OrgDesignerStoreGroup, tab: StoreMetricTab)
   }
 }
 
-function StoreGroupMetricsTabs({ group }: { group: OrgDesignerStoreGroup }) {
-  const [tab, setTab] = useState<StoreMetricTab>('designers');
+function GlobalStoreMetricTabs({
+  tab,
+  onTabChange,
+}: {
+  tab: StoreMetricTab;
+  onTabChange: (next: StoreMetricTab) => void;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.globalMetricsTabScroll}>
+      <View style={styles.globalMetricsTabRow}>
+        {STORE_METRIC_TABS.map(({ key, label }) => {
+          const active = tab === key;
+
+          return (
+            <Pressable
+              key={key}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              onPress={() => onTabChange(key)}
+              style={({ pressed }) => [
+                styles.globalMetricsTab,
+                active && styles.globalMetricsTabActive,
+                pressed && styles.globalMetricsTabPressed,
+              ]}>
+              <Text style={[styles.globalMetricsTabLabel, active && styles.globalMetricsTabLabelActive]}>
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </ScrollView>
+  );
+}
+
+function StoreGroupMetricsDetail({
+  group,
+  tab,
+}: {
+  group: OrgDesignerStoreGroup;
+  tab: StoreMetricTab;
+}) {
   const detail = getStoreMetricDetail(group, tab);
 
   return (
-    <View style={styles.metricsTabsWrap}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={styles.metricsTabRow}>
-          {STORE_METRIC_TABS.map(({ key, label }) => {
-            const active = tab === key;
-
-            return (
-              <Pressable
-                key={key}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                onPress={() => setTab(key)}
-                style={({ pressed }) => [
-                  styles.metricsTab,
-                  active && styles.metricsTabActive,
-                  pressed && styles.metricsTabPressed,
-                ]}>
-                <Text style={[styles.metricsTabLabel, active && styles.metricsTabLabelActive]}>
-                  {label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </ScrollView>
-      <View style={styles.metricsDetail}>
-        <Text style={styles.metricsValue}>{detail.value}</Text>
-        <Text style={styles.metricsMeta}>{detail.meta}</Text>
-      </View>
+    <View style={styles.metricsDetail}>
+      <Text style={styles.metricsValue}>{detail.value}</Text>
+      <Text style={styles.metricsMeta}>{detail.meta}</Text>
     </View>
   );
 }
 
 function StoreGroupCard({
   group,
+  tab,
   onPress,
 }: {
   group: OrgDesignerStoreGroup;
+  tab: StoreMetricTab;
   onPress: () => void;
 }) {
   return (
@@ -113,7 +132,7 @@ function StoreGroupCard({
       <Text style={styles.storeLabel}>소속 매장</Text>
       <Text style={styles.storeName}>{group.storeName}</Text>
       <Text style={styles.storeRegion}>{group.storeRegion}</Text>
-      <StoreGroupMetricsTabs group={group} />
+      <StoreGroupMetricsDetail group={group} tab={tab} />
       <Text style={styles.storeTapHint}>탭하여 소속 디자이너 보기 →</Text>
     </Pressable>
   );
@@ -156,6 +175,7 @@ export function OrgDesignersRosterScreen() {
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  const [globalMetricTab, setGlobalMetricTab] = useState<StoreMetricTab>('designers');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -197,27 +217,30 @@ export function OrgDesignersRosterScreen() {
           { paddingTop: insets.top + 16, paddingBottom: Math.max(insets.bottom, 20) + 100 },
         ]}
         showsVerticalScrollIndicator={false}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerCopy}>
+        <View style={styles.headerBlock}>
+          <View style={styles.titleRow}>
             <Text style={styles.title}>디자이너</Text>
-            <Text style={styles.subtitle}>
-              {selectedGroup
-                ? '소속 디자이너의 매출·고객·시술을 조회하세요.'
-                : '소속 매장을 선택한 뒤 디자이너 목록을 확인하세요.'}
-            </Text>
+            <View style={styles.globalMetricsTabHost}>
+              <GlobalStoreMetricTabs tab={globalMetricTab} onTabChange={setGlobalMetricTab} />
+            </View>
+            {selectedGroup ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="소속 매장 목록으로"
+                onPress={() => setSelectedStoreId(null)}
+                style={({ pressed }) => [
+                  styles.headerBackEmoji,
+                  pressed && styles.headerBackEmojiPressed,
+                ]}>
+                <Text style={styles.headerBackEmojiIcon}>↩️</Text>
+              </Pressable>
+            ) : null}
           </View>
-          {selectedGroup ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="소속 매장 목록으로"
-              onPress={() => setSelectedStoreId(null)}
-              style={({ pressed }) => [
-                styles.headerBackEmoji,
-                pressed && styles.headerBackEmojiPressed,
-              ]}>
-              <Text style={styles.headerBackEmojiIcon}>↩️</Text>
-            </Pressable>
-          ) : null}
+          <Text style={styles.subtitle}>
+            {selectedGroup
+              ? '소속 디자이너의 매출·고객·시술을 조회하세요.'
+              : '상단 탭으로 전체 매장 지표를 함께 전환합니다.'}
+          </Text>
         </View>
 
         {isLoading ? (
@@ -230,7 +253,7 @@ export function OrgDesignersRosterScreen() {
               <Text style={styles.storeLabel}>소속 매장</Text>
               <Text style={styles.storeName}>{selectedGroup.storeName}</Text>
               <Text style={styles.storeRegion}>{selectedGroup.storeRegion}</Text>
-              <StoreGroupMetricsTabs group={selectedGroup} />
+              <StoreGroupMetricsDetail group={selectedGroup} tab={globalMetricTab} />
             </View>
             <View style={styles.designerList}>
               {selectedGroup.designers.map((designer) => (
@@ -244,6 +267,7 @@ export function OrgDesignersRosterScreen() {
               <StoreGroupCard
                 key={group.storeId}
                 group={group}
+                tab={globalMetricTab}
                 onPress={() => setSelectedStoreId(group.storeId)}
               />
             ))}
@@ -264,15 +288,56 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingHorizontal: 18,
   },
-  headerRow: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'space-between',
+  headerBlock: {
+    gap: 6,
   },
-  headerCopy: {
+  titleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  title: {
+    color: '#1A1A2E',
+    flexShrink: 0,
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  globalMetricsTabHost: {
     flex: 1,
-    gap: 0,
+    minWidth: 0,
+  },
+  globalMetricsTabScroll: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+  },
+  globalMetricsTabRow: {
+    flexDirection: 'row',
+    gap: 4,
+    justifyContent: 'flex-end',
+  },
+  globalMetricsTab: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  globalMetricsTabActive: {
+    backgroundColor: '#EDE9FE',
+    borderColor: colors.purple,
+  },
+  globalMetricsTabPressed: {
+    opacity: 0.92,
+  },
+  globalMetricsTabLabel: {
+    color: '#6B6B7B',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  globalMetricsTabLabelActive: {
+    color: colors.purple,
+    fontWeight: '900',
   },
   headerBackEmoji: {
     alignItems: 'center',
@@ -280,23 +345,18 @@ const styles = StyleSheet.create({
     borderColor: '#E8E8F0',
     borderRadius: 999,
     borderWidth: 1,
-    height: 40,
+    flexShrink: 0,
+    height: 34,
     justifyContent: 'center',
-    marginTop: 2,
-    width: 40,
+    width: 34,
   },
   headerBackEmojiPressed: {
     backgroundColor: '#F5F5F8',
     opacity: 0.92,
   },
   headerBackEmojiIcon: {
-    fontSize: 18,
-    lineHeight: 22,
-  },
-  title: {
-    color: '#1A1A2E',
-    fontSize: 24,
-    fontWeight: '900',
+    fontSize: 16,
+    lineHeight: 20,
   },
   subtitle: {
     color: '#6B6B7B',
@@ -353,43 +413,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  metricsTabsWrap: {
-    gap: 8,
-    marginTop: 8,
-  },
-  metricsTabRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  metricsTab: {
-    backgroundColor: '#F1FAF1',
-    borderColor: '#C8E6C9',
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  metricsTabActive: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#2E7D32',
-  },
-  metricsTabPressed: {
-    opacity: 0.92,
-  },
-  metricsTabLabel: {
-    color: '#66BB6A',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  metricsTabLabelActive: {
-    color: '#1B5E20',
-    fontWeight: '900',
-  },
   metricsDetail: {
     backgroundColor: '#FFFFFF',
     borderColor: '#C8E6C9',
     borderRadius: 10,
     gap: 2,
+    marginTop: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
