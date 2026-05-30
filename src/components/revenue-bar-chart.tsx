@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 const MINT = '#00C2A8';
 const CORAL = '#FF5A5F';
@@ -17,6 +17,10 @@ type RevenueBarChartProps = {
   emptyMessage?: string;
   barColor?: string;
   maxBarHeight?: number;
+  /** 상위 카드 안에 넣을 때 외곽 카드·제목 생략 */
+  embedded?: boolean;
+  selectedKey?: string | null;
+  onPressPoint?: (key: string) => void;
 };
 
 function formatCompactWon(value: number) {
@@ -34,35 +38,42 @@ export function RevenueBarChart({
   emptyMessage = '표시할 데이터가 없어요',
   barColor = MINT,
   maxBarHeight = 120,
+  embedded = false,
+  selectedKey = null,
+  onPressPoint,
 }: RevenueBarChartProps) {
   const maxValue = Math.max(...points.map((point) => point.value), 1);
   const useHorizontalScroll = points.length > 7;
 
   if (points.length === 0) {
-    return (
-      <View style={styles.card}>
-        <Text style={styles.title}>{title}</Text>
+    const emptyBlock = (
+      <>
+        {title ? <Text style={styles.title}>{title}</Text> : null}
         <Text style={styles.empty}>{emptyMessage}</Text>
-      </View>
+      </>
     );
+
+    if (embedded) {
+      return <View style={styles.embeddedBlock}>{emptyBlock}</View>;
+    }
+
+    return <View style={styles.card}>{emptyBlock}</View>;
   }
 
   const chartBody = (
     <View style={[styles.chartRow, useHorizontalScroll && styles.chartRowScrollable]}>
       {points.map((point) => {
         const height = Math.max(8, Math.round((point.value / maxValue) * maxBarHeight));
-
-        return (
-          <View
-            key={point.key}
-            style={[styles.barColumn, useHorizontalScroll && styles.barColumnFixed]}>
+        const selected = selectedKey === point.key;
+        const column = (
+          <>
             <Text style={styles.barValue} numberOfLines={1}>
               {formatCompactWon(point.value)}
             </Text>
             <View style={[styles.barTrack, { height: maxBarHeight }]}>
               <View style={[styles.barFill, { height, backgroundColor: barColor }]} />
             </View>
-            <Text style={styles.barLabel} numberOfLines={1}>
+            <Text style={[styles.barLabel, selected && styles.barLabelSelected]} numberOfLines={1}>
               {point.label}
             </Text>
             {point.subLabel ? (
@@ -70,22 +81,59 @@ export function RevenueBarChart({
                 {point.subLabel}
               </Text>
             ) : null}
+          </>
+        );
+
+        if (onPressPoint) {
+          return (
+            <Pressable
+              key={point.key}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              onPress={() => onPressPoint(point.key)}
+              style={({ pressed }) => [
+                styles.barColumn,
+                useHorizontalScroll && styles.barColumnFixed,
+                selected && styles.barColumnSelected,
+                pressed && styles.barColumnPressed,
+              ]}>
+              {column}
+            </Pressable>
+          );
+        }
+
+        return (
+          <View
+            key={point.key}
+            style={[styles.barColumn, useHorizontalScroll && styles.barColumnFixed]}>
+            {column}
           </View>
         );
       })}
     </View>
   );
 
+  const chartContent = useHorizontalScroll ? (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      {chartBody}
+    </ScrollView>
+  ) : (
+    chartBody
+  );
+
+  if (embedded) {
+    return (
+      <View style={styles.embeddedBlock}>
+        {chartContent}
+        {valueSuffix ? <Text style={styles.unitHint}>합계 ({valueSuffix})</Text> : null}
+      </View>
+    );
+  }
+
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>{title}</Text>
-      {useHorizontalScroll ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {chartBody}
-        </ScrollView>
-      ) : (
-        chartBody
-      )}
+      {title ? <Text style={styles.title}>{title}</Text> : null}
+      {chartContent}
       {valueSuffix ? <Text style={styles.unitHint}>합계 ({valueSuffix})</Text> : null}
     </View>
   );
@@ -98,6 +146,9 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 16,
     elevation: 3,
+  },
+  embeddedBlock: {
+    gap: 12,
   },
   title: {
     color: '#1A1A2E',
@@ -126,6 +177,13 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 28,
   },
+  barColumnSelected: {
+    backgroundColor: '#F0EBFF',
+    borderRadius: 10,
+  },
+  barColumnPressed: {
+    opacity: 0.9,
+  },
   barColumnFixed: {
     flex: 0,
     width: 44,
@@ -153,6 +211,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 6,
     textAlign: 'center',
+  },
+  barLabelSelected: {
+    color: '#7B5EE6',
   },
   barSubLabel: {
     color: '#9CA3AF',
