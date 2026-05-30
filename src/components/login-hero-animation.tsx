@@ -9,12 +9,11 @@ import {
   View,
 } from 'react-native';
 
-import { colors } from '../../lib/theme';
+import { colors, getLoginContentWidth } from '../../lib/theme';
 
 /** 로그인 배너 그리드 (가로 3 × 세로 1) */
 const GRID_COLUMNS = 3;
 const GRID_ROWS = 1;
-const HORIZONTAL_INSET = 56;
 
 const HERO_MESSAGES = [
   '당신의 손끝이 만드는 아름다움',
@@ -35,9 +34,11 @@ export function LoginHeroAnimation() {
   const glowScale = useRef(new Animated.Value(1)).current;
 
   const gridSize = useMemo(() => {
-    const unit = (windowWidth - HORIZONTAL_INSET) / GRID_COLUMNS;
+    const contentWidth = getLoginContentWidth(windowWidth);
+    const unit = contentWidth / GRID_COLUMNS;
+
     return {
-      width: unit * GRID_COLUMNS,
+      width: contentWidth,
       height: unit * GRID_ROWS,
     };
   }, [windowWidth]);

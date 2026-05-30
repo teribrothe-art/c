@@ -15,7 +15,7 @@ import { showLoginFailureAlert } from '../lib/alerts';
 import { isDemoAuthMode } from '../lib/auth';
 import { getErrorMessage } from '../lib/errors';
 import { signInAndNavigate } from '../lib/quick-login-flow';
-import { colors, disabledButtonStyle } from '../lib/theme';
+import { colors, disabledButtonStyle, loginLayout } from '../lib/theme';
 import { validateEmail } from '../lib/validation';
 import { AppVersionBadge } from '../src/components/app-version-badge';
 import { InlineFieldError } from '../src/components/inline-field-error';
@@ -169,13 +169,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   scrollContent: {
+    alignItems: 'center',
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 28,
+    paddingHorizontal: loginLayout.horizontalPadding,
     paddingVertical: 32,
   },
   content: {
     alignItems: 'center',
+    maxWidth: loginLayout.maxContentWidth,
     width: '100%',
   },
   form: {
