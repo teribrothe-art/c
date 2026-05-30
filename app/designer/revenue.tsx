@@ -122,10 +122,10 @@ export default function DesignerRevenueScreen() {
     }
 
     if (!selectedDayDate) {
-      return analytics.recentSettlements;
+      return analytics.selectedMonthSettlements;
     }
 
-    return analytics.recentSettlements.filter((item) => item.date === selectedDayDate);
+    return analytics.selectedMonthSettlements.filter((item) => item.date === selectedDayDate);
   }, [analytics, selectedDayDate, settlementListMode]);
 
   const settlementSectionTitle = useMemo(() => {
@@ -193,12 +193,17 @@ export default function DesignerRevenueScreen() {
 
     return [
       {
-        key: 'avg-price',
-        label: '월 평균 시술가',
-        value: `${analytics.averageTreatmentPrice.toLocaleString('ko-KR')}원`,
+        key: 'settlement-count',
+        label: '정산 건수',
+        value: `${analytics.selectedMonth.settlementCount.toLocaleString('ko-KR')}건`,
         onPress: () => {
           setSettlementListMode('month');
-          scrollToSection(monthSectionY.current);
+          setSelectedDayDate(null);
+          setChartTab('monthly');
+          scrollToSection(weekSectionY.current);
+          setTimeout(() => {
+            scrollToSection(settlementSectionY.current);
+          }, 280);
         },
       },
       {
@@ -228,7 +233,7 @@ export default function DesignerRevenueScreen() {
         },
       },
     ];
-  }, [analytics, scrollToSection, showPendingSettlements]);
+  }, [analytics, scrollToSection, showPendingSettlements, setChartTab]);
 
   const handlePressMonthChart = (monthKey: string) => {
     handleSelectMonth(monthKey);

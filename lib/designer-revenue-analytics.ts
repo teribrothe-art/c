@@ -43,6 +43,16 @@ export type DesignerRevenueAnalytics = {
   pendingPayoutCount: number;
   averageTreatmentPrice: number;
   selectedMonthTreatmentCount: number;
+  /** 선택 월 정산 완료 전체 */
+  selectedMonthSettlements: {
+    paymentId: string;
+    treatmentId: string;
+    customerName: string;
+    treatmentTitle: string;
+    date: string;
+    dateWithWeekdayLabel: string;
+    payout: number;
+  }[];
   recentSettlements: {
     paymentId: string;
     treatmentId: string;
@@ -187,6 +197,7 @@ function emptyAnalytics(monthKey: string): DesignerRevenueAnalytics {
     pendingPayoutCount: 0,
     averageTreatmentPrice: 0,
     selectedMonthTreatmentCount: 0,
+    selectedMonthSettlements: [],
     recentSettlements: [],
     pendingSettlements: [],
   };
@@ -280,12 +291,13 @@ export async function fetchDesignerRevenueAnalytics(
       ? Math.round(priced.reduce((sum, treatment) => sum + (treatment.price ?? 0), 0) / priced.length)
       : 0;
 
-  const recentSettlements = payments
+  const selectedMonthSettlements = payments
     .filter((payment) => payment.status === 'completed' && payment.settled_at)
     .filter((payment) => monthKeyFromDate(settlementDateOf(payment)) === resolvedMonthKey)
     .sort((a, b) => (b.settled_at ?? '').localeCompare(a.settled_at ?? ''))
-    .slice(0, 8)
     .map((payment) => mapPaymentToSettlementRow(payment, treatmentMap));
+
+  const recentSettlements = selectedMonthSettlements.slice(0, 8);
 
   const pendingSettlements = paidPending
     .map((payment) => mapPaymentToSettlementRow(payment, treatmentMap))
@@ -303,6 +315,7 @@ export async function fetchDesignerRevenueAnalytics(
     pendingPayoutCount: paidPending.length,
     averageTreatmentPrice,
     selectedMonthTreatmentCount: monthTreatments.length,
+    selectedMonthSettlements,
     recentSettlements,
     pendingSettlements,
   };
