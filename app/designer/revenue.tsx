@@ -81,8 +81,8 @@ export default function DesignerRevenueScreen() {
     () =>
       [...(analytics?.months ?? [])]
         .filter((month) => month.revenue > 0)
-        .sort((a, b) => a.monthKey.localeCompare(b.monthKey))
-        .slice(-6)
+        .sort((a, b) => b.monthKey.localeCompare(a.monthKey))
+        .slice(0, 6)
         .map((month) => ({
           key: month.monthKey,
           label: month.label.replace(/^\d{4}년\s/, ''),
