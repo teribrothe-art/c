@@ -105,17 +105,14 @@ export function showTreatmentPhotoSourceAlert({
   onLibrary: () => void;
 }) {
   if (Platform.OS === 'web') {
-    const choice = window.prompt(
-      `${title}\n\n${message}\n\n1 — 바로 촬영\n2 — 앨범에서 선택`,
-      '1',
+    const useCamera = showWebConfirm(
+      title,
+      `${message}\n\n확인 → 바로 촬영\n취소 → 앨범에서 선택`,
     );
 
-    if (choice === '1') {
+    if (useCamera) {
       onCamera();
-      return;
-    }
-
-    if (choice === '2') {
+    } else {
       onLibrary();
     }
 
