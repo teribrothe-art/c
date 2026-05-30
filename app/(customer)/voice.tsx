@@ -230,6 +230,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: DECO_SIZE,
   },
+  decoCirclePressed: {
+    opacity: 0.85,
+  },
   decoIcon: { fontSize: 40 },
   decoCirclePressed: { opacity: 0.85 },
   voiceHint: { color: colors.muted, fontSize: 12, marginTop: 8, textAlign: 'center' },
