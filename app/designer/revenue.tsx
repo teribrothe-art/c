@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -45,6 +45,7 @@ function MetricCard({
 
 export default function DesignerRevenueScreen() {
   const insets = useSafeAreaInsets();
+  const { month: monthParam } = useLocalSearchParams<{ month?: string | string[] }>();
   const [analytics, setAnalytics] = useState<DesignerRevenueAnalytics | null>(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | undefined>(undefined);
   const [selectedWeekKey, setSelectedWeekKey] = useState<string | undefined>(undefined);
@@ -85,8 +86,14 @@ export default function DesignerRevenueScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadRevenue(selectedMonthKey, selectedWeekKey);
-    }, [loadRevenue, selectedMonthKey, selectedWeekKey]),
+      const monthFromRoute = Array.isArray(monthParam) ? monthParam[0] : monthParam;
+      const monthToLoad =
+        typeof monthFromRoute === 'string' && /^\d{4}-\d{2}$/.test(monthFromRoute)
+          ? monthFromRoute
+          : selectedMonthKey;
+
+      loadRevenue(monthToLoad, selectedWeekKey);
+    }, [loadRevenue, monthParam, selectedMonthKey, selectedWeekKey]),
   );
 
   const monthlyChartPoints = useMemo(

@@ -18,6 +18,7 @@ import { getProfileAvatarUri } from '../lib/profile-update';
 import { getProfileScreenData, ProfileData, ProfileStats } from '../lib/profile';
 import { BottomTabBar } from '../src/components/bottom-tab-bar';
 import { DesignerBottomTabBar } from '../src/components/designer-bottom-tab-bar';
+import { MonthlySettlementGrid } from '../src/components/monthly-settlement-grid';
 
 type SettingItem = {
   icon: string;
@@ -88,13 +89,13 @@ function ActivityCard({ stats }: { stats: ProfileStats }) {
           <StatRow label="이번 달 정산" value={formatCurrency(stats.monthSettlementAmount)} />
           {stats.monthlySettlementTotals.length > 0 ? (
             <View style={styles.monthlySettlementBlock}>
-              {stats.monthlySettlementTotals.map((month) => (
-                <StatRow
-                  key={month.monthKey}
-                  label={month.label}
-                  value={formatCurrency(month.amount)}
-                />
-              ))}
+              <Text style={styles.monthlySettlementTitle}>월별 정산</Text>
+              <MonthlySettlementGrid
+                items={stats.monthlySettlementTotals}
+                onPressItem={(monthKey) =>
+                  router.push({ pathname: '/designer/revenue', params: { month: monthKey } })
+                }
+              />
             </View>
           ) : null}
           <StatRow label="정산 대기" value={`${stats.pendingSettlementCount}건`} />
@@ -400,6 +401,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     marginTop: 4,
     paddingTop: 10,
+  },
+  monthlySettlementTitle: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 6,
   },
   activityList: {
     borderTopColor: '#EFEFF4',
