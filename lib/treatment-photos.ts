@@ -53,15 +53,11 @@ export async function getTreatmentPhotoSignedUrl(
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
-export async function pickTreatmentPhotoFromLibrary() {
-  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+export type TreatmentPhotoPickSource = 'camera' | 'library';
 
-  if (!permission.granted) {
-    throw new Error('갤러리 접근 권한이 필요합니다.');
-  }
-
-  const result = await ImagePicker.launchImageLibraryAsync(treatmentPhotoPickerOptions());
-
+async function normalizePickedTreatmentPhoto(
+  result: ImagePicker.ImagePickerResult,
+): Promise<string | null> {
   if (result.canceled || !result.assets[0]?.uri) {
     return null;
   }
@@ -79,6 +75,38 @@ export async function pickTreatmentPhotoFromLibrary() {
   }
 
   return prepareImageForUpload(normalizedUri);
+}
+
+export async function pickTreatmentPhotoFromLibrary() {
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+  if (!permission.granted) {
+    throw new Error('갤러리 접근 권한이 필요합니다.');
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync(treatmentPhotoPickerOptions());
+
+  return normalizePickedTreatmentPhoto(result);
+}
+
+export async function pickTreatmentPhotoFromCamera() {
+  const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+  if (!permission.granted) {
+    throw new Error('카메라 접근 권한이 필요합니다.');
+  }
+
+  const result = await ImagePicker.launchCameraAsync(treatmentPhotoPickerOptions());
+
+  return normalizePickedTreatmentPhoto(result);
+}
+
+export async function pickTreatmentPhoto(source: TreatmentPhotoPickSource) {
+  if (source === 'camera') {
+    return pickTreatmentPhotoFromCamera();
+  }
+
+  return pickTreatmentPhotoFromLibrary();
 }
 
 export async function uploadTreatmentPhoto(

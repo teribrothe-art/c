@@ -92,6 +92,43 @@ export function showConfirmAlert({
   ]);
 }
 
+/** 시술 Before/After — 카메라 촬영 vs 앨범 선택 */
+export function showTreatmentPhotoSourceAlert({
+  title = '사진 추가',
+  message = '촬영 방법을 선택하세요.',
+  onCamera,
+  onLibrary,
+}: {
+  title?: string;
+  message?: string;
+  onCamera: () => void;
+  onLibrary: () => void;
+}) {
+  if (Platform.OS === 'web') {
+    const choice = window.prompt(
+      `${title}\n\n${message}\n\n1 — 바로 촬영\n2 — 앨범에서 선택`,
+      '1',
+    );
+
+    if (choice === '1') {
+      onCamera();
+      return;
+    }
+
+    if (choice === '2') {
+      onLibrary();
+    }
+
+    return;
+  }
+
+  Alert.alert(title, message, [
+    { text: '취소', style: 'cancel' },
+    { text: '앨범에서 선택', onPress: onLibrary },
+    { text: '바로 촬영', onPress: onCamera },
+  ]);
+}
+
 export function showLoginFailureAlert(message = '이메일 또는 비밀번호가 올바르지 않습니다') {
   if (Platform.OS === 'web') {
     showWebAlert('로그인 실패', message);
