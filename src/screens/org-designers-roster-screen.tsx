@@ -11,12 +11,91 @@ import {
   type OrgDesignerStoreGroup,
 } from '../../lib/org-aggregates';
 import { formatAmount } from '../../lib/currency-input';
+import { formatDesignerNamePreview } from '../../lib/designer-name-preview';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
+
+type StoreMetricTab = 'designers' | 'customers' | 'treatments' | 'sales' | 'hq';
+
+const STORE_METRIC_TABS: { key: StoreMetricTab; label: string }[] = [
+  { key: 'designers', label: '디자이너' },
+  { key: 'customers', label: '고객' },
+  { key: 'treatments', label: '시술' },
+  { key: 'sales', label: '매출' },
+  { key: 'hq', label: '본사' },
+];
+
+function getStoreMetricDetail(group: OrgDesignerStoreGroup, tab: StoreMetricTab) {
+  switch (tab) {
+    case 'designers':
+      return {
+        value: `${group.designers.length}명`,
+        meta: formatDesignerNamePreview(group.designers.map((designer) => designer.name)),
+      };
+    case 'customers':
+      return {
+        value: `${group.customerCount}명`,
+        meta: '소속 디자이너 연결 고객 합계',
+      };
+    case 'treatments':
+      return {
+        value: `${group.monthTreatmentCount.toLocaleString('ko-KR')}건`,
+        meta: '이번 달 시술 건수',
+      };
+    case 'sales':
+      return {
+        value: formatAmount(group.monthGrossSales),
+        meta: '이번 달 매출',
+      };
+    case 'hq':
+      return {
+        value: formatAmount(group.monthHqRevenue),
+        meta: '이번 달 본사 수익',
+      };
+  }
+}
+
+function StoreGroupMetricsTabs({ group }: { group: OrgDesignerStoreGroup }) {
+  const [tab, setTab] = useState<StoreMetricTab>('designers');
+  const detail = getStoreMetricDetail(group, tab);
+
+  return (
+    <View style={styles.metricsTabsWrap}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={styles.metricsTabRow}>
+          {STORE_METRIC_TABS.map(({ key, label }) => {
+            const active = tab === key;
+
+            return (
+              <Pressable
+                key={key}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() => setTab(key)}
+                style={({ pressed }) => [
+                  styles.metricsTab,
+                  active && styles.metricsTabActive,
+                  pressed && styles.metricsTabPressed,
+                ]}>
+                <Text style={[styles.metricsTabLabel, active && styles.metricsTabLabelActive]}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </ScrollView>
+      <View style={styles.metricsDetail}>
+        <Text style={styles.metricsValue}>{detail.value}</Text>
+        <Text style={styles.metricsMeta}>{detail.meta}</Text>
+      </View>
+    </View>
+  );
+}
 
 function StoreGroupCard({
   group,
@@ -34,11 +113,7 @@ function StoreGroupCard({
       <Text style={styles.storeLabel}>소속 매장</Text>
       <Text style={styles.storeName}>{group.storeName}</Text>
       <Text style={styles.storeRegion}>{group.storeRegion}</Text>
-      <Text style={styles.storeStats}>
-        디자이너 {group.designers.length}명 · 고객 {group.customerCount}명 · 이번 달 시술{' '}
-        {group.monthTreatmentCount}건 · 매출 {formatAmount(group.monthGrossSales)} · 본사{' '}
-        {formatAmount(group.monthHqRevenue)}
-      </Text>
+      <StoreGroupMetricsTabs group={group} />
       <Text style={styles.storeTapHint}>탭하여 소속 디자이너 보기 →</Text>
     </Pressable>
   );
@@ -155,12 +230,7 @@ export function OrgDesignersRosterScreen() {
               <Text style={styles.storeLabel}>소속 매장</Text>
               <Text style={styles.storeName}>{selectedGroup.storeName}</Text>
               <Text style={styles.storeRegion}>{selectedGroup.storeRegion}</Text>
-              <Text style={styles.storeStats}>
-                디자이너 {selectedGroup.designers.length}명 · 고객 {selectedGroup.customerCount}명 · 이번
-                달 시술 {selectedGroup.monthTreatmentCount}건 · 매출{' '}
-                {formatAmount(selectedGroup.monthGrossSales)} · 본사{' '}
-                {formatAmount(selectedGroup.monthHqRevenue)}
-              </Text>
+              <StoreGroupMetricsTabs group={selectedGroup} />
             </View>
             <View style={styles.designerList}>
               {selectedGroup.designers.map((designer) => (
@@ -283,11 +353,56 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  storeStats: {
+  metricsTabsWrap: {
+    gap: 8,
+    marginTop: 8,
+  },
+  metricsTabRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  metricsTab: {
+    backgroundColor: '#F1FAF1',
+    borderColor: '#C8E6C9',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  metricsTabActive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#2E7D32',
+  },
+  metricsTabPressed: {
+    opacity: 0.92,
+  },
+  metricsTabLabel: {
+    color: '#66BB6A',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  metricsTabLabelActive: {
+    color: '#1B5E20',
+    fontWeight: '900',
+  },
+  metricsDetail: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#C8E6C9',
+    borderRadius: 10,
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  metricsValue: {
+    color: '#1B5E20',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  metricsMeta: {
     color: '#4B5563',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    marginTop: 4,
+    lineHeight: 16,
   },
   designerList: {
     gap: 10,
