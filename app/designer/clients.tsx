@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
 import { getErrorMessage } from '../../lib/errors';
 import { normalizePaymentStatus } from '../../lib/payment-status';
+import { mapDesignerClientsToGridItems } from '../../lib/designer-customer-grid';
 import {
   DesignerClientListItem,
   getDesignerClientListItems,
@@ -28,43 +29,6 @@ import { EmptyState } from '../../src/components/empty-state';
 import { LoadingState } from '../../src/components/loading-state';
 import { OnboardingModal } from '../../src/components/onboarding-modal';
 
-function formatDate(date: string) {
-  return date.replaceAll('-', '.');
-}
-
-function getStatusBadgeLabel(item: DesignerClientListItem) {
-  if (!item.isRegistered) {
-    if (item.inviteStatus === 'pending') {
-      return '초대';
-    }
-
-    if (item.inviteStatus === 'expired') {
-      return '만료';
-    }
-
-    if (item.inviteStatus === 'used') {
-      return '가입';
-    }
-
-    return undefined;
-  }
-
-  const normalized = normalizePaymentStatus(item.treatment?.payment_status);
-
-  if (normalized === 'completed') {
-    return '정산';
-  }
-
-  if (normalized === 'escrow') {
-    return '대기';
-  }
-
-  if (normalized === 'payment_requested') {
-    return '요청';
-  }
-
-  return '미결제';
-}
 
 export default function DesignerClientsScreen() {
   const insets = useSafeAreaInsets();
@@ -132,17 +96,7 @@ export default function DesignerClientsScreen() {
     };
   }, [clientItems]);
 
-  const gridItems = useMemo(
-    () =>
-      visibleItems.map((item) => ({
-        key: item.key,
-        name: item.customerName,
-        subtitle: item.treatmentTitle,
-        meta: `${formatDate(item.treatmentDate)} · ${item.treatment?.treatment_type ?? '시술'}`,
-        badge: getStatusBadgeLabel(item),
-      })),
-    [visibleItems],
-  );
+  const gridItems = useMemo(() => mapDesignerClientsToGridItems(visibleItems), [visibleItems]);
 
   const handleGridPress = useCallback(
     (key: string) => {
@@ -161,7 +115,7 @@ export default function DesignerClientsScreen() {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.title}>내 고객들</Text>
+          <Text style={styles.title}>고객</Text>
           <View style={styles.headerActions}>
             <Pressable
               onPress={() => setSearchOpen((open) => !open)}

@@ -18,7 +18,9 @@ import { getProfileAvatarUri } from '../lib/profile-update';
 import { getProfileScreenData, ProfileData, ProfileStats } from '../lib/profile';
 import { BottomTabBar } from '../src/components/bottom-tab-bar';
 import { DesignerBottomTabBar } from '../src/components/designer-bottom-tab-bar';
+import { CustomerGrid } from '../src/components/customer-grid';
 import { MonthlySettlementGrid } from '../src/components/monthly-settlement-grid';
+import { mapSettlementsToGridItems } from '../lib/designer-customer-grid';
 
 type SettingItem = {
   icon: string;
@@ -73,6 +75,9 @@ function SettingsRow({
 }
 
 function ActivityCard({ stats }: { stats: ProfileStats }) {
+  const settlementGridItems =
+    stats.kind === 'designer' ? mapSettlementsToGridItems(stats.recentSettlements) : [];
+
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>📊 내 활동</Text>
@@ -103,17 +108,16 @@ function ActivityCard({ stats }: { stats: ProfileStats }) {
           {stats.recentSettlements.length ? (
             <View style={styles.activityList}>
               <Text style={styles.activityListTitle}>최근 정산</Text>
-              {stats.recentSettlements.map((item) => (
-                <View key={item.paymentId} style={styles.activityRow}>
-                  <View style={styles.activityRowMain}>
-                    <Text style={styles.activityRowTitle}>
-                      {item.customerName} · {item.treatmentTitle}
-                    </Text>
-                    <Text style={styles.activityRowDate}>{formatDate(item.date)}</Text>
-                  </View>
-                  <Text style={styles.activityRowAmount}>+{formatCurrency(item.payout)}</Text>
-                </View>
-              ))}
+              <CustomerGrid
+                items={settlementGridItems}
+                onPressItem={(paymentId) => {
+                  const item = stats.recentSettlements.find((row) => row.paymentId === paymentId);
+
+                  if (item?.treatmentId) {
+                    router.push(`/designer/treatment/${item.treatmentId}`);
+                  }
+                }}
+              />
             </View>
           ) : (
             <Text style={styles.activityEmpty}>정산 완료 내역이 여기에 표시됩니다.</Text>
@@ -209,6 +213,7 @@ export default function ProfileScreen() {
           </View>
         ) : (
           <>
+            {isDesigner ? <Text style={styles.pageTitle}>계정</Text> : null}
             <View style={styles.profileSection}>
               <View
                 style={[
@@ -283,6 +288,12 @@ const styles = StyleSheet.create({
   content: {
     gap: 16,
     paddingHorizontal: 16,
+  },
+  pageTitle: {
+    color: '#1A1A2E',
+    fontSize: 28,
+    fontWeight: '900',
+    marginBottom: 4,
   },
   profileSection: {
     alignItems: 'center',
@@ -419,31 +430,6 @@ const styles = StyleSheet.create({
     color: '#6B6B7B',
     fontSize: 13,
     fontWeight: '800',
-  },
-  activityRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'space-between',
-  },
-  activityRowMain: {
-    flex: 1,
-    gap: 2,
-  },
-  activityRowTitle: {
-    color: '#1A1A2E',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  activityRowDate: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  activityRowAmount: {
-    color: '#00C2A8',
-    fontSize: 13,
-    fontWeight: '900',
   },
   activityEmpty: {
     color: '#9CA3AF',

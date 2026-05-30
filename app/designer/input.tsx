@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -24,6 +25,10 @@ import {
 } from '../../lib/treatment-options';
 import { parseWonAmount } from '../../lib/currency-input';
 import { createDesignerTreatment } from '../../lib/treatments';
+import type { DesignerClientListItem } from '../../lib/customer-invitations';
+import { getDesignerClientListItems } from '../../lib/customer-invitations';
+import { mapDesignerClientsToGridItems } from '../../lib/designer-customer-grid';
+import { CustomerGrid } from '../../src/components/customer-grid';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
 import { TreatmentOptionChips } from '../../src/components/treatment-option-chips';
 import { WonAmountInput } from '../../src/components/won-amount-input';
@@ -37,6 +42,28 @@ export default function DesignerInputScreen() {
   const [duration, setDuration] = useState(DEFAULT_TREATMENT_DURATION);
   const [treatmentTitle, setTreatmentTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [clientItems, setClientItems] = useState<DesignerClientListItem[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      getDesignerClientListItems()
+        .then(setClientItems)
+        .catch(() => setClientItems([]));
+    }, []),
+  );
+
+  const gridItems = useMemo(() => mapDesignerClientsToGridItems(clientItems), [clientItems]);
+
+  const handleGridPress = useCallback(
+    (key: string) => {
+      const item = clientItems.find((row) => row.key === key);
+
+      if (item) {
+        router.push(`/designer/treatment/${item.treatmentId}`);
+      }
+    },
+    [clientItems],
+  );
 
   const openCreateModal = (type: string) => {
     setSelectedType(type);
@@ -87,27 +114,35 @@ export default function DesignerInputScreen() {
           { paddingTop: insets.top + 20, paddingBottom: Math.max(insets.bottom, 20) + 100 },
         ]}
         showsVerticalScrollIndicator={false}>
-        <Text style={styles.pageTitle}>새 시술 입력</Text>
+        <Text style={styles.pageTitle}>시술</Text>
 
         <View style={styles.heroCard}>
           <Text style={styles.heroTitle}>어떤 시술을 추가할까요?</Text>
           <Text style={styles.heroSubtitle}>
-            고객 이름을 입력하면 시술 기록이 생성됩니다. 가입 전이면 초대 코드로 연결하세요.
+            시술 종류를 선택하면 고객 이름을 입력해 기록을 만듭니다.
           </Text>
         </View>
 
-        <View style={styles.grid}>
+        <View style={styles.typeGrid}>
           {TREATMENT_TYPE_OPTIONS.map((item) => (
-            <Pressable
-              key={item.label}
-              disabled={isCreating}
-              onPress={() => openCreateModal(item.label)}
-              style={({ pressed }) => [styles.quickButton, pressed && styles.quickButtonPressed]}>
-              <Text style={styles.quickIcon}>{item.icon}</Text>
-              <Text style={styles.quickLabel}>{item.label}</Text>
-            </Pressable>
+            <View key={item.label} style={styles.typeTileWrap}>
+              <Pressable
+                disabled={isCreating}
+                onPress={() => openCreateModal(item.label)}
+                style={({ pressed }) => [styles.typeTile, pressed && styles.typeTilePressed]}>
+                <Text style={styles.quickIcon}>{item.icon}</Text>
+                <Text style={styles.quickLabel}>{item.label}</Text>
+              </Pressable>
+            </View>
           ))}
         </View>
+
+        {gridItems.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>고객</Text>
+            <CustomerGrid items={gridItems} onPressItem={handleGridPress} />
+          </View>
+        ) : null}
 
         <Text style={styles.footerHint}>생성 후 시술 상세에서 입력·초대·결제 요청을 진행하세요</Text>
       </ScrollView>
@@ -238,33 +273,48 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    marginHorizontal: -4,
   },
-  quickButton: {
+  typeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -4,
+  },
+  typeTileWrap: {
+    aspectRatio: 1,
+    padding: 4,
+    width: '25%',
+  },
+  typeTile: {
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
     borderRadius: 12,
-    gap: 8,
-    height: 108,
+    borderWidth: 1,
+    flex: 1,
+    gap: 6,
     justifyContent: 'center',
-    shadowColor: '#1A1A2E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
-    flexBasis: '48%',
-    flexGrow: 1,
-    maxWidth: '48%',
+    paddingHorizontal: 4,
+    paddingVertical: 8,
   },
-  quickButtonPressed: {
-    opacity: 0.82,
+  typeTilePressed: {
+    backgroundColor: '#F5F5F8',
+    opacity: 0.92,
+  },
+  section: {
+    gap: 8,
+  },
+  sectionTitle: {
+    color: '#1A1A2E',
+    fontSize: 16,
+    fontWeight: '800',
   },
   quickIcon: {
-    fontSize: 28,
+    fontSize: 24,
   },
   quickLabel: {
     color: '#1A1A2E',
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '800',
   },
   footerHint: {

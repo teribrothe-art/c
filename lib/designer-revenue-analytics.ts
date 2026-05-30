@@ -45,6 +45,7 @@ export type DesignerRevenueAnalytics = {
   selectedMonthTreatmentCount: number;
   recentSettlements: {
     paymentId: string;
+    treatmentId: string;
     customerName: string;
     treatmentTitle: string;
     date: string;
@@ -266,6 +267,7 @@ export async function fetchDesignerRevenueAnalytics(
 
       return {
         paymentId: payment.id,
+        treatmentId: payment.treatment_id,
         customerName: treatment?.customer_name || '고객',
         treatmentTitle: treatment?.treatment_title || '시술',
         date,

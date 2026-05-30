@@ -1,4 +1,4 @@
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,7 +9,9 @@ import {
   type WeekdayRevenueCell,
 } from '../../lib/designer-revenue-analytics';
 import { getErrorMessage } from '../../lib/errors';
+import { mapRevenueSettlementsToGridItems } from '../../lib/designer-customer-grid';
 import { RevenueBarChart } from '../../src/components/revenue-bar-chart';
+import { CustomerGrid } from '../../src/components/customer-grid';
 import { EmptyState } from '../../src/components/empty-state';
 import { LoadingState } from '../../src/components/loading-state';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
@@ -201,6 +203,22 @@ export default function DesignerRevenueScreen() {
     }
   };
 
+  const settlementGridItems = useMemo(
+    () => mapRevenueSettlementsToGridItems(visibleSettlements),
+    [visibleSettlements],
+  );
+
+  const handleSettlementPress = useCallback(
+    (paymentId: string) => {
+      const item = visibleSettlements.find((row) => row.paymentId === paymentId);
+
+      if (item?.treatmentId) {
+        router.push(`/designer/treatment/${item.treatmentId}`);
+      }
+    },
+    [visibleSettlements],
+  );
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -209,10 +227,8 @@ export default function DesignerRevenueScreen() {
           { paddingTop: insets.top + 20, paddingBottom: Math.max(insets.bottom, 20) + 100 },
         ]}
         showsVerticalScrollIndicator={false}>
-        <Text style={styles.pageTitle}>매출 분석</Text>
-        <Text style={styles.pageSubtitle}>
-          월별 매출과 주간(월~일) 합계를 한 화면에서 확인하세요
-        </Text>
+        <Text style={styles.pageTitle}>매출</Text>
+        <Text style={styles.pageSubtitle}>월별·주간 정산 매출을 확인하세요</Text>
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -321,16 +337,7 @@ export default function DesignerRevenueScreen() {
                     : '해당 월 정산 완료 내역이 없습니다.'}
                 </Text>
               ) : (
-                visibleSettlements.map((item) => (
-                  <View key={item.paymentId} style={styles.settlementRow}>
-                    <View style={styles.settlementInfo}>
-                      <Text style={styles.settlementDate}>{item.dateWithWeekdayLabel}</Text>
-                      <Text style={styles.settlementCustomer}>{item.customerName}</Text>
-                      <Text style={styles.settlementMeta}>{item.treatmentTitle}</Text>
-                    </View>
-                    <Text style={styles.settlementPrice}>{item.payout.toLocaleString('ko-KR')}원</Text>
-                  </View>
-                ))
+                <CustomerGrid items={settlementGridItems} onPressItem={handleSettlementPress} />
               )}
             </View>
           </>
@@ -408,19 +415,6 @@ const styles = StyleSheet.create({
   monthChipAmountSelected: { color: CORAL },
   monthChipMeta: { color: '#6B6B7B', fontSize: 12, fontWeight: '600', marginTop: 2 },
   monthChipMetaSelected: { color: '#6B6B7B' },
-  settlementRow: {
-    borderTopColor: '#EFEFF4',
-    borderTopWidth: 1,
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-  },
-  settlementInfo: { flex: 1, gap: 2 },
-  settlementDate: { color: '#9CA3AF', fontSize: 12, fontWeight: '600' },
-  settlementCustomer: { color: '#1A1A2E', fontSize: 15, fontWeight: '800' },
-  settlementMeta: { color: '#6B6B7B', fontSize: 13, fontWeight: '600' },
-  settlementPrice: { color: CORAL, fontSize: 15, fontWeight: '900' },
   emptyText: { color: '#6B6B7B', fontSize: 14, fontWeight: '600' },
   stateBox: {
     alignItems: 'center',

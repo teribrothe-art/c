@@ -1,52 +1,39 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getCurrentUser } from '../../lib/auth';
+import type { DesignerClientListItem } from '../../lib/customer-invitations';
+import { getDesignerClientListItems } from '../../lib/customer-invitations';
 import {
   fetchDesignerPaymentDashboard,
   type DesignerPaymentDashboard,
 } from '../../lib/designer-payment-stats';
-import { getDesignerClientListItems } from '../../lib/customer-invitations';
+import { mapDesignerClientsToGridItems } from '../../lib/designer-customer-grid';
 import { getErrorMessage } from '../../lib/errors';
 import { formatDesignerStoreLabel } from '../../lib/org-store-affiliation';
+import { CustomerGrid } from '../../src/components/customer-grid';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
 import { LoadingState } from '../../src/components/loading-state';
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function StatTile({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.statCard}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-    </View>
-  );
-}
-
-function QuickLink({
-  label,
-  description,
-  onPress,
-}: {
-  label: string;
-  description: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.quickLink, pressed && styles.quickLinkPressed]}>
-      <View style={styles.quickLinkBody}>
-        <Text style={styles.quickLinkLabel}>{label}</Text>
-        <Text style={styles.quickLinkDescription}>{description}</Text>
+    <View style={styles.statTileWrap}>
+      <View style={styles.statTile}>
+        <Text style={styles.statLabel}>{label}</Text>
+        <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+          {value}
+        </Text>
       </View>
-      <Text style={styles.quickLinkArrow}>›</Text>
-    </Pressable>
+    </View>
   );
 }
 
 export default function DesignerHomeScreen() {
   const insets = useSafeAreaInsets();
   const [dashboard, setDashboard] = useState<DesignerPaymentDashboard | null>(null);
-  const [customerCount, setCustomerCount] = useState(0);
+  const [clientItems, setClientItems] = useState<DesignerClientListItem[]>([]);
   const [designerName, setDesignerName] = useState('디자이너');
   const [storeLabel, setStoreLabel] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -73,13 +60,13 @@ export default function DesignerHomeScreen() {
         return;
       }
 
-      const [paymentDashboard, clientItems] = await Promise.all([
+      const [paymentDashboard, items] = await Promise.all([
         fetchDesignerPaymentDashboard(),
         getDesignerClientListItems(),
       ]);
 
       setDashboard(paymentDashboard);
-      setCustomerCount(clientItems.length);
+      setClientItems(items);
       setDesignerName(user.email.split('@')[0] || '디자이너');
       setStoreLabel(formatDesignerStoreLabel(user.id));
       setErrorMessage('');
@@ -95,6 +82,19 @@ export default function DesignerHomeScreen() {
     useCallback(() => {
       void loadHome();
     }, [loadHome]),
+  );
+
+  const gridItems = useMemo(() => mapDesignerClientsToGridItems(clientItems), [clientItems]);
+
+  const handleGridPress = useCallback(
+    (key: string) => {
+      const item = clientItems.find((row) => row.key === key);
+
+      if (item) {
+        router.push(`/designer/treatment/${item.treatmentId}`);
+      }
+    },
+    [clientItems],
   );
 
   const handleRefresh = () => {
@@ -139,35 +139,24 @@ export default function DesignerHomeScreen() {
         ) : (
           <>
             <View style={styles.statGrid}>
-              <StatCard
+              <StatTile
                 label="이번 달 정산"
                 value={`${(dashboard?.monthRevenue ?? 0).toLocaleString('ko-KR')}원`}
               />
-              <StatCard label="이번 달 시술" value={`${dashboard?.monthSettlementCount ?? 0}건`} />
-              <StatCard label="고객 기록" value={`${customerCount}건`} />
-              <StatCard
+              <StatTile label="이번 달 시술" value={`${dashboard?.monthSettlementCount ?? 0}건`} />
+              <StatTile label="고객 기록" value={`${clientItems.length}건`} />
+              <StatTile
                 label="정산 대기"
                 value={`${(dashboard?.pendingPayoutAmount ?? 0).toLocaleString('ko-KR')}원`}
               />
             </View>
 
-            <View style={styles.quickLinks}>
-              <QuickLink
-                description="시술·초대 고객 목록"
-                label="고객"
-                onPress={() => router.push('/designer/clients')}
-              />
-              <QuickLink
-                description="새 시술 기록 입력"
-                label="시술"
-                onPress={() => router.push('/designer/input')}
-              />
-              <QuickLink
-                description="월·주 매출 확인"
-                label="매출"
-                onPress={() => router.push('/designer/revenue')}
-              />
-            </View>
+            {gridItems.length > 0 ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>고객</Text>
+                <CustomerGrid items={gridItems} onPressItem={handleGridPress} />
+              </View>
+            ) : null}
           </>
         )}
       </ScrollView>
@@ -226,60 +215,44 @@ const styles = StyleSheet.create({
   statGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    marginHorizontal: -4,
   },
-  statCard: {
+  statTileWrap: {
+    aspectRatio: 1,
+    padding: 4,
+    width: '25%',
+  },
+  statTile: {
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
     borderRadius: 12,
-    flexBasis: '48%',
-    flexGrow: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 18,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 8,
   },
   statLabel: {
     color: '#6B6B7B',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
+    marginBottom: 4,
+    textAlign: 'center',
   },
   statValue: {
     color: '#1A1A2E',
-    fontSize: 20,
+    fontSize: 12,
     fontWeight: '900',
-    marginTop: 8,
+    textAlign: 'center',
   },
-  quickLinks: {
-    gap: 10,
+  section: {
+    gap: 8,
   },
-  quickLink: {
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  quickLinkPressed: {
-    opacity: 0.88,
-  },
-  quickLinkBody: {
-    flex: 1,
-    gap: 4,
-  },
-  quickLinkLabel: {
+  sectionTitle: {
     color: '#1A1A2E',
     fontSize: 16,
     fontWeight: '800',
-  },
-  quickLinkDescription: {
-    color: '#6B6B7B',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  quickLinkArrow: {
-    color: '#FF5A5F',
-    fontSize: 22,
-    fontWeight: '700',
   },
   stateBox: {
     alignItems: 'center',
