@@ -299,12 +299,15 @@ export default function DesignerRevenueScreen() {
           />
         ) : (
           <>
-            <RevenueBarChart
-              barColor={PURPLE}
-              emptyMessage="월별 정산 매출이 없습니다"
-              points={monthlyChartPoints}
-              title="월별 매출 (정산 완료)"
-            />
+            <View style={styles.heroCard}>
+              <Text style={styles.heroLabel}>{analytics.selectedMonth.label} 매출</Text>
+              <Text style={styles.heroValue}>
+                {formatAmount(analytics.selectedMonth.revenue)}
+              </Text>
+              <Text style={styles.heroUnit}>정산 {analytics.selectedMonth.settlementCount}건</Text>
+            </View>
+
+            <DesignerRevenueMetricGrid items={revenueMetricItems} />
 
             <View
               style={styles.card}
@@ -350,15 +353,12 @@ export default function DesignerRevenueScreen() {
               </ScrollView>
             </View>
 
-            <View style={styles.heroCard}>
-              <Text style={styles.heroLabel}>{analytics.selectedMonth.label} 매출</Text>
-              <Text style={styles.heroValue}>
-                {formatAmount(analytics.selectedMonth.revenue)}
-              </Text>
-              <Text style={styles.heroUnit}>정산 {analytics.selectedMonth.settlementCount}건</Text>
-            </View>
-
-            <DesignerRevenueMetricGrid items={revenueMetricItems} />
+            <RevenueBarChart
+              barColor={PURPLE}
+              emptyMessage="월별 정산 매출이 없습니다"
+              points={monthlyChartPoints}
+              title="월별 매출 (정산 완료)"
+            />
 
             <View
               onLayout={(event) => {
