@@ -29,6 +29,8 @@ import {
   searchRegisteredCustomers,
 } from '../../lib/registered-customers';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
+import { DesignerScreenBackFooter } from '../../src/components/designer-screen-back-footer';
+import { TAB_BAR_BOTTOM_INSET } from '../../src/components/role-bottom-tab-bar';
 import { TreatmentOptionChips } from '../../src/components/treatment-option-chips';
 import { WonAmountInput } from '../../src/components/won-amount-input';
 
@@ -135,7 +137,10 @@ export default function DesignerInputScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + 20, paddingBottom: Math.max(insets.bottom, 20) + 100 },
+          {
+            paddingTop: insets.top + 20,
+            paddingBottom: Math.max(insets.bottom, 20) + TAB_BAR_BOTTOM_INSET + 48,
+          },
         ]}
         showsVerticalScrollIndicator={false}>
         <Text style={styles.pageTitle}>시술</Text>
@@ -285,6 +290,7 @@ export default function DesignerInputScreen() {
         </View>
       </Modal>
 
+      <DesignerScreenBackFooter />
       <DesignerBottomTabBar />
     </View>
   );
