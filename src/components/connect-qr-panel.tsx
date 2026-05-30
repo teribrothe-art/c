@@ -5,36 +5,36 @@ import { getExpoConnectShareUrl } from '../../lib/expo-connect-share';
 import { InviteQrCode } from './invite-qr-code';
 
 type ConnectQrPanelProps = {
-  /** 로그인 화면 등 좁은 영역 */
-  compact?: boolean;
+  /** 탭 안에서는 제목 생략 */
+  embedded?: boolean;
 };
 
-export function ConnectQrPanel({ compact = false }: ConnectQrPanelProps) {
+export function ConnectQrPanel({ embedded = false }: ConnectQrPanelProps) {
   const connectUrl = useMemo(() => getExpoConnectShareUrl(), []);
 
   if (!connectUrl) {
     return (
-      <View style={[styles.wrap, compact && styles.wrapCompact]}>
-        <Text style={styles.title}>QR</Text>
+      <View style={styles.wrap}>
+        {!embedded ? <Text style={styles.title}>QR</Text> : null}
         <Text style={styles.emptyText}>
           PC에서 Metro를 켠 뒤 Expo Go로 다시 열면 QR이 표시됩니다.
         </Text>
+        <Text style={styles.helpLine}>터미널 1: npm run start:phone</Text>
+        <Text style={styles.helpLine}>터미널 2: npm run share</Text>
       </View>
     );
   }
 
   return (
-    <View style={[styles.wrap, compact && styles.wrapCompact]}>
-      <Text style={styles.title}>QR</Text>
+    <View style={styles.wrap}>
+      {!embedded ? <Text style={styles.title}>QR</Text> : null}
       <Text style={styles.subtitle}>Expo Go → Scan QR code</Text>
       <View style={styles.qrWrap}>
-        <InviteQrCode size={compact ? 148 : 220} value={connectUrl} />
+        <InviteQrCode size={embedded ? 200 : 220} value={connectUrl} />
       </View>
-      {!compact ? (
-        <Text selectable style={styles.url}>
-          {connectUrl}
-        </Text>
-      ) : null}
+      <Text selectable style={styles.url}>
+        {connectUrl}
+      </Text>
     </View>
   );
 }
@@ -51,8 +51,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     width: '100%',
   },
-  wrapCompact: {
-    marginTop: 8,
+  helpLine: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 18,
+    textAlign: 'center',
   },
   title: {
     color: '#1A1A2E',
