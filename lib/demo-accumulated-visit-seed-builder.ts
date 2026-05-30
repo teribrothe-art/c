@@ -15,6 +15,7 @@ const REVISIT_INTERVAL_DAYS: Record<string, { min: number; max: number }> = {
   컬러: { min: 90, max: 150 },
   매직: { min: 90, max: 135 },
   트리트먼트: { min: 21, max: 35 },
+  스파: { min: 14, max: 28 },
   탈색: { min: 120, max: 180 },
 };
 
@@ -24,6 +25,7 @@ const TREATMENT_TEMPLATES = [
   { type: '펌', title: '볼륨 디지털 펌', price: 220000, duration: '3시간', weight: 14 },
   { type: '매직', title: '매직스트레이트', price: 280000, duration: '4시간', weight: 10 },
   { type: '트리트먼트', title: '단백질 딥 케어', price: 90000, duration: '1시간', weight: 16 },
+  { type: '스파', title: '헤드 스파', price: 110000, duration: '1시간', weight: 14 },
   { type: '탈색', title: '탈색 + 톤다운', price: 260000, duration: '3시간 40분', weight: 8 },
 ] as const;
 
