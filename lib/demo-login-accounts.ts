@@ -3,8 +3,11 @@ import { DEMO_LOGIN_HINT } from './auth';
 import { BETA_DESIGNERS, BETA_TEST_PASSWORD } from './beta-test-accounts';
 import {
   ACCUMULATED_TEST_DESIGNERS_PUBLIC,
-  EXPANDED_STORE_DESIGNER_COUNT,
 } from './demo-accumulated-test-accounts';
+import {
+  NATIONWIDE_DESIGNER_COUNT,
+  NATIONWIDE_DESIGNERS_PUBLIC,
+} from './nationwide-org-catalog';
 import {
   DESIGNER_LINKED_CUSTOMER_COUNT,
   getDesignerLinkedCustomerLoginSources,
@@ -35,9 +38,9 @@ export type DemoLoginGroupKey = (typeof DEMO_LOGIN_GROUP_ORDER)[number];
 
 export const DEMO_LOGIN_GROUP_DESCRIPTIONS: Record<DemoLoginGroupKey, string> = {
   본사: '본사 어드민 · 전체 매장·디자이너·매출 조회',
-  매장: '지역 플랜비 매장 전체 — 펼치면 목록 · 검색 가능',
-  디자이너: `데모 · 베타 · 누적 · 증원 ${EXPANDED_STORE_DESIGNER_COUNT}명 — ${DESIGNER_APP_TAB_LABELS} · 펼치면 목록`,
-  가입고객: '디자이너 연동 고객 전체(데모·베타·누적·증원) — 펼친 뒤 검색',
+  매장: '전국 플랜비 매장 — 검색 후 로그인',
+  디자이너: `데모 · 베타 · 누적 · 전국 ${NATIONWIDE_DESIGNER_COUNT.toLocaleString('ko-KR')}명 — ${DESIGNER_APP_TAB_LABELS} · 검색 후 로그인`,
+  가입고객: '디자이너 연동 고객 전체(데모·베타·누적·전국) — 펼친 뒤 검색',
 };
 
 /** 탭하면 계정 목록을 펼치는 그룹 */
@@ -57,9 +60,14 @@ export function isSearchableDemoLoginGroup(title: DemoLoginGroupKey) {
   return title === '매장' || title === '디자이너' || title === '가입고객';
 }
 
-/** 펼치면 검색 없이 전체 목록 표시 */
+/** 펼치면 검색 없이 전체 목록 표시 (소규모 그룹만) */
 export function demoLoginGroupListsAllWhenExpanded(title: DemoLoginGroupKey) {
-  return title === '본사' || title === '매장' || title === '디자이너';
+  return title === '본사';
+}
+
+/** 대규모 그룹은 검색 필수 */
+export function demoLoginGroupRequiresSearch(title: DemoLoginGroupKey) {
+  return title === '매장' || title === '디자이너';
 }
 
 export function getDemoLoginSearchPlaceholder(title: DemoLoginGroupKey) {
@@ -110,6 +118,10 @@ function accumulatedDesignerYearLabel(profileKey: string) {
 
   if (profileKey === '5y') {
     return '5년';
+  }
+
+  if (profileKey.startsWith('nw-')) {
+    return '전국';
   }
 
   if (profileKey.startsWith('exp-')) {
@@ -207,11 +219,52 @@ const ACCUMULATED_DESIGNER_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_DESIG
   },
 );
 
-/** 테스트 로그인 · 디자이너 탭 전체 (데모 1 + 베타 5 + 누적 4 + 증원 15) */
+function nationwideDesignerAccent(historyYears: number) {
+  if (historyYears === 1) {
+    return '#00C2A8';
+  }
+
+  if (historyYears === 3) {
+    return '#F59E0B';
+  }
+
+  if (historyYears === 4) {
+    return '#E85D4C';
+  }
+
+  return '#7B5EE6';
+}
+
+const NATIONWIDE_DESIGNER_ACCOUNTS: DemoLoginAccount[] = NATIONWIDE_DESIGNERS_PUBLIC.map(
+  (designer) =>
+    withDesignerCustomerCount({
+      id: designer.id,
+      group: '디자이너',
+      roleLabel: '전국',
+      loginLabel: designer.loginLabel,
+      email: designer.email,
+      password: designer.password,
+      meta: `${formatDesignerStoreLabel(designer.id)} · ${designer.historyYears}년차`,
+      accent: nationwideDesignerAccent(designer.historyYears),
+      searchHaystack: designerSearchHaystack([
+        '전국',
+        '디자이너',
+        designer.loginLabel,
+        designer.email,
+        designer.profileKey,
+        designer.id,
+        `${designer.historyYears}년차`,
+        formatDesignerStoreLabel(designer.id),
+      ]),
+    }),
+);
+
+/** 테스트 로그인 · 디자이너 탭 전체 (데모 + 베타 + 누적 + 전국 1000) */
 export const ALL_DESIGNER_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
   DEMO_DESIGNER_ACCOUNT,
   ...BETA_DESIGNER_ACCOUNTS,
   ...ACCUMULATED_DESIGNER_ACCOUNTS,
+  ...NATIONWIDE_DESIGNER_ACCOUNTS,
 ];
 
 export const DESIGNER_LOGIN_COUNT = ALL_DESIGNER_LOGIN_ACCOUNTS.length;

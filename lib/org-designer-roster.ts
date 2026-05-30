@@ -1,5 +1,6 @@
 import { BETA_DESIGNERS } from './beta-test-accounts';
 import { ACCUMULATED_TEST_DESIGNERS_PUBLIC } from './demo-accumulated-test-accounts';
+import { NATIONWIDE_DESIGNERS_PUBLIC } from './nationwide-org-catalog';
 import {
   DEMO_DESIGNER_ROSTER_SEED,
   getDesignerStoreAffiliation,
@@ -56,7 +57,21 @@ const ACCUMULATED_ROSTER = ACCUMULATED_TEST_DESIGNERS_PUBLIC.map((designer) =>
   }),
 );
 
-const FULL_ROSTER: OrgDesignerRosterEntry[] = [DEMO_DESIGNER, ...BETA_ROSTER, ...ACCUMULATED_ROSTER];
+const NATIONWIDE_ROSTER = NATIONWIDE_DESIGNERS_PUBLIC.map((designer) =>
+  enrichWithStore({
+    id: designer.id,
+    name: designer.loginLabel,
+    email: designer.email,
+    subtitle: `${designer.historyYears}년차 · 전국`,
+  }),
+);
+
+const FULL_ROSTER: OrgDesignerRosterEntry[] = [
+  DEMO_DESIGNER,
+  ...BETA_ROSTER,
+  ...ACCUMULATED_ROSTER,
+  ...NATIONWIDE_ROSTER,
+];
 
 /** 본사에서 조회 가능한 전체 디자이너 (모두 매장 연결) */
 export function getAdminDesignerRoster(): OrgDesignerRosterEntry[] {

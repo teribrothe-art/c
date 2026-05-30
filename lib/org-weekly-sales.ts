@@ -5,6 +5,8 @@ import { getActiveRevenueSplitConfig } from './revenue-split-approval';
 import { listPaymentsForDesignerId, type PaymentRecord } from './payment-record';
 import { resolveStoreOrgIdForOrgScope } from './org-store-scope';
 import { calculateRevenueSplit } from './revenue-split-config';
+import { isNationwideDesignerId } from './nationwide-org-catalog';
+import { sumNationwideWeeklyBuckets } from './nationwide-designer-metrics';
 
 export type WeeklySalesSegment = 'weekday' | 'weekend';
 
@@ -60,8 +62,16 @@ function emptyBucket(): WeeklySalesBucket {
   };
 }
 
-async function listPaymentsForOrgScope(scope: OrgScope, storeOrgId?: string) {
-  const roster = getOrgDesignerRoster(scope, storeOrgId);
+function mergeBuckets(target: WeeklySalesBucket, source: WeeklySalesBucket) {
+  target.grossSales += source.grossSales;
+  target.hqRevenue += source.hqRevenue;
+  target.treatmentCount += source.treatmentCount;
+}
+
+async function listLegacyPaymentsForOrgScope(scope: OrgScope, storeOrgId?: string) {
+  const roster = getOrgDesignerRoster(scope, storeOrgId).filter(
+    (entry) => !isNationwideDesignerId(entry.id),
+  );
   const paymentGroups = await Promise.all(
     roster.map((entry) => listPaymentsForDesignerId(entry.id)),
   );
@@ -69,10 +79,17 @@ async function listPaymentsForOrgScope(scope: OrgScope, storeOrgId?: string) {
   return paymentGroups.flat();
 }
 
+function listNationwideDesignerIdsForScope(scope: OrgScope, storeOrgId?: string) {
+  return getOrgDesignerRoster(scope, storeOrgId)
+    .filter((entry) => isNationwideDesignerId(entry.id))
+    .map((entry) => entry.id);
+}
+
 export function buildOrgWeeklySalesSummary(
   payments: PaymentRecord[],
   config: Awaited<ReturnType<typeof getActiveRevenueSplitConfig>>,
   referenceDate = new Date(),
+  nationwideBuckets?: { weekday: WeeklySalesBucket; weekend: WeeklySalesBucket },
 ): OrgWeeklySalesSummary {
   const today = toLocalDateString(referenceDate);
   const weekStart = getWeekStartMonday(today);
@@ -99,6 +116,11 @@ export function buildOrgWeeklySalesSummary(
     bucket.treatmentCount += 1;
   }
 
+  if (nationwideBuckets) {
+    mergeBuckets(weekday, nationwideBuckets.weekday);
+    mergeBuckets(weekend, nationwideBuckets.weekend);
+  }
+
   return {
     weekStart,
     weekEnd,
@@ -113,12 +135,14 @@ export async function fetchOrgWeeklySalesSummary(
   options?: { storeOrgId?: string },
 ): Promise<OrgWeeklySalesSummary> {
   const storeOrgId = await resolveStoreOrgIdForOrgScope(scope, options?.storeOrgId);
-  const [payments, config] = await Promise.all([
-    listPaymentsForOrgScope(scope, storeOrgId),
-    getActiveRevenueSplitConfig(),
+  const config = await getActiveRevenueSplitConfig();
+  const nationwideIds = listNationwideDesignerIdsForScope(scope, storeOrgId);
+  const [legacyPayments, nationwideBuckets] = await Promise.all([
+    listLegacyPaymentsForOrgScope(scope, storeOrgId),
+    Promise.resolve(sumNationwideWeeklyBuckets(nationwideIds, config)),
   ]);
 
-  return buildOrgWeeklySalesSummary(payments, config);
+  return buildOrgWeeklySalesSummary(legacyPayments, config, new Date(), nationwideBuckets);
 }
 
 export function getWeeklySalesBucket(

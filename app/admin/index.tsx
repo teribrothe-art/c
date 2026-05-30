@@ -1,5 +1,5 @@
 import { Link, router, useFocusEffect, type Href } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -52,6 +52,14 @@ export default function AdminHomeScreen() {
     useCallback(() => {
       load();
     }, [load]),
+  );
+
+  const topVirtualStores = useMemo(
+    () =>
+      [...virtualStores]
+        .sort((a, b) => b.monthGrossSales - a.monthGrossSales)
+        .slice(0, 15),
+    [virtualStores],
   );
 
   return (
@@ -116,8 +124,8 @@ export default function AdminHomeScreen() {
               ]}
             />
 
-            <Text style={styles.sectionTitle}>지역별 플랜비</Text>
-            {virtualStores.map((store) => {
+            <Text style={styles.sectionTitle}>매출 상위 매장</Text>
+            {topVirtualStores.map((store) => {
               const storeDesigners = summary.designers.filter((designer) => designer.storeId === store.id);
 
               return (
@@ -135,6 +143,13 @@ export default function AdminHomeScreen() {
                 </View>
               );
             })}
+            <Link href="/admin/designers" asChild>
+              <Pressable style={({ pressed }) => [styles.viewAllStoresLink, pressed && styles.quickPressed]}>
+                <Text style={styles.viewAllStoresText}>
+                  전체 {virtualStores.length.toLocaleString('ko-KR')}개 매장 보기 →
+                </Text>
+              </Pressable>
+            </Link>
 
             <View style={styles.quickRow}>
               <Link href={'/admin/reservations' as Href} asChild>
@@ -262,6 +277,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 16,
     marginTop: 4,
+  },
+  viewAllStoresLink: {
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+    paddingVertical: 12,
+  },
+  viewAllStoresText: {
+    color: '#15803D',
+    fontSize: 13,
+    fontWeight: '800',
   },
   quickRow: {
     flexDirection: 'row',

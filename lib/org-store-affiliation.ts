@@ -1,7 +1,13 @@
 import { DEMO_LOGIN_HINT } from './auth';
 import { BETA_DESIGNERS } from './beta-test-accounts';
 import { ACCUMULATED_TEST_DESIGNERS_PUBLIC } from './demo-accumulated-test-accounts';
-import { EXPANDED_DESIGNER_IDS_BY_STORE } from './demo-expanded-store-designers';
+import {
+  isNationwideStoreId,
+  LEGACY_STORE_ID_TO_NATIONWIDE,
+  NATIONWIDE_DESIGNER_DEFINITIONS,
+  NATIONWIDE_STORE_DEFINITIONS,
+  resolveNationwideStoreId,
+} from './nationwide-org-catalog';
 import { resolveStoreOrgIdForUser } from './store-test-accounts';
 
 export type OrgStore = {
@@ -15,56 +21,21 @@ export type OrgStore = {
   designerIds: string[];
 };
 
-const ORG_STORE_DEFINITIONS_BASE: OrgStore[] = [
-  {
-    id: 'virtual-store-hot-gangnam',
-    name: '강남 플랜비',
-    region: '서울 강남',
-    hotPlace: '역삼·청담·압구정 상권',
-    designerIds: ['demo-designer-local', 'beta-designer-01', 'beta-designer-02'],
-  },
-  {
-    id: 'virtual-store-hot-hongdae',
-    name: '홍대·연남 플랜비',
-    region: '서울 마포',
-    hotPlace: '홍익대·연남동·망원 상권',
-    designerIds: ['beta-designer-03', 'beta-designer-04'],
-  },
-  {
-    id: 'virtual-store-hot-seongsu',
-    name: '성수 플랜비',
-    region: '서울 성동',
-    hotPlace: '성수·뚝섬 카페·살롱 거리',
-    designerIds: ['beta-designer-05', 'test-designer-1y'],
-  },
-  {
-    id: 'virtual-store-hot-busan',
-    name: '해운대·광안리 플랜비',
-    region: '부산 해운대',
-    hotPlace: '해운대·광안리·센텀',
-    designerIds: ['test-designer-3y', 'test-designer-accum-3y', 'test-designer-accum-5y'],
-  },
-];
-
-/**
- * 지역별 플랜비 매장 — 디자이너 2~8명 (증원 15명 포함)
- */
-export const ORG_STORE_DEFINITIONS: OrgStore[] = ORG_STORE_DEFINITIONS_BASE.map((store) => ({
-  ...store,
-  designerIds: [
-    ...store.designerIds,
-    ...(EXPANDED_DESIGNER_IDS_BY_STORE[store.id] ?? []),
-  ],
-}));
+/** 전국 플랜비 매장 (600곳) */
+export const ORG_STORE_DEFINITIONS: OrgStore[] = NATIONWIDE_STORE_DEFINITIONS;
 
 /** 매장 로그인(`store@hair.app`)이 관리하는 플랜비 매장 */
-export const STORE_ACCOUNT_LINKED_STORE_ID = 'virtual-store-hot-gangnam';
+export const STORE_ACCOUNT_LINKED_STORE_ID = 'virtual-store-nw-0001';
 
 /** @deprecated 강남 플랜비(구 핫플레이스) ID 변경 전 호환 */
 export const LEGACY_STORE_IDS = {
   gangnam: 'virtual-store-gangnam',
   hongdae: 'virtual-store-hongdae',
   accumLab: 'virtual-store-accum-lab',
+  hotGangnam: 'virtual-store-hot-gangnam',
+  hotHongdae: 'virtual-store-hot-hongdae',
+  hotSeongsu: 'virtual-store-hot-seongsu',
+  hotBusan: 'virtual-store-hot-busan',
 } as const;
 
 const designerToStoreMap = new Map<string, OrgStore>();
@@ -83,9 +54,14 @@ export const ALL_ORG_DESIGNER_IDS = [
   'demo-designer-local',
   ...BETA_DESIGNERS.map((designer) => designer.id),
   ...ACCUMULATED_TEST_DESIGNERS_PUBLIC.map((designer) => designer.id),
+  ...NATIONWIDE_DESIGNER_DEFINITIONS.map((designer) => designer.designer.id),
 ] as const;
 
-const MAX_DESIGNERS_PER_STORE = 8;
+const LEGACY_MAX_DESIGNERS_PER_STORE = 8;
+
+function isLegacyStore(store: OrgStore) {
+  return !isNationwideStoreId(store.id) || ['virtual-store-nw-0001', 'virtual-store-nw-0002', 'virtual-store-nw-0003', 'virtual-store-nw-0004'].includes(store.id);
+}
 
 function assertCompleteAffiliations() {
   const missing = ALL_ORG_DESIGNER_IDS.filter((designerId) => !designerToStoreMap.has(designerId));
@@ -97,10 +73,14 @@ function assertCompleteAffiliations() {
   for (const store of ORG_STORE_DEFINITIONS) {
     const count = store.designerIds.length;
 
-    if (count < 2 || count > MAX_DESIGNERS_PER_STORE) {
+    if (isLegacyStore(store) && (count < 2 || count > LEGACY_MAX_DESIGNERS_PER_STORE)) {
       throw new Error(
-        `${store.name} 디자이너 수는 2~${MAX_DESIGNERS_PER_STORE}명이어야 합니다 (현재 ${count}명)`,
+        `${store.name} 디자이너 수는 2~${LEGACY_MAX_DESIGNERS_PER_STORE}명이어야 합니다 (현재 ${count}명)`,
       );
+    }
+
+    if (isNationwideStoreId(store.id) && (count < 1 || count > 4)) {
+      throw new Error(`${store.name} 디자이너 수는 1~4명이어야 합니다 (현재 ${count}명)`);
     }
   }
 }
@@ -108,28 +88,40 @@ function assertCompleteAffiliations() {
 assertCompleteAffiliations();
 
 export function getOrgStoreById(storeId: string): OrgStore | undefined {
-  return ORG_STORE_DEFINITIONS.find((store) => store.id === storeId);
+  const resolved = resolveOrgStoreId(storeId);
+
+  return ORG_STORE_DEFINITIONS.find((store) => store.id === resolved);
 }
 
 /** 레거시 매장 ID → 현재 플랜비 매장 */
 export function resolveOrgStoreId(storeId: string): string {
-  if (getOrgStoreById(storeId)) {
+  if (ORG_STORE_DEFINITIONS.some((store) => store.id === storeId)) {
     return storeId;
   }
 
-  if (storeId === LEGACY_STORE_IDS.gangnam) {
-    return 'virtual-store-hot-gangnam';
+  const nationwideAlias = LEGACY_STORE_ID_TO_NATIONWIDE[storeId];
+
+  if (nationwideAlias) {
+    return nationwideAlias;
   }
 
-  if (storeId === LEGACY_STORE_IDS.hongdae) {
-    return 'virtual-store-hot-hongdae';
+  if (storeId === LEGACY_STORE_IDS.gangnam || storeId === LEGACY_STORE_IDS.hotGangnam) {
+    return 'virtual-store-nw-0001';
   }
 
-  if (storeId === LEGACY_STORE_IDS.accumLab) {
-    return 'virtual-store-hot-busan';
+  if (storeId === LEGACY_STORE_IDS.hongdae || storeId === LEGACY_STORE_IDS.hotHongdae) {
+    return 'virtual-store-nw-0002';
   }
 
-  return storeId;
+  if (storeId === LEGACY_STORE_IDS.accumLab || storeId === LEGACY_STORE_IDS.hotSeongsu) {
+    return 'virtual-store-nw-0003';
+  }
+
+  if (storeId === LEGACY_STORE_IDS.hotBusan) {
+    return 'virtual-store-nw-0004';
+  }
+
+  return resolveNationwideStoreId(storeId);
 }
 
 export function getDesignerStoreAffiliation(designerId: string) {
