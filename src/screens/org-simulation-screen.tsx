@@ -85,11 +85,11 @@ export function OrgSimulationScreen({ scope }: Props) {
           매장·디자이너·고객 데이터를 합성해 운영 시나리오를 미리 봅니다.
         </Text>
 
-        <VirtualSimulationBanner scenario={scenario} />
+        <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
 
-        <Text style={styles.sectionLabel}>시나리오</Text>
+        <Text style={styles.sectionLabel}>추가 시나리오</Text>
         <View style={styles.scenarioRow}>
-          {VIRTUAL_SIMULATION_SCENARIOS.map((item) => {
+          {VIRTUAL_SIMULATION_SCENARIOS.filter((item) => item.key === 'month_end').map((item) => {
             const selected = scenario === item.key;
 
             return (

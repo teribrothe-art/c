@@ -14,6 +14,7 @@ import { CustomerGrid } from '../components/customer-grid';
 import { StoreBottomTabBar } from '../components/store-bottom-tab-bar';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
 import { TAB_BAR_BOTTOM_INSET } from '../components/role-bottom-tab-bar';
+import type { VirtualSimulationScenario } from '../../lib/org-virtual-simulation';
 import { VirtualSimulationBanner } from '../components/virtual-simulation-banner';
 
 type Props = {
@@ -33,6 +34,7 @@ export function OrgCustomersScreen({ scope }: Props) {
   const [errorMessage, setErrorMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [designerFilter, setDesignerFilter] = useState<string | null>(designerIdParam ?? null);
+  const [scenario, setScenario] = useState<VirtualSimulationScenario>('weekday');
 
   const load = useCallback(() => {
     setIsLoading(true);
@@ -135,7 +137,7 @@ export function OrgCustomersScreen({ scope }: Props) {
         <Text style={styles.title}>{scope === 'store' ? '매장 고객' : '고객·시술'}</Text>
         <Text style={styles.subtitle}>소속 디자이너 고객 데이터와 동일하게 연동됩니다.</Text>
 
-        <VirtualSimulationBanner scenario="weekday" />
+        <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
 
         <TextInput
           onChangeText={setSearchQuery}
