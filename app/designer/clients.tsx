@@ -1,6 +1,6 @@
 import { router, useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
 import { getErrorMessage } from '../../lib/errors';
 import { normalizePaymentStatus } from '../../lib/payment-status';
-import { mapDesignerClientsToGridItems } from '../../lib/designer-customer-grid';
+import { groupDesignerClientsByDate } from '../../lib/designer-customer-grid';
 import {
   DesignerClientListItem,
   getDesignerClientListItems,
@@ -24,7 +24,7 @@ import {
   markOnboardingSeen,
   shouldShowOnboarding,
 } from '../../lib/onboarding';
-import { CustomerGrid } from '../../src/components/customer-grid';
+import { CustomerGridByDate } from '../../src/components/customer-grid-by-date';
 import { EmptyState } from '../../src/components/empty-state';
 import { LoadingState } from '../../src/components/loading-state';
 import { OnboardingModal } from '../../src/components/onboarding-modal';
@@ -39,6 +39,7 @@ export default function DesignerClientsScreen() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const loadClients = useCallback(() => {
     setIsLoading(true);
@@ -96,7 +97,17 @@ export default function DesignerClientsScreen() {
     };
   }, [clientItems]);
 
-  const gridItems = useMemo(() => mapDesignerClientsToGridItems(visibleItems), [visibleItems]);
+  const dateGroups = useMemo(() => groupDesignerClientsByDate(visibleItems), [visibleItems]);
+
+  useEffect(() => {
+    setSelectedDate(null);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (selectedDate && !dateGroups.some((group) => group.date === selectedDate)) {
+      setSelectedDate(null);
+    }
+  }, [dateGroups, selectedDate]);
 
   const handleGridPress = useCallback(
     (key: string) => {
@@ -170,7 +181,12 @@ export default function DesignerClientsScreen() {
         ) : visibleItems.length === 0 ? (
           <EmptyState icon="🔍" title="검색 결과가 없어요" subtitle="다른 검색어를 시도해보세요" />
         ) : (
-          <CustomerGrid items={gridItems} onPressItem={handleGridPress} />
+          <CustomerGridByDate
+            groups={dateGroups}
+            onPressItem={handleGridPress}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+          />
         )}
       </ScrollView>
 
