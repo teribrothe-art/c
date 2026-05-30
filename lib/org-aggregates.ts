@@ -132,13 +132,15 @@ export async function fetchOrgDashboardSummary(
     ...settlement,
   };
 
-  const useSimulation = options?.withVirtualSimulation ?? isDemoAuthMode;
+  const useSimulation = options?.withVirtualSimulation === true;
 
   if (useSimulation) {
     summary = applyVirtualSimulationToSummary(
       filterSummaryForStoreScope(summary, scope, storeOrgId),
       options?.scenario ?? 'weekday',
     );
+  } else if (scope === 'store') {
+    summary = filterSummaryForStoreScope(summary, scope, storeOrgId);
   }
 
   return summary;
