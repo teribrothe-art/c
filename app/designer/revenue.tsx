@@ -43,7 +43,6 @@ export default function DesignerRevenueScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const scrollRef = useRef<ScrollView>(null);
-  const monthSectionY = useRef(0);
   const weekSectionY = useRef(0);
   const settlementSectionY = useRef(0);
 
@@ -237,7 +236,6 @@ export default function DesignerRevenueScreen() {
 
   const handlePressMonthChart = (monthKey: string) => {
     handleSelectMonth(monthKey);
-    scrollToSection(monthSectionY.current);
   };
 
   const settlementGridItems = useMemo(
@@ -308,50 +306,6 @@ export default function DesignerRevenueScreen() {
                   weeklyWeeks={analytics.weeklyWeeks}
                 />
               )}
-            </View>
-
-            <View
-              style={styles.card}
-              onLayout={(event) => {
-                monthSectionY.current = event.nativeEvent.layout.y;
-              }}>
-              <Text style={styles.cardTitle}>월 선택</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.monthChipRow}>
-                  {analytics.months.map((month) => {
-                    const selected = month.monthKey === analytics.selectedMonthKey;
-
-                    return (
-                      <Pressable
-                        key={month.monthKey}
-                        onPress={() => handleSelectMonth(month.monthKey)}
-                        style={({ pressed }) => [
-                          styles.monthChip,
-                          selected && styles.monthChipSelected,
-                          pressed && styles.monthChipPressed,
-                        ]}>
-                        <Text style={[styles.monthChipText, selected && styles.monthChipTextSelected]}>
-                          {month.label}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.monthChipAmount,
-                            selected && styles.monthChipAmountSelected,
-                          ]}>
-                          {month.revenue.toLocaleString('ko-KR')}원
-                        </Text>
-                        <Text
-                          style={[
-                            styles.monthChipMeta,
-                            selected && styles.monthChipMetaSelected,
-                          ]}>
-                          {month.settlementCount}건
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </ScrollView>
             </View>
 
             <View style={styles.heroCard}>
@@ -430,27 +384,6 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   cardTitle: { color: '#1A1A2E', fontSize: 16, fontWeight: '800', marginBottom: 12 },
-  monthChipRow: { flexDirection: 'row', gap: 10, paddingBottom: 4 },
-  monthChip: {
-    backgroundColor: '#F5F5F8',
-    borderColor: '#E8E8F0',
-    borderRadius: 14,
-    borderWidth: 1,
-    minWidth: 132,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  monthChipSelected: {
-    backgroundColor: '#F0EBFF',
-    borderColor: PURPLE,
-  },
-  monthChipPressed: { opacity: 0.9 },
-  monthChipText: { color: '#1A1A2E', fontSize: 14, fontWeight: '800', marginBottom: 4 },
-  monthChipTextSelected: { color: PURPLE },
-  monthChipAmount: { color: CORAL, fontSize: 16, fontWeight: '900' },
-  monthChipAmountSelected: { color: CORAL },
-  monthChipMeta: { color: '#6B6B7B', fontSize: 12, fontWeight: '600', marginTop: 2 },
-  monthChipMetaSelected: { color: '#6B6B7B' },
   emptyText: { color: '#6B6B7B', fontSize: 14, fontWeight: '600' },
   stateBox: {
     alignItems: 'center',
