@@ -5,6 +5,7 @@ import {
   DEFAULT_REVENUE_SPLIT_CONFIG,
   type RevenueSplitConfig,
 } from './revenue-split-config';
+import { settlementTotalsFromGross } from './org-month-settlement';
 import {
   ORG_STORE_DEFINITIONS,
   STORE_SCOPE_STORE_ID,
@@ -108,30 +109,26 @@ function aggregateSummaryFromDesigners(
   configuredHqRate: number,
 ): OrgDashboardSummary {
   const monthGrossSales = designers.reduce((sum, item) => sum + item.monthGrossSales, 0);
-  const monthHqRevenue = designers.reduce((sum, item) => sum + item.monthHqRevenue, 0);
-  const monthDesignerPayout = designers.reduce((sum, item) => sum + item.monthDesignerPayout, 0);
-  const monthStoreShare = designers.reduce((sum, item) => sum + item.monthStoreShare, 0);
-  const hqYieldRate =
-    monthGrossSales > 0 ? Math.round((monthHqRevenue / monthGrossSales) * 1000) / 10 : 0;
+  const settlement = settlementTotalsFromGross(monthGrossSales, {
+    ...DEFAULT_REVENUE_SPLIT_CONFIG,
+    hqFeePercent: configuredHqRate,
+  });
 
   return {
     designerCount: designers.length,
     treatmentCount: designers.reduce((sum, item) => sum + item.treatmentCount, 0),
     customerCount: designers.reduce((sum, item) => sum + item.customerCount, 0),
-    monthGrossSales,
-    monthCardFee: designers.reduce(
-      (sum, item) =>
-        sum + Math.round((item.monthGrossSales * DEFAULT_REVENUE_SPLIT_CONFIG.cardFeePercent) / 100),
-      0,
-    ),
-    monthHqRevenue,
-    monthDesignerPayout,
-    monthStoreShare,
-    hqYieldRate,
-    configuredHqRate,
+    monthGrossSales: settlement.monthGrossSales,
+    monthCardFee: settlement.monthCardFee,
+    monthPgFee: settlement.monthPgFee,
+    monthHqRevenue: settlement.monthHqRevenue,
+    monthDesignerPayout: settlement.monthDesignerPayout,
+    monthStoreShare: settlement.monthStoreShare,
+    hqYieldRate: settlement.hqYieldRate,
+    configuredHqRate: settlement.configuredHqRate,
     monthTreatmentCount: designers.reduce((sum, item) => sum + item.monthTreatmentCount, 0),
     pendingPayoutAmount: designers.reduce((sum, item) => sum + item.pendingPayoutAmount, 0),
-    monthRevenue: monthDesignerPayout,
+    monthRevenue: settlement.monthDesignerPayout,
     designers,
   };
 }

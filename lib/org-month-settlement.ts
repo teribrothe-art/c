@@ -9,6 +9,7 @@ export type OrgMonthSettlementTotals = {
   /** 결제 완료·정산 기준 총 매출(시술 금액 합) */
   monthGrossSales: number;
   monthCardFee: number;
+  monthPgFee: number;
   monthHqRevenue: number;
   monthDesignerPayout: number;
   monthStoreShare: number;
@@ -48,6 +49,7 @@ export function settlementTotalsFromGross(
   return {
     monthGrossSales: split.grossAmount,
     monthCardFee: split.cardFeeAmount,
+    monthPgFee: split.pgFeeAmount,
     monthHqRevenue: split.hqFeeAmount,
     monthDesignerPayout: split.designerPayout,
     monthStoreShare: split.storePayout,
@@ -63,6 +65,7 @@ export function aggregateMonthSettlementFromPayments(
 ): OrgMonthSettlementTotals {
   let monthGrossSales = 0;
   let monthCardFee = 0;
+  let monthPgFee = 0;
   let monthHqRevenue = 0;
   let monthDesignerPayout = 0;
   let monthStoreShare = 0;
@@ -75,12 +78,23 @@ export function aggregateMonthSettlementFromPayments(
     const split = calculateRevenueSplit(payment.amount, config);
     monthGrossSales += split.grossAmount;
     monthCardFee += split.cardFeeAmount;
+    monthPgFee += split.pgFeeAmount;
     monthHqRevenue += split.hqFeeAmount;
     monthDesignerPayout += split.designerPayout;
     monthStoreShare += split.storePayout;
   }
 
-  return settlementTotalsFromGross(monthGrossSales, config);
+  return {
+    monthGrossSales,
+    monthCardFee,
+    monthPgFee,
+    monthHqRevenue,
+    monthDesignerPayout,
+    monthStoreShare,
+    hqYieldRate:
+      monthGrossSales > 0 ? Math.round((monthHqRevenue / monthGrossSales) * 1000) / 10 : 0,
+    configuredHqRate: config.hqFeePercent,
+  };
 }
 
 export async function aggregateMonthSettlementForPayments(

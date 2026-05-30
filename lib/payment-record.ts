@@ -188,6 +188,7 @@ export function calculatePaymentFees(amount: number, feeRate = PLATFORM_FEE_RATE
     designerPayout: split.designerPayout,
     storePayout: split.storePayout,
     cardFeeAmount: split.cardFeeAmount,
+    pgFeeAmount: split.pgFeeAmount,
   };
 }
 
@@ -201,6 +202,7 @@ export async function calculatePaymentFeesWithActiveConfig(amount: number) {
     designerPayout: split.designerPayout,
     storePayout: split.storePayout,
     cardFeeAmount: split.cardFeeAmount,
+    pgFeeAmount: split.pgFeeAmount,
   };
 }
 

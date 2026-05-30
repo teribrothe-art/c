@@ -16,10 +16,10 @@ import { showErrorAlert, showSuccessAlert } from '../../lib/alerts';
 import { getErrorMessage } from '../../lib/errors';
 import {
   calculateRevenueSplit,
+  CARD_COMPANY_AVERAGE_FEE_PERCENT,
   formatRevenueSplitSummary,
   normalizeRevenueSplitConfig,
   REVENUE_SPLIT_PARTY_LABELS,
-  type RevenueSplitConfig,
   type RevenueSplitParty,
 } from '../../lib/revenue-split-config';
 import {
@@ -29,7 +29,6 @@ import {
   getPendingRevenueSplitProposal,
   getRequiredApprovalParties,
   isProposalFullyApproved,
-  proposeRevenueSplitChange,
   type RevenueSplitChangeProposal,
 } from '../../lib/revenue-split-approval';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
@@ -68,9 +67,12 @@ function PercentField({
 export default function AdminRevenueSplitScreen() {
   useOrgRoleGuard('admin');
   const insets = useSafeAreaInsets();
-  const [active, setActive] = useState<RevenueSplitConfig | null>(null);
+  const [active, setActive] = useState<Awaited<ReturnType<typeof getActiveRevenueSplitConfig>> | null>(
+    null,
+  );
   const [pending, setPending] = useState<RevenueSplitChangeProposal | null>(null);
   const [cardFee, setCardFee] = useState('');
+  const [pgFee, setPgFee] = useState('');
   const [hqFee, setHqFee] = useState('');
   const [designerShare, setDesignerShare] = useState('');
   const [storeShare, setStoreShare] = useState('');
@@ -87,6 +89,7 @@ export default function AdminRevenueSplitScreen() {
 
     const draft = pendingProposal?.proposedConfig ?? activeConfig;
     setCardFee(String(draft.cardFeePercent));
+    setPgFee(String(draft.pgFeePercent));
     setHqFee(String(draft.hqFeePercent));
     setDesignerShare(String(draft.designerSharePercent));
     setStoreShare(String(draft.storeSharePercent));
@@ -100,26 +103,13 @@ export default function AdminRevenueSplitScreen() {
 
   const draftConfig = normalizeRevenueSplitConfig({
     cardFeePercent: Number(cardFee),
+    pgFeePercent: Number(pgFee),
     hqFeePercent: Number(hqFee),
     designerSharePercent: Number(designerShare),
     storeSharePercent: Number(storeShare),
   });
 
   const sample = calculateRevenueSplit(SAMPLE_AMOUNT, draftConfig);
-
-  const handlePropose = async () => {
-    setIsSaving(true);
-
-    try {
-      const proposal = await proposeRevenueSplitChange(draftConfig, 'admin');
-      setPending(proposal);
-      showSuccessAlert('변경안을 제안했습니다. 매장·디자이너 승인이 필요합니다.');
-    } catch (error) {
-      showErrorAlert(getErrorMessage(error, '제안에 실패했습니다.'));
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const handleApprove = async (party: RevenueSplitParty) => {
     setIsSaving(true);
@@ -162,8 +152,9 @@ export default function AdminRevenueSplitScreen() {
 
         <Text style={styles.title}>수수료 구조</Text>
         <Text style={styles.subtitle}>
-          카드 수수료를 제외한 뒤 본사·디자이너·매장으로 나눕니다. 비율 변경은 본사·매장·디자이너
-          상호 승인 후 적용됩니다.
+          카드사·PG 수수료를 각각 제외한 뒤 본사·디자이너·매장으로 나눕니다. 카드사 수수료는 국내
+          평균({CARD_COMPANY_AVERAGE_FEE_PERCENT}%)을 기본값으로 적용합니다. 비율 변경은 본사·매장·
+          디자이너 상호 승인 후 반영됩니다.
         </Text>
 
         {active ? (
@@ -175,10 +166,16 @@ export default function AdminRevenueSplitScreen() {
 
         <View style={styles.formCard}>
           <PercentField
-            hint="결제(PG) 수수료 — 매출에서 먼저 차감"
+            hint="국내 카드사 가맹점 평균 — 매출에서 먼저 차감"
             label="카드 수수료 (%)"
             value={cardFee}
             onChange={setCardFee}
+          />
+          <PercentField
+            hint="결제대행(PG) 수수료 — 카드사 다음 차감"
+            label="PG 수수료 (%)"
+            value={pgFee}
+            onChange={setPgFee}
           />
           <PercentField
             hint="총 매출 기준"
@@ -193,18 +190,24 @@ export default function AdminRevenueSplitScreen() {
         <View style={styles.previewCard}>
           <Text style={styles.previewTitle}>시뮬레이션 (시술 {formatAmount(SAMPLE_AMOUNT)})</Text>
           <BreakdownRow label="매출" value={formatAmount(sample.grossAmount)} />
-          <BreakdownRow label={`카드 수수료 (${draftConfig.cardFeePercent}%)`} value={`-${formatAmount(sample.cardFeeAmount)}`} />
+          <BreakdownRow
+            label={`카드 수수료 (${draftConfig.cardFeePercent}%)`}
+            value={`-${formatAmount(sample.cardFeeAmount)}`}
+          />
+          <BreakdownRow
+            label={`PG 수수료 (${draftConfig.pgFeePercent}%)`}
+            value={`-${formatAmount(sample.pgFeeAmount)}`}
+          />
           <BreakdownRow label={`본사 (${draftConfig.hqFeePercent}%)`} value={`-${formatAmount(sample.hqFeeAmount)}`} />
-          <BreakdownRow label={`디자이너 (${draftConfig.designerSharePercent}%)`} value={formatAmount(sample.designerPayout)} />
-          <BreakdownRow label={`매장 (${draftConfig.storeSharePercent}%)`} value={formatAmount(sample.storePayout)} />
+          <BreakdownRow
+            label={`디자이너 (${draftConfig.designerSharePercent}%)`}
+            value={formatAmount(sample.designerPayout)}
+          />
+          <BreakdownRow
+            label={`매장 (${draftConfig.storeSharePercent}%)`}
+            value={formatAmount(sample.storePayout)}
+          />
         </View>
-
-        <Pressable
-          disabled={isSaving}
-          onPress={() => void handlePropose()}
-          style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed, isSaving && styles.disabled]}>
-          <Text style={styles.primaryButtonText}>변경안 제안 (본사)</Text>
-        </Pressable>
 
         {pending ? (
           <View style={styles.pendingCard}>
@@ -367,23 +370,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
-  primaryButton: {
-    alignItems: 'center',
-    backgroundColor: colors.purple,
-    borderRadius: 12,
-    marginBottom: 14,
-    paddingVertical: 14,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-  },
   pressed: {
     opacity: 0.9,
-  },
-  disabled: {
-    opacity: 0.5,
   },
   pendingCard: {
     backgroundColor: '#FFFBEB',

@@ -52,8 +52,12 @@ export function RevenueSplitStructureCard({ sampleGrossAmount = 100_000 }: Reven
       </View>
       <Text style={styles.summary}>{formatRevenueSplitSummary(config)}</Text>
       <View style={styles.row}>
-        <Text style={styles.rowLabel}>카드 수수료(제외)</Text>
+        <Text style={styles.rowLabel}>카드 수수료(카드사)</Text>
         <Text style={styles.rowValue}>{config.cardFeePercent}%</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.rowLabel}>PG 수수료</Text>
+        <Text style={styles.rowValue}>{config.pgFeePercent}%</Text>
       </View>
       <View style={styles.row}>
         <Text style={styles.rowLabel}>본사(매출)</Text>

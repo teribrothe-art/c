@@ -31,6 +31,7 @@ export function HqRevenueSummaryCard({ totals }: HqRevenueSummaryCardProps) {
       <View style={styles.breakdown}>
         <Row label="총 매출" value={formatAmount(totals.monthGrossSales)} />
         <Row label="카드 수수료" value={`-${formatAmount(totals.monthCardFee)}`} />
+        <Row label="PG 수수료" value={`-${formatAmount(totals.monthPgFee)}`} />
         <Row label="디자이너 분배" value={formatAmount(totals.monthDesignerPayout)} />
         <Row label="매장 분배" value={formatAmount(totals.monthStoreShare)} />
       </View>
