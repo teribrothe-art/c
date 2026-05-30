@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { formatAmount } from '../../lib/currency-input';
+import { formatDesignerNamePreview } from '../../lib/designer-name-preview';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import { buildVirtualStoreSummaries } from '../../lib/org-virtual-simulation';
 import { getErrorMessage } from '../../lib/errors';
@@ -104,8 +105,8 @@ export default function AdminHomeScreen() {
                     {formatAmount(store.monthRevenue)}
                   </Text>
                   <Text style={styles.virtualStoreHotPlace}>{store.hotPlace}</Text>
-                  <Text style={styles.virtualStoreDesigners} numberOfLines={2}>
-                    {storeDesigners.map((designer) => designer.name).join(' · ') || '연결 디자이너 없음'}
+                  <Text style={styles.virtualStoreDesigners} numberOfLines={1}>
+                    {formatDesignerNamePreview(storeDesigners.map((designer) => designer.name))}
                   </Text>
                 </View>
               );
