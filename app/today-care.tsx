@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Href, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -49,7 +49,7 @@ export default function TodayCareScreen() {
         }
 
         if (user.role === 'designer') {
-          router.replace('/designer/clients');
+          router.replace('/designer/home' as Href);
           return;
         }
 

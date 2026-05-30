@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
+import { Href, router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,7 +29,7 @@ export default function DiaryYearBrowseScreen() {
         }
 
         if (user.role === 'designer') {
-          router.replace('/designer/clients');
+          router.replace('/designer/home' as Href);
           return;
         }
 

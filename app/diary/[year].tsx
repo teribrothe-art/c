@@ -1,4 +1,4 @@
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Href, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
@@ -55,7 +55,7 @@ export default function DiaryYearDetailScreen() {
         }
 
         if (user.role === 'designer') {
-          router.replace('/designer/clients');
+          router.replace('/designer/home' as Href);
           return;
         }
 

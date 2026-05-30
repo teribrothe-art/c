@@ -58,7 +58,7 @@ export default function CustomerHomeScreen() {
       }
 
       if (user.role === 'designer') {
-        router.replace('/designer/clients' as Href);
+        router.replace('/designer/home' as Href);
         return;
       }
 

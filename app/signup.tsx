@@ -1,4 +1,4 @@
-import { Link, router, useLocalSearchParams } from 'expo-router';
+import { Href, Link, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -159,7 +159,7 @@ export default function SignupScreen() {
       });
 
       if (role === 'designer') {
-        router.replace('/designer/clients');
+        router.replace('/designer/home' as Href);
         return;
       }
 
