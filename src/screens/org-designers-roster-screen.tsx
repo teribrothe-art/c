@@ -16,6 +16,7 @@ import { colors } from '../../lib/theme';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
+import { AdminSectionTabBar } from '../components/admin-section-tab-bar';
 import {
   GlobalStoreMetricTabs,
   metricsFromStoreGroup,
@@ -126,6 +127,8 @@ export function OrgDesignersRosterScreen() {
           { paddingTop: insets.top + 16, paddingBottom: Math.max(insets.bottom, 20) + 100 },
         ]}
         showsVerticalScrollIndicator={false}>
+        <AdminSectionTabBar />
+
         <View style={styles.headerBlock}>
           <View style={styles.titleRow}>
             <Text style={styles.title}>매장</Text>

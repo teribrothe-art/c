@@ -15,6 +15,7 @@ import { VirtualSimulationBanner } from '../components/virtual-simulation-banner
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
+import { AdminSectionTabBar } from '../components/admin-section-tab-bar';
 import { StoreBottomTabBar } from '../components/store-bottom-tab-bar';
 
 type Props = {
@@ -87,6 +88,8 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
             ? '총 매출과 수수료 구조에 따른 본사·디자이너·매장 분배를 함께 봅니다.'
             : '디자이너 매출·정산 화면과 동일 데이터를 합산합니다.'}
         </Text>
+
+        {scope === 'admin' ? <AdminSectionTabBar /> : null}
 
         <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
 

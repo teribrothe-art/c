@@ -1,4 +1,4 @@
-import { Link, router, useFocusEffect, type Href } from 'expo-router';
+import { router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useState } from 'react';
 import type { VirtualSimulationScenario } from '../../lib/org-virtual-simulation';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -14,6 +14,7 @@ import { colors } from '../../lib/theme';
 import { OrgDashboardStatGrid } from '../../src/components/org-dashboard-stat-grid';
 import { LoadingState } from '../../src/components/loading-state';
 import { AdminBottomTabBar } from '../../src/components/admin-bottom-tab-bar';
+import { AdminSectionTabBar } from '../../src/components/admin-section-tab-bar';
 import { HqRevenueSummaryCard } from '../../src/components/hq-revenue-summary-card';
 import { RevenueSplitStructureCard } from '../../src/components/revenue-split-structure-card';
 import { VirtualSimulationBanner } from '../../src/components/virtual-simulation-banner';
@@ -64,6 +65,8 @@ export default function AdminHomeScreen() {
         </Text>
 
         <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
+
+        <AdminSectionTabBar />
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -124,33 +127,6 @@ export default function AdminHomeScreen() {
                 </View>
               );
             })}
-
-            <View style={styles.quickRow}>
-              <Link href={'/admin/reservations' as Href} asChild>
-                <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
-                  <Text style={styles.quickTitle}>예약</Text>
-                  <Text style={styles.quickMeta}>가입 고객 시술·예약 현황</Text>
-                </Pressable>
-              </Link>
-              <Link href="/admin/designers" asChild>
-                <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
-                  <Text style={styles.quickTitle}>매장</Text>
-                  <Text style={styles.quickMeta}>소속·누적 테스트 포함</Text>
-                </Pressable>
-              </Link>
-              <Link href={'/admin/revenue' as Href} asChild>
-                <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
-                  <Text style={styles.quickTitle}>매출</Text>
-                  <Text style={styles.quickMeta}>전체 매출·정산</Text>
-                </Pressable>
-              </Link>
-              <Link href="/admin/revenue-split" asChild>
-                <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
-                  <Text style={styles.quickTitle}>수수료</Text>
-                  <Text style={styles.quickMeta}>구조·상호 승인</Text>
-                </Pressable>
-              </Link>
-            </View>
 
             <Text style={styles.sectionTitle}>매출 상위 디자이너</Text>
             {[...summary.designers]
@@ -251,34 +227,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 16,
     marginTop: 4,
-  },
-  quickRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 20,
-  },
-  quickCard: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E8E8F0',
-    borderRadius: 14,
-    borderWidth: 1,
-    flex: 1,
-    gap: 4,
-    padding: 14,
-  },
-  quickPressed: {
-    opacity: 0.9,
-  },
-  quickTitle: {
-    color: '#1A1A2E',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  quickMeta: {
-    color: '#6B6B7B',
-    fontSize: 11,
-    fontWeight: '600',
   },
   sectionTitle: {
     color: '#1A1A2E',
