@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { OrgScope } from '../../lib/org-access';
 import { formatAmount } from '../../lib/currency-input';
+import { formatDesignerNamePreview } from '../../lib/designer-name-preview';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
 import {
@@ -151,8 +152,8 @@ export function OrgSimulationScreen({ scope }: Props) {
                         {store.customerCount}명 · 정산대기{' '}
                         {formatAmount(store.pendingPayoutAmount)}
                       </Text>
-                      <Text style={styles.storeDesignerNames} numberOfLines={2}>
-                        {storeDesigners.map((designer) => designer.name).join(' · ')}
+                      <Text style={styles.storeDesignerNames} numberOfLines={1}>
+                        {formatDesignerNamePreview(storeDesigners.map((designer) => designer.name))}
                       </Text>
                     </View>
                   );
