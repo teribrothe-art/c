@@ -6,8 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   fetchDesignerRevenueAnalytics,
   type DesignerRevenueAnalytics,
-  type WeekdayRevenueCell,
 } from '../../lib/designer-revenue-analytics';
+import type { DailyRevenuePoint } from '../../lib/designer-revenue-analytics';
+import { formatDateWithWeekday } from '../../lib/designer-revenue-weekly';
 import { formatAmount } from '../../lib/currency-input';
 import { getErrorMessage } from '../../lib/errors';
 import { mapRevenueSettlementsToGridItems } from '../../lib/designer-customer-grid';
@@ -33,13 +34,11 @@ export default function DesignerRevenueScreen() {
   const { month: monthParam } = useLocalSearchParams<{ month?: string | string[] }>();
   const [analytics, setAnalytics] = useState<DesignerRevenueAnalytics | null>(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | undefined>(undefined);
-  const [selectedWeekKey, setSelectedWeekKey] = useState<string | undefined>(undefined);
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
   const [settlementListMode, setSettlementListMode] = useState<SettlementListMode>('month');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const scrollRef = useRef<ScrollView>(null);
-  const monthSectionY = useRef(0);
   const weekSectionY = useRef(0);
   const settlementSectionY = useRef(0);
 
@@ -50,29 +49,14 @@ export default function DesignerRevenueScreen() {
     });
   }, []);
 
-  const loadRevenue = useCallback((monthKey?: string, weekKey?: string) => {
+  const loadRevenue = useCallback((monthKey?: string) => {
     setIsLoading(true);
 
-    fetchDesignerRevenueAnalytics(monthKey, weekKey)
+    fetchDesignerRevenueAnalytics(monthKey)
       .then((data) => {
         setAnalytics(data);
         setSelectedMonthKey(data.selectedMonthKey);
-        setSelectedWeekKey(data.selectedWeekKey);
-        setSelectedDayDate((prev) => {
-          if (prev && data.selectedWeek.days.some((day) => day.date === prev)) {
-            return prev;
-          }
-
-          const todayInWeek = data.selectedWeek.days.find((day) => day.isToday);
-
-          if (todayInWeek) {
-            return todayInWeek.date;
-          }
-
-          const withRevenue = data.selectedWeek.days.find((day) => day.totalAmount > 0);
-
-          return withRevenue?.date ?? data.selectedWeek.days[0]?.date ?? null;
-        });
+        setSelectedDayDate(null);
         setErrorMessage('');
       })
       .catch((error) => {
@@ -89,8 +73,8 @@ export default function DesignerRevenueScreen() {
           ? monthFromRoute
           : selectedMonthKey;
 
-      loadRevenue(monthToLoad, selectedWeekKey);
-    }, [loadRevenue, monthParam, selectedMonthKey, selectedWeekKey]),
+      loadRevenue(monthToLoad);
+    }, [loadRevenue, monthParam, selectedMonthKey]),
   );
 
   const monthlyChartPoints = useMemo(
@@ -108,14 +92,6 @@ export default function DesignerRevenueScreen() {
     [analytics?.months],
   );
 
-  const weekIndex = useMemo(() => {
-    if (!analytics) {
-      return -1;
-    }
-
-    return analytics.weeklyWeeks.findIndex((week) => week.weekKey === analytics.selectedWeekKey);
-  }, [analytics]);
-
   const visibleSettlements = useMemo(() => {
     if (!analytics) {
       return [];
@@ -126,10 +102,10 @@ export default function DesignerRevenueScreen() {
     }
 
     if (!selectedDayDate) {
-      return analytics.recentSettlements;
+      return analytics.selectedMonthSettlements;
     }
 
-    return analytics.recentSettlements.filter((item) => item.date === selectedDayDate);
+    return analytics.selectedMonthSettlements.filter((item) => item.date === selectedDayDate);
   }, [analytics, selectedDayDate, settlementListMode]);
 
   const settlementSectionTitle = useMemo(() => {
@@ -142,11 +118,7 @@ export default function DesignerRevenueScreen() {
     }
 
     if (selectedDayDate) {
-      const day = analytics.selectedWeek.days.find((cell) => cell.date === selectedDayDate);
-
-      if (day) {
-        return `${day.dateWithWeekdayLabel} 정산`;
-      }
+      return `${formatDateWithWeekday(selectedDayDate)} 정산`;
     }
 
     return `${analytics.selectedMonth.label} 정산 상세`;
@@ -164,22 +136,11 @@ export default function DesignerRevenueScreen() {
 
     setSettlementListMode('month');
     setSelectedMonthKey(monthKey);
-    setSelectedWeekKey(undefined);
     setSelectedDayDate(null);
     loadRevenue(monthKey);
   };
 
-  const handleSelectWeek = (weekKey: string) => {
-    if (weekKey === selectedWeekKey) {
-      return;
-    }
-
-    setSelectedWeekKey(weekKey);
-    setSelectedDayDate(null);
-    loadRevenue(selectedMonthKey, weekKey);
-  };
-
-  const handleSelectDay = (day: WeekdayRevenueCell) => {
+  const handleSelectDay = (day: DailyRevenuePoint) => {
     setSettlementListMode('month');
     setSelectedDayDate(day.date);
   };
@@ -202,15 +163,20 @@ export default function DesignerRevenueScreen() {
         value: formatAmount(analytics.averageTreatmentPrice),
         onPress: () => {
           setSettlementListMode('month');
-          scrollToSection(monthSectionY.current);
+          setSelectedDayDate(null);
+          scrollToSection(weekSectionY.current);
         },
       },
       {
-        key: 'pending-amount',
-        label: '정산 대기',
-        tone: 'danger',
-        value: formatAmount(analytics.pendingPayoutAmount),
-        onPress: showPendingSettlements,
+        key: 'month-total',
+        label: '이번 달 합계',
+        tone: 'success',
+        value: formatAmount(analytics.selectedMonth.revenue),
+        onPress: () => {
+          setSettlementListMode('month');
+          setSelectedDayDate(null);
+          scrollToSection(weekSectionY.current);
+        },
       },
       {
         key: 'pending-count',
@@ -220,42 +186,14 @@ export default function DesignerRevenueScreen() {
         onPress: showPendingSettlements,
       },
       {
-        key: 'week-total',
-        label: '선택 주 합계',
-        tone: 'success',
-        value: formatAmount(analytics.selectedWeek.weekTotal),
-        onPress: () => {
-          setSettlementListMode('month');
-          setSelectedDayDate(null);
-          scrollToSection(weekSectionY.current);
-        },
+        key: 'pending-amount',
+        label: '정산 대기',
+        tone: 'danger',
+        value: formatAmount(analytics.pendingPayoutAmount),
+        onPress: showPendingSettlements,
       },
     ];
   }, [analytics, scrollToSection, showPendingSettlements]);
-
-  const handlePrevWeek = () => {
-    if (!analytics || weekIndex <= 0) {
-      return;
-    }
-
-    const prev = analytics.weeklyWeeks[weekIndex - 1];
-
-    if (prev) {
-      handleSelectWeek(prev.weekKey);
-    }
-  };
-
-  const handleNextWeek = () => {
-    if (!analytics || weekIndex < 0 || weekIndex >= analytics.weeklyWeeks.length - 1) {
-      return;
-    }
-
-    const next = analytics.weeklyWeeks[weekIndex + 1];
-
-    if (next) {
-      handleSelectWeek(next.weekKey);
-    }
-  };
 
   const settlementGridItems = useMemo(
     () => mapRevenueSettlementsToGridItems(visibleSettlements),
@@ -283,7 +221,7 @@ export default function DesignerRevenueScreen() {
         ]}
         showsVerticalScrollIndicator={false}>
         <Text style={styles.pageTitle}>매출</Text>
-        <Text style={styles.pageSubtitle}>월별·주간 정산 매출을 확인하세요</Text>
+        <Text style={styles.pageSubtitle}>월별 정산 매출을 확인하세요</Text>
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -294,62 +232,11 @@ export default function DesignerRevenueScreen() {
         ) : !hasAnyRevenue ? (
           <EmptyState
             icon="📊"
-            subtitle="정산 완료되면 월별·주간 매출이 표시됩니다"
+            subtitle="정산 완료되면 월별 매출이 표시됩니다"
             title="매출 데이터가 없어요"
           />
         ) : (
           <>
-            <RevenueBarChart
-              barColor={PURPLE}
-              emptyMessage="월별 정산 매출이 없습니다"
-              points={monthlyChartPoints}
-              title="월별 매출 (정산 완료)"
-            />
-
-            <View
-              style={styles.card}
-              onLayout={(event) => {
-                monthSectionY.current = event.nativeEvent.layout.y;
-              }}>
-              <Text style={styles.cardTitle}>월 선택</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.monthChipRow}>
-                  {analytics.months.map((month) => {
-                    const selected = month.monthKey === analytics.selectedMonthKey;
-
-                    return (
-                      <Pressable
-                        key={month.monthKey}
-                        onPress={() => handleSelectMonth(month.monthKey)}
-                        style={({ pressed }) => [
-                          styles.monthChip,
-                          selected && styles.monthChipSelected,
-                          pressed && styles.monthChipPressed,
-                        ]}>
-                        <Text style={[styles.monthChipText, selected && styles.monthChipTextSelected]}>
-                          {month.label}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.monthChipAmount,
-                            selected && styles.monthChipAmountSelected,
-                          ]}>
-                          {formatAmount(month.revenue)}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.monthChipMeta,
-                            selected && styles.monthChipMetaSelected,
-                          ]}>
-                          {month.settlementCount}건
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </ScrollView>
-            </View>
-
             <View style={styles.heroCard}>
               <Text style={styles.heroLabel}>{analytics.selectedMonth.label} 매출</Text>
               <Text style={styles.heroValue}>
@@ -360,19 +247,24 @@ export default function DesignerRevenueScreen() {
 
             <DesignerRevenueMetricGrid items={revenueMetricItems} />
 
+            <RevenueBarChart
+              barColor={PURPLE}
+              emptyMessage="월별 정산 매출이 없습니다"
+              onPressPoint={handleSelectMonth}
+              points={monthlyChartPoints}
+              selectedKey={analytics.selectedMonthKey}
+              title="월별 매출 (정산 완료)"
+            />
+
             <View
               onLayout={(event) => {
                 weekSectionY.current = event.nativeEvent.layout.y;
               }}>
               <WeeklyRevenuePanel
-              canGoNext={weekIndex >= 0 && weekIndex < analytics.weeklyWeeks.length - 1}
-              canGoPrev={weekIndex > 0}
-              days={analytics.selectedWeek.days}
-              onNextWeek={handleNextWeek}
-              onPrevWeek={handlePrevWeek}
-              onSelectDay={handleSelectDay}
-              selectedDate={selectedDayDate}
-              weekLabel={analytics.selectedWeek.label}
+                dailyTotals={analytics.dailyTotals}
+                monthLabel={analytics.selectedMonth.label}
+                onSelectDay={handleSelectDay}
+                selectedDate={selectedDayDate}
               />
             </View>
 
@@ -435,27 +327,6 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   cardTitle: { color: '#1A1A2E', fontSize: 16, fontWeight: '800', marginBottom: 12 },
-  monthChipRow: { flexDirection: 'row', gap: 10, paddingBottom: 4 },
-  monthChip: {
-    backgroundColor: '#F5F5F8',
-    borderColor: '#E8E8F0',
-    borderRadius: 14,
-    borderWidth: 1,
-    minWidth: 132,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  monthChipSelected: {
-    backgroundColor: '#F0EBFF',
-    borderColor: PURPLE,
-  },
-  monthChipPressed: { opacity: 0.9 },
-  monthChipText: { color: '#1A1A2E', fontSize: 14, fontWeight: '800', marginBottom: 4 },
-  monthChipTextSelected: { color: PURPLE },
-  monthChipAmount: { color: CORAL, fontSize: 16, fontWeight: '900' },
-  monthChipAmountSelected: { color: CORAL },
-  monthChipMeta: { color: '#6B6B7B', fontSize: 12, fontWeight: '600', marginTop: 2 },
-  monthChipMetaSelected: { color: '#6B6B7B' },
   emptyText: { color: '#6B6B7B', fontSize: 14, fontWeight: '600' },
   stateBox: {
     alignItems: 'center',
