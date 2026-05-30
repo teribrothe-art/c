@@ -1,11 +1,16 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { OrgScope } from '../../lib/org-access';
 import { formatAmount } from '../../lib/currency-input';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
+import {
+  fetchOrgHqRevenueHistory,
+  type HqMonthlyRevenueBucket,
+} from '../../lib/org-hq-revenue-history';
+import { formatMonthKeyLabel } from '../../lib/designer-revenue-analytics';
 import type { VirtualSimulationScenario } from '../../lib/org-virtual-simulation';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
@@ -25,15 +30,35 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   useOrgRoleGuard(scope);
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
+  const [hqHistory, setHqHistory] = useState<HqMonthlyRevenueBucket[]>([]);
+  const [selectedMonthKey, setSelectedMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
   const [scenario, setScenario] = useState<VirtualSimulationScenario>('weekday');
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const load = useCallback(() => {
+  const isCurrentMonth = selectedMonthKey === new Date().toISOString().slice(0, 7);
+
+  const loadHistory = useCallback(() => {
+    if (scope !== 'admin') {
+      return Promise.resolve();
+    }
+
+    return fetchOrgHqRevenueHistory(scope)
+      .then(setHqHistory)
+      .catch(() => {
+        setHqHistory([]);
+      });
+  }, [scope]);
+
+  const loadSummary = useCallback(() => {
     setIsLoading(true);
 
-    fetchOrgDashboardSummary(scope, { scenario, withVirtualSimulation: true })
+    return fetchOrgDashboardSummary(scope, {
+      scenario,
+      withVirtualSimulation: isCurrentMonth,
+      monthKey: selectedMonthKey,
+    })
       .then((data) => {
         setSummary(data);
         setErrorMessage('');
@@ -42,13 +67,26 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
         setErrorMessage(getErrorMessage(error, '매출을 불러오지 못했습니다.'));
       })
       .finally(() => setIsLoading(false));
-  }, [scenario, scope]);
+  }, [isCurrentMonth, scenario, scope, selectedMonthKey]);
+
+  const load = useCallback(() => {
+    void loadHistory();
+    void loadSummary();
+  }, [loadHistory, loadSummary]);
+
+  const handleSelectMonth = useCallback((monthKey: string) => {
+    setSelectedMonthKey(monthKey);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load]),
+      void loadHistory();
+    }, [loadHistory]),
   );
+
+  useEffect(() => {
+    void loadSummary();
+  }, [loadSummary]);
 
   const TabBar = scope === 'store' ? StoreBottomTabBar : AdminBottomTabBar;
   const revenueBase = scope === 'store' ? '/store/designer' : '/admin/designer';
@@ -72,6 +110,9 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
     );
   }, [searchQuery, summary]);
 
+  const monthLabel = formatMonthKeyLabel(selectedMonthKey);
+  const monthScopeLabel = isCurrentMonth ? '이번 달' : monthLabel;
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -88,7 +129,9 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
             : '디자이너 매출·정산 화면과 동일 데이터를 합산합니다.'}
         </Text>
 
-        <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
+        {scope === 'admin' && isCurrentMonth ? (
+          <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
+        ) : null}
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -96,24 +139,33 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
           <EmptyState title="불러오기 실패" subtitle={errorMessage} />
         ) : summary ? (
           <>
-            {scope === 'admin' ? <HqRevenueSummaryCard totals={summary} /> : null}
+            {scope === 'admin' ? (
+              <HqRevenueSummaryCard
+                months={hqHistory}
+                onSelectMonth={handleSelectMonth}
+                selectedMonthKey={selectedMonthKey}
+                totals={summary}
+              />
+            ) : null}
 
             <View style={styles.grid}>
               <StatCard
-                label={scope === 'admin' ? '이번 달 매출' : '이번 달 정산'}
+                label={scope === 'admin' ? `${monthScopeLabel} 매출` : `${monthScopeLabel} 정산`}
                 value={formatAmount(scope === 'admin' ? summary.monthGrossSales : summary.monthDesignerPayout)}
               />
               {scope === 'admin' ? (
-                <StatCard label="본사 수익" value={formatAmount(summary.monthHqRevenue)} />
+                <StatCard label={`${monthScopeLabel} 본사 수익`} value={formatAmount(summary.monthHqRevenue)} />
               ) : null}
               <StatCard
-                label="이번 달 시술"
+                label={`${monthScopeLabel} 시술`}
                 value={`${summary.monthTreatmentCount.toLocaleString('ko-KR')}건`}
               />
               <StatCard label="정산 대기" value={formatAmount(summary.pendingPayoutAmount)} />
             </View>
 
-            <Text style={styles.sectionTitle}>디자이너별 매출</Text>
+            <Text style={styles.sectionTitle}>
+              {isCurrentMonth ? '디자이너별 매출' : `${monthLabel} 디자이너별 매출`}
+            </Text>
             <TextInput
               onChangeText={setSearchQuery}
               placeholder="디자이너·매장 검색"
