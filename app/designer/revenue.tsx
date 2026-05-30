@@ -107,14 +107,6 @@ export default function DesignerRevenueScreen() {
     [analytics?.months],
   );
 
-  const weekIndex = useMemo(() => {
-    if (!analytics) {
-      return -1;
-    }
-
-    return analytics.weeklyWeeks.findIndex((week) => week.weekKey === analytics.selectedWeekKey);
-  }, [analytics]);
-
   const visibleSettlements = useMemo(() => {
     if (!analytics) {
       return [];
@@ -232,30 +224,6 @@ export default function DesignerRevenueScreen() {
     ];
   }, [analytics, scrollToSection, showPendingSettlements]);
 
-  const handlePrevWeek = () => {
-    if (!analytics || weekIndex <= 0) {
-      return;
-    }
-
-    const prev = analytics.weeklyWeeks[weekIndex - 1];
-
-    if (prev) {
-      handleSelectWeek(prev.weekKey);
-    }
-  };
-
-  const handleNextWeek = () => {
-    if (!analytics || weekIndex < 0 || weekIndex >= analytics.weeklyWeeks.length - 1) {
-      return;
-    }
-
-    const next = analytics.weeklyWeeks[weekIndex + 1];
-
-    if (next) {
-      handleSelectWeek(next.weekKey);
-    }
-  };
-
   const settlementGridItems = useMemo(
     () => mapRevenueSettlementsToGridItems(visibleSettlements),
     [visibleSettlements],
@@ -364,14 +332,12 @@ export default function DesignerRevenueScreen() {
                 weekSectionY.current = event.nativeEvent.layout.y;
               }}>
               <WeeklyRevenuePanel
-              canGoNext={weekIndex >= 0 && weekIndex < analytics.weeklyWeeks.length - 1}
-              canGoPrev={weekIndex > 0}
-              days={analytics.selectedWeek.days}
-              onNextWeek={handleNextWeek}
-              onPrevWeek={handlePrevWeek}
-              onSelectDay={handleSelectDay}
-              selectedDate={selectedDayDate}
-              weekLabel={analytics.selectedWeek.label}
+                days={analytics.selectedWeek.days}
+                onSelectDay={handleSelectDay}
+                onSelectWeek={handleSelectWeek}
+                selectedDate={selectedDayDate}
+                selectedWeekKey={analytics.selectedWeekKey}
+                weeklyWeeks={analytics.weeklyWeeks}
               />
             </View>
 
