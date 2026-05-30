@@ -3,8 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 export type RevenueChartTabKey = 'monthly' | 'weekday';
 
 const TABS: { key: RevenueChartTabKey; label: string }[] = [
-  { key: 'monthly', label: '월별 매출' },
   { key: 'weekday', label: '요일별 합계' },
+  { key: 'monthly', label: '월별 매출' },
 ];
 
 type RevenueChartTabBarProps = {
