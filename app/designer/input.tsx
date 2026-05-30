@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -27,6 +27,10 @@ import { parseWonAmount } from '../../lib/currency-input';
 import { createDesignerTreatment } from '../../lib/treatments';
 import type { DesignerClientListItem } from '../../lib/customer-invitations';
 import { getDesignerClientListItems } from '../../lib/customer-invitations';
+import {
+  type RegisteredCustomerOption,
+  searchRegisteredCustomers,
+} from '../../lib/registered-customers';
 import { mapDesignerClientsToGridItems } from '../../lib/designer-customer-grid';
 import { CustomerGrid } from '../../src/components/customer-grid';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
@@ -43,6 +47,9 @@ export default function DesignerInputScreen() {
   const [treatmentTitle, setTreatmentTitle] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [clientItems, setClientItems] = useState<DesignerClientListItem[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [customerSuggestions, setCustomerSuggestions] = useState<RegisteredCustomerOption[]>([]);
+  const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -70,8 +77,50 @@ export default function DesignerInputScreen() {
     setDuration(DEFAULT_TREATMENT_DURATION);
     setTreatmentTitle(defaultTreatmentTitle(type));
     setPriceText('');
+    setCustomerName('');
+    setSelectedCustomerId(null);
+    setCustomerSuggestions([]);
     setModalVisible(true);
   };
+
+  useEffect(() => {
+    if (!modalVisible) {
+      return;
+    }
+
+    const query = customerName.trim();
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      setIsSearchingCustomers(true);
+
+      searchRegisteredCustomers(query)
+        .then((items) => {
+          if (isMounted) {
+            setCustomerSuggestions(items);
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            setCustomerSuggestions([]);
+          }
+        })
+        .finally(() => {
+          if (isMounted) {
+            setIsSearchingCustomers(false);
+          }
+        });
+    }, 280);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [modalVisible, customerName]);
+
+  const handleSelectCustomerSuggestion = useCallback((item: RegisteredCustomerOption) => {
+    setCustomerName(item.name);
+    setSelectedCustomerId(item.id);
+  }, []);
 
   const handleCreate = async () => {
     const price = parseWonAmount(priceText);
@@ -90,6 +139,7 @@ export default function DesignerInputScreen() {
       setIsCreating(true);
       const treatment = await createDesignerTreatment({
         customerName,
+        customerId: selectedCustomerId,
         treatmentType: selectedType,
         treatmentTitle: treatmentTitle.trim() || defaultTreatmentTitle(selectedType),
         duration,
@@ -98,6 +148,7 @@ export default function DesignerInputScreen() {
 
       setModalVisible(false);
       setCustomerName('');
+      setSelectedCustomerId(null);
       router.push(`/designer/treatment/${treatment.id}`);
     } catch (error) {
       showErrorAlert(getErrorMessage(error, '시술을 만들지 못했습니다.'));
@@ -158,8 +209,47 @@ export default function DesignerInputScreen() {
               placeholderTextColor="#9CA3AF"
               style={styles.input}
               value={customerName}
-              onChangeText={setCustomerName}
+              onChangeText={(text) => {
+                setCustomerName(text);
+                setSelectedCustomerId(null);
+              }}
             />
+
+            {isSearchingCustomers ? (
+              <ActivityIndicator color={colors.coral} size="small" style={styles.customerSearchSpinner} />
+            ) : null}
+
+            {customerSuggestions.length > 0 ? (
+              <View style={styles.suggestionBlock}>
+                <Text style={styles.suggestionLabel}>가입 고객 (이름 일치 시 자동 연결)</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.suggestionRow}>
+                    {customerSuggestions.slice(0, 8).map((item) => {
+                      const selected = selectedCustomerId === item.id;
+
+                      return (
+                        <Pressable
+                          key={item.id}
+                          onPress={() => handleSelectCustomerSuggestion(item)}
+                          style={({ pressed }) => [
+                            styles.suggestionChip,
+                            selected && styles.suggestionChipSelected,
+                            pressed && { opacity: 0.9 },
+                          ]}>
+                          <Text
+                            style={[
+                              styles.suggestionChipText,
+                              selected && styles.suggestionChipTextSelected,
+                            ]}>
+                            {item.name}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              </View>
+            ) : null}
 
             <Text style={styles.label}>시술 종류</Text>
             <TreatmentOptionChips
@@ -385,5 +475,42 @@ const styles = StyleSheet.create({
   cancelText: {
     color: colors.muted,
     fontSize: 15,
+  },
+  customerSearchSpinner: {
+    alignSelf: 'flex-start',
+    marginTop: -4,
+  },
+  suggestionBlock: {
+    gap: 6,
+  },
+  suggestionLabel: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingBottom: 4,
+  },
+  suggestionChip: {
+    backgroundColor: '#F5F5F8',
+    borderColor: '#E8E8F0',
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  suggestionChipSelected: {
+    backgroundColor: '#FFF0F0',
+    borderColor: colors.coral,
+  },
+  suggestionChipText: {
+    color: '#1A1A2E',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  suggestionChipTextSelected: {
+    color: colors.coral,
   },
 });

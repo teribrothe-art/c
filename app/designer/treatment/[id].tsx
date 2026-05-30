@@ -91,6 +91,12 @@ import {
 import { getDesignerTreatments, getTreatmentById, Treatment, updateTreatment } from '../../../lib/treatments';
 import { DamageLevelPicker } from '../../../src/components/damage-level-picker';
 import { TreatmentRecordNav } from '../../../src/components/treatment-record-nav';
+import { TreatmentInputTabBar } from '../../../src/components/treatment-input-tab-bar';
+import {
+  TREATMENT_INPUT_TABS,
+  type TreatmentInputTabKey,
+  treatmentInputTabForField,
+} from '../../../lib/designer-treatment-input-tabs';
 
 type EditableField =
   | 'technique'
@@ -112,8 +118,7 @@ type InputItem = {
   optional?: boolean;
 };
 
-type InputSection = {
-  title: string;
+type InputTabGroup = {
   items: InputItem[];
 };
 
@@ -206,6 +211,7 @@ export default function DesignerTreatmentInputScreen() {
     after: 'idle' | 'uploading' | 'success';
   }>({ before: 'idle', after: 'idle' });
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
+  const [activeInputTab, setActiveInputTab] = useState<TreatmentInputTabKey>('basic');
   const [photoDraft, setPhotoDraft] = useState<{ kind: TreatmentPhotoKind; uri: string } | null>(null);
   const [photoPreview, setPhotoPreview] = useState<{
     kind: TreatmentPhotoKind;
@@ -316,15 +322,14 @@ export default function DesignerTreatmentInputScreen() {
       isMounted = false;
     };
   }, [id]);
-  const sections = useMemo<InputSection[]>(() => {
+  const inputTabGroups = useMemo<Record<TreatmentInputTabKey, InputTabGroup>>(() => {
     const technique = getDraftValue(treatment, 'technique');
     const diagnosis = getDraftValue(treatment, 'designer_diagnosis');
     const homeCare = getDraftValue(treatment, 'home_care');
     const products = formatProductsInput(treatment?.products ?? null);
 
-    return [
-      {
-        title: '기본 정보',
+    return {
+      basic: {
         items: [
           {
             label: '시술 종류',
@@ -352,16 +357,19 @@ export default function DesignerTreatmentInputScreen() {
           },
         ],
       },
-      {
-        title: '기술 데이터',
+      products: {
         items: [
           {
-            label: '사용 약품',
+            label: '사용약품',
             value: products,
             complete: Boolean(products),
             editable: 'products',
             optional: true,
           },
+        ],
+      },
+      technique: {
+        items: [
           {
             label: '기법·세팅',
             value: technique,
@@ -370,8 +378,7 @@ export default function DesignerTreatmentInputScreen() {
           },
         ],
       },
-      {
-        title: '전문가 진단',
+      care: {
         items: [
           {
             label: '모발 상태 평가',
@@ -387,10 +394,11 @@ export default function DesignerTreatmentInputScreen() {
           },
         ],
       },
-    ];
+    };
   }, [treatment]);
 
-  const allItems = sections.flatMap((section) => section.items);
+  const allItems = TREATMENT_INPUT_TABS.flatMap((tab) => inputTabGroups[tab.key].items);
+  const activeTabItems = inputTabGroups[activeInputTab].items;
   const progressItems = allItems.filter((item) => !item.optional);
   const totalProgressItems = progressItems.length;
   const completedCount = progressItems.filter((item) => item.complete).length;
@@ -413,9 +421,10 @@ export default function DesignerTreatmentInputScreen() {
     treatment,
     paymentRecord?.status ?? null,
   );
-  const canInviteCustomer = settlementInputComplete && !isCustomerLinked;
+  const canInviteCustomer = !isCustomerLinked;
 
   const openEditor = (field: EditableField) => {
+    setActiveInputTab(treatmentInputTabForField(field));
     setActiveField(field);
 
     if (CHOICE_FIELDS.includes(field)) {
@@ -880,9 +889,7 @@ export default function DesignerTreatmentInputScreen() {
     });
   };
 
-  const activeFieldLabel = sections
-    .flatMap((section) => section.items)
-    .find((item) => item.editable === activeField)?.label;
+  const activeFieldLabel = allItems.find((item) => item.editable === activeField)?.label;
   const isChoiceEditor = Boolean(activeField && CHOICE_FIELDS.includes(activeField));
   const isSingleLineEditor =
     activeField === 'price' || activeField === 'treatment_title' || activeField === 'products';
@@ -1011,20 +1018,18 @@ export default function DesignerTreatmentInputScreen() {
               />
             </View>
 
-            {sections.map((section) => (
-              <View key={section.title} style={styles.section}>
-                <Text style={styles.sectionTitle}>{section.title}</Text>
-                <View style={styles.cardList}>
-                  {section.items.map((item) => (
-                    <FieldCard
-                      key={item.label}
-                      item={item}
-                      onPress={item.editable ? () => openEditor(item.editable!) : undefined}
-                    />
-                  ))}
-                </View>
+            <View style={styles.section}>
+              <TreatmentInputTabBar activeTab={activeInputTab} onSelectTab={setActiveInputTab} />
+              <View style={styles.cardList}>
+                {activeTabItems.map((item) => (
+                  <FieldCard
+                    key={item.label}
+                    item={item}
+                    onPress={item.editable ? () => openEditor(item.editable!) : undefined}
+                  />
+                ))}
               </View>
-            ))}
+            </View>
 
             <View style={styles.damageCard}>
               <Text style={styles.damageTitle}>손상도 기록</Text>
@@ -1156,6 +1161,13 @@ export default function DesignerTreatmentInputScreen() {
                 ]}>
                 <Text style={styles.inviteButtonText}>고객 연결</Text>
               </Pressable>
+            ) : null}
+
+            {canInviteCustomer && !settlementInputComplete ? (
+              <Text style={styles.inviteHintText}>
+                가입 고객 불러오기 또는 신규 초대로 연결하세요. 기법·진단·홈케어는 정산 전에 입력하면
+                좋아요.
+              </Text>
             ) : null}
 
             <Pressable
@@ -1697,6 +1709,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     lineHeight: 24,
+  },
+  inviteHintText: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+    marginBottom: 10,
+    textAlign: 'center',
   },
   settlementButton: {
     alignItems: 'center',

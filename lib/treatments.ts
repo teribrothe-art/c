@@ -18,6 +18,8 @@ import { toAppError } from './errors';
 import type { PaymentStatus } from './payment-status';
 import { filterTreatmentsForCustomerUser, sortTreatmentsForDiaryList } from './diary-list';
 import { sanitizeTreatmentsForCustomer, sanitizeTreatmentForCustomer } from './treatment-privacy';
+import { resolveRegisteredCustomerForDesigner } from './designer-customer-link';
+import { ensureDesignerCustomerRelationship } from './registered-customers';
 import { defaultTreatmentTitle, DEFAULT_TREATMENT_DURATION } from './treatment-options';
 import { supabase } from './supabase';
 
@@ -474,6 +476,7 @@ export async function getDesignerTreatments() {
 
 export type CreateDesignerTreatmentInput = {
   customerName: string;
+  customerId?: string | null;
   treatmentType: string;
   treatmentTitle?: string;
   price?: number;
@@ -538,11 +541,23 @@ export async function createDesignerTreatment(input: CreateDesignerTreatmentInpu
       ? input.products.map((item) => item.trim()).filter(Boolean)
       : null;
 
+  let linkedCustomerId = input.customerId?.trim() || null;
+  let linkedCustomerName = customerName;
+
+  if (!linkedCustomerId) {
+    const matched = await resolveRegisteredCustomerForDesigner(user.id, customerName);
+
+    if (matched) {
+      linkedCustomerId = matched.id;
+      linkedCustomerName = matched.name;
+    }
+  }
+
   const baseRow = {
-    customer_id: null as string | null,
+    customer_id: linkedCustomerId,
     designer_id: user.id,
     designer_name: '디자이너',
-    customer_name: customerName,
+    customer_name: linkedCustomerName,
     treatment_date: treatmentDate,
     treatment_type: treatmentType,
     treatment_title: treatmentTitle,
@@ -576,6 +591,10 @@ export async function createDesignerTreatment(input: CreateDesignerTreatmentInpu
     demoTreatments.unshift(treatment);
     await persistDemoTreatments();
 
+    if (linkedCustomerId) {
+      await ensureDesignerCustomerRelationship(user.id, linkedCustomerId);
+    }
+
     return treatment;
   }
 
@@ -598,7 +617,13 @@ export async function createDesignerTreatment(input: CreateDesignerTreatmentInpu
     throw toAppError(error);
   }
 
-  return data as Treatment;
+  const created = data as Treatment;
+
+  if (linkedCustomerId) {
+    await ensureDesignerCustomerRelationship(user.id, linkedCustomerId);
+  }
+
+  return created;
 }
 
 export async function updateTreatment(id: string, updates: TreatmentUpdateInput) {
