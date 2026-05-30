@@ -1,8 +1,8 @@
 {
-  "version": "1.0.4",
-  "buildLabel": "2026-05-27 · QR·본사수익·정산·시뮬·매출차트",
+  "version": "1.0.5",
+  "buildLabel": "2026-05-30 · 카드·PG·예약·매출검색·본사탭",
   "url": "exp://etgwoos-anonymous-8081.exp.direct",
-  "updatedAt": "2026-05-30T17:24:51.912Z",
+  "updatedAt": "2026-05-30T18:46:56.510Z",
   "mode": "tunnel",
   "shareable": true,
   "ngrokPublicUrl": "https://etgwoos-anonymous-8081.exp.direct"

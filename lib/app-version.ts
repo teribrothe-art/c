@@ -9,7 +9,7 @@ export const APP_VERSION = appConfig.expo.version;
 export const APP_BUILD_LABEL =
   (Constants.expoConfig?.extra?.buildLabel as string | undefined)?.trim() ||
   process.env.EXPO_PUBLIC_APP_BUILD_LABEL?.trim() ||
-  '2026-05-27 · QR·본사수익·정산·시뮬·매출차트';
+  '2026-05-30 · 카드·PG·예약·매출검색·본사탭';
 
 export function formatAppVersionLine() {
   return `v${APP_VERSION} · ${APP_BUILD_LABEL}`;
