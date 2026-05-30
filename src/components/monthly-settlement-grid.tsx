@@ -16,8 +16,10 @@ function formatTileAmount(amount: number) {
   return amount.toLocaleString('ko-KR');
 }
 
-function getShortMonthLabel(label: string) {
-  return label.replace(/\s정산.*$/, '');
+function formatTileMonthLabel(monthKey: string) {
+  const [year, month] = monthKey.split('-');
+
+  return `${year}년 ${Number(month)}월`;
 }
 
 export function MonthlySettlementGrid({ items, onPressItem }: MonthlySettlementGridProps) {
@@ -30,7 +32,9 @@ export function MonthlySettlementGrid({ items, onPressItem }: MonthlySettlementG
             accessibilityLabel={`${item.label} ${formatAmount(item.amount)}`}
             onPress={() => onPressItem(item.monthKey)}
             style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}>
-            <Text style={styles.monthLabel}>{getShortMonthLabel(item.label)}</Text>
+            <Text style={styles.monthLabel} numberOfLines={2}>
+              {formatTileMonthLabel(item.monthKey)}
+            </Text>
             <Text style={styles.amount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
               {formatTileAmount(item.amount)}
             </Text>
@@ -72,9 +76,11 @@ const styles = StyleSheet.create({
   },
   monthLabel: {
     color: '#6B6B7B',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
+    lineHeight: 13,
     marginBottom: 4,
+    textAlign: 'center',
   },
   amount: {
     color: '#1A1A2E',

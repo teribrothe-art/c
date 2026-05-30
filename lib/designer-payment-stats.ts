@@ -135,9 +135,14 @@ export type MonthlySettlementTotal = {
   settlementCount: number;
 };
 
+export function formatMonthYearLabel(monthKey: string) {
+  const [year, month] = monthKey.split('-');
+
+  return `${year}년 ${Number(month)}월`;
+}
+
 export function formatMonthSettlementLabel(monthKey: string) {
-  const [, month] = monthKey.split('-');
-  return `${Number(month)}월 정산 총액`;
+  return `${formatMonthYearLabel(monthKey)} 정산 총액`;
 }
 
 function settlementMonthKey(payment: PaymentRecord) {
