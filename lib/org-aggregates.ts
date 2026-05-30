@@ -109,9 +109,11 @@ export async function fetchOrgDashboardSummary(
     scenario?: VirtualSimulationScenario;
     withVirtualSimulation?: boolean;
     storeOrgId?: string;
+    monthKey?: string;
   },
 ): Promise<OrgDashboardSummary> {
-  const monthKey = currentMonthKey();
+  const monthKey = options?.monthKey ?? currentMonthKey();
+  const isCurrentMonth = monthKey === currentMonthKey();
   const storeOrgId = await resolveStoreOrgIdForOrgScope(scope, options?.storeOrgId);
   const roster = getOrgDesignerRoster(scope, storeOrgId);
   const config = await getActiveRevenueSplitConfig();
@@ -132,7 +134,8 @@ export async function fetchOrgDashboardSummary(
     ...settlement,
   };
 
-  const useSimulation = options?.withVirtualSimulation ?? isDemoAuthMode;
+  const useSimulation =
+    isCurrentMonth && (options?.withVirtualSimulation ?? isDemoAuthMode);
 
   if (useSimulation) {
     summary = applyVirtualSimulationToSummary(
