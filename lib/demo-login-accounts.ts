@@ -301,7 +301,7 @@ const STATIC_DEMO_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
   ...ALL_DESIGNER_LOGIN_ACCOUNTS,
 ];
 
-export function getDemoLoginGroupCountLabel(title: DemoLoginGroupKey) {
+export function getDemoLoginGroupCountLabel(title: DemoLoginGroupKey | string) {
   const unit = title === '매장' ? '곳' : title === '본사' ? '계정' : '명';
   let count = 0;
 
@@ -317,6 +317,9 @@ export function getDemoLoginGroupCountLabel(title: DemoLoginGroupKey) {
       break;
     case '가입고객':
       count = DESIGNER_LINKED_CUSTOMER_COUNT;
+      break;
+    default:
+      count = 0;
       break;
   }
 

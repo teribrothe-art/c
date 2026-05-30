@@ -293,7 +293,7 @@ function initialExpandedGroups(
 ): Partial<Record<DemoLoginGroupKey, boolean>> {
   const raw = Array.isArray(groupParam) ? groupParam[0] : groupParam;
 
-  if (!raw || !(DEMO_LOGIN_GROUP_ORDER as readonly string[]).includes(raw)) {
+  if (!raw || raw === '기본' || !(DEMO_LOGIN_GROUP_ORDER as readonly string[]).includes(raw)) {
     return {};
   }
 
