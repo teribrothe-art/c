@@ -1,4 +1,11 @@
 import { isDemoAuthMode } from './auth';
+import {
+  aggregateMonthSettlementForPayments,
+  aggregateMonthSettlementFromPayments,
+  type OrgMonthSettlementTotals,
+} from './org-month-settlement';
+import { getActiveRevenueSplitConfig } from './revenue-split-approval';
+import { calculateRevenueSplit, DEFAULT_REVENUE_SPLIT_CONFIG } from './revenue-split-config';
 import { calculatePaymentFees, listPaymentsForDesignerId, type PaymentRecord } from './payment-record';
 import { listTreatmentsForDesignerId } from './treatments';
 import { getOrgDesignerRoster, type OrgDesignerRosterEntry } from './org-designer-roster';
@@ -15,18 +22,24 @@ import { ORG_STORE_DEFINITIONS } from './org-store-affiliation';
 export type OrgDesignerMetrics = OrgDesignerRosterEntry & {
   treatmentCount: number;
   customerCount: number;
+  /** @deprecated 디자이너 정산액 — monthDesignerPayout 과 동일 */
   monthRevenue: number;
+  monthGrossSales: number;
+  monthHqRevenue: number;
+  monthDesignerPayout: number;
+  monthStoreShare: number;
   monthTreatmentCount: number;
   pendingPayoutAmount: number;
 };
 
-export type OrgDashboardSummary = {
+export type OrgDashboardSummary = OrgMonthSettlementTotals & {
   designerCount: number;
   treatmentCount: number;
   customerCount: number;
-  monthRevenue: number;
   monthTreatmentCount: number;
   pendingPayoutAmount: number;
+  /** @deprecated 디자이너 정산 합 — monthDesignerPayout 과 동일 */
+  monthRevenue: number;
   designers: OrgDesignerMetrics[];
 };
 
@@ -44,26 +57,6 @@ function uniqueCustomerCount(treatments: Treatment[]) {
   }
 
   return ids.size;
-}
-
-function monthRevenueFromPayments(payments: PaymentRecord[], monthKey: string) {
-  let total = 0;
-
-  for (const payment of payments) {
-    if (payment.status !== 'completed') {
-      continue;
-    }
-
-    const date = (payment.settled_at ?? payment.paid_at ?? payment.created_at).slice(0, 7);
-
-    if (date !== monthKey) {
-      continue;
-    }
-
-    total += payment.designer_payout ?? calculatePaymentFees(payment.amount).designerPayout;
-  }
-
-  return total;
 }
 
 function pendingPayoutFromPayments(payments: PaymentRecord[], treatments: Treatment[], monthKey: string) {
@@ -97,12 +90,18 @@ async function metricsForDesigner(
   const monthTreatments = treatments.filter(
     (treatment) => treatment.treatment_date.slice(0, 7) === monthKey,
   );
+  const config = await getActiveRevenueSplitConfig();
+  const settlement = aggregateMonthSettlementFromPayments(payments, monthKey, config);
 
   return {
     ...entry,
     treatmentCount: treatments.length,
     customerCount: uniqueCustomerCount(treatments),
-    monthRevenue: monthRevenueFromPayments(payments, monthKey),
+    monthRevenue: settlement.monthDesignerPayout,
+    monthGrossSales: settlement.monthGrossSales,
+    monthHqRevenue: settlement.monthHqRevenue,
+    monthDesignerPayout: settlement.monthDesignerPayout,
+    monthStoreShare: settlement.monthStoreShare,
     monthTreatmentCount: monthTreatments.length,
     pendingPayoutAmount: pendingPayoutFromPayments(payments, treatments, monthKey),
   };
@@ -121,14 +120,21 @@ export async function fetchOrgDashboardSummary(
   const roster = getOrgDesignerRoster(scope, storeOrgId);
   const designers = await Promise.all(roster.map((entry) => metricsForDesigner(entry, monthKey)));
 
+  const allPayments = (
+    await Promise.all(roster.map((entry) => listPaymentsForDesignerId(entry.id)))
+  ).flat();
+
+  const settlement = await aggregateMonthSettlementForPayments(allPayments, monthKey);
+
   let summary: OrgDashboardSummary = {
     designerCount: designers.length,
     treatmentCount: designers.reduce((sum, item) => sum + item.treatmentCount, 0),
     customerCount: designers.reduce((sum, item) => sum + item.customerCount, 0),
-    monthRevenue: designers.reduce((sum, item) => sum + item.monthRevenue, 0),
     monthTreatmentCount: designers.reduce((sum, item) => sum + item.monthTreatmentCount, 0),
     pendingPayoutAmount: designers.reduce((sum, item) => sum + item.pendingPayoutAmount, 0),
+    monthRevenue: settlement.monthDesignerPayout,
     designers,
+    ...settlement,
   };
 
   const useSimulation = options?.withVirtualSimulation ?? isDemoAuthMode;
@@ -151,6 +157,8 @@ export type OrgDesignerStoreGroup = {
   customerCount: number;
   treatmentCount: number;
   monthTreatmentCount: number;
+  monthGrossSales: number;
+  monthHqRevenue: number;
   monthRevenue: number;
 };
 
@@ -165,7 +173,9 @@ export function groupOrgDesignersByStore(designers: OrgDesignerMetrics[]): OrgDe
       current.customerCount += designer.customerCount;
       current.treatmentCount += designer.treatmentCount;
       current.monthTreatmentCount += designer.monthTreatmentCount;
-      current.monthRevenue += designer.monthRevenue;
+      current.monthGrossSales += designer.monthGrossSales;
+      current.monthHqRevenue += designer.monthHqRevenue;
+      current.monthRevenue += designer.monthDesignerPayout;
       continue;
     }
 
@@ -177,7 +187,9 @@ export function groupOrgDesignersByStore(designers: OrgDesignerMetrics[]): OrgDe
       customerCount: designer.customerCount,
       treatmentCount: designer.treatmentCount,
       monthTreatmentCount: designer.monthTreatmentCount,
-      monthRevenue: designer.monthRevenue,
+      monthGrossSales: designer.monthGrossSales,
+      monthHqRevenue: designer.monthHqRevenue,
+      monthRevenue: designer.monthDesignerPayout,
     });
   }
 

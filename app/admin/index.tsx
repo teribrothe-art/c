@@ -14,6 +14,7 @@ import { colors } from '../../lib/theme';
 import { OrgDashboardStatGrid } from '../../src/components/org-dashboard-stat-grid';
 import { LoadingState } from '../../src/components/loading-state';
 import { AdminBottomTabBar } from '../../src/components/admin-bottom-tab-bar';
+import { HqRevenueSummaryCard } from '../../src/components/hq-revenue-summary-card';
 import { RevenueSplitStructureCard } from '../../src/components/revenue-split-structure-card';
 import { VirtualSimulationBanner } from '../../src/components/virtual-simulation-banner';
 
@@ -67,15 +68,24 @@ export default function AdminHomeScreen() {
           <Text style={styles.errorText}>{errorMessage}</Text>
         ) : summary ? (
           <>
-            <RevenueSplitStructureCard sampleGrossAmount={summary.monthRevenue || 100_000} />
+            <RevenueSplitStructureCard sampleGrossAmount={summary.monthGrossSales || 100_000} />
+            <HqRevenueSummaryCard totals={summary} />
 
             <OrgDashboardStatGrid
               items={[
                 {
-                  key: 'designers',
-                  label: '연결 디자이너',
-                  value: String(summary.designerCount),
-                  onPress: () => router.push('/admin/designers'),
+                  key: 'gross',
+                  label: '이번 달 매출',
+                  value: formatAmount(summary.monthGrossSales),
+                  meta: '시술 결제 총액',
+                  onPress: () => router.push('/admin/revenue' as Href),
+                },
+                {
+                  key: 'hq-revenue',
+                  label: '본사 수익',
+                  value: formatAmount(summary.monthHqRevenue),
+                  meta: `수익률 ${summary.hqYieldRate}%`,
+                  onPress: () => router.push('/admin/revenue-split'),
                 },
                 {
                   key: 'treatments',
@@ -84,16 +94,10 @@ export default function AdminHomeScreen() {
                   onPress: () => router.push('/admin/customers'),
                 },
                 {
-                  key: 'revenue',
-                  label: '이번 달 매출',
-                  value: formatAmount(summary.monthRevenue),
-                  onPress: () => router.push('/admin/revenue' as Href),
-                },
-                {
-                  key: 'customers',
-                  label: '전체 고객',
-                  value: String(summary.customerCount),
-                  onPress: () => router.push('/admin/customers'),
+                  key: 'designers',
+                  label: '연결 디자이너',
+                  value: String(summary.designerCount),
+                  onPress: () => router.push('/admin/designers'),
                 },
               ]}
             />
@@ -107,7 +111,8 @@ export default function AdminHomeScreen() {
                   <Text style={styles.virtualStoreName}>{store.name}</Text>
                   <Text style={styles.virtualStoreMeta}>
                     {store.region} · 디자이너 {store.designerCount}명 · 매출{' '}
-                    {formatAmount(store.monthRevenue)}
+                    {formatAmount(store.monthGrossSales)} · 본사{' '}
+                    {formatAmount(store.monthHqRevenue)}
                   </Text>
                   <Text style={styles.virtualStoreHotPlace}>{store.hotPlace}</Text>
                   <Text style={styles.virtualStoreDesigners} numberOfLines={1}>
@@ -146,7 +151,7 @@ export default function AdminHomeScreen() {
 
             <Text style={styles.sectionTitle}>매출 상위 디자이너</Text>
             {[...summary.designers]
-              .sort((a, b) => b.monthRevenue - a.monthRevenue)
+              .sort((a, b) => b.monthGrossSales - a.monthGrossSales)
               .slice(0, 5)
               .map((designer) => (
                 <Pressable
@@ -160,7 +165,7 @@ export default function AdminHomeScreen() {
                     </Text>
                   </View>
                   <Text style={styles.menuAmount}>
-                    {formatAmount(designer.monthRevenue)}
+                    {formatAmount(designer.monthGrossSales)}
                   </Text>
                 </Pressable>
               ))}

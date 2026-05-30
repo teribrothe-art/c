@@ -116,7 +116,8 @@ export function OrgSimulationScreen({ scope }: Props) {
                   {storeEntity.region} · {storeEntity.hotPlace}
                 </Text>
                 <Text style={styles.storeStats}>
-                  이번 달 매출 {formatAmount(summary.monthRevenue)} · 시술{' '}
+                  이번 달 매출 {formatAmount(summary.monthGrossSales)} · 본사{' '}
+                  {formatAmount(summary.monthHqRevenue)} · 시술{' '}
                   {summary.monthTreatmentCount}건
                 </Text>
               </View>
@@ -148,7 +149,8 @@ export function OrgSimulationScreen({ scope }: Props) {
                         {store.hotPlace} · 디자이너 {store.designerCount}명
                       </Text>
                       <Text style={styles.storeStats}>
-                        매출 {formatAmount(store.monthRevenue)} · 고객{' '}
+                        매출 {formatAmount(store.monthGrossSales)} · 본사{' '}
+                        {formatAmount(store.monthHqRevenue)} · 고객{' '}
                         {store.customerCount}명 · 정산대기{' '}
                         {formatAmount(store.pendingPayoutAmount)}
                       </Text>
@@ -167,7 +169,7 @@ export function OrgSimulationScreen({ scope }: Props) {
                 <Text style={styles.designerName}>{designer.name}</Text>
                 <Text style={styles.designerMeta}>
                   {designer.storeName} · 시술 {designer.monthTreatmentCount}건 · 매출{' '}
-                  {formatAmount(designer.monthRevenue)}
+                  {formatAmount(designer.monthGrossSales)}
                 </Text>
               </View>
             ))}

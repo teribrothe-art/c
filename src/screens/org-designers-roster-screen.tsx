@@ -36,7 +36,8 @@ function StoreGroupCard({
       <Text style={styles.storeRegion}>{group.storeRegion}</Text>
       <Text style={styles.storeStats}>
         디자이너 {group.designers.length}명 · 고객 {group.customerCount}명 · 이번 달 시술{' '}
-        {group.monthTreatmentCount}건 · 매출 {formatAmount(group.monthRevenue)}
+        {group.monthTreatmentCount}건 · 매출 {formatAmount(group.monthGrossSales)} · 본사{' '}
+        {formatAmount(group.monthHqRevenue)}
       </Text>
       <Text style={styles.storeTapHint}>탭하여 소속 디자이너 보기 →</Text>
     </Pressable>
@@ -147,7 +148,8 @@ export function OrgDesignersRosterScreen() {
               <Text style={styles.storeStats}>
                 디자이너 {selectedGroup.designers.length}명 · 고객 {selectedGroup.customerCount}명 · 이번
                 달 시술 {selectedGroup.monthTreatmentCount}건 · 매출{' '}
-                {formatAmount(selectedGroup.monthRevenue)}
+                {formatAmount(selectedGroup.monthGrossSales)} · 본사{' '}
+                {formatAmount(selectedGroup.monthHqRevenue)}
               </Text>
             </View>
             <View style={styles.designerList}>

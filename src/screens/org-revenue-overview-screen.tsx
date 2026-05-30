@@ -10,6 +10,7 @@ import type { VirtualSimulationScenario } from '../../lib/org-virtual-simulation
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
+import { HqRevenueSummaryCard } from '../components/hq-revenue-summary-card';
 import { VirtualSimulationBanner } from '../components/virtual-simulation-banner';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
@@ -60,7 +61,11 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
         ]}
         showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>{scope === 'store' ? '매장 매출' : '본사 매출'}</Text>
-        <Text style={styles.subtitle}>디자이너 매출·정산 화면과 동일 데이터를 합산합니다.</Text>
+        <Text style={styles.subtitle}>
+          {scope === 'admin'
+            ? '총 매출과 수수료 구조에 따른 본사·디자이너·매장 분배를 함께 봅니다.'
+            : '디자이너 매출·정산 화면과 동일 데이터를 합산합니다.'}
+        </Text>
 
         <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
 
@@ -70,14 +75,21 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
           <EmptyState title="불러오기 실패" subtitle={errorMessage} />
         ) : summary ? (
           <>
+            {scope === 'admin' ? <HqRevenueSummaryCard totals={summary} /> : null}
+
             <View style={styles.grid}>
-              <StatCard label="이번 달 매출" value={formatAmount(summary.monthRevenue)} />
+              <StatCard
+                label={scope === 'admin' ? '이번 달 매출' : '이번 달 정산'}
+                value={formatAmount(scope === 'admin' ? summary.monthGrossSales : summary.monthDesignerPayout)}
+              />
+              {scope === 'admin' ? (
+                <StatCard label="본사 수익" value={formatAmount(summary.monthHqRevenue)} />
+              ) : null}
               <StatCard
                 label="이번 달 시술"
                 value={`${summary.monthTreatmentCount.toLocaleString('ko-KR')}건`}
               />
               <StatCard label="정산 대기" value={formatAmount(summary.pendingPayoutAmount)} />
-              <StatCard label="연결 고객" value={`${summary.customerCount.toLocaleString('ko-KR')}명`} />
             </View>
 
             <Text style={styles.sectionTitle}>디자이너별 매출</Text>
@@ -95,7 +107,7 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
                 </View>
                 <View style={styles.rowStats}>
                   <Text style={styles.rowAmount}>
-                    {formatAmount(designer.monthRevenue)}
+                    {formatAmount(scope === 'admin' ? designer.monthGrossSales : designer.monthDesignerPayout)}
                   </Text>
                   <Text style={styles.rowSub}>
                     시술 {designer.monthTreatmentCount}건 · 고객 {designer.customerCount}명

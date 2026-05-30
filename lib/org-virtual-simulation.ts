@@ -1,5 +1,6 @@
 import type { OrgScope } from './org-access';
 import type { OrgDashboardSummary, OrgDesignerMetrics } from './org-aggregates';
+import { calculateRevenueSplit, DEFAULT_REVENUE_SPLIT_CONFIG } from './revenue-split-config';
 import { getOrgDesignerRoster, type OrgDesignerRosterEntry } from './org-designer-roster';
 import {
   ORG_STORE_DEFINITIONS,
@@ -70,14 +71,19 @@ function virtualBaselineForDesigner(
 
   const treatmentCount = Math.round((48 + (hash % 72)) * mult.treatments);
   const customerCount = Math.round((18 + (hash % 22)) * mult.customers);
-  const monthRevenue = Math.round((2_800_000 + (hash % 9) * 420_000) * mult.revenue);
+  const monthGrossSales = Math.round((3_200_000 + (hash % 9) * 480_000) * mult.revenue);
+  const split = calculateRevenueSplit(monthGrossSales, DEFAULT_REVENUE_SPLIT_CONFIG);
   const monthTreatmentCount = Math.round((12 + (hash % 18)) * mult.treatments);
   const pendingPayoutAmount = Math.round((180_000 + (hash % 7) * 95_000) * mult.pending);
 
   return {
     treatmentCount,
     customerCount,
-    monthRevenue,
+    monthGrossSales,
+    monthHqRevenue: split.hqFeeAmount,
+    monthDesignerPayout: split.designerPayout,
+    monthStoreShare: split.storePayout,
+    monthRevenue: split.designerPayout,
     monthTreatmentCount,
     pendingPayoutAmount,
   };
@@ -89,11 +95,18 @@ function mergeDesignerMetrics(
 ): OrgDesignerMetrics {
   const virtual = virtualBaselineForDesigner(real, scenario);
 
+  const monthGrossSales = Math.max(real.monthGrossSales, virtual.monthGrossSales);
+  const split = calculateRevenueSplit(monthGrossSales, DEFAULT_REVENUE_SPLIT_CONFIG);
+
   return {
     ...real,
     treatmentCount: Math.max(real.treatmentCount, virtual.treatmentCount),
     customerCount: Math.max(real.customerCount, virtual.customerCount),
-    monthRevenue: Math.max(real.monthRevenue, virtual.monthRevenue),
+    monthGrossSales,
+    monthHqRevenue: split.hqFeeAmount,
+    monthDesignerPayout: split.designerPayout,
+    monthStoreShare: split.storePayout,
+    monthRevenue: split.designerPayout,
     monthTreatmentCount: Math.max(real.monthTreatmentCount, virtual.monthTreatmentCount),
     pendingPayoutAmount: Math.max(real.pendingPayoutAmount, virtual.pendingPayoutAmount),
     subtitle: real.subtitle ? `${real.subtitle} · 가상 연동` : '가상 시뮬레이션',
@@ -106,19 +119,38 @@ export function applyVirtualSimulationToSummary(
 ): OrgDashboardSummary {
   const designers = summary.designers.map((designer) => mergeDesignerMetrics(designer, scenario));
 
+  const monthGrossSales = designers.reduce((sum, item) => sum + item.monthGrossSales, 0);
+  const monthHqRevenue = designers.reduce((sum, item) => sum + item.monthHqRevenue, 0);
+  const monthDesignerPayout = designers.reduce((sum, item) => sum + item.monthDesignerPayout, 0);
+  const monthStoreShare = designers.reduce((sum, item) => sum + item.monthStoreShare, 0);
+  const hqYieldRate =
+    monthGrossSales > 0 ? Math.round((monthHqRevenue / monthGrossSales) * 1000) / 10 : 0;
+
   return {
     designerCount: designers.length,
     treatmentCount: designers.reduce((sum, item) => sum + item.treatmentCount, 0),
     customerCount: designers.reduce((sum, item) => sum + item.customerCount, 0),
-    monthRevenue: designers.reduce((sum, item) => sum + item.monthRevenue, 0),
+    monthGrossSales,
+    monthCardFee: designers.reduce(
+      (sum, item) => sum + Math.round((item.monthGrossSales * DEFAULT_REVENUE_SPLIT_CONFIG.cardFeePercent) / 100),
+      0,
+    ),
+    monthHqRevenue,
+    monthDesignerPayout,
+    monthStoreShare,
+    hqYieldRate,
+    configuredHqRate: summary.configuredHqRate,
     monthTreatmentCount: designers.reduce((sum, item) => sum + item.monthTreatmentCount, 0),
     pendingPayoutAmount: designers.reduce((sum, item) => sum + item.pendingPayoutAmount, 0),
+    monthRevenue: monthDesignerPayout,
     designers,
   };
 }
 
 export type VirtualStoreSummary = VirtualStore & {
   designerCount: number;
+  monthGrossSales: number;
+  monthHqRevenue: number;
   monthRevenue: number;
   monthTreatmentCount: number;
   customerCount: number;
@@ -136,7 +168,9 @@ export function buildVirtualStoreSummaries(summary: OrgDashboardSummary): Virtua
     return {
       ...store,
       designerCount: designers.length,
-      monthRevenue: designers.reduce((sum, item) => sum + item.monthRevenue, 0),
+      monthGrossSales: designers.reduce((sum, item) => sum + item.monthGrossSales, 0),
+      monthHqRevenue: designers.reduce((sum, item) => sum + item.monthHqRevenue, 0),
+      monthRevenue: designers.reduce((sum, item) => sum + item.monthDesignerPayout, 0),
       monthTreatmentCount: designers.reduce((sum, item) => sum + item.monthTreatmentCount, 0),
       customerCount: designers.reduce((sum, item) => sum + item.customerCount, 0),
       pendingPayoutAmount: designers.reduce((sum, item) => sum + item.pendingPayoutAmount, 0),
@@ -178,13 +212,28 @@ export function filterSummaryForStoreScope(
   const allowed = new Set(store?.designerIds ?? []);
   const designers = summary.designers.filter((designer) => allowed.has(designer.id));
 
+  const monthGrossSales = designers.reduce((sum, item) => sum + item.monthGrossSales, 0);
+  const monthHqRevenue = designers.reduce((sum, item) => sum + item.monthHqRevenue, 0);
+  const hqYieldRate =
+    monthGrossSales > 0 ? Math.round((monthHqRevenue / monthGrossSales) * 1000) / 10 : 0;
+
   return {
     designerCount: designers.length,
     treatmentCount: designers.reduce((sum, item) => sum + item.treatmentCount, 0),
     customerCount: designers.reduce((sum, item) => sum + item.customerCount, 0),
-    monthRevenue: designers.reduce((sum, item) => sum + item.monthRevenue, 0),
+    monthGrossSales,
+    monthCardFee: designers.reduce(
+      (sum, item) => sum + Math.round((item.monthGrossSales * DEFAULT_REVENUE_SPLIT_CONFIG.cardFeePercent) / 100),
+      0,
+    ),
+    monthHqRevenue,
+    monthDesignerPayout: designers.reduce((sum, item) => sum + item.monthDesignerPayout, 0),
+    monthStoreShare: designers.reduce((sum, item) => sum + item.monthStoreShare, 0),
+    hqYieldRate,
+    configuredHqRate: summary.configuredHqRate,
     monthTreatmentCount: designers.reduce((sum, item) => sum + item.monthTreatmentCount, 0),
     pendingPayoutAmount: designers.reduce((sum, item) => sum + item.pendingPayoutAmount, 0),
+    monthRevenue: designers.reduce((sum, item) => sum + item.monthDesignerPayout, 0),
     designers,
   };
 }
