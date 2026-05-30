@@ -19,7 +19,7 @@ export function WonAmountInput({
       {...rest}
       keyboardType="number-pad"
       placeholder={placeholder}
-      placeholderTextColor="#9CA3AF"
+      placeholderTextColor="#4B5563"
       style={[styles.input, style]}
       value={formatWonDisplay(value)}
       onChangeText={(text) => onChangeValue(sanitizeWonDigits(text))}
@@ -29,12 +29,14 @@ export function WonAmountInput({
 
 const styles = StyleSheet.create({
   input: {
-    borderColor: '#E8E8F0',
+    backgroundColor: '#F5F5F8',
+    borderColor: '#D1D5DB',
     borderRadius: 12,
     borderWidth: 1,
     color: '#1A1A2E',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
+    minHeight: 50,
     paddingHorizontal: 14,
     paddingVertical: 12,
     width: '100%',
