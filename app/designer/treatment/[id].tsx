@@ -1029,14 +1029,9 @@ export default function DesignerTreatmentInputScreen() {
             <View style={styles.damageCard}>
               <Text style={styles.damageTitle}>손상도 기록</Text>
               <Text style={styles.damageHint}>
-                직접 1~10을 선택하거나, 시술 내용을 바탕으로 AI가 자동 분석할 수 있어요.
-              </Text>
-              <Text style={styles.damageValue}>
                 {isAnalyzingDamage
-                  ? 'AI 분석 중…'
-                  : typeof treatment.damage_level === 'number'
-                    ? `${treatment.damage_level} / 10`
-                    : '미선택'}
+                  ? 'AI가 시술 내용을 분석하고 있어요. 잠시만 기다려 주세요.'
+                  : '직접 1~10을 선택하거나, 시술 내용을 바탕으로 AI가 자동 분석할 수 있어요.'}
               </Text>
               <DamageLevelPicker
                 disabled={isSaving || isAnalyzingDamage}
@@ -1420,12 +1415,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     lineHeight: 18,
-  },
-  damageValue: {
-    color: '#00C2A8',
-    fontSize: 28,
-    fontWeight: '900',
-    marginTop: 4,
   },
   damageActionRow: {
     flexDirection: 'row',
