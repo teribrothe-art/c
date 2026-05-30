@@ -14,6 +14,7 @@ import {
   reapplyAccumulatedTreatmentPatchesInStore,
 } from './demo-accumulated-treatment-patches';
 import { SEO_JUNGHYUN_DEMO_TREATMENTS } from './demo-customer-seo-junghyun';
+import { BETA_DEMO_TREATMENTS } from './beta-demo-treatments';
 import { toAppError } from './errors';
 import type { PaymentStatus } from './payment-status';
 import { filterTreatmentsForCustomerUser, sortTreatmentsForDiaryList } from './diary-list';
@@ -244,6 +245,7 @@ const INITIAL_DEMO_TREATMENTS: Treatment[] = [
     feedback_completed: true,
   },
   ...SEO_JUNGHYUN_DEMO_TREATMENTS,
+  ...BETA_DEMO_TREATMENTS,
 ];
 
 const demoTreatments: Treatment[] = INITIAL_DEMO_TREATMENTS.map((item) => ({ ...item }));

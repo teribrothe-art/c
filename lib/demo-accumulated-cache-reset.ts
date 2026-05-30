@@ -2,6 +2,7 @@ import { clearAccumulatedDemoHydrateCache } from './demo-accumulated-demo-hydrat
 import { stripAccumulatedRelationshipsFromStorage } from './demo-accumulated-relationships';
 import { clearAccumulatedTestProfilesCache } from './demo-accumulated-test-seeds';
 import { clearAccumulatedTreatmentPatchesStorage } from './demo-accumulated-treatment-patches';
+import { clearDemoDesignerCustomerCountCache } from './demo-designer-customer-counts';
 import { purgeAccumulatedFromDemoPaymentStore } from './payment-record';
 import { purgeAccumulatedFromDemoTreatmentStore } from './treatments';
 
@@ -23,6 +24,7 @@ export async function clearAccumulatedDemoCache(): Promise<ClearAccumulatedDemoC
 
   clearAccumulatedTestProfilesCache();
   clearAccumulatedDemoHydrateCache();
+  clearDemoDesignerCustomerCountCache();
 
   return {
     removedTreatments,

@@ -15,6 +15,62 @@ export function formatSettlementBadgeAmount(payout: number) {
   return `${payout.toLocaleString('ko-KR')}원`;
 }
 
+/** 고객별 그리드·집계용 키 (customer_id 우선, 없으면 이름) */
+export function getDesignerClientGroupKey(item: DesignerClientListItem) {
+  const customerId = item.treatment?.customer_id?.trim();
+
+  if (customerId) {
+    return `id:${customerId}`;
+  }
+
+  return `name:${item.customerName.trim().toLowerCase()}`;
+}
+
+export type GroupedDesignerClient = {
+  groupKey: string;
+  latest: DesignerClientListItem;
+  visitCount: number;
+};
+
+type GroupDesignerClientsOptions = {
+  /** 매장·본사 등 디자이너 구분이 필요할 때 접두사 (예: designerId) */
+  groupKeyPrefix?: (item: DesignerClientListItem) => string;
+};
+
+/** 시술 건별 목록 → 고객별 1행 (최근 시술 기준) */
+export function groupDesignerClientsByCustomer(
+  items: DesignerClientListItem[],
+  options?: GroupDesignerClientsOptions,
+): GroupedDesignerClient[] {
+  const buckets = new Map<string, DesignerClientListItem[]>();
+
+  for (const item of items) {
+    const prefix = options?.groupKeyPrefix?.(item) ?? '';
+    const key = `${prefix}${getDesignerClientGroupKey(item)}`;
+    const bucket = buckets.get(key);
+
+    if (bucket) {
+      bucket.push(item);
+    } else {
+      buckets.set(key, [item]);
+    }
+  }
+
+  const groups: GroupedDesignerClient[] = [];
+
+  for (const [groupKey, bucket] of buckets) {
+    const sorted = [...bucket].sort((a, b) => b.treatmentDate.localeCompare(a.treatmentDate));
+
+    groups.push({
+      groupKey,
+      latest: sorted[0],
+      visitCount: sorted.length,
+    });
+  }
+
+  return groups.sort((a, b) => b.latest.treatmentDate.localeCompare(a.latest.treatmentDate));
+}
+
 export function getDesignerClientStatusBadge(item: DesignerClientListItem) {
   if (!item.isRegistered) {
     if (item.inviteStatus === 'pending') {
@@ -49,14 +105,28 @@ export function getDesignerClientStatusBadge(item: DesignerClientListItem) {
   return '미결제';
 }
 
+export function mapGroupedDesignerClientsToGridItems(
+  groups: GroupedDesignerClient[],
+): CustomerGridItem[] {
+  return groups.map(({ groupKey, latest, visitCount }) => {
+    const typeLabel = latest.treatment?.treatment_type ?? '시술';
+    const dateLabel = formatTreatmentDisplayDate(latest.treatmentDate);
+    const meta =
+      visitCount > 1 ? `${dateLabel} · ${typeLabel} · 시술 ${visitCount}건` : `${dateLabel} · ${typeLabel}`;
+
+    return {
+      key: groupKey,
+      name: latest.customerName,
+      subtitle: latest.treatmentTitle,
+      meta,
+      badge: getDesignerClientStatusBadge(latest),
+    };
+  });
+}
+
+/** 고객별로 묶어 4열 그리드용 아이템 생성 */
 export function mapDesignerClientsToGridItems(items: DesignerClientListItem[]): CustomerGridItem[] {
-  return items.map((item) => ({
-    key: item.key,
-    name: item.customerName,
-    subtitle: item.treatmentTitle,
-    meta: `${formatTreatmentDisplayDate(item.treatmentDate)} · ${item.treatment?.treatment_type ?? '시술'}`,
-    badge: getDesignerClientStatusBadge(item),
-  }));
+  return mapGroupedDesignerClientsToGridItems(groupDesignerClientsByCustomer(items));
 }
 
 export function mapSettlementsToGridItems(items: SettlementListItem[]): CustomerGridItem[] {

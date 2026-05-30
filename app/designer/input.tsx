@@ -27,7 +27,10 @@ import { parseWonAmount } from '../../lib/currency-input';
 import { createDesignerTreatment } from '../../lib/treatments';
 import type { DesignerClientListItem } from '../../lib/customer-invitations';
 import { getDesignerClientListItems } from '../../lib/customer-invitations';
-import { mapDesignerClientsToGridItems } from '../../lib/designer-customer-grid';
+import {
+  groupDesignerClientsByCustomer,
+  mapDesignerClientsToGridItems,
+} from '../../lib/designer-customer-grid';
 import { CustomerGrid } from '../../src/components/customer-grid';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
 import { TreatmentOptionChips } from '../../src/components/treatment-option-chips';
@@ -52,17 +55,22 @@ export default function DesignerInputScreen() {
     }, []),
   );
 
+  const groupedClients = useMemo(
+    () => groupDesignerClientsByCustomer(clientItems),
+    [clientItems],
+  );
+
   const gridItems = useMemo(() => mapDesignerClientsToGridItems(clientItems), [clientItems]);
 
   const handleGridPress = useCallback(
     (key: string) => {
-      const item = clientItems.find((row) => row.key === key);
+      const group = groupedClients.find((row) => row.groupKey === key);
 
-      if (item) {
-        router.push(`/designer/treatment/${item.treatmentId}`);
+      if (group) {
+        router.push(`/designer/treatment/${group.latest.treatmentId}`);
       }
     },
-    [clientItems],
+    [groupedClients],
   );
 
   const openCreateModal = (type: string) => {

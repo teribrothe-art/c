@@ -375,11 +375,26 @@ export function buildVisitCycleAccumulatedSeedProfile(
     dayIndex += 1;
   }
 
+  for (const state of states) {
+    if (state.visitCount > 0) {
+      continue;
+    }
+
+    const fallbackDate = formatDate(
+      addDays(seedStartDate, (state.customerIndex % 240) + 1),
+    );
+    appendVisit(config, fallbackDate, state, treatmentSeq, 0, treatments, payments);
+    treatmentSeq += 1;
+  }
+
   treatments.sort((a, b) => b.treatment_date.localeCompare(a.treatment_date));
 
   const regularCount = states.filter((state) => state.isRegular).length;
   const dailyLabel = `일 ${config.dailyMin}~${config.dailyMax}명 · 단골 ${regularCount}명 · 재방문 주기 반영`;
   const workloadStats = computeSeedWorkloadStats(treatments, dailyLabel);
+  const activeCustomerCount = new Set(
+    treatments.map((treatment) => treatment.customer_id).filter(Boolean),
+  ).size;
 
   return {
     ...config,
@@ -389,7 +404,7 @@ export function buildVisitCycleAccumulatedSeedProfile(
       profileKey: config.key,
       designerId: config.designer.id,
       designerName: config.designer.name ?? '디자이너',
-      customerCount: config.customers.length,
+      customerCount: activeCustomerCount,
       treatmentCount: treatments.length,
       paymentCount: payments.length,
       seedStartDate: formatDate(seedStartDate),
