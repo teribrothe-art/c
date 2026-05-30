@@ -126,10 +126,10 @@ export default function AdminHomeScreen() {
             })}
 
             <View style={styles.quickRow}>
-              <Link href={'/admin/simulation' as Href} asChild>
+              <Link href={'/admin/reservations' as Href} asChild>
                 <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
-                  <Text style={styles.quickTitle}>시뮬</Text>
-                  <Text style={styles.quickMeta}>시나리오 전환</Text>
+                  <Text style={styles.quickTitle}>예약</Text>
+                  <Text style={styles.quickMeta}>가입 고객 시술·예약 현황</Text>
                 </Pressable>
               </Link>
               <Link href="/admin/designers" asChild>
