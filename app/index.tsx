@@ -18,6 +18,7 @@ import { signInAndNavigate } from '../lib/quick-login-flow';
 import { colors, disabledButtonStyle, loginLayout } from '../lib/theme';
 import { validateEmail } from '../lib/validation';
 import { AppVersionBadge } from '../src/components/app-version-badge';
+import { ConnectQrPanel } from '../src/components/connect-qr-panel';
 import { InlineFieldError } from '../src/components/inline-field-error';
 import { LoginHeadlines } from '../src/components/login-headlines';
 
@@ -152,15 +153,11 @@ export default function LoginScreen() {
                     <Text style={styles.footerLinkText}>테스트 계정</Text>
                   </Pressable>
                 </Link>
-                <Text style={styles.footerDivider}>·</Text>
-                <Link href="/connect-share" asChild>
-                  <Pressable disabled={isLoading} style={styles.footerLink}>
-                    <Text style={styles.footerLinkText}>접속 주소 공유</Text>
-                  </Pressable>
-                </Link>
               </>
             ) : null}
           </View>
+
+          {isDemoAuthMode ? <ConnectQrPanel compact /> : null}
 
           <AppVersionBadge pinned />
         </View>
