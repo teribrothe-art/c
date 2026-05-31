@@ -34,12 +34,13 @@ export function readExpoConnectManifest(projectRoot) {
   }
 }
 
-export function writeExpoConnectManifest(projectRoot, { url, mode, shareable = null, ngrokPublicUrl = null }) {
+export function writeExpoConnectManifest(projectRoot, { url, mode, shareable = null, ngrokPublicUrl = null, webUrl = null }) {
   const { version, buildLabel } = readAppVersionMeta(projectRoot);
   const manifest = {
     version,
     buildLabel,
     url: url?.trim() || null,
+    webUrl: webUrl?.trim() || null,
     updatedAt: new Date().toISOString(),
     mode: mode ?? null,
     shareable,
