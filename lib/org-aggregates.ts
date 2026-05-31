@@ -1,4 +1,3 @@
-import { isDemoAuthMode } from './auth';
 import { settlementTotalsFromGross, type OrgMonthSettlementTotals } from './org-month-settlement';
 import { resolveDesignerMonthSettlement } from './org-designer-month-metrics';
 import { getActiveRevenueSplitConfig } from './revenue-split-approval';
@@ -85,7 +84,9 @@ async function metricsForDesigner(
   config: Awaited<ReturnType<typeof getActiveRevenueSplitConfig>>,
 ): Promise<OrgDesignerMetrics> {
   if (isNationwideDesignerId(entry.id)) {
-    return computeNationwideDesignerMetrics(entry, config);
+    const referenceDate =
+      monthKey === currentMonthKey() ? new Date() : new Date(`${monthKey}-28T12:00:00`);
+    return computeNationwideDesignerMetrics(entry, config, referenceDate);
   }
 
   const treatments = await listTreatmentsForDesignerId(entry.id);
@@ -115,9 +116,10 @@ export async function fetchOrgDashboardSummary(
     scenario?: VirtualSimulationScenario;
     withVirtualSimulation?: boolean;
     storeOrgId?: string;
+    monthKey?: string;
   },
 ): Promise<OrgDashboardSummary> {
-  const monthKey = currentMonthKey();
+  const monthKey = options?.monthKey ?? currentMonthKey();
   const storeOrgId = await resolveStoreOrgIdForOrgScope(scope, options?.storeOrgId);
   const roster = getOrgDesignerRoster(scope, storeOrgId);
   const config = await getActiveRevenueSplitConfig();
