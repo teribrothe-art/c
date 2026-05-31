@@ -7,6 +7,7 @@
 import {
   NATIONWIDE_DESIGNER_COUNT,
   NATIONWIDE_DESIGNER_DEFINITIONS,
+  NATIONWIDE_REGISTERED_CUSTOMER_TOTAL,
   NATIONWIDE_STORE_COUNT,
   NATIONWIDE_STORE_DEFINITIONS,
 } from '../lib/nationwide-org-catalog.ts';
@@ -25,14 +26,19 @@ function run() {
 
   const yearCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
 
+  let totalRegisteredCustomers = 0;
+
   for (const designer of NATIONWIDE_DESIGNER_DEFINITIONS) {
     yearCounts[designer.historyYears] += 1;
     assert(designer.dailyMin === 3 && designer.dailyMax === 7, `${designer.designer.id} 일일 3~7`);
-    assert(
-      designer.customers.length >= 60,
-      `${designer.designer.id} 가입고객 ${designer.customers.length} (최소 60)`,
-    );
+    assert(designer.customers.length >= 1, `${designer.designer.id} 가입고객 ${designer.customers.length}`);
+    totalRegisteredCustomers += designer.customers.length;
   }
+
+  assert(
+    totalRegisteredCustomers === NATIONWIDE_REGISTERED_CUSTOMER_TOTAL,
+    `가입고객 총 ${totalRegisteredCustomers} (목표 ${NATIONWIDE_REGISTERED_CUSTOMER_TOTAL})`,
+  );
 
   const avgCustomersByYear = { 1: 0, 2: 0, 3: 0, 4: 0 };
 
@@ -100,7 +106,7 @@ function run() {
 
   console.log('verify-nationwide-org-catalog: OK');
   console.log(
-    `  매장 ${NATIONWIDE_STORE_COUNT}곳 · 디자이너 ${NATIONWIDE_DESIGNER_COUNT}명 · 연차 ${JSON.stringify(yearCounts)}`,
+    `  매장 ${NATIONWIDE_STORE_COUNT}곳 · 디자이너 ${NATIONWIDE_DESIGNER_COUNT}명 · 가입고객 ${totalRegisteredCustomers.toLocaleString('ko-KR')}명 · 연차 ${JSON.stringify(yearCounts)}`,
   );
 }
 

@@ -7,6 +7,7 @@ import {
 import {
   NATIONWIDE_DESIGNER_COUNT,
   NATIONWIDE_DESIGNERS_PUBLIC,
+  NATIONWIDE_REGISTERED_CUSTOMER_TOTAL,
 } from './nationwide-org-catalog';
 import {
   DESIGNER_LINKED_CUSTOMER_COUNT,
@@ -40,7 +41,7 @@ export const DEMO_LOGIN_GROUP_DESCRIPTIONS: Record<DemoLoginGroupKey, string> = 
   본사: '본사 어드민 · 전체 매장·디자이너·매출 조회',
   매장: '전국 플랜비 매장 — 검색 후 로그인',
   디자이너: `데모 · 베타 · 누적 · 전국 ${NATIONWIDE_DESIGNER_COUNT.toLocaleString('ko-KR')}명 — ${DESIGNER_APP_TAB_LABELS} · 검색 후 로그인`,
-  가입고객: '디자이너 연동 고객 전체(데모·베타·누적·전국) — 펼친 뒤 검색',
+  가입고객: `디자이너 연동 고객 전체(데모·베타·누적·전국 ${NATIONWIDE_REGISTERED_CUSTOMER_TOTAL.toLocaleString('ko-KR')}명) — 펼친 뒤 검색`,
 };
 
 /** 탭하면 계정 목록을 펼치는 그룹 */

@@ -169,6 +169,7 @@ export const ACCUMULATED_TEST_PROFILE_CONFIGS: AccumulatedSeedProfileConfig[] = 
     treatmentIdPrefix: 'accum1y-treatment-',
     paymentIdPrefix: 'accum1y-payment-',
     visitCycleMode: true,
+    priceRegion: '서울 성동',
   },
   {
     key: '2y',
@@ -180,6 +181,7 @@ export const ACCUMULATED_TEST_PROFILE_CONFIGS: AccumulatedSeedProfileConfig[] = 
     treatmentIdPrefix: 'accum-treatment-',
     paymentIdPrefix: 'accum-payment-',
     visitCycleMode: true,
+    priceRegion: '부산 해운대',
   },
   {
     key: '3y',
@@ -191,6 +193,7 @@ export const ACCUMULATED_TEST_PROFILE_CONFIGS: AccumulatedSeedProfileConfig[] = 
     treatmentIdPrefix: 'accum3y-treatment-',
     paymentIdPrefix: 'accum3y-payment-',
     visitCycleMode: true,
+    priceRegion: '부산 해운대',
   },
   {
     key: '5y',
@@ -202,6 +205,7 @@ export const ACCUMULATED_TEST_PROFILE_CONFIGS: AccumulatedSeedProfileConfig[] = 
     treatmentIdPrefix: 'accum5y-treatment-',
     paymentIdPrefix: 'accum5y-payment-',
     visitCycleMode: true,
+    priceRegion: '부산 해운대',
   },
 ];
 

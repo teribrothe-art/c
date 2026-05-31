@@ -3,6 +3,10 @@ import { calculatePaymentFees, PLATFORM_FEE_RATE } from './payment-record';
 import type { PaymentRecord } from './payment-types';
 import type { BetaTestAccount } from './beta-test-accounts';
 import {
+  getTreatmentTemplatesForRegion,
+  type TreatmentTemplate,
+} from './regional-treatment-pricing';
+import {
   type AccumulatedDemoTreatment,
   type AccumulatedSeedProfileConfig,
   type BuiltAccumulatedSeedProfile,
@@ -19,17 +23,11 @@ const REVISIT_INTERVAL_DAYS: Record<string, { min: number; max: number }> = {
   탈색: { min: 120, max: 180 },
 };
 
-const TREATMENT_TEMPLATES = [
-  { type: '컷', title: '레이어드 컷', price: 120000, duration: '1시간 20분', weight: 28 },
-  { type: '컬러', title: '애쉬브라운 컬러', price: 180000, duration: '2시간 30분', weight: 18 },
-  { type: '펌', title: '볼륨 디지털 펌', price: 220000, duration: '3시간', weight: 14 },
-  { type: '매직', title: '매직스트레이트', price: 280000, duration: '4시간', weight: 10 },
-  { type: '트리트먼트', title: '단백질 딥 케어', price: 90000, duration: '1시간', weight: 16 },
-  { type: '스파', title: '헤드 스파', price: 110000, duration: '1시간', weight: 14 },
-  { type: '탈색', title: '탈색 + 톤다운', price: 260000, duration: '3시간 40분', weight: 8 },
-] as const;
+const DEFAULT_TREATMENT_TEMPLATES = getTreatmentTemplatesForRegion('전국');
 
-type TreatmentTemplate = (typeof TREATMENT_TEMPLATES)[number];
+function templatesForConfig(config: AccumulatedSeedProfileConfig) {
+  return getTreatmentTemplatesForRegion(config.priceRegion ?? '전국');
+}
 
 type CustomerVisitState = {
   customer: BetaTestAccount;
@@ -84,19 +82,23 @@ function hashSeed(...parts: (string | number)[]) {
   return hash;
 }
 
-function pickTemplateForVisit(state: CustomerVisitState, globalSeq: number): TreatmentTemplate {
+function pickTemplateForVisit(
+  templates: TreatmentTemplate[],
+  state: CustomerVisitState,
+  globalSeq: number,
+): TreatmentTemplate {
   const hash = hashSeed(state.customer.id, state.visitCount, globalSeq);
 
   if (state.isRegular && state.lastTemplate && hash % 10 < 6) {
-    const sameType = TREATMENT_TEMPLATES.filter((item) => item.type === state.lastTemplate?.type);
-    const pool = sameType.length > 0 ? sameType : TREATMENT_TEMPLATES;
+    const sameType = templates.filter((item) => item.type === state.lastTemplate?.type);
+    const pool = sameType.length > 0 ? sameType : templates;
     return pool[hash % pool.length];
   }
 
-  const totalWeight = TREATMENT_TEMPLATES.reduce((sum, item) => sum + item.weight, 0);
+  const totalWeight = templates.reduce((sum, item) => sum + item.weight, 0);
   let pick = hash % totalWeight;
 
-  for (const template of TREATMENT_TEMPLATES) {
+  for (const template of templates) {
     pick -= template.weight;
 
     if (pick < 0) {
@@ -104,7 +106,7 @@ function pickTemplateForVisit(state: CustomerVisitState, globalSeq: number): Tre
     }
   }
 
-  return TREATMENT_TEMPLATES[0];
+  return templates[0] ?? DEFAULT_TREATMENT_TEMPLATES[0];
 }
 
 function daysUntilNextVisit(customerId: string, visitIndex: number, treatmentType: string) {
@@ -201,6 +203,7 @@ function computeSeedWorkloadStats(treatments: AccumulatedDemoTreatment[], dailyL
 
 function appendVisit(
   config: AccumulatedSeedProfileConfig,
+  templates: TreatmentTemplate[],
   treatmentDate: string,
   state: CustomerVisitState,
   treatmentSeq: number,
@@ -208,10 +211,10 @@ function appendVisit(
   treatments: AccumulatedDemoTreatment[],
   payments: PaymentRecord[],
 ) {
-  const template = pickTemplateForVisit(state, treatmentSeq);
+  const template = pickTemplateForVisit(templates, state, treatmentSeq);
   const paymentStatus = resolvePaymentStatus(treatmentDate, treatmentSeq, state.customerIndex);
   const treatmentId = `${config.treatmentIdPrefix}${String(treatmentSeq + 1).padStart(5, '0')}`;
-  const price = template.price + (hashSeed(state.customer.id, treatmentSeq) % 4) * 10000;
+  const price = template.price + (hashSeed(state.customer.id, treatmentSeq) % 4) * 5_000;
   const fees = calculatePaymentFees(price);
   const hour = 9 + ((treatmentSeq + slotInDay) % 9);
   const paidAt = isoAt(treatmentDate, hour);
@@ -297,6 +300,7 @@ export function buildVisitCycleAccumulatedSeedProfile(
 ): BuiltAccumulatedSeedProfile {
   const seedStartDate = getSeedStartDate(config.historyYears);
   const endDate = new Date();
+  const templates = templatesForConfig(config);
   const treatments: AccumulatedDemoTreatment[] = [];
   const payments: PaymentRecord[] = [];
 
@@ -370,7 +374,7 @@ export function buildVisitCycleAccumulatedSeedProfile(
     }
 
     scheduled.forEach((state, slotInDay) => {
-      appendVisit(config, today, state, treatmentSeq, slotInDay, treatments, payments);
+      appendVisit(config, templates, today, state, treatmentSeq, slotInDay, treatments, payments);
       treatmentSeq += 1;
     });
 

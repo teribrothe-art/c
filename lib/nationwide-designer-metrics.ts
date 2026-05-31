@@ -1,3 +1,8 @@
+import { getNationwideStoreById } from './nationwide-org-catalog';
+import {
+  priceForRegionalTreatment,
+  getTreatmentTemplatesForRegion,
+} from './regional-treatment-pricing';
 import { settlementTotalsFromGross } from './org-month-settlement';
 import type { RevenueSplitConfig } from './revenue-split-config';
 import { calculateRevenueSplit } from './revenue-split-config';
@@ -9,16 +14,6 @@ import {
   getNationwideDesignerDefinition,
   type NationwideDesignerDefinition,
 } from './nationwide-org-catalog';
-
-const TREATMENT_TEMPLATE_WEIGHTS = [
-  { price: 120000, weight: 28 },
-  { price: 180000, weight: 18 },
-  { price: 220000, weight: 14 },
-  { price: 280000, weight: 10 },
-  { price: 90000, weight: 16 },
-  { price: 110000, weight: 14 },
-  { price: 260000, weight: 8 },
-] as const;
 
 function hashSeed(...parts: (string | number)[]) {
   let hash = 0;
@@ -63,24 +58,17 @@ function getSeedStartDate(historyYears: number, reference = new Date()) {
   return start;
 }
 
-function weightedAveragePrice() {
-  const totalWeight = TREATMENT_TEMPLATE_WEIGHTS.reduce((sum, item) => sum + item.weight, 0);
-  const weightedSum = TREATMENT_TEMPLATE_WEIGHTS.reduce(
-    (sum, item) => sum + item.price * item.weight,
-    0,
-  );
-
-  return Math.round(weightedSum / totalWeight);
+function regionForDefinition(definition: NationwideDesignerDefinition) {
+  return getNationwideStoreById(definition.storeId)?.region ?? '전국';
 }
 
-const BASE_TREATMENT_PRICE = weightedAveragePrice();
+function priceForTreatment(definition: NationwideDesignerDefinition, dayIndex: number, slotInDay: number) {
+  const region = regionForDefinition(definition);
+  const templates = getTreatmentTemplatesForRegion(region);
+  const templatePick = hashSeed(definition.slot, dayIndex, slotInDay) % templates.length;
+  const template = templates[templatePick] ?? templates[0];
 
-function priceForTreatment(slot: number, dayIndex: number, slotInDay: number) {
-  const templatePick = hashSeed(slot, dayIndex, slotInDay) % TREATMENT_TEMPLATE_WEIGHTS.length;
-  const template = TREATMENT_TEMPLATE_WEIGHTS[templatePick] ?? TREATMENT_TEMPLATE_WEIGHTS[0];
-  const jitter = (hashSeed(slot, dayIndex, slotInDay, 'price') % 4) * 10_000;
-
-  return template.price + jitter;
+  return priceForRegionalTreatment(region, [definition.slot, dayIndex, slotInDay, template.type]);
 }
 
 export type NationwideDesignerAggregate = {
@@ -171,7 +159,7 @@ export function computeNationwideDesignerAggregate(
     totalTreatmentCount += count;
 
     for (let slotInDay = 0; slotInDay < count; slotInDay += 1) {
-      const price = priceForTreatment(definition.slot, dayIndex, slotInDay);
+      const price = priceForTreatment(definition, dayIndex, slotInDay);
 
       if (date.slice(0, 7) === monthKey) {
         monthTreatmentCount += 1;

@@ -4,6 +4,8 @@ import type { OrgStore } from './org-store-affiliation';
 
 export const NATIONWIDE_STORE_COUNT = 600;
 export const NATIONWIDE_DESIGNER_COUNT = 1000;
+/** 전국 디자이너 가입고객 총 1만명 — 연차·방문주기 비율로 분배 */
+export const NATIONWIDE_REGISTERED_CUSTOMER_TOTAL = 10_000;
 export const NATIONWIDE_TEST_PASSWORD = 'test1234';
 
 /** 레거시 4곳 → 전국 카탈로그 1~4번 매장 ID */
@@ -242,60 +244,35 @@ function resolveHistoryYears(slot: number): 1 | 2 | 3 | 4 {
   return pattern[(slot - 1) % pattern.length] ?? (((slot - 1) % 4) + 1) as 1 | 2 | 3 | 4;
 }
 
-function customerCountForHistory(slot: number, historyYears: 1 | 2 | 3 | 4) {
-  return estimateCustomerPoolSize({
-    historyYears,
-    dailyMin: 3,
-    dailyMax: 7,
-    slotSeed: hashSlot(slot, 11),
-  });
+function customerAllocationWeight(historyYears: 1 | 2 | 3 | 4, slot: number) {
+  const tenureMult = { 1: 1, 2: 1.35, 3: 1.65, 4: 2 }[historyYears];
+  const jitter = 0.9 + (hashSlot(slot, 11) % 21) / 100;
+
+  return tenureMult * jitter;
 }
 
-/** @see customer-pool-estimator.ts — 방문주기·신규 유입 기반 (카탈로그 전용 인라인) */
-function estimateCustomerPoolSize(options: {
-  historyYears: number;
-  dailyMin: number;
-  dailyMax: number;
-  slotSeed?: number;
-}): number {
-  const { historyYears, dailyMin, dailyMax, slotSeed = 0 } = options;
+function distributeRegisteredCustomerCounts(
+  slots: { slot: number; historyYears: 1 | 2 | 3 | 4 }[],
+  total: number,
+) {
+  const weights = slots.map((entry) => customerAllocationWeight(entry.historyYears, entry.slot));
+  const weightSum = weights.reduce((sum, weight) => sum + weight, 0);
+  const counts = weights.map((weight) => Math.floor((total * weight) / weightSum));
+  let assigned = counts.reduce((sum, count) => sum + count, 0);
 
-  const start = new Date();
-  start.setFullYear(start.getFullYear() - historyYears);
-  start.setHours(12, 0, 0, 0);
-  const end = new Date();
-  end.setHours(12, 0, 0, 0);
+  const remainders = weights
+    .map((weight, index) => ({
+      index,
+      remainder: (total * weight) / weightSum - counts[index],
+    }))
+    .sort((left, right) => right.remainder - left.remainder);
 
-  let acquisitionSlots = 0;
-  let dayIndex = 0;
-  const cursor = new Date(start);
-
-  while (cursor <= end) {
-    const monthsElapsed =
-      (cursor.getFullYear() - start.getFullYear()) * 12 + (cursor.getMonth() - start.getMonth());
-    let quota = 0;
-
-    if (monthsElapsed < 6) {
-      quota = dayIndex % 2 === 0 ? 2 : 1;
-    } else if (monthsElapsed < 18) {
-      quota = dayIndex % 4 === 0 ? 1 : 0;
-    } else {
-      quota = dayIndex % 9 === 0 ? 1 : 0;
-    }
-
-    acquisitionSlots += quota;
-    dayIndex += 1;
-    cursor.setDate(cursor.getDate() + 1);
+  for (let step = 0; assigned < total && step < remainders.length; step += 1) {
+    counts[remainders[step].index] += 1;
+    assigned += 1;
   }
 
-  const acquisitionCustomers = Math.round(acquisitionSlots * 0.82);
-  const avgDaily = (dailyMin + dailyMax) / 2;
-  const steadyStateRegulars = Math.round(avgDaily * (55 / 7) * 2.75);
-  const jitter = slotSeed % 16;
-  const raw = acquisitionCustomers + steadyStateRegulars + jitter - 8;
-  const floorByTenure: Record<number, number> = { 1: 62, 2: 88, 3: 112, 4: 138, 5: 168 };
-
-  return Math.max(floorByTenure[historyYears] ?? 62, raw);
+  return counts;
 }
 
 function buildCustomers(slot: number, count: number): BetaTestAccount[] {
@@ -312,9 +289,12 @@ function buildCustomers(slot: number, count: number): BetaTestAccount[] {
   });
 }
 
-function buildDesignerDefinition(slot: number, storeId: string): NationwideDesignerDefinition {
-  const historyYears = resolveHistoryYears(slot);
-  const customerCount = customerCountForHistory(slot, historyYears);
+function buildDesignerDefinition(
+  slot: number,
+  storeId: string,
+  historyYears: 1 | 2 | 3 | 4,
+  customerCount: number,
+): NationwideDesignerDefinition {
   const designerName = DESIGNER_NAME_POOL[(slot - 1) % DESIGNER_NAME_POOL.length] ?? `디자이너 ${slot}`;
   const profileKey = `nw-${pad4(slot)}`;
   const yearLabel = `${historyYears}년차`;
@@ -361,7 +341,7 @@ function buildStoreDefinitions(): OrgStore[] {
 }
 
 function assignNationwideDesigners(stores: OrgStore[]): NationwideDesignerDefinition[] {
-  const designers: NationwideDesignerDefinition[] = [];
+  const slotEntries: { slot: number; storeId: string; historyYears: 1 | 2 | 3 | 4 }[] = [];
   let slot = 0;
 
   for (let storeIndex = 0; storeIndex < stores.length && slot < NATIONWIDE_DESIGNER_COUNT; storeIndex += 1) {
@@ -369,9 +349,36 @@ function assignNationwideDesigners(stores: OrgStore[]): NationwideDesignerDefini
 
     for (let count = 0; count < nwPerStore && slot < NATIONWIDE_DESIGNER_COUNT; count += 1) {
       slot += 1;
-      const definition = buildDesignerDefinition(slot, stores[storeIndex].id);
-      designers.push(definition);
-      stores[storeIndex].designerIds.push(definition.designer.id);
+      slotEntries.push({
+        slot,
+        storeId: stores[storeIndex].id,
+        historyYears: resolveHistoryYears(slot),
+      });
+    }
+  }
+
+  const customerCounts = distributeRegisteredCustomerCounts(
+    slotEntries,
+    NATIONWIDE_REGISTERED_CUSTOMER_TOTAL,
+  );
+
+  const designers: NationwideDesignerDefinition[] = [];
+
+  for (let index = 0; index < slotEntries.length; index += 1) {
+    const entry = slotEntries[index];
+    const definition = buildDesignerDefinition(
+      entry.slot,
+      entry.storeId,
+      entry.historyYears,
+      customerCounts[index] ?? 0,
+    );
+
+    designers.push(definition);
+
+    const store = stores.find((item) => item.id === entry.storeId);
+
+    if (store) {
+      store.designerIds.push(definition.designer.id);
     }
   }
 
@@ -380,22 +387,28 @@ function assignNationwideDesigners(stores: OrgStore[]): NationwideDesignerDefini
 
 const builtStores = buildStoreDefinitions();
 const builtDesigners = assignNationwideDesigners(builtStores);
+const profileStoreById = new Map(builtStores.map((store) => [store.id, store]));
 
 export const NATIONWIDE_STORE_DEFINITIONS: OrgStore[] = builtStores;
 export const NATIONWIDE_DESIGNER_DEFINITIONS: NationwideDesignerDefinition[] = builtDesigners;
 
 export const NATIONWIDE_DESIGNER_PROFILE_CONFIGS: AccumulatedSeedProfileConfig[] =
-  NATIONWIDE_DESIGNER_DEFINITIONS.map((item) => ({
-    key: item.profileKey,
-    designer: item.designer,
-    customers: item.customers,
-    historyYears: item.historyYears,
-    dailyMin: item.dailyMin,
-    dailyMax: item.dailyMax,
-    treatmentIdPrefix: `accum-${item.profileKey}-treatment-`,
-    paymentIdPrefix: `accum-${item.profileKey}-payment-`,
-    visitCycleMode: true,
-  }));
+  NATIONWIDE_DESIGNER_DEFINITIONS.map((item) => {
+    const store = profileStoreById.get(item.storeId);
+
+    return {
+      key: item.profileKey,
+      designer: item.designer,
+      customers: item.customers,
+      historyYears: item.historyYears,
+      dailyMin: item.dailyMin,
+      dailyMax: item.dailyMax,
+      treatmentIdPrefix: `accum-${item.profileKey}-treatment-`,
+      paymentIdPrefix: `accum-${item.profileKey}-payment-`,
+      visitCycleMode: true,
+      priceRegion: store?.region ?? '전국',
+    };
+  });
 
 export const NATIONWIDE_DESIGNERS_PUBLIC = NATIONWIDE_DESIGNER_DEFINITIONS.map((item) => ({
   id: item.designer.id,
