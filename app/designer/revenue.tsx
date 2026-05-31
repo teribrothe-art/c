@@ -5,8 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   fetchDesignerRevenueAnalytics,
-  type DailyRevenuePoint,
   type DesignerRevenueAnalytics,
+  type WeekdayRevenueCell,
 } from '../../lib/designer-revenue-analytics';
 import { formatDateWithWeekday } from '../../lib/designer-revenue-weekly';
 import { formatAmount } from '../../lib/currency-input';
@@ -32,6 +32,7 @@ export default function DesignerRevenueScreen() {
   const { month: monthParam } = useLocalSearchParams<{ month?: string | string[] }>();
   const [analytics, setAnalytics] = useState<DesignerRevenueAnalytics | null>(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | undefined>(undefined);
+  const [selectedWeekKey, setSelectedWeekKey] = useState<string | undefined>(undefined);
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
   const [settlementListMode, setSettlementListMode] = useState<SettlementListMode>('month');
   const [isLoading, setIsLoading] = useState(true);
@@ -47,14 +48,29 @@ export default function DesignerRevenueScreen() {
     });
   }, []);
 
-  const loadRevenue = useCallback((monthKey?: string) => {
+  const loadRevenue = useCallback((monthKey?: string, weekKey?: string) => {
     setIsLoading(true);
 
-    fetchDesignerRevenueAnalytics(monthKey)
+    fetchDesignerRevenueAnalytics(monthKey, weekKey)
       .then((data) => {
         setAnalytics(data);
         setSelectedMonthKey(data.selectedMonthKey);
-        setSelectedDayDate(null);
+        setSelectedWeekKey(data.selectedWeekKey);
+        setSelectedDayDate((prev) => {
+          if (prev && data.selectedWeek.days.some((day) => day.date === prev)) {
+            return prev;
+          }
+
+          const todayInWeek = data.selectedWeek.days.find((day) => day.isToday);
+
+          if (todayInWeek) {
+            return todayInWeek.date;
+          }
+
+          const withRevenue = data.selectedWeek.days.find((day) => day.totalAmount > 0);
+
+          return withRevenue?.date ?? data.selectedWeek.days[0]?.date ?? null;
+        });
         setErrorMessage('');
       })
       .catch((error) => {
@@ -71,8 +87,8 @@ export default function DesignerRevenueScreen() {
           ? monthFromRoute
           : selectedMonthKey;
 
-      loadRevenue(monthToLoad);
-    }, [loadRevenue, monthParam, selectedMonthKey]),
+      loadRevenue(monthToLoad, selectedWeekKey);
+    }, [loadRevenue, monthParam, selectedMonthKey, selectedWeekKey]),
   );
 
   const monthlyChartPoints = useMemo(
@@ -90,6 +106,14 @@ export default function DesignerRevenueScreen() {
     [analytics?.months],
   );
 
+  const weekIndex = useMemo(() => {
+    if (!analytics) {
+      return -1;
+    }
+
+    return analytics.weeklyWeeks.findIndex((week) => week.weekKey === analytics.selectedWeekKey);
+  }, [analytics]);
+
   const visibleSettlements = useMemo(() => {
     if (!analytics) {
       return [];
@@ -99,12 +123,18 @@ export default function DesignerRevenueScreen() {
       return analytics.pendingSettlements;
     }
 
-    if (!selectedDayDate) {
-      return analytics.selectedMonthSettlements;
+    if (selectedDayDate) {
+      return analytics.selectedMonthSettlements.filter((item) => item.date === selectedDayDate);
     }
 
-    return analytics.selectedMonthSettlements.filter((item) => item.date === selectedDayDate);
-  }, [analytics, selectedDayDate, settlementListMode]);
+    if (selectedWeekKey && analytics.selectedWeek) {
+      const weekDates = new Set(analytics.selectedWeek.days.map((day) => day.date));
+
+      return analytics.selectedMonthSettlements.filter((item) => weekDates.has(item.date));
+    }
+
+    return analytics.selectedMonthSettlements;
+  }, [analytics, selectedDayDate, selectedWeekKey, settlementListMode]);
 
   const settlementSectionTitle = useMemo(() => {
     if (!analytics) {
@@ -119,8 +149,12 @@ export default function DesignerRevenueScreen() {
       return `${formatDateWithWeekday(selectedDayDate)} 정산`;
     }
 
+    if (selectedWeekKey && analytics.selectedWeek.label) {
+      return `${analytics.selectedWeek.label} 정산 상세`;
+    }
+
     return `${analytics.selectedMonth.label} 정산 상세`;
-  }, [analytics, selectedDayDate, settlementListMode]);
+  }, [analytics, selectedDayDate, selectedWeekKey, settlementListMode]);
 
   const hasAnyRevenue = Boolean(
     analytics &&
@@ -134,13 +168,49 @@ export default function DesignerRevenueScreen() {
 
     setSettlementListMode('month');
     setSelectedMonthKey(monthKey);
+    setSelectedWeekKey(undefined);
     setSelectedDayDate(null);
     loadRevenue(monthKey);
   };
 
-  const handleSelectDay = (day: DailyRevenuePoint) => {
+  const handleSelectWeek = (weekKey: string) => {
+    if (weekKey === selectedWeekKey) {
+      return;
+    }
+
+    setSettlementListMode('month');
+    setSelectedWeekKey(weekKey);
+    setSelectedDayDate(null);
+    loadRevenue(selectedMonthKey, weekKey);
+  };
+
+  const handleSelectDay = (day: WeekdayRevenueCell) => {
     setSettlementListMode('month');
     setSelectedDayDate(day.date);
+  };
+
+  const handlePrevWeek = () => {
+    if (!analytics || weekIndex <= 0) {
+      return;
+    }
+
+    const prev = analytics.weeklyWeeks[weekIndex - 1];
+
+    if (prev) {
+      handleSelectWeek(prev.weekKey);
+    }
+  };
+
+  const handleNextWeek = () => {
+    if (!analytics || weekIndex < 0 || weekIndex >= analytics.weeklyWeeks.length - 1) {
+      return;
+    }
+
+    const next = analytics.weeklyWeeks[weekIndex + 1];
+
+    if (next) {
+      handleSelectWeek(next.weekKey);
+    }
   };
 
   const showPendingSettlements = useCallback(() => {
@@ -219,7 +289,7 @@ export default function DesignerRevenueScreen() {
         ]}
         showsVerticalScrollIndicator={false}>
         <Text style={styles.pageTitle}>매출</Text>
-        <Text style={styles.pageSubtitle}>월별 정산 매출을 확인하세요</Text>
+        <Text style={styles.pageSubtitle}>월별 정산 매출과 요일별 주간 합계를 확인하세요</Text>
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -230,7 +300,7 @@ export default function DesignerRevenueScreen() {
         ) : !hasAnyRevenue ? (
           <EmptyState
             icon="📊"
-            subtitle="정산 완료되면 월별 매출이 표시됩니다"
+            subtitle="정산 완료되면 월별·주간 매출이 표시됩니다"
             title="매출 데이터가 없어요"
           />
         ) : (
@@ -242,8 +312,6 @@ export default function DesignerRevenueScreen() {
               </Text>
               <Text style={styles.heroUnit}>정산 {analytics.selectedMonth.settlementCount}건</Text>
             </View>
-
-            <DesignerRevenueMetricGrid items={revenueMetricItems} />
 
             <RevenueBarChart
               barColor={PURPLE}
@@ -259,12 +327,19 @@ export default function DesignerRevenueScreen() {
                 weekSectionY.current = event.nativeEvent.layout.y;
               }}>
               <WeeklyRevenuePanel
-                dailyTotals={analytics.dailyTotals}
-                monthLabel={analytics.selectedMonth.label}
+                canGoNext={weekIndex >= 0 && weekIndex < analytics.weeklyWeeks.length - 1}
+                canGoPrev={weekIndex > 0}
+                days={analytics.selectedWeek.days}
+                onNextWeek={handleNextWeek}
+                onPrevWeek={handlePrevWeek}
                 onSelectDay={handleSelectDay}
                 selectedDate={selectedDayDate}
+                weekLabel={analytics.selectedWeek.label}
+                weekTotal={analytics.selectedWeek.weekTotal}
               />
             </View>
+
+            <DesignerRevenueMetricGrid items={revenueMetricItems} />
 
             <View
               style={styles.card}

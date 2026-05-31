@@ -8,6 +8,11 @@ import {
 } from './beta-test-accounts';
 import { ACCUMULATED_TEST_PASSWORD, ACCUMULATED_TEST_PROFILE_CONFIGS } from './demo-accumulated-test-accounts';
 import { getAccumulatedTestProfiles } from './demo-accumulated-test-seeds';
+import {
+  NATIONWIDE_DESIGNER_DEFINITIONS,
+  NATIONWIDE_REGISTERED_CUSTOMER_TOTAL,
+  NATIONWIDE_TEST_PASSWORD,
+} from './nationwide-org-catalog';
 
 export type DesignerLinkedCustomerSource = {
   profileLabel: string;
@@ -80,6 +85,16 @@ const DEMO_DESIGNER_CUSTOMER_SOURCES: DesignerLinkedCustomerSource[] = [
 
 let designerLinkedCustomerSourcesCache: DesignerLinkedCustomerSource[] | null = null;
 
+function getNationwideProfileCustomerSources(): DesignerLinkedCustomerSource[] {
+  return NATIONWIDE_DESIGNER_DEFINITIONS.map((definition) => ({
+    profileLabel: `전국 ${definition.historyYears}년차`,
+    designerName: definition.designer.name ?? definition.designer.email,
+    designerId: definition.designer.id,
+    customers: definition.customers,
+    password: NATIONWIDE_TEST_PASSWORD,
+  }));
+}
+
 /** 테스트 로그인 · 가입고객 탭 — 디자이너와 연동된 전체 고객 (첫 접근 시 생성) */
 export function getDesignerLinkedCustomerLoginSources(): DesignerLinkedCustomerSource[] {
   if (!designerLinkedCustomerSourcesCache) {
@@ -87,6 +102,7 @@ export function getDesignerLinkedCustomerLoginSources(): DesignerLinkedCustomerS
       ...DEMO_DESIGNER_CUSTOMER_SOURCES,
       ...BETA_CUSTOMER_SOURCES,
       ...getAccumulatedProfileCustomerSources(),
+      ...getNationwideProfileCustomerSources(),
     ];
   }
 
@@ -115,4 +131,6 @@ const ACCUMULATED_LINKED_CUSTOMER_COUNT = ACCUMULATED_TEST_PROFILE_CONFIGS.reduc
 );
 
 export const DESIGNER_LINKED_CUSTOMER_COUNT =
-  STATIC_LINKED_CUSTOMER_COUNT + ACCUMULATED_LINKED_CUSTOMER_COUNT;
+  STATIC_LINKED_CUSTOMER_COUNT +
+  ACCUMULATED_LINKED_CUSTOMER_COUNT +
+  NATIONWIDE_REGISTERED_CUSTOMER_TOTAL;
