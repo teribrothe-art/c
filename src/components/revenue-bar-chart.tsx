@@ -2,12 +2,15 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 const MINT = '#00C2A8';
 const CORAL = '#FF5A5F';
+const PURPLE = '#7B5EE6';
 
 export type RevenueBarChartPoint = {
   key: string;
   label: string;
   value: number;
   subLabel?: string;
+  muted?: boolean;
+  isToday?: boolean;
 };
 
 type RevenueBarChartProps = {
@@ -17,11 +20,15 @@ type RevenueBarChartProps = {
   emptyMessage?: string;
   barColor?: string;
   maxBarHeight?: number;
-  /** 상위 카드 안에 넣을 때 외곽 카드·제목 생략 */
   embedded?: boolean;
+  /** embedded일 때 상위에서 제목을 쓰면 false */
+  showTitle?: boolean;
   selectedKey?: string | null;
+  onSelectPoint?: (point: RevenueBarChartPoint) => void;
+  /** @deprecated onSelectPoint 사용 */
   onPressPoint?: (key: string) => void;
-  /** 막대 안쪽 하단에 날짜 라벨 표시 (일별 차트) */
+  unitHint?: string;
+  /** @deprecated showTitle 사용 */
   labelPosition?: 'below' | 'insideBar';
 };
 
@@ -36,31 +43,42 @@ function formatCompactWon(value: number) {
 export function RevenueBarChart({
   title,
   points,
-  valueSuffix = '',
+  valueSuffix = '원',
   emptyMessage = '표시할 데이터가 없어요',
   barColor = MINT,
   maxBarHeight = 120,
   embedded = false,
+  showTitle = true,
   selectedKey = null,
+  onSelectPoint,
   onPressPoint,
-  labelPosition = 'below',
+  unitHint,
 }: RevenueBarChartProps) {
   const maxValue = Math.max(...points.map((point) => point.value), 1);
   const useHorizontalScroll = points.length > 7;
+  const interactive = Boolean(onSelectPoint || onPressPoint);
+  const hint =
+    unitHint ??
+    (interactive ? `합계 (${valueSuffix}) · 막대를 눌러 날짜별 상세` : `합계 (${valueSuffix})`);
 
-  if (points.length === 0) {
-    const emptyBlock = (
-      <>
-        {title ? <Text style={styles.title}>{title}</Text> : null}
-        <Text style={styles.empty}>{emptyMessage}</Text>
-      </>
-    );
+  const wrapperStyle = embedded ? styles.embedded : styles.card;
 
-    if (embedded) {
-      return <View style={styles.embeddedBlock}>{emptyBlock}</View>;
+  const handlePress = (point: RevenueBarChartPoint) => {
+    if (onSelectPoint) {
+      onSelectPoint(point);
+      return;
     }
 
-    return <View style={styles.card}>{emptyBlock}</View>;
+    onPressPoint?.(point.key);
+  };
+
+  if (points.length === 0) {
+    return (
+      <View style={wrapperStyle}>
+        {showTitle ? <Text style={styles.title}>{title}</Text> : null}
+        <Text style={styles.empty}>{emptyMessage}</Text>
+      </View>
+    );
   }
 
   const chartBody = (
@@ -68,96 +86,77 @@ export function RevenueBarChart({
       {points.map((point) => {
         const height = Math.max(8, Math.round((point.value / maxValue) * maxBarHeight));
         const selected = selectedKey === point.key;
-        const labelInsideBar = labelPosition === 'insideBar';
+        const fillColor = selected ? CORAL : point.muted ? '#B8E8DF' : barColor;
+
         const column = (
-          <>
-            <Text style={styles.barValue} numberOfLines={1}>
+          <View
+            style={[
+              styles.barColumn,
+              useHorizontalScroll && styles.barColumnFixed,
+              interactive && styles.barColumnInteractive,
+              point.isToday && styles.barColumnToday,
+              selected && styles.barColumnSelected,
+              point.muted && !selected && styles.barColumnMuted,
+            ]}>
+            <Text
+              style={[styles.barValue, selected && styles.barValueSelected, point.muted && styles.barValueMuted]}
+              numberOfLines={1}>
               {formatCompactWon(point.value)}
             </Text>
             <View style={[styles.barTrack, { height: maxBarHeight }]}>
-              <View
-                style={[
-                  styles.barFill,
-                  labelInsideBar && styles.barFillWithLabel,
-                  { height, backgroundColor: barColor },
-                ]}>
-                {labelInsideBar ? (
-                  <Text
-                    style={[styles.barInsideLabel, selected && styles.barInsideLabelSelected]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.75}>
-                    {point.label}
-                  </Text>
-                ) : null}
-              </View>
+              <View style={[styles.barFill, { height, backgroundColor: fillColor }]} />
             </View>
-            {!labelInsideBar ? (
-              <>
-                <Text style={[styles.barLabel, selected && styles.barLabelSelected]} numberOfLines={1}>
-                  {point.label}
-                </Text>
-                {point.subLabel ? (
-                  <Text style={styles.barSubLabel} numberOfLines={1}>
-                    {point.subLabel}
-                  </Text>
-                ) : null}
-              </>
+            <Text
+              style={[styles.barLabel, selected && styles.barLabelSelected, point.muted && styles.barLabelMuted]}
+              numberOfLines={1}>
+              {point.label}
+            </Text>
+            {point.subLabel ? (
+              <Text
+                style={[styles.barSubLabel, selected && styles.barSubLabelSelected]}
+                numberOfLines={2}>
+                {point.subLabel}
+              </Text>
             ) : null}
-          </>
+          </View>
         );
 
-        if (onPressPoint) {
+        if (!interactive) {
           return (
-            <Pressable
-              key={point.key}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              onPress={() => onPressPoint(point.key)}
-              style={({ pressed }) => [
-                styles.barColumn,
-                useHorizontalScroll && styles.barColumnFixed,
-                selected && styles.barColumnSelected,
-                pressed && styles.barColumnPressed,
-              ]}>
+            <View key={point.key} style={!useHorizontalScroll ? styles.barColumnFlex : undefined}>
               {column}
-            </Pressable>
+            </View>
           );
         }
 
         return (
-          <View
+          <Pressable
             key={point.key}
-            style={[styles.barColumn, useHorizontalScroll && styles.barColumnFixed]}>
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
+            onPress={() => handlePress(point)}
+            style={({ pressed }) => [
+              !useHorizontalScroll ? styles.barColumnFlex : styles.barColumnFixed,
+              pressed && styles.barColumnPressed,
+            ]}>
             {column}
-          </View>
+          </Pressable>
         );
       })}
     </View>
   );
 
-  const chartContent = useHorizontalScroll ? (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      {chartBody}
-    </ScrollView>
-  ) : (
-    chartBody
-  );
-
-  if (embedded) {
-    return (
-      <View style={styles.embeddedBlock}>
-        {chartContent}
-        {valueSuffix ? <Text style={styles.unitHint}>합계 ({valueSuffix})</Text> : null}
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.card}>
-      {title ? <Text style={styles.title}>{title}</Text> : null}
-      {chartContent}
-      {valueSuffix ? <Text style={styles.unitHint}>합계 ({valueSuffix})</Text> : null}
+    <View style={wrapperStyle}>
+      {showTitle ? <Text style={styles.title}>{title}</Text> : null}
+      {useHorizontalScroll ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {chartBody}
+        </ScrollView>
+      ) : (
+        chartBody
+      )}
+      <Text style={styles.unitHint}>{hint}</Text>
     </View>
   );
 }
@@ -170,7 +169,7 @@ const styles = StyleSheet.create({
     padding: 16,
     elevation: 3,
   },
-  embeddedBlock: {
+  embedded: {
     gap: 12,
   },
   title: {
@@ -197,19 +196,33 @@ const styles = StyleSheet.create({
   },
   barColumn: {
     alignItems: 'center',
-    flex: 1,
     minWidth: 28,
+  },
+  barColumnFlex: {
+    flex: 1,
+  },
+  barColumnFixed: {
+    width: 48,
+  },
+  barColumnInteractive: {
+    borderColor: 'transparent',
+    borderRadius: 12,
+    borderWidth: 2,
+    paddingHorizontal: 2,
+    paddingTop: 4,
+  },
+  barColumnToday: {
+    borderColor: '#FFD4D5',
   },
   barColumnSelected: {
     backgroundColor: '#F0EBFF',
-    borderRadius: 10,
+    borderColor: PURPLE,
+  },
+  barColumnMuted: {
+    opacity: 0.58,
   },
   barColumnPressed: {
     opacity: 0.9,
-  },
-  barColumnFixed: {
-    flex: 0,
-    width: 44,
   },
   barValue: {
     color: CORAL,
@@ -217,6 +230,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 4,
     textAlign: 'center',
+  },
+  barValueSelected: {
+    color: CORAL,
+  },
+  barValueMuted: {
+    color: '#9CA3AF',
   },
   barTrack: {
     alignItems: 'center',
@@ -228,25 +247,6 @@ const styles = StyleSheet.create({
     minHeight: 8,
     width: '72%',
   },
-  barFillWithLabel: {
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    minHeight: 28,
-    paddingBottom: 5,
-    paddingHorizontal: 2,
-  },
-  barInsideLabel: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.25)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  barInsideLabelSelected: {
-    color: '#F0EBFF',
-  },
   barLabel: {
     color: '#1A1A2E',
     fontSize: 11,
@@ -255,13 +255,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   barLabelSelected: {
-    color: '#7B5EE6',
+    color: PURPLE,
+  },
+  barLabelMuted: {
+    color: '#9CA3AF',
   },
   barSubLabel: {
     color: '#9CA3AF',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '600',
+    lineHeight: 12,
     textAlign: 'center',
+  },
+  barSubLabelSelected: {
+    color: '#6B6B7B',
   },
   unitHint: {
     color: '#9CA3AF',

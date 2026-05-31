@@ -9,8 +9,12 @@ import { getOrgStoreForAccountUser } from '../../lib/org-store-affiliation';
 import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
 import {
   getVirtualStoreForScope,
-  type VirtualSimulationScenario,
 } from '../../lib/org-virtual-simulation';
+import {
+  fetchOrgWeeklySalesSummary,
+  type OrgWeeklySalesSummary,
+  type WeeklySalesSegment,
+} from '../../lib/org-weekly-sales';
 import { getCurrentUser } from '../../lib/auth';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
@@ -18,13 +22,14 @@ import { colors } from '../../lib/theme';
 import { OrgDashboardStatGrid } from '../../src/components/org-dashboard-stat-grid';
 import { LoadingState } from '../../src/components/loading-state';
 import { StoreBottomTabBar } from '../../src/components/store-bottom-tab-bar';
-import { VirtualSimulationBanner } from '../../src/components/virtual-simulation-banner';
+import { WeeklySalesTabBar } from '../../src/components/weekly-sales-tab-bar';
 
 export default function StoreHomeScreen() {
   useOrgRoleGuard('store');
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
-  const [scenario, setScenario] = useState<VirtualSimulationScenario>('weekday');
+  const [weeklySales, setWeeklySales] = useState<OrgWeeklySalesSummary | null>(null);
+  const [weeklySegment, setWeeklySegment] = useState<WeeklySalesSegment>('weekday');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [linkedStoreName, setLinkedStoreName] = useState<string | null>(null);
@@ -37,18 +42,19 @@ export default function StoreHomeScreen() {
 
     Promise.all([getCurrentUser(), resolveCurrentStoreOrgId()])
       .then(([user, storeOrgId]) =>
-        fetchOrgDashboardSummary('store', {
-          storeOrgId,
-          scenario,
-          withVirtualSimulation: true,
-        }).then((data) => ({
+        Promise.all([
+          fetchOrgDashboardSummary('store', { storeOrgId }),
+          fetchOrgWeeklySalesSummary('store', { storeOrgId }),
+        ]).then(([data, weekData]) => ({
           user,
           data,
+          weekData,
           storeOrgId,
         })),
       )
-      .then(({ user, data, storeOrgId }) => {
+      .then(({ user, data, weekData, storeOrgId }) => {
         setSummary(data);
+        setWeeklySales(weekData);
         const linkedStore =
           (user ? getOrgStoreForAccountUser(user) : null) ??
           getVirtualStoreForScope('store', storeOrgId);
@@ -60,7 +66,7 @@ export default function StoreHomeScreen() {
         setErrorMessage(getErrorMessage(error, '매장 현황을 불러오지 못했습니다.'));
       })
       .finally(() => setIsLoading(false));
-  }, [scenario]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -81,7 +87,13 @@ export default function StoreHomeScreen() {
         <Text style={styles.title}>매장</Text>
         <Text style={styles.subtitle}>지역 플랜비 매장과 연동된 디자이너·매출을 확인합니다.</Text>
 
-        <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
+        {weeklySales ? (
+          <WeeklySalesTabBar
+            segment={weeklySegment}
+            summary={weeklySales}
+            onSegmentChange={setWeeklySegment}
+          />
+        ) : null}
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />

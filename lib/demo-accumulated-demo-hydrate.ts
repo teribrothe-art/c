@@ -1,6 +1,7 @@
 import { isAccumulatedTestPaymentId, isAccumulatedTestTreatmentId } from './demo-accumulated-ids';
 import { getAccumulatedTestProfiles } from './demo-accumulated-test-seeds';
 import { applyAccumulatedTreatmentPatch } from './demo-accumulated-treatment-patches';
+import { findNationwideProfileByDesignerId } from './nationwide-designer-seed-registry';
 import type { PaymentRecord } from './payment-types';
 import type { Treatment } from './treatment-types';
 import type { BuiltAccumulatedSeedProfile } from './demo-accumulated-seed-builder';
@@ -126,6 +127,12 @@ export function mergeAccumulatedPaymentsIntoStore(
 }
 
 export function findAccumulatedProfileByDesignerId(designerId: string) {
+  const nationwide = findNationwideProfileByDesignerId(designerId);
+
+  if (nationwide) {
+    return nationwide;
+  }
+
   return getAccumulatedTestProfiles().find((profile) => profile.designer.id === designerId) ?? null;
 }
 

@@ -23,6 +23,7 @@ import {
   type DemoLoginAccount,
   type DemoLoginGroupKey,
   demoLoginGroupListsAllWhenExpanded,
+  demoLoginGroupRequiresSearch,
   getDemoLoginSearchPlaceholder,
   isCollapsibleDemoLoginGroup,
   isSearchableDemoLoginGroup,
@@ -71,6 +72,7 @@ function DemoLoginGroupSection({
   const collapsible = isCollapsibleDemoLoginGroup(title);
   const searchable = isSearchableDemoLoginGroup(title);
   const listAllWhenExpanded = demoLoginGroupListsAllWhenExpanded(title);
+  const requiresSearch = demoLoginGroupRequiresSearch(title);
   const countLabel = getDemoLoginGroupCountLabel(title);
   const consonantCounts = useMemo(
     () => (isRegisteredCustomerGroup ? countAccountsByCustomerConsonant(accounts) : null),
@@ -219,15 +221,17 @@ function DemoLoginGroupSection({
               ? searchResult?.totalMatches === 0
                 ? '검색 결과가 없습니다.'
                 : searchResult?.truncated
-                  ? `${searchResult.totalMatches.toLocaleString('ko-KR')} 명 일치 · 상위 ${visibleAccounts.length.toLocaleString('ko-KR')} 명 표시`
-                  : `${(searchResult?.totalMatches ?? 0).toLocaleString('ko-KR')} 명 표시`
+                  ? `${searchResult.totalMatches.toLocaleString('ko-KR')} ${title === '매장' ? '곳' : '명'} 일치 · 상위 ${visibleAccounts.length.toLocaleString('ko-KR')} ${title === '매장' ? '곳' : '명'} 표시`
+                  : `${(searchResult?.totalMatches ?? 0).toLocaleString('ko-KR')} ${title === '매장' ? '곳' : '명'} 표시`
               : listAllWhenExpanded
-                ? title === '매장'
-                  ? `총 ${STORE_LOGIN_COUNT.toLocaleString('ko-KR')} 곳 · 아래에서 탭하면 로그인`
-                  : `총 ${DESIGNER_LOGIN_COUNT.toLocaleString('ko-KR')} 명 · 홈·고객·시술·매출·계정 · 탭하면 로그인`
+                ? `총 ${countLabel} · 아래에서 탭하면 로그인`
                 : isRegisteredCustomerGroup
                   ? registeredCustomerHint()
-                  : `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT.toLocaleString('ko-KR')} 명(디자이너 연동 전체) — 검색어를 입력하면 목록이 표시됩니다`}
+                  : requiresSearch
+                    ? title === '매장'
+                      ? `총 ${STORE_LOGIN_COUNT.toLocaleString('ko-KR')} 곳 · 매장명·지역·이메일로 검색하세요`
+                      : `총 ${DESIGNER_LOGIN_COUNT.toLocaleString('ko-KR')} 명 · 이름·매장·연차·이메일로 검색하세요`
+                    : `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT.toLocaleString('ko-KR')} 명(디자이너 연동 전체) — 검색어를 입력하면 목록이 표시됩니다`}
           </Text>
         </View>
       ) : null}
