@@ -73,10 +73,13 @@ function assertCompleteAffiliations() {
   for (const store of ORG_STORE_DEFINITIONS) {
     const count = store.designerIds.length;
 
-    if (isLegacyStore(store) && (count < 2 || count > LEGACY_MAX_DESIGNERS_PER_STORE)) {
-      throw new Error(
-        `${store.name} 디자이너 수는 2~${LEGACY_MAX_DESIGNERS_PER_STORE}명이어야 합니다 (현재 ${count}명)`,
-      );
+    if (isLegacyStore(store)) {
+      if (count < 2 || count > LEGACY_MAX_DESIGNERS_PER_STORE) {
+        throw new Error(
+          `${store.name} 디자이너 수는 2~${LEGACY_MAX_DESIGNERS_PER_STORE}명이어야 합니다 (현재 ${count}명)`,
+        );
+      }
+      continue;
     }
 
     if (isNationwideStoreId(store.id) && (count < 1 || count > 4)) {
