@@ -243,11 +243,59 @@ function resolveHistoryYears(slot: number): 1 | 2 | 3 | 4 {
 }
 
 function customerCountForHistory(slot: number, historyYears: 1 | 2 | 3 | 4) {
-  const hash = hashSlot(slot, 11);
-  const base = { 1: 30, 2: 38, 3: 48, 4: 58 }[historyYears];
-  const span = { 1: 16, 2: 18, 3: 20, 4: 24 }[historyYears];
+  return estimateCustomerPoolSize({
+    historyYears,
+    dailyMin: 3,
+    dailyMax: 7,
+    slotSeed: hashSlot(slot, 11),
+  });
+}
 
-  return base + (hash % span);
+/** @see customer-pool-estimator.ts — 방문주기·신규 유입 기반 (카탈로그 전용 인라인) */
+function estimateCustomerPoolSize(options: {
+  historyYears: number;
+  dailyMin: number;
+  dailyMax: number;
+  slotSeed?: number;
+}): number {
+  const { historyYears, dailyMin, dailyMax, slotSeed = 0 } = options;
+
+  const start = new Date();
+  start.setFullYear(start.getFullYear() - historyYears);
+  start.setHours(12, 0, 0, 0);
+  const end = new Date();
+  end.setHours(12, 0, 0, 0);
+
+  let acquisitionSlots = 0;
+  let dayIndex = 0;
+  const cursor = new Date(start);
+
+  while (cursor <= end) {
+    const monthsElapsed =
+      (cursor.getFullYear() - start.getFullYear()) * 12 + (cursor.getMonth() - start.getMonth());
+    let quota = 0;
+
+    if (monthsElapsed < 6) {
+      quota = dayIndex % 2 === 0 ? 2 : 1;
+    } else if (monthsElapsed < 18) {
+      quota = dayIndex % 4 === 0 ? 1 : 0;
+    } else {
+      quota = dayIndex % 9 === 0 ? 1 : 0;
+    }
+
+    acquisitionSlots += quota;
+    dayIndex += 1;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  const acquisitionCustomers = Math.round(acquisitionSlots * 0.82);
+  const avgDaily = (dailyMin + dailyMax) / 2;
+  const steadyStateRegulars = Math.round(avgDaily * (55 / 7) * 2.75);
+  const jitter = slotSeed % 16;
+  const raw = acquisitionCustomers + steadyStateRegulars + jitter - 8;
+  const floorByTenure: Record<number, number> = { 1: 62, 2: 88, 3: 112, 4: 138, 5: 168 };
+
+  return Math.max(floorByTenure[historyYears] ?? 62, raw);
 }
 
 function buildCustomers(slot: number, count: number): BetaTestAccount[] {

@@ -32,7 +32,7 @@ function findProfileForUser(user: { id: string; role?: string | null } | null) {
   }
 
   if (user.role === 'designer') {
-    return getAccumulatedTestProfiles().find((profile) => profile.designer.id === user.id) ?? null;
+    return findAccumulatedProfileByDesignerId(user.id);
   }
 
   if (user.role === 'customer') {

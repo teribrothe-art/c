@@ -28,6 +28,25 @@ function run() {
   for (const designer of NATIONWIDE_DESIGNER_DEFINITIONS) {
     yearCounts[designer.historyYears] += 1;
     assert(designer.dailyMin === 3 && designer.dailyMax === 7, `${designer.designer.id} 일일 3~7`);
+    assert(
+      designer.customers.length >= 60,
+      `${designer.designer.id} 가입고객 ${designer.customers.length} (최소 60)`,
+    );
+  }
+
+  const avgCustomersByYear = { 1: 0, 2: 0, 3: 0, 4: 0 };
+
+  for (const designer of NATIONWIDE_DESIGNER_DEFINITIONS) {
+    avgCustomersByYear[designer.historyYears] += designer.customers.length;
+  }
+
+  for (const year of [1, 2, 3, 4]) {
+    const avg = avgCustomersByYear[year] / yearCounts[year];
+
+    if (year > 1) {
+      const prevAvg = avgCustomersByYear[year - 1] / yearCounts[year - 1];
+      assert(avg >= prevAvg - 2, `${year}년차 평균 고객(${avg.toFixed(0)}) >= ${year - 1}년차(${prevAvg.toFixed(0)})`);
+    }
   }
 
   for (const year of [1, 2, 3, 4]) {

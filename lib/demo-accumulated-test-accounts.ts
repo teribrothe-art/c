@@ -1,5 +1,6 @@
 import type { BetaTestAccount } from './beta-test-accounts';
 import type { AccumulatedSeedProfileConfig } from './demo-accumulated-seed-builder';
+import { estimateCustomerPoolSize } from './customer-pool-estimator';
 
 export const ACCUMULATED_TEST_PASSWORD = 'test1234';
 
@@ -132,28 +133,28 @@ export const ACCUMULATED_TEST_DESIGNER_ACCUM_5Y: BetaTestAccount = {
 export const ACCUMULATED_TEST_CUSTOMERS = buildAccumulatedCustomerPool({
   idPrefix: 'test-customer-',
   emailPrefix: 'test-customer-',
-  count: 120,
+  count: estimateCustomerPoolSize({ historyYears: 2, dailyMin: 4, dailyMax: 6, slotSeed: 202 }),
   idPad: 2,
 });
 
 export const ACCUMULATED_TEST_CUSTOMERS_1Y = buildAccumulatedCustomerPool({
   idPrefix: 'test-1y-customer-',
   emailPrefix: 'test-1y-customer-',
-  count: 80,
+  count: estimateCustomerPoolSize({ historyYears: 1, dailyMin: 3, dailyMax: 5, slotSeed: 101 }),
   idPad: 2,
 });
 
 export const ACCUMULATED_TEST_CUSTOMERS_3Y = buildAccumulatedCustomerPool({
   idPrefix: 'test-3y-customer-',
   emailPrefix: 'test-3y-customer-',
-  count: 150,
+  count: estimateCustomerPoolSize({ historyYears: 3, dailyMin: 4, dailyMax: 8, slotSeed: 303 }),
   idPad: 3,
 });
 
 export const ACCUMULATED_TEST_CUSTOMERS_5Y = buildAccumulatedCustomerPool({
   idPrefix: 'test-5y-customer-',
   emailPrefix: 'test-5y-customer-',
-  count: 200,
+  count: estimateCustomerPoolSize({ historyYears: 5, dailyMin: 4, dailyMax: 8, slotSeed: 505 }),
   idPad: 3,
 });
 
