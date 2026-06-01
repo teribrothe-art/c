@@ -70,3 +70,22 @@ export function designerMatchesRegionFilter(
 
   return haystack.includes(regionKey.toLowerCase());
 }
+
+export function storeMatchesRegionFilter(
+  store: { region: string; name: string; hotPlace?: string },
+  regionKey: DesignerRegionFilterKey,
+) {
+  if (regionKey === 'all') {
+    return true;
+  }
+
+  const storeRegion = formatDesignerRegionShortLabel(store.region);
+
+  if (storeRegion === regionKey) {
+    return true;
+  }
+
+  const haystack = [store.region, store.name, store.hotPlace ?? ''].join(' ').toLowerCase();
+
+  return haystack.includes(regionKey.toLowerCase());
+}

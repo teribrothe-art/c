@@ -1,11 +1,10 @@
-import { Link, router, useFocusEffect, type Href } from 'expo-router';
+import { router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { formatAmount } from '../../lib/currency-input';
 import { formatThisMonthScopedLabel } from '../../lib/designer-revenue-analytics';
-import { formatDesignerNamePreview } from '../../lib/designer-name-preview';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import {
   fetchOrgMonthlySalesCatalog,
@@ -29,6 +28,7 @@ import { LoadingState } from '../../src/components/loading-state';
 import { AdminBottomTabBar } from '../../src/components/admin-bottom-tab-bar';
 import { HqRevenueSummaryCard } from '../../src/components/hq-revenue-summary-card';
 import { RevenueSplitStructureCard } from '../../src/components/revenue-split-structure-card';
+import { TopStoresSection } from '../../src/components/top-stores-section';
 import {
   WeeklySalesTabBar,
   type SalesFilterContext,
@@ -96,14 +96,6 @@ export default function AdminHomeScreen() {
 
     void fetchOrgMonthlySalesSummary('admin', monthKey).then(setMonthlySummary);
   }, []);
-
-  const topVirtualStores = useMemo(
-    () =>
-      [...virtualStores]
-        .sort((a, b) => b.monthGrossSales - a.monthGrossSales)
-        .slice(0, 15),
-    [virtualStores],
-  );
 
   return (
     <View style={styles.container}>
@@ -181,39 +173,7 @@ export default function AdminHomeScreen() {
               ]}
             />
 
-            <Text style={styles.sectionTitle}>매출 상위 매장</Text>
-            <View style={styles.virtualStoreGrid}>
-              {topVirtualStores.map((store) => {
-                const storeDesigners = summary.designers.filter((designer) => designer.storeId === store.id);
-
-                return (
-                  <View key={store.id} style={styles.virtualStoreRow}>
-                    <Text style={styles.virtualStoreName}>{store.name}</Text>
-                    <Text style={styles.virtualStoreMeta}>
-                      {store.region} · 디자이너 {store.designerCount}명
-                    </Text>
-                    <Text style={styles.virtualStoreMeta}>
-                      매출 {formatAmount(store.monthGrossSales)} · 본사{' '}
-                      {formatAmount(store.monthHqRevenue)}
-                    </Text>
-                    <Text style={styles.virtualStoreHotPlace} numberOfLines={2}>
-                      {store.hotPlace}
-                    </Text>
-                    <Text style={styles.virtualStoreDesigners} numberOfLines={2}>
-                      {formatDesignerNamePreview(storeDesigners.map((designer) => designer.name))}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-            <Link href="/admin/designers" asChild>
-              <Pressable style={({ pressed }) => [styles.viewAllStoresLink, pressed && styles.quickPressed]}>
-                <Text style={styles.viewAllStoresText}>
-                  전체 {virtualStores.length.toLocaleString('ko-KR')}개 매장 보기 →
-                </Text>
-              </Pressable>
-            </Link>
-
+            <TopStoresSection designers={summary.designers} virtualStores={virtualStores} />
 
             <Text style={styles.sectionTitle}>매출 상위 디자이너</Text>
             {[...summary.designers]
@@ -281,62 +241,6 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     fontSize: 14,
     fontWeight: '600',
-  },
-  virtualStoreGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  virtualStoreRow: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E8E8F0',
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    width: '48%',
-  },
-  virtualStoreName: {
-    color: '#1A1A2E',
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  virtualStoreMeta: {
-    color: '#6B6B7B',
-    fontSize: 10,
-    fontWeight: '600',
-    lineHeight: 14,
-  },
-  virtualStoreHotPlace: {
-    color: '#0F766E',
-    fontSize: 11,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  virtualStoreDesigners: {
-    color: '#374151',
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 16,
-    marginTop: 4,
-  },
-  viewAllStoresLink: {
-    alignItems: 'center',
-    backgroundColor: '#F0FDF4',
-    borderColor: '#BBF7D0',
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 12,
-    paddingVertical: 12,
-  },
-  viewAllStoresText: {
-    color: '#15803D',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  quickPressed: {
-    opacity: 0.9,
   },
   sectionTitle: {
     color: '#1A1A2E',
