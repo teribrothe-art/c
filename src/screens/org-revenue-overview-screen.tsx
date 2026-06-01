@@ -39,7 +39,6 @@ import {
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
-import { AdminSectionTabBar } from '../components/admin-section-tab-bar';
 import { StoreBottomTabBar } from '../components/store-bottom-tab-bar';
 
 type Props = {
@@ -272,8 +271,6 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
             weeklySummary={weeklySales}
           />
         ) : null}
-
-        {scope === 'admin' ? <AdminSectionTabBar /> : null}
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />

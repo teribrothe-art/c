@@ -27,7 +27,6 @@ import { colors } from '../../lib/theme';
 import { OrgDashboardStatGrid } from '../../src/components/org-dashboard-stat-grid';
 import { LoadingState } from '../../src/components/loading-state';
 import { AdminBottomTabBar } from '../../src/components/admin-bottom-tab-bar';
-import { AdminSectionTabBar } from '../../src/components/admin-section-tab-bar';
 import { HqRevenueSummaryCard } from '../../src/components/hq-revenue-summary-card';
 import { RevenueSplitStructureCard } from '../../src/components/revenue-split-structure-card';
 import {
@@ -137,8 +136,6 @@ export default function AdminHomeScreen() {
             weeklySummary={weeklySales}
           />
         ) : null}
-
-        <AdminSectionTabBar />
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
