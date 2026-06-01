@@ -1,11 +1,18 @@
 import { Link, router, useFocusEffect, type Href } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { formatAmount } from '../../lib/currency-input';
 import { formatDesignerNamePreview } from '../../lib/designer-name-preview';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
+import {
+  fetchOrgMonthlySalesCatalog,
+  fetchOrgMonthlySalesSummary,
+  filterMonthlyCatalogByQuery,
+  type OrgMonthlySalesCatalogItem,
+  type OrgMonthlySalesSummary,
+} from '../../lib/org-monthly-sales';
 import {
   fetchOrgWeeklySalesSummary,
   type OrgWeeklySalesSummary,
@@ -21,7 +28,10 @@ import { AdminBottomTabBar } from '../../src/components/admin-bottom-tab-bar';
 import { AdminSectionTabBar } from '../../src/components/admin-section-tab-bar';
 import { HqRevenueSummaryCard } from '../../src/components/hq-revenue-summary-card';
 import { RevenueSplitStructureCard } from '../../src/components/revenue-split-structure-card';
-import { WeeklySalesTabBar } from '../../src/components/weekly-sales-tab-bar';
+import {
+  WeeklySalesTabBar,
+  type SalesPeriodMode,
+} from '../../src/components/weekly-sales-tab-bar';
 
 export default function AdminHomeScreen() {
   useOrgRoleGuard('admin');
@@ -29,6 +39,11 @@ export default function AdminHomeScreen() {
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [weeklySales, setWeeklySales] = useState<OrgWeeklySalesSummary | null>(null);
   const [weeklySegment, setWeeklySegment] = useState<WeeklySalesSegment>('weekday');
+  const [periodMode, setPeriodMode] = useState<SalesPeriodMode>('weekly');
+  const [monthlyCatalog, setMonthlyCatalog] = useState<OrgMonthlySalesCatalogItem[]>([]);
+  const [monthlySummary, setMonthlySummary] = useState<OrgMonthlySalesSummary | null>(null);
+  const [selectedMonthKey, setSelectedMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
+  const [monthSearchQuery, setMonthSearchQuery] = useState('');
   const [virtualStores, setVirtualStores] = useState<ReturnType<typeof buildVirtualStoreSummaries>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -49,11 +64,34 @@ export default function AdminHomeScreen() {
       .finally(() => setIsLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (periodMode !== 'monthly') {
+      return;
+    }
+
+    if (monthlyCatalog.length === 0) {
+      void fetchOrgMonthlySalesCatalog('admin').then(setMonthlyCatalog);
+    }
+
+    void fetchOrgMonthlySalesSummary('admin', selectedMonthKey).then(setMonthlySummary);
+  }, [monthlyCatalog.length, periodMode, selectedMonthKey]);
+
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load]),
   );
+
+  const filteredMonthlyCatalog = useMemo(
+    () => filterMonthlyCatalogByQuery(monthlyCatalog, monthSearchQuery),
+    [monthlyCatalog, monthSearchQuery],
+  );
+
+  const handleSelectMonthKey = useCallback((monthKey: string) => {
+    setSelectedMonthKey(monthKey);
+
+    void fetchOrgMonthlySalesSummary('admin', monthKey).then(setMonthlySummary);
+  }, []);
 
   const topVirtualStores = useMemo(
     () =>
@@ -79,9 +117,17 @@ export default function AdminHomeScreen() {
 
         {weeklySales ? (
           <WeeklySalesTabBar
-            segment={weeklySegment}
-            summary={weeklySales}
-            onSegmentChange={setWeeklySegment}
+            monthSearchQuery={monthSearchQuery}
+            monthlyCatalog={filteredMonthlyCatalog}
+            monthlySummary={monthlySummary}
+            onMonthSearchQueryChange={setMonthSearchQuery}
+            onPeriodModeChange={setPeriodMode}
+            onSelectMonthKey={handleSelectMonthKey}
+            onWeeklySegmentChange={setWeeklySegment}
+            periodMode={periodMode}
+            selectedMonthKey={selectedMonthKey}
+            weeklySegment={weeklySegment}
+            weeklySummary={weeklySales}
           />
         ) : null}
 

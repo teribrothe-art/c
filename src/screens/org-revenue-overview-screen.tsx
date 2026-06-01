@@ -11,6 +11,13 @@ import {
   type HqMonthlyRevenueBucket,
 } from '../../lib/org-hq-revenue-history';
 import {
+  fetchOrgMonthlySalesCatalog,
+  fetchOrgMonthlySalesSummary,
+  filterMonthlyCatalogByQuery,
+  type OrgMonthlySalesCatalogItem,
+  type OrgMonthlySalesSummary,
+} from '../../lib/org-monthly-sales';
+import {
   fetchOrgWeeklySalesSummary,
   type OrgWeeklySalesSummary,
   type WeeklySalesSegment,
@@ -20,7 +27,7 @@ import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { HqRevenueSummaryCard } from '../components/hq-revenue-summary-card';
-import { WeeklySalesTabBar } from '../components/weekly-sales-tab-bar';
+import { WeeklySalesTabBar, type SalesPeriodMode } from '../components/weekly-sales-tab-bar';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
@@ -101,6 +108,10 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [weeklySales, setWeeklySales] = useState<OrgWeeklySalesSummary | null>(null);
   const [weeklySegment, setWeeklySegment] = useState<WeeklySalesSegment>('weekday');
+  const [periodMode, setPeriodMode] = useState<SalesPeriodMode>('weekly');
+  const [monthlyCatalog, setMonthlyCatalog] = useState<OrgMonthlySalesCatalogItem[]>([]);
+  const [monthlySummary, setMonthlySummary] = useState<OrgMonthlySalesSummary | null>(null);
+  const [monthSearchQuery, setMonthSearchQuery] = useState('');
   const [hqHistory, setHqHistory] = useState<HqMonthlyRevenueBucket[]>([]);
   const [selectedMonthKey, setSelectedMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
   const [searchQuery, setSearchQuery] = useState('');
@@ -144,7 +155,14 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
 
   const handleSelectMonth = useCallback((monthKey: string) => {
     setSelectedMonthKey(monthKey);
-  }, []);
+
+    void fetchOrgMonthlySalesSummary(scope, monthKey).then(setMonthlySummary);
+  }, [scope]);
+
+  const filteredMonthlyCatalog = useMemo(
+    () => filterMonthlyCatalogByQuery(monthlyCatalog, monthSearchQuery),
+    [monthlyCatalog, monthSearchQuery],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -155,6 +173,18 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   useEffect(() => {
     void loadSummary();
   }, [loadSummary]);
+
+  useEffect(() => {
+    if (periodMode !== 'monthly') {
+      return;
+    }
+
+    if (monthlyCatalog.length === 0) {
+      void fetchOrgMonthlySalesCatalog(scope).then(setMonthlyCatalog);
+    }
+
+    void fetchOrgMonthlySalesSummary(scope, selectedMonthKey).then(setMonthlySummary);
+  }, [monthlyCatalog.length, periodMode, scope, selectedMonthKey]);
 
   const TabBar = scope === 'store' ? StoreBottomTabBar : AdminBottomTabBar;
   const revenueBase = scope === 'store' ? '/store/designer' : '/admin/designer';
@@ -227,9 +257,17 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
 
         {weeklySales ? (
           <WeeklySalesTabBar
-            segment={weeklySegment}
-            summary={weeklySales}
-            onSegmentChange={setWeeklySegment}
+            monthSearchQuery={monthSearchQuery}
+            monthlyCatalog={filteredMonthlyCatalog}
+            monthlySummary={monthlySummary}
+            onMonthSearchQueryChange={setMonthSearchQuery}
+            onPeriodModeChange={setPeriodMode}
+            onSelectMonthKey={handleSelectMonth}
+            onWeeklySegmentChange={setWeeklySegment}
+            periodMode={periodMode}
+            selectedMonthKey={selectedMonthKey}
+            weeklySegment={weeklySegment}
+            weeklySummary={weeklySales}
           />
         ) : null}
 
