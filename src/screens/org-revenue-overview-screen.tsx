@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { OrgScope } from '../../lib/org-access';
-import { formatAmount } from '../../lib/currency-input';
+import { formatPlainAmount, formatSalesAmount } from '../../lib/currency-input';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import {
   fetchOrgMonthlySalesCatalog,
@@ -20,7 +20,10 @@ import {
 } from '../../lib/org-weekly-sales';
 import { formatMonthKeyLabel, formatThisMonthScopedLabel } from '../../lib/designer-revenue-analytics';
 import { getErrorMessage } from '../../lib/errors';
-import { useLinkedHqSettlementTotals } from '../../lib/use-linked-hq-settlement';
+import {
+  settlementTotalsForSalesContext,
+  sumMonthlyGrossSales,
+} from '../../lib/org-sales-display';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { HqRevenueSummaryCard } from '../components/hq-revenue-summary-card';
@@ -78,7 +81,11 @@ function formatDesignerMetricValue(
     return `${designer.monthTreatmentCount.toLocaleString('ko-KR')}건`;
   }
 
-  return formatAmount(getDesignerMetricValue(designer, tab, scope));
+  if (tab === 'sales') {
+    return formatSalesAmount(getDesignerMetricValue(designer, tab, scope));
+  }
+
+  return formatPlainAmount(getDesignerMetricValue(designer, tab, scope));
 }
 
 function getSectionTitle(tab: RevenueMetricTab, scope: OrgScope, monthScopeLabel: string) {
@@ -128,8 +135,20 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [salesFilterContext, setSalesFilterContext] = useState<SalesFilterContext | null>(null);
-  const linkedHqTotals = useLinkedHqSettlementTotals(
-    scope === 'admin' ? salesFilterContext : null,
+
+  const hqCardTotals = useMemo(() => {
+    if (!summary || scope !== 'admin') {
+      return null;
+    }
+
+    return (
+      settlementTotalsForSalesContext(salesFilterContext, summary.configuredHqRate) ?? summary
+    );
+  }, [salesFilterContext, scope, summary]);
+
+  const monthGrossSales = useMemo(
+    () => sumMonthlyGrossSales(monthlySummary, summary?.monthGrossSales ?? 0),
+    [monthlySummary, summary?.monthGrossSales],
   );
 
   const isCurrentMonth = selectedMonthKey === new Date().toISOString().slice(0, 7);
@@ -168,6 +187,10 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   }, [loadSummary]);
 
   useEffect(() => {
+    void fetchOrgMonthlySalesSummary(scope, selectedMonthKey).then(setMonthlySummary);
+  }, [scope, selectedMonthKey]);
+
+  useEffect(() => {
     if (periodMode !== 'monthly') {
       return;
     }
@@ -175,9 +198,7 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
     if (monthlyCatalog.length === 0) {
       void fetchOrgMonthlySalesCatalog(scope).then(setMonthlyCatalog);
     }
-
-    void fetchOrgMonthlySalesSummary(scope, selectedMonthKey).then(setMonthlySummary);
-  }, [monthlyCatalog.length, periodMode, scope, selectedMonthKey]);
+  }, [monthlyCatalog.length, periodMode, scope]);
 
   const TabBar = scope === 'store' ? StoreBottomTabBar : AdminBottomTabBar;
   const revenueBase = scope === 'store' ? '/store/designer' : '/admin/designer';
@@ -215,26 +236,30 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
 
   const adminMetricTabs: { key: AdminRevenueMetricTab; label: string; value: string }[] = summary
     ? [
-        { key: 'sales', label: `${monthScopeLabel} 매출`, value: formatAmount(summary.monthGrossSales) },
-        { key: 'hq', label: '본사 수익', value: formatAmount(summary.monthHqRevenue) },
+        {
+          key: 'sales',
+          label: `${monthScopeLabel} 매출`,
+          value: formatSalesAmount(monthGrossSales),
+        },
+        { key: 'hq', label: '본사 수익', value: formatPlainAmount(summary.monthHqRevenue) },
         {
           key: 'treatments',
           label: `${monthScopeLabel} 시술`,
           value: `${summary.monthTreatmentCount.toLocaleString('ko-KR')}건`,
         },
-        { key: 'pending', label: '정산 대기', value: formatAmount(summary.pendingPayoutAmount) },
+        { key: 'pending', label: '정산 대기', value: formatPlainAmount(summary.pendingPayoutAmount) },
       ]
     : [];
 
   const storeMetricTabs: { key: StoreRevenueMetricTab; label: string; value: string }[] = summary
     ? [
-        { key: 'payout', label: `${monthScopeLabel} 정산`, value: formatAmount(summary.monthDesignerPayout) },
+        { key: 'payout', label: `${monthScopeLabel} 정산`, value: formatPlainAmount(summary.monthDesignerPayout) },
         {
           key: 'treatments',
           label: `${monthScopeLabel} 시술`,
           value: `${summary.monthTreatmentCount.toLocaleString('ko-KR')}건`,
         },
-        { key: 'pending', label: '정산 대기', value: formatAmount(summary.pendingPayoutAmount) },
+        { key: 'pending', label: '정산 대기', value: formatPlainAmount(summary.pendingPayoutAmount) },
       ]
     : [];
 
@@ -278,11 +303,11 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
           <EmptyState title="불러오기 실패" subtitle={errorMessage} />
         ) : summary ? (
           <>
-            {scope === 'admin' ? (
+            {scope === 'admin' && hqCardTotals ? (
               <HqRevenueSummaryCard
                 hideMonthChips
                 periodLabel={salesFilterContext?.titleLabel}
-                totals={linkedHqTotals ?? summary}
+                totals={hqCardTotals}
               />
             ) : null}
 

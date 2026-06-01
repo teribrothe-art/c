@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { formatAmount } from '../../lib/currency-input';
+import { formatPlainAmount, formatSalesAmount } from '../../lib/currency-input';
 import type { HqMonthlyRevenueBucket } from '../../lib/org-hq-revenue-history';
 import type { OrgMonthSettlementTotals } from '../../lib/org-month-settlement';
 import { formatHqYieldRateLabel } from '../../lib/org-month-settlement';
@@ -63,9 +63,9 @@ export function HqRevenueSummaryCard({
                   <Text style={[styles.monthChipLabel, selected && styles.monthChipLabelSelected]}>
                     {month.label}
                   </Text>
-                  <Text style={[styles.monthChipValue, selected && styles.monthChipValueSelected]}>
-                    {formatAmount(month.monthHqRevenue)}
-                  </Text>
+                      <Text style={[styles.monthChipValue, selected && styles.monthChipValueSelected]}>
+                        {formatPlainAmount(month.monthHqRevenue)}
+                      </Text>
                 </Pressable>
               );
             })}
@@ -99,7 +99,7 @@ export function HqRevenueSummaryCard({
               본사 수익
             </Text>
             <Text style={[styles.heroValue, tab === 'revenue' && styles.heroValueActive]}>
-              {formatAmount(totals.monthHqRevenue)}
+              {formatPlainAmount(totals.monthHqRevenue)}
             </Text>
           </View>
         </Pressable>
@@ -109,16 +109,16 @@ export function HqRevenueSummaryCard({
         <View style={styles.breakdown}>
           <Row label="설정 본사율" value={`${totals.configuredHqRate}%`} />
           <Row label="실효 수익률" value={formatHqYieldRateLabel(totals)} />
-          <Row label="총 매출" value={formatAmount(totals.monthGrossSales)} />
+          <Row label="총 매출" value={formatSalesAmount(totals.monthGrossSales)} />
         </View>
       ) : (
         <View style={styles.breakdown}>
-          <Row label="총 매출" value={formatAmount(totals.monthGrossSales)} />
-          <Row label="카드 수수료" value={`-${formatAmount(totals.monthCardFee)}`} />
-          <Row label="PG 수수료" value={`-${formatAmount(totals.monthPgFee)}`} />
-          <Row label="디자이너 분배" value={formatAmount(totals.monthDesignerPayout)} />
-          <Row label="매장 분배" value={formatAmount(totals.monthStoreShare)} />
-          <Row label="본사 수익" value={formatAmount(totals.monthHqRevenue)} emphasis />
+          <Row label="총 매출" value={formatSalesAmount(totals.monthGrossSales)} />
+          <Row label="카드 수수료" value={`-${formatPlainAmount(totals.monthCardFee)}`} />
+          <Row label="PG 수수료" value={`-${formatPlainAmount(totals.monthPgFee)}`} />
+          <Row label="디자이너 분배" value={formatPlainAmount(totals.monthDesignerPayout)} />
+          <Row label="매장 분배" value={formatPlainAmount(totals.monthStoreShare)} />
+          <Row label="본사 수익" value={formatPlainAmount(totals.monthHqRevenue)} emphasis />
         </View>
       )}
     </View>

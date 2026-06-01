@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { formatAmount } from '../../lib/currency-input';
+import { formatSalesAmount } from '../../lib/currency-input';
 import type { OrgScope } from '../../lib/org-access';
 import type { OrgMonthlySalesCatalogItem, OrgMonthlySalesSummary } from '../../lib/org-monthly-sales';
 import {
@@ -357,7 +357,7 @@ export function WeeklySalesTabBar({
                         minimumFontScale={0.7}
                         numberOfLines={1}
                         style={[styles.monthChipValue, selected && styles.monthChipValueSelected]}>
-                        {formatAmount(month.grossSales)}
+                        {formatSalesAmount(month.grossSales)}
                       </Text>
                     </Pressable>
                   );
@@ -427,7 +427,7 @@ export function WeeklySalesTabBar({
                 <View style={[styles.cell, active ? styles.cellActive : styles.cellIdle]}>
                   <Text style={[styles.title, active && styles.titleActive]}>{label}</Text>
                   <Text style={[styles.amount, active && styles.amountActive]}>
-                    {formatAmount(bucket.grossSales)}
+                    {formatSalesAmount(bucket.grossSales)}
                   </Text>
                   <Text style={[styles.meta, active && styles.metaActive]}>
                     {hint} · {bucket.treatmentCount}건
@@ -457,7 +457,7 @@ export function WeeklySalesTabBar({
                         style={({ pressed }) => [styles.drillRow, pressed && styles.drillRowPressed]}>
                         <View style={styles.drillRowMain}>
                           <Text style={styles.drillRowTitle}>{row.weekLabel}</Text>
-                          <Text style={styles.drillRowAmount}>{formatAmount(row.grossSales)}</Text>
+                          <Text style={styles.drillRowAmount}>{formatSalesAmount(row.grossSales)}</Text>
                         </View>
                         <Text style={styles.drillRowMeta}>{row.treatmentCount}건 · 탭하여 요일별</Text>
                       </Pressable>
@@ -485,7 +485,7 @@ export function WeeklySalesTabBar({
                       <View key={row.date} style={styles.drillRow}>
                         <View style={styles.drillRowMain}>
                           <Text style={styles.drillRowTitle}>{row.label}</Text>
-                          <Text style={styles.drillRowAmount}>{formatAmount(row.grossSales)}</Text>
+                          <Text style={styles.drillRowAmount}>{formatSalesAmount(row.grossSales)}</Text>
                         </View>
                         <Text style={styles.drillRowMeta}>{row.treatmentCount}건</Text>
                       </View>

@@ -1,6 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { formatAmount } from '../../lib/currency-input';
+import { formatPlainAmount, formatSalesAmount } from '../../lib/currency-input';
 import { formatDesignerNamePreview } from '../../lib/designer-name-preview';
 import type { OrgDesignerStoreGroup } from '../../lib/org-aggregates';
 import { colors } from '../../lib/theme';

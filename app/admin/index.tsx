@@ -3,8 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { formatAmount } from '../../lib/currency-input';
-import { formatThisMonthScopedLabel } from '../../lib/designer-revenue-analytics';
+import { formatSalesAmount } from '../../lib/currency-input';
+import { formatMonthKeyLabel, formatThisMonthScopedLabel } from '../../lib/designer-revenue-analytics';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import {
   fetchOrgMonthlySalesCatalog,
@@ -20,7 +20,11 @@ import {
 } from '../../lib/org-weekly-sales';
 import { buildVirtualStoreSummaries } from '../../lib/org-virtual-simulation';
 import { getErrorMessage } from '../../lib/errors';
-import { useLinkedHqSettlementTotals } from '../../lib/use-linked-hq-settlement';
+import {
+  settlementTotalsForSalesContext,
+  sumMonthlyGrossSales,
+  sumWeeklyGrossSales,
+} from '../../lib/org-sales-display';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { OrgDashboardStatGrid } from '../../src/components/org-dashboard-stat-grid';
@@ -50,7 +54,34 @@ export default function AdminHomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [salesFilterContext, setSalesFilterContext] = useState<SalesFilterContext | null>(null);
-  const linkedHqTotals = useLinkedHqSettlementTotals(salesFilterContext);
+
+  const hqCardTotals = useMemo(() => {
+    if (!summary) {
+      return null;
+    }
+
+    return (
+      settlementTotalsForSalesContext(salesFilterContext, summary.configuredHqRate) ?? summary
+    );
+  }, [salesFilterContext, summary]);
+
+  const weeklyGrossSales = useMemo(
+    () => (weeklySales ? sumWeeklyGrossSales(weeklySales) : 0),
+    [weeklySales],
+  );
+
+  const monthGrossSales = useMemo(
+    () => sumMonthlyGrossSales(monthlySummary, summary?.monthGrossSales ?? 0),
+    [monthlySummary, summary?.monthGrossSales],
+  );
+
+  const monthScopeLabel = useMemo(() => {
+    if (monthlySummary?.monthLabel) {
+      return monthlySummary.monthLabel;
+    }
+
+    return formatMonthKeyLabel(selectedMonthKey);
+  }, [monthlySummary?.monthLabel, selectedMonthKey]);
 
   const load = useCallback(() => {
     setIsLoading(true);
@@ -69,6 +100,10 @@ export default function AdminHomeScreen() {
   }, []);
 
   useEffect(() => {
+    void fetchOrgMonthlySalesSummary('admin', selectedMonthKey).then(setMonthlySummary);
+  }, [selectedMonthKey]);
+
+  useEffect(() => {
     if (periodMode !== 'monthly') {
       return;
     }
@@ -76,9 +111,7 @@ export default function AdminHomeScreen() {
     if (monthlyCatalog.length === 0) {
       void fetchOrgMonthlySalesCatalog('admin').then(setMonthlyCatalog);
     }
-
-    void fetchOrgMonthlySalesSummary('admin', selectedMonthKey).then(setMonthlySummary);
-  }, [monthlyCatalog.length, periodMode, selectedMonthKey]);
+  }, [monthlyCatalog.length, periodMode]);
 
   useFocusEffect(
     useCallback(() => {
@@ -139,35 +172,35 @@ export default function AdminHomeScreen() {
             <HqRevenueSummaryCard
               hideMonthChips
               periodLabel={salesFilterContext?.titleLabel}
-              totals={linkedHqTotals ?? summary}
+              totals={hqCardTotals ?? summary}
             />
 
             <OrgDashboardStatGrid
               items={[
                 {
-                  key: 'gross',
-                  label: `${formatThisMonthScopedLabel()} 매출`,
-                  value: formatAmount(summary.monthGrossSales),
-                  meta: '시술 결제 총액',
+                  key: 'week-gross',
+                  label: '이번 주 매출',
+                  value: formatSalesAmount(weeklyGrossSales),
+                  meta: weeklySales?.weekLabel ?? '주간 합계',
                   onPress: () => router.push('/admin/revenue' as Href),
                 },
                 {
-                  key: 'hq-revenue',
-                  label: '본사 수익',
-                  value: formatAmount(summary.monthHqRevenue),
-                  meta: `수익률 ${summary.hqYieldRate}%`,
-                  onPress: () => router.push('/admin/revenue-split'),
+                  key: 'gross',
+                  label: `${monthScopeLabel} 매출`,
+                  value: formatSalesAmount(monthGrossSales),
+                  meta: '월간 시술 결제 총액',
+                  onPress: () => router.push('/admin/revenue' as Href),
                 },
                 {
                   key: 'treatments',
-                  label: `${formatThisMonthScopedLabel()} 시술`,
-                  value: String(summary.monthTreatmentCount),
+                  label: `${monthScopeLabel} 시술`,
+                  value: summary.monthTreatmentCount.toLocaleString('ko-KR'),
                   onPress: () => router.push('/admin/customers'),
                 },
                 {
                   key: 'designers',
                   label: '연결 디자이너',
-                  value: String(summary.designerCount),
+                  value: summary.designerCount.toLocaleString('ko-KR'),
                   onPress: () => router.push('/admin/designers'),
                 },
               ]}
@@ -191,7 +224,7 @@ export default function AdminHomeScreen() {
                     </Text>
                   </View>
                   <Text style={styles.menuAmount}>
-                    {formatAmount(designer.monthGrossSales)}
+                    {formatSalesAmount(designer.monthGrossSales)}
                   </Text>
                 </Pressable>
               ))}

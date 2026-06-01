@@ -145,7 +145,8 @@ export function TopStoresSection({ virtualStores, designers, viewAllHref = '/adm
                   <Text style={styles.metricMeta}>{metricDetail.meta}</Text>
                 </View>
                 <Text style={styles.storeMeta}>
-                  매출 {formatAmount(store.monthGrossSales)} · 본사 {formatAmount(store.monthHqRevenue)}
+                  매출 {formatSalesAmount(store.monthGrossSales)} · 본사{' '}
+                  {formatPlainAmount(store.monthHqRevenue)}
                 </Text>
                 <Text style={styles.hotPlace} numberOfLines={2}>
                   {store.hotPlace}
