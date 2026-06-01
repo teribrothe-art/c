@@ -136,11 +136,16 @@ export function computeNationwideDesignerAggregate(
   }
 
   const seedStartDate = getSeedStartDate(definition.historyYears, referenceDate);
-  const endDate = new Date(referenceDate);
-  const monthKey = formatDate(referenceDate).slice(0, 7);
+  const referenceDay = new Date(referenceDate);
+  referenceDay.setHours(12, 0, 0, 0);
+  const monthKey = formatDate(referenceDay).slice(0, 7);
   const today = toLocalDateString(referenceDate);
   const weekStart = getWeekStartMonday(today);
   const weekEnd = addDaysToIso(weekStart, 6);
+  const weekEndDay = new Date(`${weekEnd}T12:00:00`);
+  /** 이번 주 주말(토·일)까지 시뮬레이션 — 오늘만 기준이면 주말 매출이 0으로 남음 */
+  const simulationEnd =
+    weekEndDay.getTime() > referenceDay.getTime() ? weekEndDay : referenceDay;
 
   let totalTreatmentCount = 0;
   let monthTreatmentCount = 0;
@@ -151,17 +156,21 @@ export function computeNationwideDesignerAggregate(
 
   for (
     let day = new Date(seedStartDate);
-    day.getTime() <= endDate.getTime();
+    day.getTime() <= simulationEnd.getTime();
     day = addDays(day, 1)
   ) {
     const date = formatDate(day);
+    const isAfterReference = day.getTime() > referenceDay.getTime();
     const count = dailyVisitCount(dayIndex, definition.dailyMin, definition.dailyMax);
-    totalTreatmentCount += count;
+
+    if (!isAfterReference) {
+      totalTreatmentCount += count;
+    }
 
     for (let slotInDay = 0; slotInDay < count; slotInDay += 1) {
       const price = priceForTreatment(definition, dayIndex, slotInDay);
 
-      if (date.slice(0, 7) === monthKey) {
+      if (!isAfterReference && date.slice(0, 7) === monthKey) {
         monthTreatmentCount += 1;
         monthGrossSales += price;
       }
