@@ -9,14 +9,31 @@ type CustomerGridByDateProps = {
   onPressItem: (key: string) => void;
   selectedDate?: string | null;
   onSelectDate?: (date: string | null) => void;
+  /** 매장 화면 등 — 칩 강조색 */
+  accent?: 'designer' | 'store';
 };
+
+const ACCENT = {
+  designer: {
+    chipSelectedBg: '#FFF0F0',
+    chipSelectedBorder: '#FF5A5F',
+    chipSelectedText: '#FF5A5F',
+  },
+  store: {
+    chipSelectedBg: '#E0F2FE',
+    chipSelectedBorder: '#0284C7',
+    chipSelectedText: '#0284C7',
+  },
+} as const;
 
 export function CustomerGridByDate({
   groups,
   onPressItem,
   selectedDate = null,
   onSelectDate,
+  accent = 'designer',
 }: CustomerGridByDateProps) {
+  const accentStyle = ACCENT[accent];
   const showOverview = selectedDate === null && onSelectDate !== undefined;
   const visibleGroups = showOverview
     ? []
@@ -31,10 +48,19 @@ export function CustomerGridByDate({
               onPress={() => onSelectDate(null)}
               style={({ pressed }) => [
                 styles.chip,
-                selectedDate === null && styles.chipSelected,
+                selectedDate === null && {
+                  backgroundColor: accentStyle.chipSelectedBg,
+                  borderColor: accentStyle.chipSelectedBorder,
+                },
                 pressed && styles.chipPressed,
               ]}>
-              <Text style={[styles.chipText, selectedDate === null && styles.chipTextSelected]}>전체</Text>
+              <Text
+                style={[
+                  styles.chipText,
+                  selectedDate === null && { color: accentStyle.chipSelectedText },
+                ]}>
+                달력
+              </Text>
             </Pressable>
             {groups.map((group) => {
               const active = selectedDate === group.date;
@@ -45,13 +71,23 @@ export function CustomerGridByDate({
                   onPress={() => onSelectDate(group.date)}
                   style={({ pressed }) => [
                     styles.chip,
-                    active && styles.chipSelected,
+                    active && {
+                      backgroundColor: accentStyle.chipSelectedBg,
+                      borderColor: accentStyle.chipSelectedBorder,
+                    },
                     pressed && styles.chipPressed,
                   ]}>
-                  <Text style={[styles.chipText, active && styles.chipTextSelected]}>
+                  <Text
+                    style={[styles.chipText, active && { color: accentStyle.chipSelectedText }]}>
                     {group.label.split(' · ')[0]}
                   </Text>
-                  <Text style={[styles.chipMeta, active && styles.chipMetaSelected]}>{group.count}건</Text>
+                  <Text
+                    style={[
+                      styles.chipMeta,
+                      active && { color: accentStyle.chipSelectedText },
+                    ]}>
+                    {group.count}건
+                  </Text>
                 </Pressable>
               );
             })}

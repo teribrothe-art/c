@@ -1,5 +1,5 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -8,9 +8,10 @@ import { getOrgClientListItems, type OrgClientListItem } from '../../lib/org-cli
 import { getErrorMessage } from '../../lib/errors';
 import { navigateBackOrOrgHome } from '../../lib/navigation';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
+import { groupOrgClientsByDate } from '../../lib/designer-customer-grid';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
-import { CustomerGrid } from '../components/customer-grid';
+import { CustomerGridByDate } from '../components/customer-grid-by-date';
 import { StoreBottomTabBar } from '../components/store-bottom-tab-bar';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
 import { TAB_BAR_BOTTOM_INSET } from '../components/role-bottom-tab-bar';
@@ -18,10 +19,6 @@ import { TAB_BAR_BOTTOM_INSET } from '../components/role-bottom-tab-bar';
 type Props = {
   scope: OrgScope;
 };
-
-function formatDate(date: string) {
-  return date.replaceAll('-', '.');
-}
 
 export function OrgCustomersScreen({ scope }: Props) {
   useOrgRoleGuard(scope);
@@ -32,6 +29,7 @@ export function OrgCustomersScreen({ scope }: Props) {
   const [errorMessage, setErrorMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [designerFilter, setDesignerFilter] = useState<string | null>(designerIdParam ?? null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const load = useCallback(() => {
     setIsLoading(true);
 
@@ -87,20 +85,20 @@ export function OrgCustomersScreen({ scope }: Props) {
     );
   }, [designerFilter, items, searchQuery]);
 
+  const dateGroups = useMemo(() => groupOrgClientsByDate(visibleItems), [visibleItems]);
+
+  useEffect(() => {
+    setSelectedDate(null);
+  }, [searchQuery, designerFilter]);
+
+  useEffect(() => {
+    if (selectedDate && !dateGroups.some((group) => group.date === selectedDate)) {
+      setSelectedDate(null);
+    }
+  }, [dateGroups, selectedDate]);
+
   const treatmentPath = scope === 'store' ? '/store/treatment' : '/admin/treatment';
   const TabBar = scope === 'store' ? StoreBottomTabBar : AdminBottomTabBar;
-
-  const gridItems = useMemo(
-    () =>
-      visibleItems.map((item) => ({
-        key: item.key,
-        name: item.customerName,
-        subtitle: item.treatmentTitle,
-        meta: `${formatDate(item.treatmentDate)} · ${item.treatment?.treatment_type ?? '시술'}`,
-        badge: item.designerName,
-      })),
-    [visibleItems],
-  );
 
   const handleGridPress = useCallback(
     (key: string) => {
@@ -131,7 +129,9 @@ export function OrgCustomersScreen({ scope }: Props) {
           </Pressable>
         ) : null}
         <Text style={styles.title}>{scope === 'store' ? '매장 고객' : '고객·시술'}</Text>
-        <Text style={styles.subtitle}>소속 디자이너 고객 데이터와 동일하게 연동됩니다.</Text>
+        <Text style={styles.subtitle}>
+          날짜를 선택한 뒤 시술 건수 → 고객 명단 순으로 확인합니다.
+        </Text>
 
         <TextInput
           onChangeText={setSearchQuery}
@@ -171,7 +171,13 @@ export function OrgCustomersScreen({ scope }: Props) {
             subtitle="디자이너 시술 기록이 연결되면 여기에 표시됩니다."
           />
         ) : (
-          <CustomerGrid items={gridItems} onPressItem={handleGridPress} />
+          <CustomerGridByDate
+            accent={scope === 'store' ? 'store' : 'designer'}
+            groups={dateGroups}
+            onPressItem={handleGridPress}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+          />
         )}
       </ScrollView>
       <TabBar />

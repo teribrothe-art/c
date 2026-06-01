@@ -191,6 +191,7 @@ export default function DesignerClientsScreen() {
           <EmptyState icon="🔍" title="검색 결과가 없어요" subtitle="다른 검색어를 시도해보세요" />
         ) : (
           <CustomerGridByDate
+            accent="designer"
             groups={dateGroups}
             onPressItem={handleGridPress}
             selectedDate={selectedDate}
