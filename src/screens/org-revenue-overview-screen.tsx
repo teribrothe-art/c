@@ -1,54 +1,160 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { OrgScope } from '../../lib/org-access';
 import { formatAmount } from '../../lib/currency-input';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
-import type { VirtualSimulationScenario } from '../../lib/org-virtual-simulation';
+import {
+  fetchOrgHqRevenueHistory,
+  type HqMonthlyRevenueBucket,
+} from '../../lib/org-hq-revenue-history';
+import {
+  fetchOrgWeeklySalesSummary,
+  type OrgWeeklySalesSummary,
+  type WeeklySalesSegment,
+} from '../../lib/org-weekly-sales';
+import { formatMonthKeyLabel } from '../../lib/designer-revenue-analytics';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { HqRevenueSummaryCard } from '../components/hq-revenue-summary-card';
-import { VirtualSimulationBanner } from '../components/virtual-simulation-banner';
+import { WeeklySalesTabBar } from '../components/weekly-sales-tab-bar';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
+import { AdminSectionTabBar } from '../components/admin-section-tab-bar';
 import { StoreBottomTabBar } from '../components/store-bottom-tab-bar';
 
 type Props = {
   scope: OrgScope;
 };
 
+type AdminRevenueMetricTab = 'sales' | 'hq' | 'treatments' | 'pending';
+type StoreRevenueMetricTab = 'payout' | 'treatments' | 'pending';
+type RevenueMetricTab = AdminRevenueMetricTab | StoreRevenueMetricTab;
+
+function getDesignerMetricValue(
+  designer: OrgDashboardSummary['designers'][number],
+  tab: RevenueMetricTab,
+  scope: OrgScope,
+) {
+  switch (tab) {
+    case 'hq':
+      return designer.monthHqRevenue;
+    case 'treatments':
+      return designer.monthTreatmentCount;
+    case 'pending':
+      return designer.pendingPayoutAmount;
+    case 'payout':
+      return designer.monthDesignerPayout;
+    case 'sales':
+    default:
+      return scope === 'admin' ? designer.monthGrossSales : designer.monthDesignerPayout;
+  }
+}
+
+function formatDesignerMetricValue(
+  designer: OrgDashboardSummary['designers'][number],
+  tab: RevenueMetricTab,
+  scope: OrgScope,
+) {
+  if (tab === 'treatments') {
+    return `${designer.monthTreatmentCount.toLocaleString('ko-KR')}건`;
+  }
+
+  return formatAmount(getDesignerMetricValue(designer, tab, scope));
+}
+
+function getSectionTitle(tab: RevenueMetricTab, scope: OrgScope, monthScopeLabel: string) {
+  if (scope === 'store') {
+    switch (tab) {
+      case 'payout':
+        return `${monthScopeLabel} 디자이너별 정산`;
+      case 'treatments':
+        return `${monthScopeLabel} 디자이너별 시술`;
+      case 'pending':
+        return '디자이너별 정산 대기';
+      default:
+        return `${monthScopeLabel} 디자이너별 매출`;
+    }
+  }
+
+  switch (tab) {
+    case 'sales':
+      return `${monthScopeLabel} 디자이너별 매출`;
+    case 'hq':
+      return `${monthScopeLabel} 디자이너별 본사 수익`;
+    case 'treatments':
+      return `${monthScopeLabel} 디자이너별 시술`;
+    case 'pending':
+      return '디자이너별 정산 대기';
+    default:
+      return `${monthScopeLabel} 디자이너별 매출`;
+  }
+}
+
 export function OrgRevenueOverviewScreen({ scope }: Props) {
   useOrgRoleGuard(scope);
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
-  const [scenario, setScenario] = useState<VirtualSimulationScenario>('weekday');
+  const [weeklySales, setWeeklySales] = useState<OrgWeeklySalesSummary | null>(null);
+  const [weeklySegment, setWeeklySegment] = useState<WeeklySalesSegment>('weekday');
+  const [hqHistory, setHqHistory] = useState<HqMonthlyRevenueBucket[]>([]);
+  const [selectedMonthKey, setSelectedMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
   const [searchQuery, setSearchQuery] = useState('');
+  const [metricTab, setMetricTab] = useState<RevenueMetricTab>(
+    scope === 'admin' ? 'sales' : 'payout',
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const load = useCallback(() => {
+  const isCurrentMonth = selectedMonthKey === new Date().toISOString().slice(0, 7);
+
+  const loadHistory = useCallback(() => {
+    if (scope !== 'admin') {
+      return Promise.resolve();
+    }
+
+    return fetchOrgHqRevenueHistory(scope)
+      .then(setHqHistory)
+      .catch(() => {
+        setHqHistory([]);
+      });
+  }, [scope]);
+
+  const loadSummary = useCallback(() => {
     setIsLoading(true);
 
-    fetchOrgDashboardSummary(scope, { scenario, withVirtualSimulation: true })
-      .then((data) => {
+    return Promise.all([
+      fetchOrgDashboardSummary(scope, { monthKey: selectedMonthKey }),
+      fetchOrgWeeklySalesSummary(scope),
+    ])
+      .then(([data, weekData]) => {
         setSummary(data);
+        setWeeklySales(weekData);
         setErrorMessage('');
       })
       .catch((error) => {
         setErrorMessage(getErrorMessage(error, '매출을 불러오지 못했습니다.'));
       })
       .finally(() => setIsLoading(false));
-  }, [scenario, scope]);
+  }, [scope, selectedMonthKey]);
+
+  const handleSelectMonth = useCallback((monthKey: string) => {
+    setSelectedMonthKey(monthKey);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load]),
+      void loadHistory();
+    }, [loadHistory]),
   );
+
+  useEffect(() => {
+    void loadSummary();
+  }, [loadSummary]);
 
   const TabBar = scope === 'store' ? StoreBottomTabBar : AdminBottomTabBar;
   const revenueBase = scope === 'store' ? '/store/designer' : '/admin/designer';
@@ -59,18 +165,49 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
     }
 
     const query = searchQuery.trim().toLowerCase();
+    let rows = summary.designers;
 
-    if (!query) {
-      return summary.designers;
+    if (query) {
+      rows = rows.filter((designer) =>
+        [designer.name, designer.storeName, designer.storeRegion, designer.subtitle ?? '', designer.email]
+          .join(' ')
+          .toLowerCase()
+          .includes(query),
+      );
     }
 
-    return summary.designers.filter((designer) =>
-      [designer.name, designer.storeName, designer.storeRegion, designer.subtitle ?? '', designer.email]
-        .join(' ')
-        .toLowerCase()
-        .includes(query),
+    return [...rows].sort(
+      (a, b) => getDesignerMetricValue(b, metricTab, scope) - getDesignerMetricValue(a, metricTab, scope),
     );
-  }, [searchQuery, summary]);
+  }, [metricTab, scope, searchQuery, summary]);
+
+  const monthLabel = formatMonthKeyLabel(selectedMonthKey);
+  const monthScopeLabel = isCurrentMonth ? '이번 달' : monthLabel;
+
+  const adminMetricTabs: { key: AdminRevenueMetricTab; label: string; value: string }[] = summary
+    ? [
+        { key: 'sales', label: `${monthScopeLabel} 매출`, value: formatAmount(summary.monthGrossSales) },
+        { key: 'hq', label: '본사 수익', value: formatAmount(summary.monthHqRevenue) },
+        {
+          key: 'treatments',
+          label: `${monthScopeLabel} 시술`,
+          value: `${summary.monthTreatmentCount.toLocaleString('ko-KR')}건`,
+        },
+        { key: 'pending', label: '정산 대기', value: formatAmount(summary.pendingPayoutAmount) },
+      ]
+    : [];
+
+  const storeMetricTabs: { key: StoreRevenueMetricTab; label: string; value: string }[] = summary
+    ? [
+        { key: 'payout', label: `${monthScopeLabel} 정산`, value: formatAmount(summary.monthDesignerPayout) },
+        {
+          key: 'treatments',
+          label: `${monthScopeLabel} 시술`,
+          value: `${summary.monthTreatmentCount.toLocaleString('ko-KR')}건`,
+        },
+        { key: 'pending', label: '정산 대기', value: formatAmount(summary.pendingPayoutAmount) },
+      ]
+    : [];
 
   return (
     <View style={styles.container}>
@@ -88,7 +225,15 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
             : '디자이너 매출·정산 화면과 동일 데이터를 합산합니다.'}
         </Text>
 
-        <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
+        {weeklySales ? (
+          <WeeklySalesTabBar
+            segment={weeklySegment}
+            summary={weeklySales}
+            onSegmentChange={setWeeklySegment}
+          />
+        ) : null}
+
+        {scope === 'admin' ? <AdminSectionTabBar /> : null}
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -96,24 +241,28 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
           <EmptyState title="불러오기 실패" subtitle={errorMessage} />
         ) : summary ? (
           <>
-            {scope === 'admin' ? <HqRevenueSummaryCard totals={summary} /> : null}
+            {scope === 'admin' ? (
+              <HqRevenueSummaryCard
+                months={hqHistory}
+                onSelectMonth={handleSelectMonth}
+                selectedMonthKey={selectedMonthKey}
+                totals={summary}
+              />
+            ) : null}
 
             <View style={styles.grid}>
-              <StatCard
-                label={scope === 'admin' ? '이번 달 매출' : '이번 달 정산'}
-                value={formatAmount(scope === 'admin' ? summary.monthGrossSales : summary.monthDesignerPayout)}
-              />
-              {scope === 'admin' ? (
-                <StatCard label="본사 수익" value={formatAmount(summary.monthHqRevenue)} />
-              ) : null}
-              <StatCard
-                label="이번 달 시술"
-                value={`${summary.monthTreatmentCount.toLocaleString('ko-KR')}건`}
-              />
-              <StatCard label="정산 대기" value={formatAmount(summary.pendingPayoutAmount)} />
+              {(scope === 'admin' ? adminMetricTabs : storeMetricTabs).map((tab) => (
+                <StatTabCard
+                  key={tab.key}
+                  label={tab.label}
+                  selected={metricTab === tab.key}
+                  value={tab.value}
+                  onPress={() => setMetricTab(tab.key)}
+                />
+              ))}
             </View>
 
-            <Text style={styles.sectionTitle}>디자이너별 매출</Text>
+            <Text style={styles.sectionTitle}>{getSectionTitle(metricTab, scope, monthScopeLabel)}</Text>
             <TextInput
               onChangeText={setSearchQuery}
               placeholder="디자이너·매장 검색"
@@ -141,7 +290,7 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
                   </View>
                   <View style={styles.rowStats}>
                     <Text style={styles.rowAmount}>
-                      {formatAmount(scope === 'admin' ? designer.monthGrossSales : designer.monthDesignerPayout)}
+                      {formatDesignerMetricValue(designer, metricTab, scope)}
                     </Text>
                     <Text style={styles.rowSub}>
                       시술 {designer.monthTreatmentCount}건 · 고객 {designer.customerCount}명
@@ -158,12 +307,30 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function StatTabCard({
+  label,
+  value,
+  selected,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
   return (
-    <View style={styles.statCard}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.statCard,
+        selected && styles.statCardSelected,
+        pressed && styles.statCardPressed,
+      ]}>
+      <Text style={[styles.statLabel, selected && styles.statLabelSelected]}>{label}</Text>
+      <Text style={[styles.statValue, selected && styles.statValueSelected]}>{value}</Text>
+    </Pressable>
   );
 }
 
@@ -202,15 +369,28 @@ const styles = StyleSheet.create({
     padding: 14,
     width: '48%',
   },
+  statCardSelected: {
+    backgroundColor: '#F7F4FF',
+    borderColor: colors.purple,
+  },
+  statCardPressed: {
+    opacity: 0.92,
+  },
   statLabel: {
     color: '#6B6B7B',
     fontSize: 12,
     fontWeight: '700',
   },
+  statLabelSelected: {
+    color: colors.purple,
+  },
   statValue: {
     color: '#1A1A2E',
     fontSize: 18,
     fontWeight: '900',
+  },
+  statValueSelected: {
+    color: colors.purple,
   },
   sectionTitle: {
     color: '#1A1A2E',
