@@ -106,10 +106,18 @@ export function OrgProfileScreen({ scope }: Props) {
         <View style={styles.menuWrap}>
           <AccountMenuCard
             title="관리"
-            rows={ACCOUNT_SETTING_ITEMS.map((item) => ({
-              ...item,
-              onPress: () => handleSettingPress(item.label),
-            }))}
+            rows={[
+              {
+                icon: '💰',
+                label: '수수료 구조',
+                onPress: () =>
+                  router.push(scope === 'store' ? '/store/revenue-split' : '/admin/revenue-split'),
+              },
+              ...ACCOUNT_SETTING_ITEMS.map((item) => ({
+                ...item,
+                onPress: () => handleSettingPress(item.label),
+              })),
+            ]}
           />
         </View>
 

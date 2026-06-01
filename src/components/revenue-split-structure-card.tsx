@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { type Href, router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -13,10 +13,14 @@ import { getActiveRevenueSplitConfig, getPendingRevenueSplitProposal } from '../
 import { colors } from '../../lib/theme';
 
 type RevenueSplitStructureCardProps = {
+  editHref?: Href;
   sampleGrossAmount?: number;
 };
 
-export function RevenueSplitStructureCard({ sampleGrossAmount = 100_000 }: RevenueSplitStructureCardProps) {
+export function RevenueSplitStructureCard({
+  editHref = '/admin/revenue-split',
+  sampleGrossAmount = 100_000,
+}: RevenueSplitStructureCardProps) {
   const [config, setConfig] = useState<RevenueSplitConfig | null>(null);
   const [hasPending, setHasPending] = useState(false);
 
@@ -44,7 +48,7 @@ export function RevenueSplitStructureCard({ sampleGrossAmount = 100_000 }: Reven
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={() => router.push('/admin/revenue-split')}
+      onPress={() => router.push(editHref)}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>수수료 구조</Text>

@@ -18,6 +18,7 @@ import { colors } from '../../lib/theme';
 import { OrgDashboardStatGrid } from '../../src/components/org-dashboard-stat-grid';
 import { LoadingState } from '../../src/components/loading-state';
 import { StoreBottomTabBar } from '../../src/components/store-bottom-tab-bar';
+import { RevenueSplitStructureCard } from '../../src/components/revenue-split-structure-card';
 import { VirtualSimulationBanner } from '../../src/components/virtual-simulation-banner';
 
 export default function StoreHomeScreen() {
@@ -89,6 +90,11 @@ export default function StoreHomeScreen() {
           <Text style={styles.errorText}>{errorMessage}</Text>
         ) : summary ? (
           <>
+            <RevenueSplitStructureCard
+              editHref="/store/revenue-split"
+              sampleGrossAmount={summary.monthRevenue || 100_000}
+            />
+
             <OrgDashboardStatGrid
               items={[
                 {
