@@ -37,6 +37,9 @@ const ADMIN_SECTION_TABS: AdminSectionTab[] = [
   },
 ];
 
+const META_LINE_HEIGHT = 13;
+const META_LINES = 2;
+
 function isTabSelected(pathname: string, tab: AdminSectionTab) {
   const href = String(tab.href);
 
@@ -59,21 +62,23 @@ export function AdminSectionTabBar() {
         const selected = isTabSelected(pathname, tab);
 
         return (
-          <Link href={tab.href} key={href} asChild>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              style={({ pressed }) => [
-                styles.tab,
-                selected && styles.tabSelected,
-                pressed && styles.tabPressed,
-              ]}>
-              <Text style={[styles.tabLabel, selected && styles.tabLabelSelected]}>{tab.label}</Text>
-              <Text style={styles.tabMeta} numberOfLines={2}>
-                {tab.meta}
-              </Text>
-            </Pressable>
-          </Link>
+          <View key={href} style={styles.tabCell}>
+            <Link href={tab.href} asChild>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                style={({ pressed }) => [
+                  styles.tab,
+                  selected && styles.tabSelected,
+                  pressed && styles.tabPressed,
+                ]}>
+                <Text style={[styles.tabLabel, selected && styles.tabLabelSelected]}>{tab.label}</Text>
+                <Text style={styles.tabMeta} numberOfLines={META_LINES}>
+                  {tab.meta}
+                </Text>
+              </Pressable>
+            </Link>
+          </View>
         );
       })}
     </View>
@@ -82,19 +87,30 @@ export function AdminSectionTabBar() {
 
 const styles = StyleSheet.create({
   row: {
+    alignItems: 'stretch',
     flexDirection: 'row',
-    gap: 8,
     marginBottom: 16,
+    marginHorizontal: -4,
+  },
+  tabCell: {
+    flexBasis: 0,
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    paddingHorizontal: 4,
+    width: '25%',
   },
   tab: {
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderColor: '#E8E8F0',
     borderRadius: 12,
     borderWidth: 1,
     flex: 1,
-    gap: 3,
-    minWidth: 0,
-    paddingHorizontal: 8,
+    gap: 4,
+    justifyContent: 'center',
+    minHeight: 64,
+    paddingHorizontal: 6,
     paddingVertical: 10,
   },
   tabSelected: {
@@ -108,6 +124,8 @@ const styles = StyleSheet.create({
     color: '#1A1A2E',
     fontSize: 14,
     fontWeight: '900',
+    textAlign: 'center',
+    width: '100%',
   },
   tabLabelSelected: {
     color: colors.purple,
@@ -116,6 +134,9 @@ const styles = StyleSheet.create({
     color: '#6B6B7B',
     fontSize: 10,
     fontWeight: '600',
-    lineHeight: 13,
+    height: META_LINE_HEIGHT * META_LINES,
+    lineHeight: META_LINE_HEIGHT,
+    textAlign: 'center',
+    width: '100%',
   },
 });
