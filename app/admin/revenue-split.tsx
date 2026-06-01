@@ -17,6 +17,7 @@ import { getErrorMessage } from '../../lib/errors';
 import {
   calculateRevenueSplit,
   CARD_COMPANY_AVERAGE_FEE_PERCENT,
+  configsEqual,
   formatRevenueSplitSummary,
   normalizeRevenueSplitConfig,
   REVENUE_SPLIT_PARTY_LABELS,
@@ -29,6 +30,7 @@ import {
   getPendingRevenueSplitProposal,
   getRequiredApprovalParties,
   isProposalFullyApproved,
+  proposeRevenueSplitChange,
   type RevenueSplitChangeProposal,
 } from '../../lib/revenue-split-approval';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
@@ -111,6 +113,34 @@ export default function AdminRevenueSplitScreen() {
 
   const sample = calculateRevenueSplit(SAMPLE_AMOUNT, draftConfig);
 
+  const canConfirm = Boolean(
+    active &&
+      !configsEqual(draftConfig, active) &&
+      !(pending && configsEqual(draftConfig, pending.proposedConfig)),
+  );
+
+  const handleConfirm = async () => {
+    if (!active || !canConfirm) {
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      if (pending && !configsEqual(draftConfig, pending.proposedConfig)) {
+        await cancelRevenueSplitProposal();
+      }
+
+      await proposeRevenueSplitChange(draftConfig, 'admin');
+      showSuccessAlert('변경안이 제안되었습니다. 매장·디자이너 승인 후 적용됩니다.');
+      await load();
+    } catch (error) {
+      showErrorAlert(getErrorMessage(error, '비율 변경 제안에 실패했습니다.'));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleApprove = async (party: RevenueSplitParty) => {
     setIsSaving(true);
 
@@ -185,6 +215,17 @@ export default function AdminRevenueSplitScreen() {
           />
           <PercentField label="디자이너 분배 (%)" value={designerShare} onChange={setDesignerShare} />
           <PercentField label="매장 분배 (%)" value={storeShare} onChange={setStoreShare} />
+          <Pressable
+            accessibilityRole="button"
+            disabled={!canConfirm || isSaving}
+            onPress={() => void handleConfirm()}
+            style={({ pressed }) => [
+              styles.confirmButton,
+              (!canConfirm || isSaving) && styles.confirmButtonDisabled,
+              pressed && canConfirm && !isSaving && styles.pressed,
+            ]}>
+            <Text style={styles.confirmButtonText}>확인</Text>
+          </Pressable>
         </View>
 
         <View style={styles.previewCard}>
@@ -340,6 +381,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  confirmButton: {
+    alignItems: 'center',
+    backgroundColor: colors.purple,
+    borderRadius: 12,
+    marginTop: 4,
+    paddingVertical: 14,
+  },
+  confirmButtonDisabled: {
+    backgroundColor: '#D1D5DB',
+  },
+  confirmButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
   },
   previewCard: {
     backgroundColor: '#FFFFFF',
