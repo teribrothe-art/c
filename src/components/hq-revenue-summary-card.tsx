@@ -9,6 +9,8 @@ import { colors } from '../../lib/theme';
 
 type HqRevenueSummaryCardProps = {
   totals: OrgMonthSettlementTotals;
+  periodLabel?: string;
+  hideMonthChips?: boolean;
   months?: HqMonthlyRevenueBucket[];
   selectedMonthKey?: string;
   onSelectMonth?: (monthKey: string) => void;
@@ -18,6 +20,8 @@ type HqRevenueTab = 'yield' | 'revenue';
 
 export function HqRevenueSummaryCard({
   totals,
+  periodLabel,
+  hideMonthChips = false,
   months = [],
   selectedMonthKey,
   onSelectMonth,
@@ -27,7 +31,8 @@ export function HqRevenueSummaryCard({
     months.find((month) => month.monthKey === selectedMonthKey) ??
     months[0] ??
     null;
-  const monthLabel = selectedMonth?.label ?? '이번 달';
+  const monthLabel = periodLabel ?? selectedMonth?.label ?? '이번 달';
+  const showMonthChips = !hideMonthChips && months.length > 1 && onSelectMonth;
 
   return (
     <View style={styles.card}>
@@ -38,7 +43,7 @@ export function HqRevenueSummaryCard({
           : '총 매출에서 카드·PG·디자이너·매장 분배 후 본사 몫'}
       </Text>
 
-      {months.length > 1 && onSelectMonth ? (
+      {showMonthChips ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.monthScroll}>
           <View style={styles.monthRow}>
             {months.map((month) => {

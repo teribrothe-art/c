@@ -10,8 +10,11 @@ import {
   type SegmentDayRow,
   type SegmentWeekRow,
 } from '../../lib/org-sales-segment-drilldown';
+import { buildSalesFilterContext } from '../../lib/build-sales-filter-context';
+import type { SalesFilterContext } from '../../lib/org-sales-filter-context';
 import type { OrgWeeklySalesSummary, SalesPeriodMode, WeeklySalesSegment } from '../../lib/org-weekly-sales';
 
+export type { SalesFilterContext } from '../../lib/org-sales-filter-context';
 export type { SalesPeriodMode } from '../../lib/org-weekly-sales';
 
 type DrillLevel = 'summary' | 'weeks' | 'days';
@@ -30,6 +33,7 @@ type WeeklySalesTabBarProps = {
   onSelectMonthKey?: (monthKey: string) => void;
   monthSearchQuery?: string;
   onMonthSearchQueryChange?: (query: string) => void;
+  onSalesFilterContextChange?: (context: SalesFilterContext) => void;
 };
 
 const SEGMENTS: {
@@ -74,6 +78,7 @@ export function WeeklySalesTabBar({
   onSelectMonthKey,
   monthSearchQuery = '',
   onMonthSearchQueryChange,
+  onSalesFilterContextChange,
 }: WeeklySalesTabBarProps) {
   const activeMonthKey = selectedMonthKey ?? monthlyCatalog[0]?.monthKey;
   const [drillLevel, setDrillLevel] = useState<DrillLevel>('summary');
@@ -149,6 +154,38 @@ export function WeeklySalesTabBar({
     periodMode === 'weekly'
       ? `이번 주 · ${weeklySummary.weekLabel}`
       : monthlySummary?.monthLabel ?? '월별';
+
+  const salesFilterContext = useMemo(
+    () =>
+      buildSalesFilterContext({
+        periodMode,
+        segment: weeklySegment,
+        drillLevel,
+        weeklySummary,
+        monthlySummary,
+        monthlyCatalog,
+        activeMonthKey,
+        selectedWeekLabel,
+        weekRows,
+        dayRows,
+      }),
+    [
+      activeMonthKey,
+      dayRows,
+      drillLevel,
+      monthlyCatalog,
+      monthlySummary,
+      periodMode,
+      selectedWeekLabel,
+      weekRows,
+      weeklySegment,
+      weeklySummary,
+    ],
+  );
+
+  useEffect(() => {
+    onSalesFilterContextChange?.(salesFilterContext);
+  }, [onSalesFilterContextChange, salesFilterContext]);
 
   const loadWeekRows = useCallback(
     async (segment: WeeklySalesSegment) => {

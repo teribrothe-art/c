@@ -7,10 +7,6 @@ import type { OrgScope } from '../../lib/org-access';
 import { formatAmount } from '../../lib/currency-input';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import {
-  fetchOrgHqRevenueHistory,
-  type HqMonthlyRevenueBucket,
-} from '../../lib/org-hq-revenue-history';
-import {
   fetchOrgMonthlySalesCatalog,
   fetchOrgMonthlySalesSummary,
   filterMonthlyCatalogByQuery,
@@ -24,13 +20,18 @@ import {
 } from '../../lib/org-weekly-sales';
 import { formatMonthKeyLabel, formatThisMonthScopedLabel } from '../../lib/designer-revenue-analytics';
 import { getErrorMessage } from '../../lib/errors';
+import { useLinkedHqSettlementTotals } from '../../lib/use-linked-hq-settlement';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { HqRevenueSummaryCard } from '../components/hq-revenue-summary-card';
 import {
   DesignerRegionFilterTabBar,
 } from '../components/designer-region-filter-tab-bar';
-import { WeeklySalesTabBar, type SalesPeriodMode } from '../components/weekly-sales-tab-bar';
+import {
+  WeeklySalesTabBar,
+  type SalesFilterContext,
+  type SalesPeriodMode,
+} from '../components/weekly-sales-tab-bar';
 import {
   designerMatchesRegionFilter,
   type DesignerRegionFilterKey,
@@ -119,7 +120,6 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   const [monthlyCatalog, setMonthlyCatalog] = useState<OrgMonthlySalesCatalogItem[]>([]);
   const [monthlySummary, setMonthlySummary] = useState<OrgMonthlySalesSummary | null>(null);
   const [monthSearchQuery, setMonthSearchQuery] = useState('');
-  const [hqHistory, setHqHistory] = useState<HqMonthlyRevenueBucket[]>([]);
   const [selectedMonthKey, setSelectedMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
   const [searchQuery, setSearchQuery] = useState('');
   const [regionFilterKey, setRegionFilterKey] = useState<DesignerRegionFilterKey>('all');
@@ -128,20 +128,12 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [salesFilterContext, setSalesFilterContext] = useState<SalesFilterContext | null>(null);
+  const linkedHqTotals = useLinkedHqSettlementTotals(
+    scope === 'admin' ? salesFilterContext : null,
+  );
 
   const isCurrentMonth = selectedMonthKey === new Date().toISOString().slice(0, 7);
-
-  const loadHistory = useCallback(() => {
-    if (scope !== 'admin') {
-      return Promise.resolve();
-    }
-
-    return fetchOrgHqRevenueHistory(scope)
-      .then(setHqHistory)
-      .catch(() => {
-        setHqHistory([]);
-      });
-  }, [scope]);
 
   const loadSummary = useCallback(() => {
     setIsLoading(true);
@@ -170,12 +162,6 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   const filteredMonthlyCatalog = useMemo(
     () => filterMonthlyCatalogByQuery(monthlyCatalog, monthSearchQuery),
     [monthlyCatalog, monthSearchQuery],
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      void loadHistory();
-    }, [loadHistory]),
   );
 
   useEffect(() => {
@@ -276,6 +262,7 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
             monthlySummary={monthlySummary}
             onMonthSearchQueryChange={setMonthSearchQuery}
             onPeriodModeChange={setPeriodMode}
+            onSalesFilterContextChange={setSalesFilterContext}
             onSelectMonthKey={handleSelectMonth}
             onWeeklySegmentChange={setWeeklySegment}
             periodMode={periodMode}
@@ -296,10 +283,9 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
           <>
             {scope === 'admin' ? (
               <HqRevenueSummaryCard
-                months={hqHistory}
-                onSelectMonth={handleSelectMonth}
-                selectedMonthKey={selectedMonthKey}
-                totals={summary}
+                hideMonthChips
+                periodLabel={salesFilterContext?.titleLabel}
+                totals={linkedHqTotals ?? summary}
               />
             ) : null}
 

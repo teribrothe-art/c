@@ -21,6 +21,7 @@ import {
 } from '../../lib/org-weekly-sales';
 import { buildVirtualStoreSummaries } from '../../lib/org-virtual-simulation';
 import { getErrorMessage } from '../../lib/errors';
+import { useLinkedHqSettlementTotals } from '../../lib/use-linked-hq-settlement';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { OrgDashboardStatGrid } from '../../src/components/org-dashboard-stat-grid';
@@ -31,6 +32,7 @@ import { HqRevenueSummaryCard } from '../../src/components/hq-revenue-summary-ca
 import { RevenueSplitStructureCard } from '../../src/components/revenue-split-structure-card';
 import {
   WeeklySalesTabBar,
+  type SalesFilterContext,
   type SalesPeriodMode,
 } from '../../src/components/weekly-sales-tab-bar';
 
@@ -48,6 +50,8 @@ export default function AdminHomeScreen() {
   const [virtualStores, setVirtualStores] = useState<ReturnType<typeof buildVirtualStoreSummaries>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [salesFilterContext, setSalesFilterContext] = useState<SalesFilterContext | null>(null);
+  const linkedHqTotals = useLinkedHqSettlementTotals(salesFilterContext);
 
   const load = useCallback(() => {
     setIsLoading(true);
@@ -123,6 +127,7 @@ export default function AdminHomeScreen() {
             monthlySummary={monthlySummary}
             onMonthSearchQueryChange={setMonthSearchQuery}
             onPeriodModeChange={setPeriodMode}
+            onSalesFilterContextChange={setSalesFilterContext}
             onSelectMonthKey={handleSelectMonthKey}
             onWeeklySegmentChange={setWeeklySegment}
             periodMode={periodMode}
@@ -142,7 +147,11 @@ export default function AdminHomeScreen() {
         ) : summary ? (
           <>
             <RevenueSplitStructureCard sampleGrossAmount={summary.monthGrossSales || 100_000} />
-            <HqRevenueSummaryCard totals={summary} />
+            <HqRevenueSummaryCard
+              hideMonthChips
+              periodLabel={salesFilterContext?.titleLabel}
+              totals={linkedHqTotals ?? summary}
+            />
 
             <OrgDashboardStatGrid
               items={[
