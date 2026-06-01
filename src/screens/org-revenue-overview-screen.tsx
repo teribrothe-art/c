@@ -22,7 +22,7 @@ import {
   type OrgWeeklySalesSummary,
   type WeeklySalesSegment,
 } from '../../lib/org-weekly-sales';
-import { formatMonthKeyLabel } from '../../lib/designer-revenue-analytics';
+import { formatMonthKeyLabel, formatThisMonthScopedLabel } from '../../lib/designer-revenue-analytics';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
@@ -226,7 +226,7 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   }, [metricTab, regionFilterKey, scope, searchQuery, summary]);
 
   const monthLabel = formatMonthKeyLabel(selectedMonthKey);
-  const monthScopeLabel = isCurrentMonth ? '이번 달' : monthLabel;
+  const monthScopeLabel = isCurrentMonth ? formatThisMonthScopedLabel() : monthLabel;
 
   const adminMetricTabs: { key: AdminRevenueMetricTab; label: string; value: string }[] = summary
     ? [

@@ -84,6 +84,13 @@ export function formatMonthKeyLabel(monthKey: string) {
   return `${year}년 ${Number(month)}월`;
 }
 
+/** 현재 월 기준 — 예: 이번 달(5월) */
+export function formatThisMonthScopedLabel(reference = new Date()) {
+  const month = reference.getMonth() + 1;
+
+  return `이번 달(${month}월)`;
+}
+
 function formatDayLabel(date: string) {
   const [, month, day] = date.split('-');
   return `${Number(month)}.${Number(day)}`;

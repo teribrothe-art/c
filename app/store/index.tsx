@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { formatAmount } from '../../lib/currency-input';
+import { formatThisMonthScopedLabel } from '../../lib/designer-revenue-analytics';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import { getOrgStoreForAccountUser } from '../../lib/org-store-affiliation';
 import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
@@ -175,13 +176,13 @@ export default function StoreHomeScreen() {
                 },
                 {
                   key: 'treatments',
-                  label: '이번 달 시술',
+                  label: `${formatThisMonthScopedLabel()} 시술`,
                   value: String(summary.monthTreatmentCount),
                   onPress: () => router.push('/store/customers'),
                 },
                 {
                   key: 'revenue',
-                  label: '이번 달 매출',
+                  label: `${formatThisMonthScopedLabel()} 매출`,
                   value: formatAmount(summary.monthRevenue),
                   onPress: () => router.push('/store/revenue'),
                 },
