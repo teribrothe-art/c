@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { formatAmount } from '../../lib/currency-input';
 import type { OrgScope } from '../../lib/org-access';
@@ -54,6 +54,8 @@ const PERIOD_MODES: { key: SalesPeriodMode; label: string }[] = [
   { key: 'monthly', label: '월별 매출' },
 ];
 
+const MONTHS_PER_PAGE = 4;
+
 function segmentLabel(segment: WeeklySalesSegment) {
   return segment === 'weekend' ? '주말' : '평일';
 }
@@ -80,6 +82,44 @@ export function WeeklySalesTabBar({
   const [selectedWeekKey, setSelectedWeekKey] = useState('');
   const [selectedWeekLabel, setSelectedWeekLabel] = useState('');
   const [isDrillLoading, setIsDrillLoading] = useState(false);
+  const [monthPage, setMonthPage] = useState(0);
+
+  const monthPageCount = Math.max(1, Math.ceil(monthlyCatalog.length / MONTHS_PER_PAGE));
+  const monthPageIndex = Math.min(monthPage, monthPageCount - 1);
+  const monthCatalogKeys = useMemo(
+    () => monthlyCatalog.map((month) => month.monthKey).join(','),
+    [monthlyCatalog],
+  );
+
+  const visibleMonths = useMemo(() => {
+    const start = monthPageIndex * MONTHS_PER_PAGE;
+
+    return monthlyCatalog.slice(start, start + MONTHS_PER_PAGE);
+  }, [monthPageIndex, monthlyCatalog]);
+
+  const canGoPrevMonthPage = monthPageIndex > 0;
+  const canGoNextMonthPage = monthPageIndex < monthPageCount - 1;
+
+  useEffect(() => {
+    if (monthPage !== monthPageIndex) {
+      setMonthPage(monthPageIndex);
+    }
+  }, [monthPage, monthPageIndex]);
+
+  useEffect(() => {
+    if (!activeMonthKey || monthlyCatalog.length === 0) {
+      return;
+    }
+
+    const selectedIndex = monthlyCatalog.findIndex((month) => month.monthKey === activeMonthKey);
+
+    if (selectedIndex < 0) {
+      setMonthPage(0);
+      return;
+    }
+
+    setMonthPage(Math.floor(selectedIndex / MONTHS_PER_PAGE));
+  }, [activeMonthKey, monthCatalogKeys, monthlyCatalog]);
 
   const resetDrill = useCallback(() => {
     setDrillLevel('summary');
@@ -217,9 +257,9 @@ export function WeeklySalesTabBar({
             />
           ) : null}
           {monthlyCatalog.length > 0 && onSelectMonthKey ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.monthScroll}>
+            <View style={styles.monthPager}>
               <View style={styles.monthRow}>
-                {monthlyCatalog.map((month) => {
+                {visibleMonths.map((month) => {
                   const selected = month.monthKey === activeMonthKey;
 
                   return (
@@ -233,17 +273,66 @@ export function WeeklySalesTabBar({
                         selected && styles.monthChipSelected,
                         pressed && styles.monthChipPressed,
                       ]}>
-                      <Text style={[styles.monthChipLabel, selected && styles.monthChipLabelSelected]}>
+                      <Text
+                        numberOfLines={1}
+                        style={[styles.monthChipLabel, selected && styles.monthChipLabelSelected]}>
                         {month.label}
                       </Text>
-                      <Text style={[styles.monthChipValue, selected && styles.monthChipValueSelected]}>
+                      <Text
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.7}
+                        numberOfLines={1}
+                        style={[styles.monthChipValue, selected && styles.monthChipValueSelected]}>
                         {formatAmount(month.grossSales)}
                       </Text>
                     </Pressable>
                   );
                 })}
               </View>
-            </ScrollView>
+              {monthPageCount > 1 ? (
+                <View style={styles.monthNavRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: !canGoPrevMonthPage }}
+                    disabled={!canGoPrevMonthPage}
+                    onPress={() => setMonthPage((page) => Math.max(0, page - 1))}
+                    style={({ pressed }) => [
+                      styles.monthNavButton,
+                      !canGoPrevMonthPage && styles.monthNavButtonDisabled,
+                      pressed && canGoPrevMonthPage && styles.monthNavButtonPressed,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.monthNavButtonText,
+                        !canGoPrevMonthPage && styles.monthNavButtonTextDisabled,
+                      ]}>
+                      이전
+                    </Text>
+                  </Pressable>
+                  <Text style={styles.monthNavIndicator}>
+                    {monthPageIndex + 1} / {monthPageCount}
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: !canGoNextMonthPage }}
+                    disabled={!canGoNextMonthPage}
+                    onPress={() => setMonthPage((page) => Math.min(monthPageCount - 1, page + 1))}
+                    style={({ pressed }) => [
+                      styles.monthNavButton,
+                      !canGoNextMonthPage && styles.monthNavButtonDisabled,
+                      pressed && canGoNextMonthPage && styles.monthNavButtonPressed,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.monthNavButtonText,
+                        !canGoNextMonthPage && styles.monthNavButtonTextDisabled,
+                      ]}>
+                      다음
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </View>
           ) : null}
         </>
       ) : null}
@@ -390,23 +479,61 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  monthScroll: {
-    flexGrow: 0,
+  monthPager: {
+    gap: 8,
   },
   monthRow: {
     flexDirection: 'row',
     gap: 8,
-    paddingBottom: 2,
   },
   monthChip: {
     backgroundColor: '#F7FDFC',
     borderColor: '#B2F5EA',
     borderRadius: 12,
     borderWidth: 1,
+    flex: 1,
     gap: 2,
-    minWidth: 108,
-    paddingHorizontal: 12,
+    minWidth: 0,
+    paddingHorizontal: 8,
     paddingVertical: 10,
+  },
+  monthNavRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  monthNavButton: {
+    backgroundColor: '#F0FDFA',
+    borderColor: '#14B8A6',
+    borderRadius: 999,
+    borderWidth: 1,
+    minWidth: 72,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  monthNavButtonDisabled: {
+    backgroundColor: '#F7F7FA',
+    borderColor: '#E8E8F0',
+  },
+  monthNavButtonPressed: {
+    opacity: 0.92,
+  },
+  monthNavButtonText: {
+    color: '#0F766E',
+    fontSize: 12,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  monthNavButtonTextDisabled: {
+    color: '#9CA3AF',
+  },
+  monthNavIndicator: {
+    color: '#6B6B7B',
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   monthChipSelected: {
     backgroundColor: '#F0FDFA',
