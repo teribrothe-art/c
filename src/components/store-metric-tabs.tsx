@@ -54,12 +54,12 @@ export function getStoreMetricDetail(snapshot: StoreMetricSnapshot, tab: StoreMe
       };
     case 'sales':
       return {
-        value: formatAmount(snapshot.monthGrossSales),
+        value: formatSalesAmount(snapshot.monthGrossSales),
         meta: '이번 달 매출',
       };
     case 'hq':
       return {
-        value: formatAmount(snapshot.monthHqRevenue),
+        value: formatPlainAmount(snapshot.monthHqRevenue),
         meta: '이번 달 본사 수익',
       };
   }

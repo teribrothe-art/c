@@ -1,5 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { formatWonAmount } from '../../lib/currency-input';
+
 const MINT = '#00C2A8';
 const CORAL = '#FF5A5F';
 const PURPLE = '#7B5EE6';
@@ -31,14 +33,6 @@ type RevenueBarChartProps = {
   /** @deprecated showTitle 사용 */
   labelPosition?: 'below' | 'insideBar';
 };
-
-function formatCompactWon(value: number) {
-  if (value >= 10000) {
-    return `${Math.round(value / 10000)}만`;
-  }
-
-  return value.toLocaleString('ko-KR');
-}
 
 export function RevenueBarChart({
   title,
@@ -101,7 +95,7 @@ export function RevenueBarChart({
             <Text
               style={[styles.barValue, selected && styles.barValueSelected, point.muted && styles.barValueMuted]}
               numberOfLines={1}>
-              {formatCompactWon(point.value)}
+              {formatWonAmount(point.value)}
             </Text>
             <View style={[styles.barTrack, { height: maxBarHeight }]}>
               <View style={[styles.barFill, { height, backgroundColor: fillColor }]} />

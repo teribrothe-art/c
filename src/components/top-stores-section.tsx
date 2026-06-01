@@ -10,7 +10,7 @@ import {
 } from '../../lib/designer-region-filter';
 import { formatDesignerNamePreview } from '../../lib/designer-name-preview';
 import type { VirtualStoreSummary } from '../../lib/org-virtual-simulation';
-import { formatAmount } from '../../lib/currency-input';
+import { formatPlainAmount, formatSalesAmount } from '../../lib/currency-input';
 import { colors } from '../../lib/theme';
 import {
   getStoreMetricDetail,
