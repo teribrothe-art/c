@@ -43,6 +43,11 @@ import {
   paginateList,
   type DesignerListStageTab,
 } from '../lib/demo-login-list-staging';
+import type { DesignerRegionFilterKey } from '../lib/designer-region-filter';
+import {
+  filterStoreLoginAccountsByRegion,
+  STORE_LOGIN_REGION_TABS,
+} from '../lib/store-login-region-filter';
 import { showLoginFailureAlert } from '../lib/alerts';
 import { isDemoAuthMode } from '../lib/auth';
 import { getErrorMessage } from '../lib/errors';
@@ -51,6 +56,7 @@ import { signInAndNavigate } from '../lib/quick-login-flow';
 import { formatDemoDesignerCustomerCount } from '../lib/demo-designer-customer-counts';
 import { colors } from '../lib/theme';
 import { AppVersionBadge } from '../src/components/app-version-badge';
+import { StoreLoginRegionTabBar } from '../src/components/store-login-region-tab-bar';
 import { TestLoginAccountGrid } from '../src/components/test-login-account-grid';
 
 type DemoLoginGroupSectionProps = {
@@ -140,7 +146,9 @@ function DemoLoginGroupSection({
   onLogin,
 }: DemoLoginGroupSectionProps) {
   const isDesignerGroup = title === '디자이너';
+  const isStoreGroup = title === '매장';
   const isRegisteredCustomerGroup = title === '가입고객';
+  const [selectedStoreRegion, setSelectedStoreRegion] = useState<DesignerRegionFilterKey>('all');
   const [selectedDesignerStage, setSelectedDesignerStage] =
     useState<DesignerListStageTab>('데모·베타');
   const [selectedCustomerView, setSelectedCustomerView] = useState<CustomerViewTab | null>(null);
@@ -176,12 +184,29 @@ function DemoLoginGroupSection({
   useEffect(() => {
     if (!expanded) {
       setListPage(0);
+      setSelectedStoreRegion('all');
     }
   }, [expanded]);
 
   const resetListPage = useCallback(() => {
     setListPage(0);
   }, []);
+
+  const storeScopedAccounts = useMemo(() => {
+    if (!isStoreGroup) {
+      return accounts;
+    }
+
+    return filterStoreLoginAccountsByRegion(accounts, selectedStoreRegion);
+  }, [accounts, isStoreGroup, selectedStoreRegion]);
+
+  const handleStoreRegionChange = useCallback(
+    (regionKey: DesignerRegionFilterKey) => {
+      setSelectedStoreRegion(regionKey);
+      resetListPage();
+    },
+    [resetListPage],
+  );
 
   const handleDesignerStageChange = useCallback(
     (stage: DesignerListStageTab) => {
@@ -271,15 +296,24 @@ function DemoLoginGroupSection({
       return null;
     }
 
-    if (!searchQuery && !listAllWhenExpanded) {
+    if (!searchQuery && selectedStoreRegion === 'all' && !listAllWhenExpanded) {
       return null;
     }
 
-    return filterDemoLoginAccounts(accounts, groupSearch, null, {
+    return filterDemoLoginAccounts(storeScopedAccounts, groupSearch, null, {
       offset: listPage * DEMO_LOGIN_PAGE_SIZE,
       limit: DEMO_LOGIN_PAGE_SIZE,
     });
-  }, [accounts, expanded, groupSearch, listAllWhenExpanded, listPage, searchQuery, title]);
+  }, [
+    expanded,
+    groupSearch,
+    listAllWhenExpanded,
+    listPage,
+    searchQuery,
+    selectedStoreRegion,
+    storeScopedAccounts,
+    title,
+  ]);
 
   const visibleAccounts = useMemo(() => {
     if (isDesignerGroup) {
@@ -292,11 +326,11 @@ function DemoLoginGroupSection({
 
     if (title === '매장') {
       if (!searchable) {
-        return accounts;
+        return storeScopedAccounts;
       }
 
       if (!searchQuery && listAllWhenExpanded) {
-        return paginateList(accounts, listPage, DEMO_LOGIN_PAGE_SIZE).slice;
+        return paginateList(storeScopedAccounts, listPage, DEMO_LOGIN_PAGE_SIZE).slice;
       }
 
       return storeSearchResult?.accounts ?? [];
@@ -317,6 +351,7 @@ function DemoLoginGroupSection({
     listPage,
     searchable,
     searchQuery,
+    storeScopedAccounts,
     storeSearchResult,
     title,
   ]);
@@ -331,7 +366,7 @@ function DemoLoginGroupSection({
     }
 
     if (title === '매장') {
-      return storeSearchResult?.totalMatches ?? accounts.length;
+      return storeSearchResult?.totalMatches ?? storeScopedAccounts.length;
     }
 
     return visibleAccounts.length;
@@ -341,6 +376,7 @@ function DemoLoginGroupSection({
     designerListState,
     isDesignerGroup,
     isRegisteredCustomerGroup,
+    storeScopedAccounts.length,
     storeSearchResult,
     title,
     visibleAccounts.length,
@@ -450,6 +486,13 @@ function DemoLoginGroupSection({
             value={groupSearch}
           />
 
+          {isStoreGroup ? (
+            <StoreLoginRegionTabBar
+              activeKey={selectedStoreRegion}
+              onSelect={handleStoreRegionChange}
+            />
+          ) : null}
+
           {isDesignerGroup ? (
             <ScrollView
               horizontal
@@ -513,7 +556,11 @@ function DemoLoginGroupSection({
             {searchQuery && title === '매장'
               ? storeSearchResult?.totalMatches === 0
                 ? '검색 결과가 없습니다.'
-                : `${storeSearchResult?.totalMatches.toLocaleString('ko-KR')}곳 · ${DEMO_LOGIN_PAGE_SIZE}곳씩 표시`
+                : `${storeSearchResult?.totalMatches.toLocaleString('ko-KR')}곳 · ${DEMO_LOGIN_PAGE_SIZE}곳씩 표시${
+                    selectedStoreRegion !== 'all'
+                      ? ` · ${STORE_LOGIN_REGION_TABS.find((tab) => tab.key === selectedStoreRegion)?.label ?? ''}`
+                      : ''
+                  }`
               : searchQuery && isDesignerGroup
                 ? designerListState?.totalMatches === 0
                   ? '검색 결과가 없습니다.'
@@ -530,7 +577,9 @@ function DemoLoginGroupSection({
                         ? registeredCustomerHint()
                         : requiresSearch
                           ? title === '매장'
-                            ? `총 ${STORE_LOGIN_COUNT.toLocaleString('ko-KR')}곳 · 매장명·지역·이메일로 검색하세요`
+                            ? selectedStoreRegion !== 'all'
+                              ? `${STORE_LOGIN_REGION_TABS.find((tab) => tab.key === selectedStoreRegion)?.label ?? ''} · ${listTotalMatches.toLocaleString('ko-KR')}곳 · 검색하세요`
+                              : `총 ${STORE_LOGIN_COUNT.toLocaleString('ko-KR')}곳 · 지역 탭 또는 매장명·지역·이메일 검색`
                             : `총 ${DESIGNER_LOGIN_COUNT.toLocaleString('ko-KR')}명 · 단계 탭을 선택하세요`
                           : `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT.toLocaleString('ko-KR')}명 — 탭을 선택하세요`}
           </Text>
