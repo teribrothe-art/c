@@ -2,6 +2,7 @@ import { ADMIN_TEST_ACCOUNT } from './admin-test-accounts';
 import { BETA_CUSTOMERS, BETA_DESIGNERS } from './beta-test-accounts';
 import { ACCUMULATED_TEST_ACCOUNTS } from './demo-accumulated-test-accounts';
 import { SEO_JUNGHYUN_TEST_ACCOUNT } from './demo-customer-seo-junghyun';
+import { NATIONWIDE_DESIGNERS_PUBLIC } from './nationwide-org-catalog';
 import { STORE_TEST_ACCOUNTS } from './store-test-accounts';
 import type { UserRole } from './auth';
 
@@ -32,6 +33,13 @@ function ensureDemoUserCatalog() {
     ...BETA_DESIGNERS,
     ...BETA_CUSTOMERS,
     ...ACCUMULATED_TEST_ACCOUNTS,
+    ...NATIONWIDE_DESIGNERS_PUBLIC.map((designer) => ({
+      id: designer.id,
+      email: designer.email,
+      name: designer.name,
+      password: designer.password,
+      role: 'designer' as const,
+    })),
     SEO_JUNGHYUN_TEST_ACCOUNT,
   ]) {
     catalogByEmail.set(normalizeEmail(account.email), {

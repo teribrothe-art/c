@@ -17,7 +17,7 @@ import {
   resolveExpoGoShareUrl,
   waitForMetro,
 } from './lib/expo-go-share.mjs';
-import { writeExpoConnectManifest } from './lib/write-expo-connect-manifest.mjs';
+import { writeExpoConnectManifest, readAppVersionMeta } from './lib/write-expo-connect-manifest.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -29,45 +29,66 @@ async function writeShareArtifacts(url, meta) {
   const lines = [
     '# 헤어 다이어리 — Expo Go 접속',
     `# 생성: ${new Date().toLocaleString('ko-KR')}`,
+    `# 버전: v${meta.version}${meta.buildLabel ? ` · ${meta.buildLabel}` : ''}`,
     `# 모드: ${meta.mode}`,
     '',
+    '## Expo Go (QR / URL 직접 입력)',
     url,
     '',
+  ];
+
+  if (meta.webUrl) {
+    lines.push('## HTTP (브라우저 / 카톡 링크 공유)', meta.webUrl, '');
+  }
+
+  if (meta.ngrokPublicUrl && meta.ngrokPublicUrl !== meta.webUrl) {
+    lines.push('## HTTPS 터널', meta.ngrokPublicUrl, '');
+  }
+
+  lines.push(
     '## 사용 방법',
     '1. 휴대폰에 Expo Go 설치 (SDK 56)',
     '2. Expo Go → Scan QR code → expo-go-qr.png 스캔',
     '   또는 Enter URL manually → 위 exp:// 주소 붙여넣기',
+    '3. HTTP 주소는 브라우저에서 열거나 expo-go-share.html 공유',
     '',
     '## PC에서 Metro 유지',
     '이 창을 닫지 말고 npm run start:phone 이 켜져 있어야 합니다.',
-  ];
+  );
 
   fs.writeFileSync(shareTxtPath, lines.join('\n'), 'utf8');
 
   const qrDataUrl = await QRCode.toDataURL(url, { width: 360, margin: 2 });
   await QRCode.toFile(qrPngPath, url, { width: 320, margin: 2 });
 
+  const webBlock = meta.webUrl
+    ? `<p class="meta">HTTP (브라우저):</p><p class="url" id="weburl">${meta.webUrl}</p>
+  <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('weburl').textContent).then(()=>alert('HTTP 주소 복사됨'))">HTTP 주소 복사</button>`
+    : '';
+
   const html = `<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Expo Go 공유 — 헤어 다이어리</title>
+  <title>Expo Go 공유 — 헤어 다이어리 v${meta.version}</title>
   <style>
     body { font-family: system-ui, sans-serif; background: #fafafc; margin: 0; padding: 24px; max-width: 480px; margin-inline: auto; }
     h1 { font-size: 1.2rem; }
     img { width: 100%; max-width: 360px; background: #fff; padding: 12px; border-radius: 12px; }
-    .url { word-break: break-all; background: #fff; border: 1px solid #e8e8f0; border-radius: 10px; padding: 12px; font-size: 0.9rem; }
-    button { margin-top: 12px; padding: 12px 20px; border: 0; border-radius: 10px; background: #ff5a5f; color: #fff; font-weight: 800; font-size: 1rem; width: 100%; cursor: pointer; }
+    .url { word-break: break-all; background: #fff; border: 1px solid #e8e8f0; border-radius: 10px; padding: 12px; font-size: 0.9rem; margin-bottom: 8px; }
+    button { margin-top: 8px; margin-bottom: 12px; padding: 12px 20px; border: 0; border-radius: 10px; background: #ff5a5f; color: #fff; font-weight: 800; font-size: 1rem; width: 100%; cursor: pointer; }
     .meta { color: #6b6b7b; font-size: 0.85rem; line-height: 1.5; }
   </style>
 </head>
 <body>
-  <h1>Expo Go 접속 (PC 공유)</h1>
+  <h1>Expo Go 접속 v${meta.version}</h1>
   <p class="meta">모드: <strong>${meta.mode}</strong> · Metro: <code>npm run start:phone</code> 실행 중</p>
   <img src="${qrDataUrl}" alt="Expo Go QR" />
+  <p class="meta">Expo Go (exp://):</p>
   <p class="url" id="url">${url}</p>
-  <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('url').textContent).then(()=>alert('주소 복사됨'))">주소 복사</button>
+  <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('url').textContent).then(()=>alert('Expo 주소 복사됨'))">Expo 주소 복사</button>
+  ${webBlock}
   <p class="meta">Expo Go → Scan QR 또는 URL 직접 입력 후 앱에서 로그인하세요.</p>
 </body>
 </html>
@@ -109,10 +130,15 @@ async function main() {
   }
 
   const ngrok = await fetchNgrokTunnel();
+  const { version, buildLabel } = readAppVersionMeta(projectRoot);
+  const webUrl = allPlatforms?.web?.url ?? null;
   const meta = {
+    version,
+    buildLabel,
     mode: classification.mode,
     shareable: classification.shareable,
     ngrokPublicUrl: ngrokPublicUrl ?? ngrok?.public_url ?? null,
+    webUrl,
   };
 
   await writeShareArtifacts(url, meta);
@@ -122,6 +148,7 @@ async function main() {
     mode: meta.mode,
     shareable: meta.shareable,
     ngrokPublicUrl: meta.ngrokPublicUrl,
+    webUrl: meta.webUrl,
   });
 
   console.log(`접속 URL: ${url}`);
@@ -133,6 +160,10 @@ async function main() {
 
   if (meta.ngrokPublicUrl) {
     console.log(`Ngrok: ${meta.ngrokPublicUrl}`);
+  }
+
+  if (meta.webUrl) {
+    console.log(`HTTP: ${meta.webUrl}`);
   }
 
   console.log('\n저장된 공유 파일:');
