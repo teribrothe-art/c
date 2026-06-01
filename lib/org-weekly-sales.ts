@@ -10,6 +10,8 @@ import { sumNationwideWeeklyBuckets } from './nationwide-designer-metrics';
 
 export type WeeklySalesSegment = 'weekday' | 'weekend';
 
+export type SalesPeriodMode = 'weekly' | 'monthly';
+
 export type WeeklySalesBucket = {
   grossSales: number;
   hqRevenue: number;

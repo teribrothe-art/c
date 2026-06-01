@@ -279,6 +279,7 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
             onSelectMonthKey={handleSelectMonth}
             onWeeklySegmentChange={setWeeklySegment}
             periodMode={periodMode}
+            scope={scope}
             selectedMonthKey={selectedMonthKey}
             weeklySegment={weeklySegment}
             weeklySummary={weeklySales}

@@ -49,6 +49,7 @@ export default function StoreHomeScreen() {
   const [monthSearchQuery, setMonthSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [storeOrgId, setStoreOrgId] = useState<string | undefined>();
   const [linkedStoreName, setLinkedStoreName] = useState<string | null>(null);
   const [linkedStoreRegion, setLinkedStoreRegion] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
@@ -72,6 +73,7 @@ export default function StoreHomeScreen() {
       .then(({ user, data, weekData, storeOrgId }) => {
         setSummary(data);
         setWeeklySales(weekData);
+        setStoreOrgId(storeOrgId);
         const linkedStore =
           (user ? getOrgStoreForAccountUser(user) : null) ??
           getVirtualStoreForScope('store', storeOrgId);
@@ -144,7 +146,9 @@ export default function StoreHomeScreen() {
             onSelectMonthKey={handleSelectMonthKey}
             onWeeklySegmentChange={setWeeklySegment}
             periodMode={periodMode}
+            scope="store"
             selectedMonthKey={selectedMonthKey}
+            storeOrgId={storeOrgId}
             weeklySegment={weeklySegment}
             weeklySummary={weeklySales}
           />

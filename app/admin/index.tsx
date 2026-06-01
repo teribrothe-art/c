@@ -126,6 +126,7 @@ export default function AdminHomeScreen() {
             onSelectMonthKey={handleSelectMonthKey}
             onWeeklySegmentChange={setWeeklySegment}
             periodMode={periodMode}
+            scope="admin"
             selectedMonthKey={selectedMonthKey}
             weeklySegment={weeklySegment}
             weeklySummary={weeklySales}

@@ -1,12 +1,24 @@
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { formatAmount } from '../../lib/currency-input';
+import type { OrgScope } from '../../lib/org-access';
 import type { OrgMonthlySalesCatalogItem, OrgMonthlySalesSummary } from '../../lib/org-monthly-sales';
-import type { OrgWeeklySalesSummary, WeeklySalesSegment } from '../../lib/org-weekly-sales';
+import {
+  fetchOrgSegmentDayRows,
+  fetchOrgSegmentWeekRows,
+  type SegmentDayRow,
+  type SegmentWeekRow,
+} from '../../lib/org-sales-segment-drilldown';
+import type { OrgWeeklySalesSummary, SalesPeriodMode, WeeklySalesSegment } from '../../lib/org-weekly-sales';
 
-export type SalesPeriodMode = 'weekly' | 'monthly';
+export type { SalesPeriodMode } from '../../lib/org-weekly-sales';
+
+type DrillLevel = 'summary' | 'weeks' | 'days';
 
 type WeeklySalesTabBarProps = {
+  scope: OrgScope;
+  storeOrgId?: string;
   weeklySummary: OrgWeeklySalesSummary;
   weeklySegment: WeeklySalesSegment;
   onWeeklySegmentChange: (segment: WeeklySalesSegment) => void;
@@ -42,7 +54,13 @@ const PERIOD_MODES: { key: SalesPeriodMode; label: string }[] = [
   { key: 'monthly', label: '월별 매출' },
 ];
 
+function segmentLabel(segment: WeeklySalesSegment) {
+  return segment === 'weekend' ? '주말' : '평일';
+}
+
 export function WeeklySalesTabBar({
+  scope,
+  storeOrgId,
   weeklySummary,
   weeklySegment,
   onWeeklySegmentChange,
@@ -56,6 +74,26 @@ export function WeeklySalesTabBar({
   onMonthSearchQueryChange,
 }: WeeklySalesTabBarProps) {
   const activeMonthKey = selectedMonthKey ?? monthlyCatalog[0]?.monthKey;
+  const [drillLevel, setDrillLevel] = useState<DrillLevel>('summary');
+  const [weekRows, setWeekRows] = useState<SegmentWeekRow[]>([]);
+  const [dayRows, setDayRows] = useState<SegmentDayRow[]>([]);
+  const [selectedWeekKey, setSelectedWeekKey] = useState('');
+  const [selectedWeekLabel, setSelectedWeekLabel] = useState('');
+  const [isDrillLoading, setIsDrillLoading] = useState(false);
+
+  const resetDrill = useCallback(() => {
+    setDrillLevel('summary');
+    setWeekRows([]);
+    setDayRows([]);
+    setSelectedWeekKey('');
+    setSelectedWeekLabel('');
+    setIsDrillLoading(false);
+  }, []);
+
+  useEffect(() => {
+    resetDrill();
+  }, [periodMode, activeMonthKey, resetDrill]);
+
   const segmentBuckets =
     periodMode === 'monthly' && monthlySummary
       ? {
@@ -71,6 +109,76 @@ export function WeeklySalesTabBar({
     periodMode === 'weekly'
       ? `이번 주 · ${weeklySummary.weekLabel}`
       : monthlySummary?.monthLabel ?? '월별';
+
+  const loadWeekRows = useCallback(
+    async (segment: WeeklySalesSegment) => {
+      setIsDrillLoading(true);
+
+      try {
+        const rows = await fetchOrgSegmentWeekRows(scope, segment, {
+          periodMode,
+          monthKey: periodMode === 'monthly' ? activeMonthKey : undefined,
+          storeOrgId,
+        });
+        setWeekRows(rows);
+      } finally {
+        setIsDrillLoading(false);
+      }
+    },
+    [activeMonthKey, periodMode, scope, storeOrgId],
+  );
+
+  const loadDayRows = useCallback(
+    async (segment: WeeklySalesSegment, weekKey: string) => {
+      setIsDrillLoading(true);
+
+      try {
+        const rows = await fetchOrgSegmentDayRows(scope, segment, weekKey, { storeOrgId });
+        setDayRows(rows);
+      } finally {
+        setIsDrillLoading(false);
+      }
+    },
+    [scope, storeOrgId],
+  );
+
+  const handleSegmentPress = useCallback(
+    (segment: WeeklySalesSegment) => {
+      if (drillLevel === 'weeks' && weeklySegment === segment) {
+        resetDrill();
+        return;
+      }
+
+      onWeeklySegmentChange(segment);
+      setDrillLevel('weeks');
+      setSelectedWeekKey('');
+      setSelectedWeekLabel('');
+      setDayRows([]);
+      void loadWeekRows(segment);
+    },
+    [drillLevel, loadWeekRows, onWeeklySegmentChange, resetDrill, weeklySegment],
+  );
+
+  const handleWeekPress = useCallback(
+    (row: SegmentWeekRow) => {
+      setSelectedWeekKey(row.weekKey);
+      setSelectedWeekLabel(row.weekLabel);
+      setDrillLevel('days');
+      void loadDayRows(weeklySegment, row.weekKey);
+    },
+    [loadDayRows, weeklySegment],
+  );
+
+  const handleBackFromWeeks = useCallback(() => {
+    resetDrill();
+  }, [resetDrill]);
+
+  const handleBackFromDays = useCallback(() => {
+    setDrillLevel('weeks');
+    setDayRows([]);
+    setSelectedWeekKey('');
+    setSelectedWeekLabel('');
+  }, []);
 
   return (
     <View style={styles.wrap}>
@@ -150,7 +258,7 @@ export function WeeklySalesTabBar({
               key={key}
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
-              onPress={() => onWeeklySegmentChange(key)}
+              onPress={() => handleSegmentPress(key)}
               style={({ pressed }) => [styles.cellWrap, pressed && styles.cellPressed]}>
               <View style={[styles.cell, active ? styles.cellActive : styles.cellIdle]}>
                 <Text style={[styles.title, active && styles.titleActive]}>{label}</Text>
@@ -159,12 +267,71 @@ export function WeeklySalesTabBar({
                 </Text>
                 <Text style={[styles.meta, active && styles.metaActive]}>
                   {hint} · {bucket.treatmentCount}건
+                  {drillLevel !== 'summary' && active ? ' · 탭하여 접기' : ' · 탭하여 주단위'}
                 </Text>
               </View>
             </Pressable>
           );
         })}
       </View>
+
+      {drillLevel === 'weeks' ? (
+        <View style={styles.drillPanel}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleBackFromWeeks}
+            style={({ pressed }) => [styles.drillBackRow, pressed && styles.cellPressed]}>
+            <Text style={styles.drillBackText}>← {segmentLabel(weeklySegment)} · 주단위</Text>
+          </Pressable>
+          {isDrillLoading ? (
+            <ActivityIndicator color="#14B8A6" style={styles.drillLoader} />
+          ) : weekRows.length === 0 ? (
+            <Text style={styles.drillEmpty}>표시할 주간 매출이 없습니다.</Text>
+          ) : (
+            weekRows.map((row) => (
+              <Pressable
+                key={row.weekKey}
+                accessibilityRole="button"
+                onPress={() => handleWeekPress(row)}
+                style={({ pressed }) => [styles.drillRow, pressed && styles.drillRowPressed]}>
+                <View style={styles.drillRowMain}>
+                  <Text style={styles.drillRowTitle}>{row.weekLabel}</Text>
+                  <Text style={styles.drillRowAmount}>{formatAmount(row.grossSales)}</Text>
+                </View>
+                <Text style={styles.drillRowMeta}>{row.treatmentCount}건 · 탭하여 요일별</Text>
+              </Pressable>
+            ))
+          )}
+        </View>
+      ) : null}
+
+      {drillLevel === 'days' ? (
+        <View style={styles.drillPanel}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleBackFromDays}
+            style={({ pressed }) => [styles.drillBackRow, pressed && styles.cellPressed]}>
+            <Text style={styles.drillBackText}>
+              ← {segmentLabel(weeklySegment)} · {selectedWeekLabel || selectedWeekKey}
+            </Text>
+          </Pressable>
+          {isDrillLoading ? (
+            <ActivityIndicator color="#14B8A6" style={styles.drillLoader} />
+          ) : dayRows.length === 0 ? (
+            <Text style={styles.drillEmpty}>표시할 요일별 매출이 없습니다.</Text>
+          ) : (
+            dayRows.map((row) => (
+              <View key={row.date} style={styles.drillRow}>
+                <View style={styles.drillRowMain}>
+                  <Text style={styles.drillRowTitle}>{row.label}</Text>
+                  <Text style={styles.drillRowAmount}>{formatAmount(row.grossSales)}</Text>
+                </View>
+                <Text style={styles.drillRowMeta}>{row.treatmentCount}건</Text>
+              </View>
+            ))
+          )}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -314,5 +481,65 @@ const styles = StyleSheet.create({
   },
   metaActive: {
     color: '#0F766E',
+  },
+  drillPanel: {
+    backgroundColor: '#F7FDFC',
+    borderColor: '#B2F5EA',
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  drillBackRow: {
+    paddingVertical: 4,
+  },
+  drillBackText: {
+    color: '#0F766E',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  drillLoader: {
+    paddingVertical: 12,
+  },
+  drillEmpty: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '600',
+    paddingVertical: 8,
+    textAlign: 'center',
+  },
+  drillRow: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  drillRowPressed: {
+    opacity: 0.92,
+  },
+  drillRowMain: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  drillRowTitle: {
+    color: '#134E4A',
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  drillRowAmount: {
+    color: '#0F766E',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  drillRowMeta: {
+    color: '#6B6B7B',
+    fontSize: 10,
+    fontWeight: '600',
   },
 });
