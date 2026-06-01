@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -202,22 +202,21 @@ export function OrgDesignersRosterScreen() {
             </View>
           </View>
         ) : summary ? (
-          <FlatList
-            data={filteredStoreGroups}
-            keyExtractor={(item) => item.storeId}
-            scrollEnabled={false}
-            contentContainerStyle={styles.storeList}
-            ListEmptyComponent={
-              <EmptyState title="검색 결과 없음" subtitle="다른 키워드로 검색해 보세요." />
-            }
-            renderItem={({ item }) => (
-              <StoreGroupCard
-                group={item}
-                tab={globalMetricTab}
-                onPress={() => setSelectedStoreId(item.storeId)}
-              />
-            )}
-          />
+          filteredStoreGroups.length === 0 ? (
+            <EmptyState title="검색 결과 없음" subtitle="다른 키워드로 검색해 보세요." />
+          ) : (
+            <View style={styles.storeGrid}>
+              {filteredStoreGroups.map((item) => (
+                <View key={item.storeId} style={styles.storeCell}>
+                  <StoreGroupCard
+                    group={item}
+                    tab={globalMetricTab}
+                    onPress={() => setSelectedStoreId(item.storeId)}
+                  />
+                </View>
+              ))}
+            </View>
+          )
         ) : null}
       </ScrollView>
       <AdminBottomTabBar />
@@ -289,20 +288,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  storeList: {
+  storeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    marginHorizontal: -5,
+  },
+  storeCell: {
+    padding: 5,
+    width: '50%',
   },
   storeCard: {
     backgroundColor: '#E8F5E9',
     borderColor: '#C8E6C9',
     borderRadius: 14,
     borderWidth: 1,
+    flex: 1,
     gap: 4,
+    minHeight: 132,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    width: '48%',
   },
   storeCardPressed: {
     backgroundColor: '#DFF2E0',
