@@ -1,17 +1,24 @@
-/** 금액 입력 — 숫자만 저장, 화면에는 천 단위 구분 */
+/** 금액 입력 — 숫자만 저장, 화면 표시용 포맷 */
 
-/** 매출(총 매출) 전용 — 천 단위 구분 */
-export function formatSalesAmount(amount: number) {
-  return amount.toLocaleString('ko-KR');
+/** 원(₩) 단위 — 숫자 + 천단위 콤마 */
+export function formatWonAmount(amount: number) {
+  return Math.round(amount).toLocaleString('ko-KR');
 }
 
-/** 매출 외 금액 — 구분 없이 표시 */
+/** 매출 전용 — 천원 단위 (예: 1,234,123천) */
+export function formatSalesAmount(amount: number) {
+  const thousands = Math.round(amount / 1000);
+
+  return `${thousands.toLocaleString('ko-KR')}천`;
+}
+
+/** 매출 외 금액 — 원 단위 + 콤마 */
 export function formatPlainAmount(amount: number) {
-  return String(Math.round(amount));
+  return formatWonAmount(amount);
 }
 
 export function formatAmount(amount: number) {
-  return amount.toLocaleString('ko-KR');
+  return formatWonAmount(amount);
 }
 
 export function sanitizeWonDigits(value: string) {
