@@ -13,6 +13,8 @@ import {
   DESIGNER_LINKED_CUSTOMER_COUNT,
   getDesignerLinkedCustomerLoginSources,
 } from './demo-designer-linked-customers';
+import { formatDesignerRegionShortLabel } from './designer-region-filter';
+import { getNationwideStoreById } from './nationwide-org-catalog';
 import { formatDesignerStoreLabel, ORG_STORE_DEFINITIONS } from './org-store-affiliation';
 import { DESIGNER_APP_TAB_LABELS } from './designer-app-tabs';
 import { getDemoDesignerCustomerCount, formatDemoDesignerCustomerCount } from './demo-designer-customer-counts';
@@ -241,18 +243,22 @@ function nationwideDesignerAccent(historyYears: number) {
 }
 
 const NATIONWIDE_DESIGNER_ACCOUNTS: DemoLoginAccount[] = NATIONWIDE_DESIGNERS_PUBLIC.map(
-  (designer) =>
-    withDesignerCustomerCount({
+  (designer) => {
+    const regionLabel = formatDesignerRegionShortLabel(
+      getNationwideStoreById(designer.storeId)?.region ?? '전국',
+    );
+
+    return withDesignerCustomerCount({
       id: designer.id,
       group: '디자이너',
-      roleLabel: '전국',
+      roleLabel: regionLabel,
       loginLabel: designer.loginLabel,
       email: designer.email,
       password: designer.password,
       meta: `${formatDesignerStoreLabel(designer.id)} · ${designer.historyYears}년차`,
       accent: nationwideDesignerAccent(designer.historyYears),
       searchHaystack: designerSearchHaystack([
-        '전국',
+        regionLabel,
         '디자이너',
         designer.loginLabel,
         designer.email,
@@ -261,7 +267,8 @@ const NATIONWIDE_DESIGNER_ACCOUNTS: DemoLoginAccount[] = NATIONWIDE_DESIGNERS_PU
         `${designer.historyYears}년차`,
         formatDesignerStoreLabel(designer.id),
       ]),
-    }),
+    });
+  },
 );
 
 /** 테스트 로그인 · 디자이너 탭 전체 (데모 + 베타 + 누적 + 전국 1000) */

@@ -31,7 +31,7 @@ type RegionSpec = {
   weight: number;
 };
 
-const REGION_SPECS: RegionSpec[] = [
+export const REGION_SPECS: RegionSpec[] = [
   {
     region: '서울',
     hotPlaces: ['역삼·청담·압구정', '홍익대·연남동', '성수·뚝섬', '강북·수유', '잠실·송파', '여의도·마포'],
@@ -289,15 +289,39 @@ function buildCustomers(slot: number, count: number): BetaTestAccount[] {
   });
 }
 
+function formatRegionShortLabel(storeRegion: string) {
+  const normalized = storeRegion.trim();
+
+  if (!normalized || normalized === '전국') {
+    return '전국';
+  }
+
+  for (const spec of REGION_SPECS) {
+    if (spec.region === '기타') {
+      continue;
+    }
+
+    const shortLabel = spec.region.includes('·') ? spec.region.split('·')[0]! : spec.region;
+
+    if (normalized.startsWith(spec.region) || normalized.startsWith(shortLabel)) {
+      return shortLabel;
+    }
+  }
+
+  return normalized.split(' ')[0] ?? normalized;
+}
+
 function buildDesignerDefinition(
   slot: number,
   storeId: string,
+  storeRegion: string,
   historyYears: 1 | 2 | 3 | 4,
   customerCount: number,
 ): NationwideDesignerDefinition {
   const designerName = DESIGNER_NAME_POOL[(slot - 1) % DESIGNER_NAME_POOL.length] ?? `디자이너 ${slot}`;
   const profileKey = `nw-${pad4(slot)}`;
   const yearLabel = `${historyYears}년차`;
+  const regionLabel = formatRegionShortLabel(storeRegion);
 
   const designer: BetaTestAccount = {
     id: `test-designer-nw-${pad4(slot)}`,
@@ -313,7 +337,7 @@ function buildDesignerDefinition(
     designer,
     historyYears,
     profileKey,
-    loginLabel: `전국 · ${designerName} · ${yearLabel}`,
+    loginLabel: `${regionLabel} · ${designerName} · ${yearLabel}`,
     customers: buildCustomers(slot, customerCount),
     dailyMin: 3,
     dailyMax: 7,
@@ -366,16 +390,16 @@ function assignNationwideDesigners(stores: OrgStore[]): NationwideDesignerDefini
 
   for (let index = 0; index < slotEntries.length; index += 1) {
     const entry = slotEntries[index];
+    const store = stores.find((item) => item.id === entry.storeId);
     const definition = buildDesignerDefinition(
       entry.slot,
       entry.storeId,
+      store?.region ?? '전국',
       entry.historyYears,
       customerCounts[index] ?? 0,
     );
 
     designers.push(definition);
-
-    const store = stores.find((item) => item.id === entry.storeId);
 
     if (store) {
       store.designerIds.push(definition.designer.id);

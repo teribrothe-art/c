@@ -1,5 +1,6 @@
 import { BETA_DESIGNERS } from './beta-test-accounts';
 import { ACCUMULATED_TEST_DESIGNERS_PUBLIC } from './demo-accumulated-test-accounts';
+import { formatDesignerRegionShortLabel } from './designer-region-filter';
 import { NATIONWIDE_DESIGNERS_PUBLIC } from './nationwide-org-catalog';
 import {
   DEMO_DESIGNER_ROSTER_SEED,
@@ -57,14 +58,17 @@ const ACCUMULATED_ROSTER = ACCUMULATED_TEST_DESIGNERS_PUBLIC.map((designer) =>
   }),
 );
 
-const NATIONWIDE_ROSTER = NATIONWIDE_DESIGNERS_PUBLIC.map((designer) =>
-  enrichWithStore({
+const NATIONWIDE_ROSTER = NATIONWIDE_DESIGNERS_PUBLIC.map((designer) => {
+  const affiliation = getDesignerStoreAffiliation(designer.id);
+  const regionLabel = formatDesignerRegionShortLabel(affiliation?.store.region ?? '전국');
+
+  return enrichWithStore({
     id: designer.id,
     name: designer.loginLabel,
     email: designer.email,
-    subtitle: `${designer.historyYears}년차 · 전국`,
-  }),
-);
+    subtitle: `${designer.historyYears}년차 · ${regionLabel}`,
+  });
+});
 
 const FULL_ROSTER: OrgDesignerRosterEntry[] = [
   DEMO_DESIGNER,

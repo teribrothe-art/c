@@ -27,7 +27,14 @@ import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { HqRevenueSummaryCard } from '../components/hq-revenue-summary-card';
+import {
+  DesignerRegionFilterTabBar,
+} from '../components/designer-region-filter-tab-bar';
 import { WeeklySalesTabBar, type SalesPeriodMode } from '../components/weekly-sales-tab-bar';
+import {
+  designerMatchesRegionFilter,
+  type DesignerRegionFilterKey,
+} from '../../lib/designer-region-filter';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
@@ -115,6 +122,7 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   const [hqHistory, setHqHistory] = useState<HqMonthlyRevenueBucket[]>([]);
   const [selectedMonthKey, setSelectedMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
   const [searchQuery, setSearchQuery] = useState('');
+  const [regionFilterKey, setRegionFilterKey] = useState<DesignerRegionFilterKey>('all');
   const [metricTab, setMetricTab] = useState<RevenueMetricTab>(
     scope === 'admin' ? 'sales' : 'payout',
   );
@@ -197,6 +205,10 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
     const query = searchQuery.trim().toLowerCase();
     let rows = summary.designers;
 
+    if (regionFilterKey !== 'all') {
+      rows = rows.filter((designer) => designerMatchesRegionFilter(designer, regionFilterKey));
+    }
+
     if (query) {
       rows = rows.filter((designer) =>
         [designer.name, designer.storeName, designer.storeRegion, designer.subtitle ?? '', designer.email]
@@ -206,10 +218,12 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
       );
     }
 
-    return [...rows].sort(
-      (a, b) => getDesignerMetricValue(b, metricTab, scope) - getDesignerMetricValue(a, metricTab, scope),
-    );
-  }, [metricTab, scope, searchQuery, summary]);
+    return [...rows]
+      .sort(
+        (a, b) => getDesignerMetricValue(b, metricTab, scope) - getDesignerMetricValue(a, metricTab, scope),
+      )
+      .slice(0, 80);
+  }, [metricTab, regionFilterKey, scope, searchQuery, summary]);
 
   const monthLabel = formatMonthKeyLabel(selectedMonthKey);
   const monthScopeLabel = isCurrentMonth ? '이번 달' : monthLabel;
@@ -301,9 +315,10 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
             </View>
 
             <Text style={styles.sectionTitle}>{getSectionTitle(metricTab, scope, monthScopeLabel)}</Text>
+            <DesignerRegionFilterTabBar activeKey={regionFilterKey} onSelect={setRegionFilterKey} />
             <TextInput
               onChangeText={setSearchQuery}
-              placeholder="디자이너·매장 검색"
+              placeholder="디자이너·매장·지역 검색"
               placeholderTextColor="#9CA3AF"
               style={styles.searchInput}
               value={searchQuery}

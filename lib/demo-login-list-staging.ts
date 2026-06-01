@@ -24,7 +24,7 @@ export function filterDesignersByStage(
     case '누적':
       return accounts.filter((account) => account.roleLabel === '누적' || account.roleLabel === '증원');
     case '전국':
-      return accounts.filter((account) => account.roleLabel === '전국');
+      return accounts.filter((account) => account.id.startsWith('test-designer-nw-'));
     case '전체보기':
       return accounts;
     default:
