@@ -6,6 +6,11 @@ import {
 
 const MAX_RESULTS = 60;
 
+export type DemoLoginAccountFilterOptions = {
+  offset?: number;
+  limit?: number;
+};
+
 function matchesQuery(account: DemoLoginAccount, normalized: string) {
   const tokens = normalized.split(/\s+/).filter(Boolean);
   const haystack =
@@ -21,8 +26,11 @@ export function filterDemoLoginAccounts(
   accounts: DemoLoginAccount[],
   query: string,
   consonant?: CustomerConsonantTab | null,
-): { accounts: DemoLoginAccount[]; totalMatches: number; truncated: boolean } {
+  options?: DemoLoginAccountFilterOptions,
+): { accounts: DemoLoginAccount[]; totalMatches: number; truncated: boolean; hasMore: boolean } {
   const normalized = query.trim().toLowerCase();
+  const offset = Math.max(0, options?.offset ?? 0);
+  const limit = Math.max(1, options?.limit ?? MAX_RESULTS);
 
   let scoped = accounts;
 
@@ -33,19 +41,26 @@ export function filterDemoLoginAccounts(
   }
 
   if (!normalized) {
+    const totalMatches = scoped.length;
+    const slice = scoped.slice(offset, offset + limit);
+    const hasPaging = consonant != null || options != null;
+
     return {
-      accounts: consonant ? scoped.slice(0, MAX_RESULTS) : [],
-      totalMatches: scoped.length,
-      truncated: consonant ? scoped.length > MAX_RESULTS : false,
+      accounts: hasPaging ? slice : [],
+      totalMatches,
+      truncated: offset + slice.length < totalMatches,
+      hasMore: offset + slice.length < totalMatches,
     };
   }
 
   const matches = scoped.filter((account) => matchesQuery(account, normalized));
+  const slice = matches.slice(offset, offset + limit);
 
   return {
-    accounts: matches.slice(0, MAX_RESULTS),
+    accounts: slice,
     totalMatches: matches.length,
-    truncated: matches.length > MAX_RESULTS,
+    truncated: offset + slice.length < matches.length,
+    hasMore: offset + slice.length < matches.length,
   };
 }
 

@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -16,6 +16,7 @@ import { colors } from '../../lib/theme';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
+import { AdminSectionTabBar } from '../components/admin-section-tab-bar';
 import {
   GlobalStoreMetricTabs,
   metricsFromStoreGroup,
@@ -85,6 +86,7 @@ export function OrgDesignersRosterScreen() {
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [globalMetricTab, setGlobalMetricTab] = useState<StoreMetricTab>('designers');
+  const [storeSearch, setStoreSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -118,6 +120,21 @@ export function OrgDesignersRosterScreen() {
     [selectedStoreId, storeGroups],
   );
 
+  const filteredStoreGroups = useMemo(() => {
+    const query = storeSearch.trim().toLowerCase();
+
+    if (!query) {
+      return storeGroups;
+    }
+
+    return storeGroups.filter(
+      (group) =>
+        group.storeName.toLowerCase().includes(query) ||
+        group.storeRegion.toLowerCase().includes(query) ||
+        group.storeId.toLowerCase().includes(query),
+    );
+  }, [storeGroups, storeSearch]);
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -126,6 +143,8 @@ export function OrgDesignersRosterScreen() {
           { paddingTop: insets.top + 16, paddingBottom: Math.max(insets.bottom, 20) + 100 },
         ]}
         showsVerticalScrollIndicator={false}>
+        <AdminSectionTabBar />
+
         <View style={styles.headerBlock}>
           <View style={styles.titleRow}>
             <Text style={styles.title}>매장</Text>
@@ -148,8 +167,20 @@ export function OrgDesignersRosterScreen() {
           <Text style={styles.subtitle}>
             {selectedGroup
               ? '소속 디자이너의 매출·고객·시술을 조회하세요.'
-              : '상단 탭으로 전체 매장 지표를 함께 전환합니다.'}
+              : `전국 ${storeGroups.length.toLocaleString('ko-KR')}개 매장 · 검색으로 찾기`}
           </Text>
+          {!selectedGroup ? (
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+              onChangeText={setStoreSearch}
+              placeholder="매장명 · 지역 · ID 검색"
+              placeholderTextColor="#9CA3AF"
+              style={styles.storeSearchInput}
+              value={storeSearch}
+            />
+          ) : null}
         </View>
 
         {isLoading ? (
@@ -171,16 +202,21 @@ export function OrgDesignersRosterScreen() {
             </View>
           </View>
         ) : summary ? (
-          <View style={styles.storeList}>
-            {storeGroups.map((group) => (
-              <StoreGroupCard
-                key={group.storeId}
-                group={group}
-                tab={globalMetricTab}
-                onPress={() => setSelectedStoreId(group.storeId)}
-              />
-            ))}
-          </View>
+          filteredStoreGroups.length === 0 ? (
+            <EmptyState title="검색 결과 없음" subtitle="다른 키워드로 검색해 보세요." />
+          ) : (
+            <View style={styles.storeGrid}>
+              {filteredStoreGroups.map((item) => (
+                <View key={item.storeId} style={styles.storeCell}>
+                  <StoreGroupCard
+                    group={item}
+                    tab={globalMetricTab}
+                    onPress={() => setSelectedStoreId(item.storeId)}
+                  />
+                </View>
+              ))}
+            </View>
+          )
         ) : null}
       </ScrollView>
       <AdminBottomTabBar />
@@ -240,17 +276,37 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 4,
   },
-  storeList: {
-    gap: 12,
+  storeSearchInput: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 12,
+    borderWidth: 1,
+    color: '#1A1A2E',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  storeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -5,
+  },
+  storeCell: {
+    padding: 5,
+    width: '50%',
   },
   storeCard: {
     backgroundColor: '#E8F5E9',
     borderColor: '#C8E6C9',
     borderRadius: 14,
     borderWidth: 1,
+    flex: 1,
     gap: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    minHeight: 132,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
   },
   storeCardPressed: {
     backgroundColor: '#DFF2E0',
@@ -258,9 +314,9 @@ const styles = StyleSheet.create({
   },
   storeTapHint: {
     color: '#2E7D32',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '800',
-    marginTop: 6,
+    marginTop: 4,
   },
   storeSection: {
     gap: 10,
@@ -281,12 +337,12 @@ const styles = StyleSheet.create({
   },
   storeName: {
     color: '#1B5E20',
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '900',
   },
   storeRegion: {
     color: '#388E3C',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
   designerList: {

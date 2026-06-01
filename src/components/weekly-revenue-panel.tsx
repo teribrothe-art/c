@@ -1,39 +1,60 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { DailyRevenuePoint } from '../../lib/designer-revenue-analytics';
-import { formatDateWithWeekday } from '../../lib/designer-revenue-weekly';
-import { formatAmount } from '../../lib/currency-input';
-import { RevenueBarChart } from './revenue-bar-chart';
+import type { WeekdayRevenueCell } from '../../lib/designer-revenue-analytics';
+import { RevenueBarChart, type RevenueBarChartPoint } from './revenue-bar-chart';
 
+const CORAL = '#FF5A5F';
 const MINT = '#00C2A8';
 const PURPLE = '#7B5EE6';
 
+function formatDayDateLabel(date: string) {
+  const [, month, day] = date.split('-');
+
+  return `${Number(month)}.${Number(day)}`;
+}
+
+function dayToChartPoint(day: WeekdayRevenueCell): RevenueBarChartPoint {
+  return {
+    key: day.date,
+    label: day.weekdayLabel,
+    value: day.totalAmount,
+    subLabel:
+      day.settlementCount > 0
+        ? `${day.settlementCount}건\n${formatDayDateLabel(day.date)}`
+        : formatDayDateLabel(day.date),
+    muted: !day.inSelectedMonth,
+    isToday: day.isToday,
+  };
+}
+
 type WeeklyRevenuePanelProps = {
-  monthLabel: string;
-  dailyTotals: DailyRevenuePoint[];
+  weekLabel: string;
+  weekTotal: number;
+  days: WeekdayRevenueCell[];
   selectedDate: string | null;
-  onSelectDay: (day: DailyRevenuePoint) => void;
+  onSelectDay: (day: WeekdayRevenueCell) => void;
+  onPrevWeek?: () => void;
+  onNextWeek?: () => void;
+  canGoPrev?: boolean;
+  canGoNext?: boolean;
 };
 
 export function WeeklyRevenuePanel({
-  monthLabel,
-  dailyTotals,
+  weekLabel,
+  weekTotal,
+  days,
   selectedDate,
   onSelectDay,
+  onPrevWeek,
+  onNextWeek,
+  canGoPrev = false,
+  canGoNext = false,
 }: WeeklyRevenuePanelProps) {
-  const chartPoints = dailyTotals
-    .filter((day) => day.totalAmount > 0)
-    .map((day) => ({
-      key: day.date,
-      label: day.label,
-      value: day.totalAmount,
-      subLabel: day.settlementCount > 0 ? `${day.settlementCount}건` : undefined,
-    }));
+  const chartPoints = days.map(dayToChartPoint);
+  const selectedDay = days.find((day) => day.date === selectedDate) ?? null;
 
-  const selectedDay = dailyTotals.find((day) => day.date === selectedDate) ?? null;
-
-  const handlePressChartDay = (dateKey: string) => {
-    const day = dailyTotals.find((item) => item.date === dateKey);
+  const handleSelectPoint = (point: RevenueBarChartPoint) => {
+    const day = days.find((cell) => cell.date === point.key);
 
     if (day) {
       onSelectDay(day);
@@ -42,29 +63,51 @@ export function WeeklyRevenuePanel({
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>일별 합계</Text>
-      <Text style={styles.monthCaption}>{monthLabel} 기준</Text>
+      <View style={styles.headerRow}>
+        <View style={styles.headerText}>
+          <Text style={styles.title}>요일별 합계</Text>
+          <Text style={styles.subtitle}>주간(월~일) · 막대를 눌러 날짜를 선택하세요</Text>
+        </View>
+        <View style={styles.weekNav}>
+          <Pressable
+            disabled={!canGoPrev}
+            onPress={onPrevWeek}
+            style={[styles.navButton, !canGoPrev && styles.navButtonDisabled]}>
+            <Text style={styles.navButtonText}>‹</Text>
+          </Pressable>
+          <View style={styles.weekLabelBlock}>
+            <Text style={styles.weekLabel}>{weekLabel}</Text>
+            <Text style={styles.weekTotal}>{weekTotal.toLocaleString('ko-KR')}원</Text>
+          </View>
+          <Pressable
+            disabled={!canGoNext}
+            onPress={onNextWeek}
+            style={[styles.navButton, !canGoNext && styles.navButtonDisabled]}>
+            <Text style={styles.navButtonText}>›</Text>
+          </Pressable>
+        </View>
+      </View>
 
       <RevenueBarChart
         barColor={MINT}
         embedded
-        labelPosition="insideBar"
-        maxBarHeight={100}
-        onPressPoint={handlePressChartDay}
+        maxBarHeight={112}
+        onSelectPoint={handleSelectPoint}
         points={chartPoints}
         selectedKey={selectedDate}
-        title=""
-        emptyMessage="이번 달 정산 일별 데이터가 없어요"
+        showTitle={false}
+        title="요일별 합계"
+        unitHint="일별 정산 합계 (원)"
       />
 
       {selectedDay ? (
         <View style={styles.detailBox}>
-          <Text style={styles.detailTitle}>{formatDateWithWeekday(selectedDay.date)}</Text>
-          <Text style={styles.detailAmount}>{formatAmount(selectedDay.totalAmount)}</Text>
+          <Text style={styles.detailTitle}>{selectedDay.dateWithWeekdayLabel}</Text>
+          <Text style={styles.detailAmount}>{selectedDay.totalAmount.toLocaleString('ko-KR')}원</Text>
           <Text style={styles.detailMeta}>정산 {selectedDay.settlementCount}건</Text>
         </View>
       ) : (
-        <Text style={styles.hint}>막대를 누르면 해당 날짜 정산 합계를 확인할 수 있어요</Text>
+        <Text style={styles.hint}>요일 막대를 누르면 해당 날짜 정산 합계를 확인할 수 있어요</Text>
       )}
     </View>
   );
@@ -78,16 +121,60 @@ const styles = StyleSheet.create({
     gap: 14,
     padding: 16,
   },
+  headerRow: {
+    gap: 12,
+  },
+  headerText: {
+    gap: 4,
+  },
   title: {
     color: '#1A1A2E',
     fontSize: 16,
     fontWeight: '800',
   },
-  monthCaption: {
-    color: PURPLE,
-    fontSize: 13,
+  subtitle: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  weekNav: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'center',
+  },
+  navButton: {
+    alignItems: 'center',
+    backgroundColor: '#F5F5F8',
+    borderRadius: 10,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  navButtonDisabled: {
+    opacity: 0.35,
+  },
+  navButtonText: {
+    color: '#1A1A2E',
+    fontSize: 22,
     fontWeight: '700',
-    marginTop: -8,
+  },
+  weekLabelBlock: {
+    alignItems: 'center',
+    gap: 2,
+    minWidth: 148,
+  },
+  weekLabel: {
+    color: PURPLE,
+    fontSize: 14,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  weekTotal: {
+    color: CORAL,
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   detailBox: {
     backgroundColor: '#F0FBF9',

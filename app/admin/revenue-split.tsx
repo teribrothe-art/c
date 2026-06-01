@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   Pressable,
@@ -34,6 +33,7 @@ import {
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { AdminBottomTabBar } from '../../src/components/admin-bottom-tab-bar';
+import { AdminSectionTabBar } from '../../src/components/admin-section-tab-bar';
 
 const SAMPLE_AMOUNT = 500_000;
 
@@ -146,9 +146,7 @@ export default function AdminRevenueSplitScreen() {
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => router.back()} style={styles.back}>
-          <Text style={styles.backText}>‹ 본사</Text>
-        </Pressable>
+        <AdminSectionTabBar />
 
         <Text style={styles.title}>수수료 구조</Text>
         <Text style={styles.subtitle}>

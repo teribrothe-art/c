@@ -1,4 +1,5 @@
 import type { DesignerClientListItem } from './customer-invitations';
+import type { OrgClientListItem } from './org-client-list';
 import { normalizePaymentStatus } from './payment-status';
 import type { CustomerGridItem } from '../src/components/customer-grid';
 import type { SettlementListItem } from './designer-payment-stats';
@@ -116,6 +117,63 @@ export function mapDesignerClientsToGridItems(
       : `${formatTreatmentDisplayDate(item.treatmentDate)} · ${item.treatment?.treatment_type ?? '시술'}`,
     badge: getDesignerClientStatusBadge(item),
   }));
+}
+
+export function mapOrgClientsToGridItems(
+  items: OrgClientListItem[],
+  options?: { hideDateInMeta?: boolean },
+): CustomerGridItem[] {
+  return items.map((item) => ({
+    key: item.key,
+    name: item.customerName,
+    subtitle: item.treatmentTitle,
+    meta: options?.hideDateInMeta
+      ? (item.treatment?.treatment_type ?? '시술')
+      : `${formatTreatmentDisplayDate(item.treatmentDate)} · ${item.treatment?.treatment_type ?? '시술'}`,
+    badge: item.designerName,
+  }));
+}
+
+/** 매장·본사 — 일자별 시술 건수 → 고객 그리드 */
+export function groupOrgClientsByDate(items: OrgClientListItem[]): DesignerClientDateGroup[] {
+  const buckets = new Map<string, OrgClientListItem[]>();
+
+  for (const item of items) {
+    const bucket = buckets.get(item.treatmentDate);
+
+    if (bucket) {
+      bucket.push(item);
+    } else {
+      buckets.set(item.treatmentDate, [item]);
+    }
+  }
+
+  return [...buckets.entries()]
+    .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
+    .map(([date, bucket]) => {
+      const sorted = [...bucket].sort((a, b) => {
+        const byDesigner = a.designerName.localeCompare(b.designerName, 'ko');
+
+        if (byDesigner !== 0) {
+          return byDesigner;
+        }
+
+        const byName = a.customerName.localeCompare(b.customerName, 'ko');
+
+        if (byName !== 0) {
+          return byName;
+        }
+
+        return a.treatmentTitle.localeCompare(b.treatmentTitle, 'ko');
+      });
+
+      return {
+        date,
+        label: formatTreatmentDateSectionLabel(date, sorted.length),
+        count: sorted.length,
+        items: mapOrgClientsToGridItems(sorted, { hideDateInMeta: true }),
+      };
+    });
 }
 
 export function mapSettlementsToGridItems(items: SettlementListItem[]): CustomerGridItem[] {
