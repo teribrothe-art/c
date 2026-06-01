@@ -93,7 +93,7 @@ export default function AdminHomeScreen() {
           <Text style={styles.errorText}>{errorMessage}</Text>
         ) : summary ? (
           <>
-            <RevenueSplitStructureCard sampleGrossAmount={summary.monthGrossSales || 100_000} />
+            <RevenueSplitStructureCard />
             <HqRevenueSummaryCard totals={summary} />
 
             <OrgDashboardStatGrid

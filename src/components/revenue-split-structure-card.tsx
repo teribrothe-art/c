@@ -3,20 +3,11 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { formatAmount } from '../../lib/currency-input';
-import {
-  calculateRevenueSplit,
-  formatRevenueSplitSummary,
-  type RevenueSplitConfig,
-} from '../../lib/revenue-split-config';
+import { type RevenueSplitConfig } from '../../lib/revenue-split-config';
 import { getActiveRevenueSplitConfig, getPendingRevenueSplitProposal } from '../../lib/revenue-split-approval';
 import { colors } from '../../lib/theme';
 
-type RevenueSplitStructureCardProps = {
-  sampleGrossAmount?: number;
-};
-
-export function RevenueSplitStructureCard({ sampleGrossAmount = 100_000 }: RevenueSplitStructureCardProps) {
+export function RevenueSplitStructureCard() {
   const [config, setConfig] = useState<RevenueSplitConfig | null>(null);
   const [hasPending, setHasPending] = useState(false);
 
@@ -39,8 +30,6 @@ export function RevenueSplitStructureCard({ sampleGrossAmount = 100_000 }: Reven
     return null;
   }
 
-  const sample = calculateRevenueSplit(sampleGrossAmount, config);
-
   return (
     <Pressable
       accessibilityRole="button"
@@ -50,7 +39,6 @@ export function RevenueSplitStructureCard({ sampleGrossAmount = 100_000 }: Reven
         <Text style={styles.title}>수수료 구조</Text>
         {hasPending ? <Text style={styles.pendingBadge}>승인 대기</Text> : null}
       </View>
-      <Text style={styles.summary}>{formatRevenueSplitSummary(config)}</Text>
       <View style={styles.row}>
         <Text style={styles.rowLabel}>카드 수수료(카드사)</Text>
         <Text style={styles.rowValue}>{config.cardFeePercent}%</Text>
@@ -69,10 +57,6 @@ export function RevenueSplitStructureCard({ sampleGrossAmount = 100_000 }: Reven
           {config.designerSharePercent}:{config.storeSharePercent}
         </Text>
       </View>
-      <Text style={styles.example}>
-        예: 시술 {formatAmount(sampleGrossAmount)} → 디자이너 {formatAmount(sample.designerPayout)} · 매장{' '}
-        {formatAmount(sample.storePayout)} (본사 {formatAmount(sample.hqFeeAmount)})
-      </Text>
       <Text style={styles.link}>비율 조정 · 상호 승인 ›</Text>
     </Pressable>
   );
@@ -111,12 +95,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  summary: {
-    color: '#6B6B7B',
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 17,
-  },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -130,13 +108,6 @@ const styles = StyleSheet.create({
     color: '#1A1A2E',
     fontSize: 13,
     fontWeight: '800',
-  },
-  example: {
-    color: '#9CA3AF',
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 16,
-    marginTop: 4,
   },
   link: {
     color: colors.purple,
