@@ -1,6 +1,8 @@
 /**
  * Expo Go 공유 URL 조회 (Metro + 터널)
  */
+import { pickLanHost } from './pick-lan-host.mjs';
+
 const DEFAULT_PORT = Number(process.env.PORT || 8081);
 const DEFAULT_HOST = process.env.HOST || '127.0.0.1';
 
@@ -56,6 +58,18 @@ export async function fetchExpoOpenPayload({
   return response.json();
 }
 
+/** ngrok https:// URL → Expo Go exp:// URL */
+export function publicUrlToExpUrl(publicUrl) {
+  const parsed = new URL(publicUrl);
+  let port = parsed.port;
+
+  if (!port) {
+    port = parsed.protocol === 'https:' ? '443' : '80';
+  }
+
+  return `exp://${parsed.hostname}:${port}`;
+}
+
 export function classifyExpoUrl(url, hasNgrokTunnel) {
   if (!url || !url.startsWith('exp://')) {
     return { mode: 'invalid', shareable: false };
@@ -80,11 +94,36 @@ export function classifyExpoUrl(url, hasNgrokTunnel) {
   return { mode: 'unknown', shareable: true };
 }
 
+function shouldPreferNgrokUrl(metroUrl, hasNgrok) {
+  if (!hasNgrok) {
+    return false;
+  }
+
+  if (!metroUrl) {
+    return true;
+  }
+
+  const classification = classifyExpoUrl(metroUrl, false);
+
+  return (
+    !classification.shareable ||
+    classification.mode === 'private' ||
+    classification.mode === 'localhost' ||
+    classification.mode === 'invalid'
+  );
+}
+
 export async function resolveExpoGoShareUrl(platform = process.env.PLATFORM || 'ios') {
   const payload = await fetchExpoOpenPayload();
   const ngrok = await fetchNgrokTunnel();
-  const url = payload.platforms?.[platform]?.url ?? payload.url ?? null;
-  const classification = classifyExpoUrl(url, Boolean(ngrok));
+  const hasNgrok = Boolean(ngrok?.public_url);
+  let url = payload.platforms?.[platform]?.url ?? payload.url ?? null;
+
+  if (hasNgrok && shouldPreferNgrokUrl(url, hasNgrok)) {
+    url = publicUrlToExpUrl(ngrok.public_url);
+  }
+
+  const classification = classifyExpoUrl(url, hasNgrok);
 
   return {
     url,
@@ -92,6 +131,7 @@ export async function resolveExpoGoShareUrl(platform = process.env.PLATFORM || '
     classification,
     ngrokPublicUrl: ngrok?.public_url ?? null,
     allPlatforms: payload.platforms ?? {},
+    lanHost: pickLanHost(),
   };
 }
 

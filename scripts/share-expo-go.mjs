@@ -2,7 +2,7 @@
 /**
  * PC에서 Expo Go 공유용 URL·QR·HTML 생성
  *
- * 1) 터미널 1: npm run start:phone
+ * 1) 터미널 1: npm run start:connect
  * 2) 터미널 2: npm run share
  */
 import fs from 'node:fs';
@@ -53,7 +53,7 @@ async function writeShareArtifacts(url, meta) {
     '3. HTTP 주소는 브라우저에서 열거나 expo-go-share.html 공유',
     '',
     '## PC에서 Metro 유지',
-    '이 창을 닫지 말고 npm run start:phone 이 켜져 있어야 합니다.',
+    '이 창을 닫지 말고 npm run start:connect 이 켜져 있어야 합니다.',
   );
 
   fs.writeFileSync(shareTxtPath, lines.join('\n'), 'utf8');
@@ -84,7 +84,7 @@ async function writeShareArtifacts(url, meta) {
 </head>
 <body>
   <h1>Expo Go 접속 v${meta.version}</h1>
-  <p class="meta">모드: <strong>${meta.mode}</strong> · Metro: <code>npm run start:phone</code> 실행 중</p>
+  <p class="meta">모드: <strong>${meta.mode}</strong> · Metro: <code>npm run start:connect</code> 실행 중</p>
   <img src="${qrDataUrl}" alt="Expo Go QR" />
   <p class="meta">Expo Go (exp://):</p>
   <p class="url" id="url">${url}</p>
@@ -99,7 +99,7 @@ async function writeShareArtifacts(url, meta) {
 
 async function main() {
   console.log('=== Expo Go PC 공유 설정 ===\n');
-  console.log('Metro 대기 중… (npm run start:phone 이 다른 터미널에서 실행 중이어야 합니다)\n');
+  console.log('Metro 대기 중… (npm run start:connect 이 다른 터미널에서 실행 중이어야 합니다)\n');
 
   const ready = await waitForMetro();
 
@@ -108,7 +108,7 @@ async function main() {
     console.log('PC에서 순서대로 실행하세요:');
     console.log('  1) npm install');
     console.log('  2) cp .env.example .env');
-    console.log('  3) npm run start:phone    ← 이 터미널은 켜 둔 채');
+    console.log('  3) npm run start:connect   ← 이 터미널은 켜 둔 채');
     console.log('  4) npm run share          ← 새 터미널');
     process.exit(1);
   }
@@ -123,10 +123,10 @@ async function main() {
     process.exit(1);
   }
 
-  const { url, classification, ngrokPublicUrl, allPlatforms } = resolved;
+  const { url, classification, ngrokPublicUrl, allPlatforms, lanHost } = resolved;
 
   if (!url) {
-    console.log('FAIL: exp:// URL을 받지 못했습니다. npm run start:phone 으로 다시 시작하세요.');
+    console.log('FAIL: exp:// URL을 받지 못했습니다. npm run start:connect 으로 다시 시작하세요.');
     process.exit(1);
   }
 
@@ -134,9 +134,14 @@ async function main() {
 
   if (classification.mode === 'tunnel' && !ngrok) {
     console.log('FAIL: 터널 모드인데 ngrok이 연결되지 않았습니다.');
-    console.log('  → npm run start:phone 이 터널로 실행 중인지 확인하세요.');
-    console.log('  → 같은 Wi‑Fi면 npm run start:lan 후 npm run share 도 가능합니다.');
+    console.log('  → npm run start:connect (또는 start:phone) 이 실행 중인지 확인하세요.');
+    console.log('  → 같은 Wi‑Fi면 npm run start:wifi 후 npm run share 도 가능합니다.');
     process.exit(1);
+  }
+
+  if (classification.mode === 'private' && lanHost) {
+    console.log(`\nWARN: ${lanHost.address} 는 VM/Docker IP일 수 있습니다.`);
+    console.log('  → npm run start:connect (ngrok 터널) 또는 본인 PC Wi‑Fi IP에서 실행하세요.\n');
   }
 
   const { version, buildLabel } = readAppVersionMeta(projectRoot);
@@ -183,7 +188,7 @@ async function main() {
   if (!classification.shareable) {
     console.log('\n⚠️  이 URL은 휴대폰에서 접속되지 않을 수 있습니다.');
     console.log('PC에서 Metro를 반드시 터널로 시작하세요:');
-    console.log('  npm run start:phone');
+    console.log('  npm run start:connect');
     console.log('터널이 뜬 뒤 다시: npm run share\n');
 
     if (classification.mode === 'private' || classification.mode === 'localhost') {
@@ -194,7 +199,9 @@ async function main() {
   console.log('\n✅ 공유 준비 완료');
   if (classification.mode === 'lan') {
     console.log('  · LAN 모드 — PC·폰 같은 Wi‑Fi에서만 접속');
-    console.log('  · 다른 네트워크면 npm run start:phone (터널)');
+    console.log('  · 다른 네트워크면 npm run start:connect 후 npm run share');
+  } else if (classification.mode === 'tunnel') {
+    console.log('  · 터널 모드 — 다른 Wi‑Fi/ LTE에서도 접속 가능');
   } else {
     console.log('  · 카톡/메일: expo-go-share.txt 내용 복사');
   }

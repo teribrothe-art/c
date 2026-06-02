@@ -100,10 +100,18 @@ export default function ConnectShareScreen() {
       </View>
 
       <View style={styles.helpCard}>
+        <Text style={styles.helpTitle}>폰 접속 (권장)</Text>
+        <Text style={styles.helpLine}>1. 터미널 1: npm run start:connect</Text>
+        <Text style={styles.helpLine}>2. 터미널 2: npm run share</Text>
+        <Text style={styles.helpLine}>3. Expo Go → QR 스캔 또는 exp:// 주소 입력</Text>
+        <Text style={styles.helpMeta}>ngrok v3 있으면 자동 터널 · 없으면 Wi‑Fi LAN</Text>
+      </View>
+
+      <View style={styles.helpCard}>
         <Text style={styles.helpTitle}>ngrok 없이 (같은 Wi‑Fi)</Text>
         <Text style={styles.helpLine}>1. 터미널 1: npm run start:wifi</Text>
         <Text style={styles.helpLine}>2. 터미널 2: npm run share</Text>
-        <Text style={styles.helpLine}>3. Expo Go → QR 스캔 (exp://192.168.x.x 형식)</Text>
+        <Text style={styles.helpLine}>3. Expo Go → QR (exp://192.168.x.x 형식)</Text>
         <Text style={styles.helpMeta}>PC·폰이 같은 Wi‑Fi, 게스트/VPN 끄기</Text>
       </View>
 
@@ -115,12 +123,10 @@ export default function ConnectShareScreen() {
       </View>
 
       <View style={styles.helpCard}>
-        <Text style={styles.helpTitle}>ngrok 터널 (네트워크가 다를 때만)</Text>
-        <Text style={styles.helpLine}>내장: npm run start:phone → npm run share</Text>
-        <Text style={styles.helpLine}>v3 정책: start:wifi → tunnel:policy → share</Text>
-        <Text style={styles.helpLine}>CLI: ngrok http 8081 --traffic-policy-file policy.yaml</Text>
+        <Text style={styles.helpTitle}>ngrok 수동 (고급)</Text>
+        <Text style={styles.helpLine}>ngrok http 8081 --traffic-policy-file policy.yaml</Text>
         <Text style={styles.helpWarn}>
-          터널은 Metro가 켜져 있을 때만 유효합니다. 브라우저 HTTPS는 앱이 아닙니다.
+          터널은 Metro가 켜져 있을 때만 유효. 브라우저 HTTPS는 앱이 아님.
         </Text>
         <Text style={styles.helpMeta}>생성: expo-go-share.txt · expo-go-qr.png</Text>
       </View>

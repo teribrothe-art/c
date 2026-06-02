@@ -72,6 +72,6 @@ export function formatExpoConnectShareMessage(url: string) {
     '',
     'Expo Go 앱 → Enter URL manually 또는 QR 스캔',
     '※ 브라우저(HTTPS) 주소는 앱이 아닙니다. Metro 꺼지면 오프라인 오류가 납니다.',
-    'PC에서 Metro: npm run start:phone → npm run share',
+    'PC에서 Metro: npm run start:connect → npm run share',
   ].join('\n');
 }
