@@ -60,6 +60,7 @@
     "prestart:connect": "node scripts/invalidate-connect-manifest.mjs",
     "start:connect": "node scripts/start-connect.mjs --tunnel",
     "connect": "node scripts/connect-go.mjs",
+    "verify:connect": "node scripts/verify-connect-browser.mjs",
     "preconnect": "node scripts/invalidate-connect-manifest.mjs",
     "prestart:phone": "node scripts/invalidate-connect-manifest.mjs",
     "start:phone": "node scripts/start-connect.mjs --tunnel",

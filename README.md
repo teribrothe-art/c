@@ -94,6 +94,12 @@ npm run connect
 
 cloudflared 터널(토큰 불필요) + Metro + QR 자동 생성 → `expo-go-qr.png` 스캔
 
+접속 확인·브라우저 자동 열기:
+
+```sh
+npm run verify:connect
+```
+
 ### 수동 (터미널 2개)
 
 **터미널 1:**

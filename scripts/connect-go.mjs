@@ -105,7 +105,10 @@ async function main() {
     console.log('\nMetro는 실행 중입니다. npm run share 로 다시 시도하세요.\n');
   } else {
     console.log('\n✅ 접속 준비 완료 — Expo Go에서 QR 스캔 (expo-go-qr.png)\n');
+    console.log('접속 검증·브라우저: npm run verify:connect\n');
     console.log('Metro 종료: Ctrl+C\n');
+
+    await runScript('verify-connect-browser.mjs');
   }
 
   await new Promise((resolve) => {
