@@ -30,7 +30,8 @@ export function ConnectQrPanel({ embedded = false }: ConnectQrPanelProps) {
           </Text>
         ) : (
           <Text style={styles.emptyText}>
-            PC에서 Metro를 켠 뒤 Expo Go로 다시 열면 QR이 표시됩니다.
+            PC에서 Metro를 켠 뒤 npm run share 로 QR을 등록하세요.{'\n'}
+            (터널 URL은 Metro를 끄면 만료됩니다 — 브라우저 HTTPS 주소는 앱이 아닙니다.)
           </Text>
         )}
         <Text style={styles.helpLine}>터미널 1: npm run start:phone</Text>
@@ -44,13 +45,16 @@ export function ConnectQrPanel({ embedded = false }: ConnectQrPanelProps) {
       {!embedded ? <Text style={styles.title}>QR</Text> : null}
       <Text style={styles.versionLine}>{versionLine}</Text>
       <Text style={styles.subtitle}>
-        {manifestSynced ? '현재 버전 접속 QR' : 'Expo Go → Scan QR code'}
+        {manifestSynced ? '현재 Metro 세션 QR (Metro 종료 시 만료)' : 'Expo Go → Scan QR code'}
       </Text>
       <View style={styles.qrWrap}>
         <InviteQrCode size={embedded ? 200 : 220} value={url} />
       </View>
       <Text selectable style={styles.url}>
         {url}
+      </Text>
+      <Text style={styles.tunnelNote}>
+        Expo Go 앱에서만 사용하세요. 브라우저로 HTTPS 주소를 열면 ngrok 오프라인 오류가 납니다.
       </Text>
     </View>
   );
@@ -98,6 +102,13 @@ const styles = StyleSheet.create({
     color: '#6B6B7B',
     fontSize: 11,
     fontWeight: '600',
+    lineHeight: 16,
+    textAlign: 'center',
+  },
+  tunnelNote: {
+    color: '#B45309',
+    fontSize: 11,
+    fontWeight: '700',
     lineHeight: 16,
     textAlign: 'center',
   },

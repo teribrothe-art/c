@@ -40,21 +40,15 @@ function getRuntimeConnectUrl(): string | null {
   return null;
 }
 
-/** Expo Go / Metro 접속 주소 (공유·QR용) — app.json 버전과 manifest가 일치할 때 우선 */
+/** Expo Go / Metro 접속 주소 — 실행 중 Metro 우선, manifest는 share 직후 세션만 유효 */
 export function getExpoConnectShareUrl(): string | null {
-  const fromEnv = process.env.EXPO_PUBLIC_DEV_CONNECT_URL?.trim();
+  const fromRuntime = getRuntimeConnectUrl();
 
-  if (fromEnv) {
-    return fromEnv;
+  if (fromRuntime) {
+    return fromRuntime;
   }
 
-  const fromManifest = getManifestConnectUrl();
-
-  if (fromManifest) {
-    return fromManifest;
-  }
-
-  return getRuntimeConnectUrl();
+  return getManifestConnectUrl();
 }
 
 export function getExpoConnectShareStatus(): ExpoConnectShareStatus {
@@ -76,7 +70,8 @@ export function formatExpoConnectShareMessage(url: string) {
     '',
     url,
     '',
-    'Expo Go → Enter URL manually 에 붙여넣거나 QR을 스캔하세요.',
-    'PC에서 Metro는 npm run start:phone 실행 중이어야 합니다.',
+    'Expo Go 앱 → Enter URL manually 또는 QR 스캔',
+    '※ 브라우저(HTTPS) 주소는 앱이 아닙니다. Metro 꺼지면 오프라인 오류가 납니다.',
+    'PC에서 Metro: npm run start:phone → npm run share',
   ].join('\n');
 }

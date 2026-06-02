@@ -95,8 +95,12 @@ export default function ConnectShareScreen() {
         <Text style={styles.helpTitle}>PC에서 준비하기</Text>
         <Text style={styles.helpLine}>1. 터미널 1: npm run start:phone</Text>
         <Text style={styles.helpLine}>2. 터미널 2: npm run share</Text>
+        <Text style={styles.helpWarn}>
+          터널 주소는 Metro가 켜져 있을 때만 유효합니다. 브라우저 HTTPS 링크는 앱이 아니며, Metro를
+          끄면 ERR_NGROK_3200 오류가 납니다.
+        </Text>
         <Text style={styles.helpMeta}>
-          생성 파일: expo-go-share.txt · expo-go-share.html · expo-go-qr.png
+          같은 Wi‑Fi: npm run start:lan · 생성: expo-go-share.txt · expo-go-qr.png
         </Text>
       </View>
     </ScrollView>
@@ -190,6 +194,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     lineHeight: 20,
+  },
+  helpWarn: {
+    color: '#B45309',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 18,
+    marginTop: 6,
   },
   helpMeta: {
     color: '#9CA3AF',

@@ -38,11 +38,11 @@ async function writeShareArtifacts(url, meta) {
   ];
 
   if (meta.webUrl) {
-    lines.push('## HTTP (브라우저 / 카톡 링크 공유)', meta.webUrl, '');
+    lines.push('## HTTP (개발용 — 브라우저에서 앱 아님, Metro 꺼지면 오프라인)', meta.webUrl, '');
   }
 
   if (meta.ngrokPublicUrl && meta.ngrokPublicUrl !== meta.webUrl) {
-    lines.push('## HTTPS 터널', meta.ngrokPublicUrl, '');
+    lines.push('## HTTPS 터널 (Expo Go 전용, 브라우저 오류 가능)', meta.ngrokPublicUrl, '');
   }
 
   lines.push(
@@ -62,8 +62,8 @@ async function writeShareArtifacts(url, meta) {
   await QRCode.toFile(qrPngPath, url, { width: 320, margin: 2 });
 
   const webBlock = meta.webUrl
-    ? `<p class="meta">HTTP (브라우저):</p><p class="url" id="weburl">${meta.webUrl}</p>
-  <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('weburl').textContent).then(()=>alert('HTTP 주소 복사됨'))">HTTP 주소 복사</button>`
+    ? `<p class="warn">브라우저 HTTP/HTTPS 주소는 Expo Go 앱이 아닙니다. Metro를 끄면 ngrok 오프라인 오류가 납니다.</p>
+  <p class="meta">HTTP (참고용):</p><p class="url" id="weburl">${meta.webUrl}</p>`
     : '';
 
   const html = `<!DOCTYPE html>
@@ -79,6 +79,7 @@ async function writeShareArtifacts(url, meta) {
     .url { word-break: break-all; background: #fff; border: 1px solid #e8e8f0; border-radius: 10px; padding: 12px; font-size: 0.9rem; margin-bottom: 8px; }
     button { margin-top: 8px; margin-bottom: 12px; padding: 12px 20px; border: 0; border-radius: 10px; background: #ff5a5f; color: #fff; font-weight: 800; font-size: 1rem; width: 100%; cursor: pointer; }
     .meta { color: #6b6b7b; font-size: 0.85rem; line-height: 1.5; }
+    .warn { color: #b45309; font-size: 0.85rem; font-weight: 700; line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -130,6 +131,14 @@ async function main() {
   }
 
   const ngrok = await fetchNgrokTunnel();
+
+  if (classification.mode === 'tunnel' && !ngrok) {
+    console.log('FAIL: 터널 모드인데 ngrok이 연결되지 않았습니다.');
+    console.log('  → npm run start:phone 이 터널로 실행 중인지 확인하세요.');
+    console.log('  → 같은 Wi‑Fi면 npm run start:lan 후 npm run share 도 가능합니다.');
+    process.exit(1);
+  }
+
   const { version, buildLabel } = readAppVersionMeta(projectRoot);
   const webUrl = allPlatforms?.web?.url ?? null;
   const meta = {

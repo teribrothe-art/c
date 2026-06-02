@@ -52,6 +52,29 @@ export function writeExpoConnectManifest(projectRoot, { url, mode, shareable = n
   return manifest;
 }
 
+/** Metro 재시작 시 이전 터널 URL 무효화 — share 실행 전까지 QR 비움 */
+export function clearConnectManifestSessionUrls(projectRoot) {
+  const { version, buildLabel } = readAppVersionMeta(projectRoot);
+  const existing = readExpoConnectManifest(projectRoot);
+  const hadUrl = Boolean(existing?.url?.trim());
+
+  const manifest = {
+    version,
+    buildLabel,
+    url: null,
+    webUrl: null,
+    updatedAt: new Date().toISOString(),
+    mode: null,
+    shareable: null,
+    ngrokPublicUrl: null,
+    previousVersion: existing?.version !== version ? existing?.version ?? null : existing?.previousVersion ?? null,
+  };
+
+  fs.writeFileSync(getManifestPath(projectRoot), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+
+  return { cleared: hadUrl, version };
+}
+
 /** app.json 버전이 바뀌면 이전 QR URL을 자동 무효화 */
 export function invalidateConnectManifestIfVersionChanged(projectRoot) {
   const { version, buildLabel } = readAppVersionMeta(projectRoot);
