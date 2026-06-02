@@ -81,7 +81,8 @@ function currentMonthKey() {
 
 export function formatMonthKeyLabel(monthKey: string) {
   const [year, month] = monthKey.split('-');
-  return `${year}년 ${Number(month)}월`;
+  const shortYear = year.length === 4 ? year.slice(2) : year;
+  return `${shortYear}년 ${Number(month)}월`;
 }
 
 /** 현재 월 기준 — 예: 이번 달(5월) */
