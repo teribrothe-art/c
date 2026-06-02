@@ -23,6 +23,7 @@ export type CustomerStats = {
   kind: 'customer';
   treatmentCount: number;
   latestTreatmentDate: string | null;
+  latestTreatmentId: string | null;
   designerCount: number;
 };
 
@@ -48,17 +49,18 @@ function computeCustomerStats(treatments: Treatment[]): CustomerStats {
     }
   }
 
-  const latestTreatmentDate =
+  const latestTreatment =
     treatments.length > 0
       ? treatments.reduce((latest, treatment) =>
-          treatment.treatment_date > latest ? treatment.treatment_date : latest,
-        treatments[0].treatment_date)
+          treatment.treatment_date > latest.treatment_date ? treatment : latest,
+        )
       : null;
 
   return {
     kind: 'customer',
     treatmentCount: treatments.length,
-    latestTreatmentDate,
+    latestTreatmentDate: latestTreatment?.treatment_date ?? null,
+    latestTreatmentId: latestTreatment?.id ?? null,
     designerCount: designerIds.size,
   };
 }

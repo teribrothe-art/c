@@ -6,3 +6,10 @@ export function safePush(href: Href) {
     router.push(href);
   });
 }
+
+/** 탭 전환 등 기존 화면이 있으면 push 대신 navigate */
+export function safeNavigate(href: Href) {
+  requestAnimationFrame(() => {
+    router.navigate(href);
+  });
+}

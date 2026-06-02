@@ -2,7 +2,7 @@
   "expo": {
     "name": "헤어 다이어리",
     "slug": "hair-diary-app",
-    "version": "1.0.5",
+    "version": "1.0.7",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "splash": {
@@ -13,7 +13,25 @@
     "scheme": "hairdiaryapp",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": [
+          "supertoss",
+          "kakaobank",
+          "kb-acp",
+          "liivbank",
+          "kbbank",
+          "ispmobile",
+          "shinhan-sr-ansimclick",
+          "smshinhanansimclick",
+          "hdcardappcardansimclick",
+          "mpocket.online.ansimclick",
+          "samsungpay",
+          "payco",
+          "lpayapp",
+          "nhappcardansimclick"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -79,7 +97,8 @@
       "policy": "appVersion"
     },
     "extra": {
-      "buildLabel": "2026-05-30 · 카드·PG·예약·매출검색·본사탭"
+      "expoGoSdkHint": "Expo SDK 56 — 스토어 Expo Go가 안 되면 https://expo.dev/go 에서 SDK 56용 설치",
+      "buildLabel": "2026-05-27 · 원 단위 · 주간/월별 매출 · 본사 연동 · v1.0.7"
     }
   }
 }

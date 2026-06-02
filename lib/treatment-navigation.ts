@@ -40,6 +40,12 @@ export type TreatmentNavigationState = {
   newerId: string | null;
 };
 
+/** 화면 표시용 — 1=가장 오래된 시술, N=최신 (이전/다음 버튼 방향과 맞춤) */
+export function formatTreatmentPositionLabel(index: number, total: number) {
+  const chronologicalIndex = total - index;
+  return `${chronologicalIndex} / ${total}`;
+}
+
 export function getTreatmentNavigation(
   treatments: Treatment[],
   currentId: string,

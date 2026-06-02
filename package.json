@@ -1,7 +1,7 @@
 {
   "name": "hair-diary-app",
   "main": "expo-router/entry",
-  "version": "1.0.5",
+  "version": "1.0.7",
   "dependencies": {
     "@expo/ui": "~56.0.13",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -29,6 +29,7 @@
     "expo-system-ui": "~56.0.5",
     "expo-updates": "~56.0.16",
     "expo-web-browser": "~56.0.5",
+    "qrcode": "^1.5.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.85.3",
@@ -45,6 +46,7 @@
   },
   "devDependencies": {
     "@expo/ngrok": "^4.1.3",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "~19.2.14",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~56.0.4",
@@ -77,7 +79,7 @@
     "verify:diary": "node scripts/verify-diary-home.mjs",
     "verify:org-simulation": "node scripts/verify-org-virtual-simulation.mjs",
     "beta:e2e": "node scripts/beta-e2e-ten-users.mjs",
-    "update:preview": "eas update --branch preview --message \"베타 v1.0.5\""
+    "update:preview": "eas update --branch preview --message \"베타 v1.0.7\""
   },
   "private": true
 }

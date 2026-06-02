@@ -9,13 +9,15 @@
 
 ## 앱 (Expo)
 
-`.env`:
+테스트 중에는 **결제 서버 연동을 끈 채** 앱 내 시뮬레이션만 씁니다 (기본값).
 
 ```env
+# 실제 토스 결제창·승인 API를 켤 때만
+EXPO_PUBLIC_ENABLE_PAYMENT_SERVER=true
 EXPO_PUBLIC_TOSS_CLIENT_KEY=test_ck_여기에_전체_키
 ```
 
-`lib/toss.ts`에서 이 값으로 WebView/SDK 결제창을 띄웁니다.
+`EXPO_PUBLIC_ENABLE_PAYMENT_SERVER` 가 없거나 `true`가 아니면 `lib/payment-config.ts` 기준으로 버튼 한 번에 결제·에스크로까지 반영됩니다.
 
 ## 서버 (Supabase Edge Function)
 

@@ -64,10 +64,10 @@ export function getErrorMessage(error: unknown, fallback = '잠시 후 다시 �
   }
 
   if (isPermissionError(message, code)) {
-    return '권한이 없습니다';
+    return message.includes('권한') ? message : '권한이 없습니다';
   }
 
-  return fallback;
+  return message;
 }
 
 export function toAppError(error: unknown, fallback?: string) {

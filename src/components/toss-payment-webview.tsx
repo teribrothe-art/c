@@ -1,44 +1,98 @@
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import * as Linking from 'expo-linking';
+import { useCallback, useEffect, useRef } from 'react';
+import { BackHandler, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebView, { WebViewNavigation } from 'react-native-webview';
 
-import { parseTossFailUrl, parseTossSuccessUrl } from '../../lib/toss';
+import { resolveTossWebViewNavigation } from '../../lib/toss-webview-navigation';
 
 type Props = {
   visible: boolean;
   html: string;
   onClose: () => void;
-  onSuccess: (result: { paymentKey: string; orderId: string; amount: number }) => void;
+  onSuccess: (result: {
+    paymentKey: string;
+    orderId: string;
+    amount: number;
+    treatmentId?: string;
+  }) => void;
   onFail: (result: { code: string; message: string }) => void;
 };
 
 export function TossPaymentWebView({ visible, html, onClose, onSuccess, onFail }: Props) {
   const insets = useSafeAreaInsets();
+  const lastHandledUrl = useRef('');
 
-  const handleNavigation = (navigation: WebViewNavigation) => {
-    const url = navigation.url;
-    const success = parseTossSuccessUrl(url);
-
-    if (success) {
-      onSuccess(success);
-      return false;
+  useEffect(() => {
+    if (!visible) {
+      lastHandledUrl.current = '';
+      return;
     }
 
-    const failure = parseTossFailUrl(url);
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      onClose();
+      return true;
+    });
 
-    if (failure) {
-      onFail({ code: failure.code, message: failure.message });
-      return false;
+    return () => subscription.remove();
+  }, [onClose, visible]);
+
+  const handleUrl = useCallback(
+    (url: string) => {
+      if (!url || lastHandledUrl.current === url) {
+        return 'allow' as const;
+      }
+
+      const result = resolveTossWebViewNavigation(url);
+
+      if (result.action === 'success') {
+        lastHandledUrl.current = url;
+        onSuccess(result.payload);
+        return 'block' as const;
+      }
+
+      if (result.action === 'fail') {
+        lastHandledUrl.current = url;
+        onFail({ code: result.payload.code, message: result.payload.message });
+        return 'block' as const;
+      }
+
+      if (result.action === 'block') {
+        return 'block' as const;
+      }
+
+      return 'allow' as const;
+    },
+    [onFail, onSuccess],
+  );
+
+  useEffect(() => {
+    if (!visible) {
+      return;
     }
 
-    return true;
-  };
+    const subscription = Linking.addEventListener('url', (event) => {
+      handleUrl(event.url);
+    });
+
+    return () => subscription.remove();
+  }, [handleUrl, visible]);
+
+  const handleNavigation = useCallback(
+    (navigation: WebViewNavigation) => handleUrl(navigation.url) !== 'block',
+    [handleUrl],
+  );
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <Pressable onPress={onClose} style={styles.closeButton}>
+          <Pressable
+            accessibilityLabel="결제창 닫기"
+            accessibilityRole="button"
+            hitSlop={12}
+            onPress={onClose}
+            style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}>
             <Text style={styles.closeText}>닫기</Text>
           </Pressable>
           <Text style={styles.title}>토스페이먼츠</Text>
@@ -48,6 +102,14 @@ export function TossPaymentWebView({ visible, html, onClose, onSuccess, onFail }
           originWhitelist={['*']}
           source={{ html }}
           onShouldStartLoadWithRequest={(request) => handleNavigation(request)}
+          onLoadStart={(event) => {
+            handleUrl(event.nativeEvent.url);
+          }}
+          onNavigationStateChange={(navigation) => {
+            void handleNavigation(navigation);
+          }}
+          setSupportMultipleWindows
+          javaScriptCanOpenWindowsAutomatically
           startInLoadingState
           javaScriptEnabled
           domStorageEnabled
@@ -72,7 +134,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   closeButton: {
-    padding: 8,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  closeButtonPressed: {
+    opacity: 0.6,
   },
   closeText: {
     color: '#6B6B7B',
