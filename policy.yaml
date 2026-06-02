@@ -1,0 +1,47 @@
+# ngrok Traffic Policy — Expo Metro 개발 터널
+#
+# ngrok v3 필요 (@expo/ngrok v2는 --traffic-policy-file 미지원)
+#
+# Metro (기본 8081):
+#   ngrok http 8081 --traffic-policy-file policy.yaml
+#
+# 로컬 프록시가 80이면:
+#   ngrok http 80 --traffic-policy-file policy.yaml
+#
+# npm: npm run tunnel:policy  |  npm run tunnel:policy:80
+
+on_http_request:
+  - name: expo-browser-hint
+    expressions:
+      - 'req.method == "GET" && req.url.path == "/" && req.headers["accept"].size() > 0 && req.headers["accept"][0].contains("text/html")'
+    actions:
+      - type: custom-response
+        config:
+          status_code: 200
+          headers:
+            content-type: text/html; charset=utf-8
+          body: |
+            <!doctype html>
+            <html lang="ko">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+              <title>Expo Metro 터널</title>
+            </head>
+            <body style="font-family:system-ui,sans-serif;max-width:36rem;margin:2rem auto;padding:0 1rem;">
+              <h1>Expo Go 전용 터널</h1>
+              <p>브라우저가 아니라 <strong>Expo Go</strong> 앱에서 QR 또는 <code>exp://</code> 주소를 사용하세요.</p>
+              <p>같은 Wi‑Fi: <code>npm run start:wifi</code> → <code>npm run share</code></p>
+              <p>내장 터널: <code>npm run start:phone</code> → <code>npm run share</code></p>
+            </body>
+            </html>
+
+on_http_response:
+  - name: dev-cors
+    actions:
+      - type: add-headers
+        config:
+          headers:
+            Access-Control-Allow-Origin: "*"
+            Access-Control-Allow-Methods: "GET, POST, PUT, DELETE, OPTIONS"
+            Access-Control-Allow-Headers: "Content-Type, Authorization"

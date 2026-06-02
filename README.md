@@ -50,7 +50,8 @@ npm run export:web
 |------|------|
 | 같은 Wi‑Fi | `npm run start:wifi` → `npm run share` |
 | Android USB | `npm run start` → `npm run android:usb` |
-| ngrok 터널 | `npm run start:phone` → `npm run share` |
+| ngrok 터널 (Expo 내장) | `npm run start:phone` → `npm run share` |
+| ngrok v3 + Traffic Policy | `npm run start:wifi` → `npm run tunnel:policy` → `npm run share` |
 
 요약: `npm run phone:standalone`
 
@@ -110,6 +111,47 @@ npm run share
 Windows: `scripts\start-phone-pc.cmd` 실행 후, Metro가 뜨면 `scripts\share-expo-pc.cmd` (HTML 자동 열림).
 
 `npm run share`가 **localhost / 사설 IP(172·10 대역)** 이면 같은 Wi‑Fi·VPN 확인. LAN은 `start:wifi` 권장.
+
+### ngrok v3 + Traffic Policy (`policy.yaml`)
+
+Expo에 포함된 `@expo/ngrok`(v2)은 `--traffic-policy-file`을 지원하지 않습니다. **ngrok v3 CLI**를 별도 설치하세요.
+
+1. [ngrok 다운로드](https://ngrok.com/download) → `ngrok config add-authtoken YOUR_TOKEN`
+2. **터미널 1** — Metro:
+
+```sh
+npm run start:wifi
+```
+
+3. **터미널 2** — Traffic Policy 터널 (Metro 기본 **8081**):
+
+```sh
+npm run tunnel:policy
+```
+
+또는 직접:
+
+```sh
+ngrok http 8081 --traffic-policy-file policy.yaml
+```
+
+로컬 프록시가 **80** 포트면:
+
+```sh
+npm run tunnel:policy:80
+# 또는
+ngrok http 80 --traffic-policy-file policy.yaml
+```
+
+4. **터미널 3** — 공유 URL·QR:
+
+```sh
+npm run share
+```
+
+Windows: `scripts\start-ngrok-policy.cmd`
+
+`policy.yaml`은 브라우저로 `/`에 접속했을 때 Expo Go 안내 페이지를 보여 주고, Metro 응답에 개발용 CORS 헤더를 추가합니다.
 
 ### ~~같은 Wi‑Fi만 쓸 때~~ → 위 `start:wifi` 참고
 

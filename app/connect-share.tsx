@@ -92,6 +92,14 @@ export default function ConnectShareScreen() {
       )}
 
       <View style={styles.helpCard}>
+        <Text style={styles.helpTitle}>Metro 없이 (설치형 앱)</Text>
+        <Text style={styles.helpLine}>1. PC: npm run build:preview:android</Text>
+        <Text style={styles.helpLine}>2. APK 설치 후 앱 아이콘으로 실행</Text>
+        <Text style={styles.helpLine}>3. 갱신: npm run update:preview (OTA)</Text>
+        <Text style={styles.helpMeta}>Expo Go·Metro·PC 연결 불필요 · expo.dev 계정 필요</Text>
+      </View>
+
+      <View style={styles.helpCard}>
         <Text style={styles.helpTitle}>ngrok 없이 (같은 Wi‑Fi)</Text>
         <Text style={styles.helpLine}>1. 터미널 1: npm run start:wifi</Text>
         <Text style={styles.helpLine}>2. 터미널 2: npm run share</Text>
@@ -108,8 +116,9 @@ export default function ConnectShareScreen() {
 
       <View style={styles.helpCard}>
         <Text style={styles.helpTitle}>ngrok 터널 (네트워크가 다를 때만)</Text>
-        <Text style={styles.helpLine}>1. 터미널 1: npm run start:phone</Text>
-        <Text style={styles.helpLine}>2. 터미널 2: npm run share</Text>
+        <Text style={styles.helpLine}>내장: npm run start:phone → npm run share</Text>
+        <Text style={styles.helpLine}>v3 정책: start:wifi → tunnel:policy → share</Text>
+        <Text style={styles.helpLine}>CLI: ngrok http 8081 --traffic-policy-file policy.yaml</Text>
         <Text style={styles.helpWarn}>
           터널은 Metro가 켜져 있을 때만 유효합니다. 브라우저 HTTPS는 앱이 아닙니다.
         </Text>
