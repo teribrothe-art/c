@@ -1,8 +1,6 @@
 import { getNationwideStoreById } from './nationwide-org-catalog';
-import {
-  priceForRegionalTreatment,
-  getTreatmentTemplatesForRegion,
-} from './regional-treatment-pricing';
+import { forEachVisitInCycle } from './customer-visit-cycle-simulator';
+import { isWeekendDateString } from './customer-treatment-patterns';
 import { settlementTotalsFromGross } from './org-month-settlement';
 import type { RevenueSplitConfig } from './revenue-split-config';
 import { calculateRevenueSplit } from './revenue-split-config';
@@ -29,12 +27,6 @@ function hashSeed(...parts: (string | number)[]) {
   return hash;
 }
 
-function dailyVisitCount(dayIndex: number, dailyMin: number, dailyMax: number) {
-  const span = dailyMax - dailyMin + 1;
-
-  return dailyMin + (dayIndex % span);
-}
-
 function formatDate(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -43,32 +35,8 @@ function formatDate(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function addDays(date: Date, days: number) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-
-  return next;
-}
-
-function getSeedStartDate(historyYears: number, reference = new Date()) {
-  const start = new Date(reference);
-  start.setFullYear(start.getFullYear() - historyYears);
-  start.setHours(12, 0, 0, 0);
-
-  return start;
-}
-
 function regionForDefinition(definition: NationwideDesignerDefinition) {
   return getNationwideStoreById(definition.storeId)?.region ?? '전국';
-}
-
-function priceForTreatment(definition: NationwideDesignerDefinition, dayIndex: number, slotInDay: number) {
-  const region = regionForDefinition(definition);
-  const templates = getTreatmentTemplatesForRegion(region);
-  const templatePick = hashSeed(definition.slot, dayIndex, slotInDay) % templates.length;
-  const template = templates[templatePick] ?? templates[0];
-
-  return priceForRegionalTreatment(region, [definition.slot, dayIndex, slotInDay, template.type]);
 }
 
 export type NationwideDesignerAggregate = {
@@ -89,12 +57,6 @@ function addDaysToIso(date: string, amount: number) {
   parsed.setDate(parsed.getDate() + amount);
 
   return formatDate(parsed);
-}
-
-function isWeekendDate(date: string) {
-  const day = new Date(`${date}T12:00:00`).getDay();
-
-  return day === 0 || day === 6;
 }
 
 function emptyWeeklyBucket(): WeeklySalesBucket {
@@ -135,7 +97,6 @@ export function computeNationwideDesignerAggregate(
     return cached;
   }
 
-  const seedStartDate = getSeedStartDate(definition.historyYears, referenceDate);
   const endDate = new Date(referenceDate);
   const monthKey = formatDate(referenceDate).slice(0, 7);
   const today = toLocalDateString(referenceDate);
@@ -147,33 +108,31 @@ export function computeNationwideDesignerAggregate(
   let monthGrossSales = 0;
   const weeklyWeekday = emptyWeeklyBucket();
   const weeklyWeekend = emptyWeeklyBucket();
-  let dayIndex = 0;
+  const priceRegion = regionForDefinition(definition);
 
-  for (
-    let day = new Date(seedStartDate);
-    day.getTime() <= endDate.getTime();
-    day = addDays(day, 1)
-  ) {
-    const date = formatDate(day);
-    const count = dailyVisitCount(dayIndex, definition.dailyMin, definition.dailyMax);
-    totalTreatmentCount += count;
+  forEachVisitInCycle(
+    {
+      customerIds: definition.customers.map((customer) => customer.id),
+      historyYears: definition.historyYears,
+      dailyMin: definition.dailyMin,
+      dailyMax: definition.dailyMax,
+      priceRegion,
+      referenceDate: endDate,
+    },
+    (visit) => {
+      totalTreatmentCount += 1;
 
-    for (let slotInDay = 0; slotInDay < count; slotInDay += 1) {
-      const price = priceForTreatment(definition, dayIndex, slotInDay);
-
-      if (date.slice(0, 7) === monthKey) {
+      if (visit.date.slice(0, 7) === monthKey) {
         monthTreatmentCount += 1;
-        monthGrossSales += price;
+        monthGrossSales += visit.price;
       }
 
-      if (date >= weekStart && date <= weekEnd) {
-        const bucket = isWeekendDate(date) ? weeklyWeekend : weeklyWeekday;
-        accumulateSplit(bucket, price, config);
+      if (visit.date >= weekStart && visit.date <= weekEnd) {
+        const bucket = isWeekendDateString(visit.date) ? weeklyWeekend : weeklyWeekday;
+        accumulateSplit(bucket, visit.price, config);
       }
-    }
-
-    dayIndex += 1;
-  }
+    },
+  );
 
   const settlement = settlementTotalsFromGross(monthGrossSales, config);
   const pendingRatio = 0.04 + (hashSeed(definition.slot, monthKey) % 6) * 0.01;
