@@ -296,6 +296,12 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.back()}
+          style={({ pressed }) => [styles.backRow, pressed && styles.pressed]}>
+          <Text style={styles.backText}>‹ 전단계</Text>
+        </Pressable>
         <Text style={styles.title}>{scope === 'store' ? '매장 매출' : '본사 매출'}</Text>
         <Text style={styles.subtitle}>
           {scope === 'admin'
@@ -431,6 +437,18 @@ const styles = StyleSheet.create({
   content: {
     gap: 12,
     paddingHorizontal: 18,
+  },
+  backRow: {
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+  },
+  backText: {
+    color: colors.purple,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  pressed: {
+    opacity: 0.9,
   },
   title: {
     color: '#1A1A2E',
