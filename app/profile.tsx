@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Image } from 'expo-image';
 import {
@@ -22,6 +22,7 @@ import { DesignerBottomTabBar } from '../src/components/designer-bottom-tab-bar'
 import { CustomerGrid } from '../src/components/customer-grid';
 import { MonthlySettlementGrid } from '../src/components/monthly-settlement-grid';
 import { mapSettlementsToGridItems } from '../lib/designer-customer-grid';
+import { currentDesignerMonthKey } from '../src/components/designer-home-stat-grid';
 
 type SettingItem = {
   icon: string;
@@ -57,9 +58,21 @@ function StatRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ActivitySummaryColumn({ label, value }: { label: string; value: string }) {
+function ActivitySummaryColumn({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value: string;
+  href: Href;
+}) {
   return (
-    <View style={styles.activityColumn}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${label} ${value}`}
+      onPress={() => router.push(href)}
+      style={({ pressed }) => [styles.activityColumn, pressed && styles.activityColumnPressed]}>
       <Text style={styles.activityColumnLabel}>{label}</Text>
       <Text
         style={styles.activityColumnValue}
@@ -68,7 +81,7 @@ function ActivitySummaryColumn({ label, value }: { label: string; value: string 
         minimumFontScale={0.65}>
         {value}
       </Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -105,14 +118,17 @@ function ActivityCard({ stats }: { stats: ProfileStats }) {
             <ActivitySummaryColumn
               label="누적시술"
               value={`${stats.treatmentCount.toLocaleString('ko-KR')}건`}
+              href="/designer/clients"
             />
             <ActivitySummaryColumn
               label="누적정산"
               value={formatAmount(stats.totalSettlementAmount)}
+              href="/designer/revenue"
             />
             <ActivitySummaryColumn
-              label="이달의정산"
+              label="이번 달 정산"
               value={formatAmount(stats.monthSettlementAmount)}
+              href={`/designer/revenue?month=${currentDesignerMonthKey()}` as Href}
             />
           </View>
           {stats.monthlySettlementTotals.length > 0 ? (
@@ -445,14 +461,21 @@ const styles = StyleSheet.create({
   },
   activityColumn: {
     alignItems: 'center',
-    backgroundColor: '#F7F7FA',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
     borderRadius: 12,
+    borderWidth: 1,
     flex: 1,
     gap: 6,
     minHeight: 72,
     justifyContent: 'center',
     paddingHorizontal: 6,
     paddingVertical: 12,
+  },
+  activityColumnPressed: {
+    backgroundColor: '#F5F5F8',
+    borderColor: '#D1D5DB',
+    opacity: 0.92,
   },
   activityColumnLabel: {
     color: '#6B6B7B',
