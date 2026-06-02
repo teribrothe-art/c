@@ -8,6 +8,7 @@ type RevenueSplitDraftActionsProps = {
   isSaving?: boolean;
   onRequest: () => void;
   onCancel: () => void;
+  requestLabel?: string;
 };
 
 export function RevenueSplitDraftActions({
@@ -16,6 +17,7 @@ export function RevenueSplitDraftActions({
   isSaving = false,
   onRequest,
   onCancel,
+  requestLabel = '승인 요청',
 }: RevenueSplitDraftActionsProps) {
   const disabled = isSaving;
 
@@ -43,7 +45,7 @@ export function RevenueSplitDraftActions({
           (disabled || !canRequest) && styles.buttonDisabled,
           pressed && canRequest && !disabled && styles.pressed,
         ]}>
-        <Text style={styles.requestButtonText}>승인 요청</Text>
+        <Text style={styles.requestButtonText}>{requestLabel}</Text>
       </Pressable>
     </View>
   );

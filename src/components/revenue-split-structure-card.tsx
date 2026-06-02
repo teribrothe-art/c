@@ -82,7 +82,7 @@ export function RevenueSplitStructureCard({
             accessibilityRole="button"
             onPress={() => router.push(editHref)}
             style={({ pressed }) => [styles.linkButton, pressed && styles.linkPressed]}>
-            <Text style={styles.link}>비율 조정 · 상호 승인 ›</Text>
+            <Text style={styles.link}>비율 조정 · 본사 단독 / 분배 승인 ›</Text>
           </Pressable>
         </View>
       ) : null}

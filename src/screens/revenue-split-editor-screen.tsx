@@ -9,22 +9,25 @@ import { formatAmount } from '../../lib/currency-input';
 import { showErrorAlert, showSuccessAlert } from '../../lib/alerts';
 import { getErrorMessage } from '../../lib/errors';
 import {
+  adminFeeFieldsEqual,
   calculateRevenueSplit,
   CARD_COMPANY_AVERAGE_FEE_PERCENT,
-  configsEqual,
+  configForPartyEdit,
   formatRevenueSplitSummary,
   normalizeRevenueSplitConfig,
   REVENUE_SPLIT_PARTY_LABELS,
+  shareSplitEqual,
   type RevenueSplitParty,
 } from '../../lib/revenue-split-config';
 import {
+  applyAdminFeeSettings,
   approveRevenueSplitChange,
   cancelRevenueSplitProposal,
   getActiveRevenueSplitConfig,
   getPendingRevenueSplitProposal,
-  getRequiredApprovalParties,
+  getRequiredShareApprovalParties,
   isProposalFullyApproved,
-  proposeRevenueSplitChange,
+  proposeShareSplitChange,
   type RevenueSplitChangeProposal,
 } from '../../lib/revenue-split-approval';
 import { colors } from '../../lib/theme';
@@ -56,24 +59,32 @@ function PercentField({
   hint,
   value,
   onChange,
+  editable = true,
 }: {
   label: string;
   hint?: string;
   value: string;
   onChange: (value: string) => void;
+  editable?: boolean;
 }) {
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
       {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
-      <TextInput
-        keyboardType="decimal-pad"
-        onChangeText={onChange}
-        placeholder="0"
-        placeholderTextColor="#9CA3AF"
-        style={styles.input}
-        value={value}
-      />
+      {editable ? (
+        <TextInput
+          keyboardType="decimal-pad"
+          onChangeText={onChange}
+          placeholder="0"
+          placeholderTextColor="#9CA3AF"
+          style={styles.input}
+          value={value}
+        />
+      ) : (
+        <View style={styles.readOnlyValue}>
+          <Text style={styles.readOnlyText}>{value}%</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -101,6 +112,7 @@ function BottomTabBar({ party }: { party: RevenueSplitParty }) {
 
 export function RevenueSplitEditorScreen({ party }: Props) {
   const insets = useSafeAreaInsets();
+  const isAdmin = party === 'admin';
   const [active, setActive] = useState<Awaited<ReturnType<typeof getActiveRevenueSplitConfig>> | null>(
     null,
   );
@@ -157,18 +169,24 @@ export function RevenueSplitEditorScreen({ party }: Props) {
     storeSharePercent: Number(storeShare),
   });
 
-  const sample = calculateRevenueSplit(SAMPLE_AMOUNT, draftConfig);
+  const effectiveConfig = active
+    ? configForPartyEdit(party, draftConfig, active)
+    : draftConfig;
 
-  const hasDraftChanges = Boolean(active && !configsEqual(draftConfig, active));
+  const sample = calculateRevenueSplit(SAMPLE_AMOUNT, effectiveConfig);
+
+  const hasAdminFeeChanges = Boolean(active && !adminFeeFieldsEqual(effectiveConfig, active));
+  const hasShareChanges = Boolean(active && !shareSplitEqual(effectiveConfig, active));
+
   const matchesPendingProposal = Boolean(
-    pending && configsEqual(draftConfig, pending.proposedConfig),
+    pending && shareSplitEqual(effectiveConfig, pending.proposedConfig),
   );
 
-  const canRequest = Boolean(
-    active && hasDraftChanges && !matchesPendingProposal,
+  const canRequestShare = Boolean(
+    active && hasShareChanges && !matchesPendingProposal,
   );
 
-  const canCancel = Boolean(hasDraftChanges || pending);
+  const canCancelShare = Boolean(hasShareChanges || pending);
 
   const resetDraftToActive = useCallback(() => {
     if (active) {
@@ -176,20 +194,42 @@ export function RevenueSplitEditorScreen({ party }: Props) {
     }
   }, [active, applyDraftToFields]);
 
-  const handleRequestApproval = async () => {
-    if (!active || !canRequest) {
+  const handleApplyAdminFees = async () => {
+    if (!active || !isAdmin || !hasAdminFeeChanges) {
       return;
     }
 
     setIsSaving(true);
 
     try {
-      if (pending && !configsEqual(draftConfig, pending.proposedConfig)) {
+      await applyAdminFeeSettings({
+        cardFeePercent: effectiveConfig.cardFeePercent,
+        pgFeePercent: effectiveConfig.pgFeePercent,
+        hqFeePercent: effectiveConfig.hqFeePercent,
+      });
+      showSuccessAlert('본사 수수료·결제 수수료가 적용되었습니다. 디자이너·매장에 알림을 보냈습니다.');
+      await load();
+    } catch (error) {
+      showErrorAlert(getErrorMessage(error, '본사 수수료 적용에 실패했습니다.'));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRequestShareApproval = async () => {
+    if (!active || !canRequestShare) {
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      if (pending && !shareSplitEqual(effectiveConfig, pending.proposedConfig)) {
         await cancelRevenueSplitProposal();
       }
 
-      await proposeRevenueSplitChange(draftConfig, party);
-      showSuccessAlert('승인을 요청했습니다. 나머지 당사자 승인 후 적용됩니다.');
+      await proposeShareSplitChange(effectiveConfig, party);
+      showSuccessAlert('분배 비율 승인을 요청했습니다. 디자이너·매장 최종 승인 후 반영됩니다.');
       await load();
     } catch (error) {
       showErrorAlert(getErrorMessage(error, '승인 요청에 실패했습니다.'));
@@ -199,7 +239,7 @@ export function RevenueSplitEditorScreen({ party }: Props) {
   };
 
   const handleCancel = async () => {
-    if (!canCancel) {
+    if (!canCancelShare) {
       return;
     }
 
@@ -213,7 +253,7 @@ export function RevenueSplitEditorScreen({ party }: Props) {
 
       resetDraftToActive();
       await load();
-      showSuccessAlert(hadPending ? '승인 대기 변경안을 취소했습니다.' : '변경 내용을 취소했습니다.');
+      showSuccessAlert(hadPending ? '분배 비율 승인 대기를 취소했습니다.' : '변경 내용을 취소했습니다.');
     } catch (error) {
       showErrorAlert(getErrorMessage(error, '취소 처리에 실패했습니다.'));
     } finally {
@@ -228,7 +268,7 @@ export function RevenueSplitEditorScreen({ party }: Props) {
       const result = await approveRevenueSplitChange(approvalParty);
 
       if (result.applied) {
-        showSuccessAlert('상호 승인이 완료되어 새 비율이 적용되었습니다.');
+        showSuccessAlert('디자이너·매장 승인이 완료되어 분배 비율이 적용되었습니다.');
       } else {
         showSuccessAlert(`${REVENUE_SPLIT_PARTY_LABELS[approvalParty]} 승인이 반영되었습니다.`);
       }
@@ -258,9 +298,9 @@ export function RevenueSplitEditorScreen({ party }: Props) {
 
         <Text style={styles.title}>수수료 구조</Text>
         <Text style={styles.subtitle}>
-          카드사·PG 수수료를 각각 제외한 뒤 본사·디자이너·매장으로 나눕니다. 카드사 수수료는 국내
-          평균({CARD_COMPANY_AVERAGE_FEE_PERCENT}%)을 기본값으로 적용합니다. 비율 변경은 본사·매장·
-          디자이너 상호 승인 후 반영됩니다.
+          카드사·PG 수수료를 각각 제외한 뒤 본사·디자이너·매장으로 나눕니다. 본사 수수료(
+          {CARD_COMPANY_AVERAGE_FEE_PERCENT}% 카드 평균 기준)는 본사에서만 변경하며 디자이너·매장에는
+          알림만 전송됩니다. 디자이너·매장 분배 비율은 양측 최종 승인 후 반영됩니다.
         </Text>
 
         {active ? (
@@ -271,32 +311,61 @@ export function RevenueSplitEditorScreen({ party }: Props) {
         ) : null}
 
         <View style={styles.formCard}>
+          <Text style={styles.sectionHeading}>본사 항목 {isAdmin ? '(단독 수정)' : '(조회만)'}</Text>
           <PercentField
+            editable={isAdmin}
             hint="국내 카드사 가맹점 평균 — 매출에서 먼저 차감"
             label="카드 수수료 (%)"
             value={cardFee}
             onChange={setCardFee}
           />
           <PercentField
+            editable={isAdmin}
             hint="결제대행(PG) 수수료 — 카드사 다음 차감"
             label="PG 수수료 (%)"
             value={pgFee}
             onChange={setPgFee}
           />
           <PercentField
-            hint="총 매출 기준"
+            editable={isAdmin}
+            hint="총 매출 기준 · 변경 시 디자이너·매장에 알림"
             label="본사 수수료 (%)"
             value={hqFee}
             onChange={setHqFee}
           />
-          <PercentField label="디자이너 분배 (%)" value={designerShare} onChange={setDesignerShare} />
-          <PercentField label="매장 분배 (%)" value={storeShare} onChange={setStoreShare} />
+          {isAdmin ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={isSaving || !hasAdminFeeChanges}
+              onPress={() => void handleApplyAdminFees()}
+              style={({ pressed }) => [
+                styles.applyAdminButton,
+                (isSaving || !hasAdminFeeChanges) && styles.buttonDisabled,
+                pressed && hasAdminFeeChanges && !isSaving && styles.pressed,
+              ]}>
+              <Text style={styles.applyAdminButtonText}>본사 수수료 적용</Text>
+            </Pressable>
+          ) : (
+            <Text style={styles.readOnlyNotice}>
+              본사 수수료는 본사에서만 변경할 수 있습니다. 변경 시 알림을 받습니다.
+            </Text>
+          )}
+
+          <Text style={[styles.sectionHeading, styles.sectionHeadingSpaced]}>디자이너 · 매장 분배</Text>
+          <PercentField
+            editable
+            label="디자이너 분배 (%)"
+            value={designerShare}
+            onChange={setDesignerShare}
+          />
+          <PercentField editable label="매장 분배 (%)" value={storeShare} onChange={setStoreShare} />
           <RevenueSplitDraftActions
-            canCancel={canCancel}
-            canRequest={canRequest}
+            canCancel={canCancelShare}
+            canRequest={canRequestShare}
             isSaving={isSaving}
             onCancel={() => void handleCancel()}
-            onRequest={() => void handleRequestApproval()}
+            onRequest={() => void handleRequestShareApproval()}
+            requestLabel="분배 비율 승인 요청"
           />
         </View>
 
@@ -304,35 +373,36 @@ export function RevenueSplitEditorScreen({ party }: Props) {
           <Text style={styles.previewTitle}>시뮬레이션 (시술 {formatAmount(SAMPLE_AMOUNT)})</Text>
           <BreakdownRow label="매출" value={formatAmount(sample.grossAmount)} />
           <BreakdownRow
-            label={`카드 수수료 (${draftConfig.cardFeePercent}%)`}
+            label={`카드 수수료 (${effectiveConfig.cardFeePercent}%)`}
             value={`-${formatAmount(sample.cardFeeAmount)}`}
           />
           <BreakdownRow
-            label={`PG 수수료 (${draftConfig.pgFeePercent}%)`}
+            label={`PG 수수료 (${effectiveConfig.pgFeePercent}%)`}
             value={`-${formatAmount(sample.pgFeeAmount)}`}
           />
           <BreakdownRow
-            label={`본사 (${draftConfig.hqFeePercent}%)`}
+            label={`본사 (${effectiveConfig.hqFeePercent}%)`}
             value={`-${formatAmount(sample.hqFeeAmount)}`}
           />
           <BreakdownRow
-            label={`디자이너 (${draftConfig.designerSharePercent}%)`}
+            label={`디자이너 (${effectiveConfig.designerSharePercent}%)`}
             value={formatAmount(sample.designerPayout)}
           />
           <BreakdownRow
-            label={`매장 (${draftConfig.storeSharePercent}%)`}
+            label={`매장 (${effectiveConfig.storeSharePercent}%)`}
             value={formatAmount(sample.storePayout)}
           />
         </View>
 
         {pending ? (
           <View style={styles.pendingCard}>
-            <Text style={styles.pendingTitle}>승인 대기</Text>
+            <Text style={styles.pendingTitle}>분배 비율 승인 대기</Text>
             <Text style={styles.pendingMeta}>
-              제안: {REVENUE_SPLIT_PARTY_LABELS[pending.proposedBy]} ·{' '}
-              {formatRevenueSplitSummary(pending.proposedConfig)}
+              제안: {REVENUE_SPLIT_PARTY_LABELS[pending.proposedBy]} · 디자이너{' '}
+              {pending.proposedConfig.designerSharePercent}% · 매장{' '}
+              {pending.proposedConfig.storeSharePercent}%
             </Text>
-            {getRequiredApprovalParties().map((approvalParty) => {
+            {getRequiredShareApprovalParties().map((approvalParty) => {
               const approved = pending.approvals[approvalParty] === true;
               const isSelf = approvalParty === party;
 
@@ -355,10 +425,10 @@ export function RevenueSplitEditorScreen({ party }: Props) {
             {isProposalFullyApproved(pending) ? (
               <Text style={styles.pendingDone}>모든 승인 완료 — 적용됨</Text>
             ) : null}
-            {!partyApproved && pending.proposedBy !== party ? (
+            {!partyApproved && pending.proposedBy !== party && (party === 'store' || party === 'designer') ? (
               <Text style={styles.pendingHint}>
-                {REVENUE_SPLIT_PARTY_LABELS[party]} 승인은 위 「승인」 또는 변경 후 「승인 요청」으로
-                진행할 수 있습니다.
+                {REVENUE_SPLIT_PARTY_LABELS[party]} 최종 승인은 위 「승인」 또는 변경 후 「분배 비율 승인
+                요청」으로 진행할 수 있습니다.
               </Text>
             ) : null}
           </View>
@@ -428,6 +498,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 14,
   },
+  sectionHeading: {
+    color: '#1A1A2E',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  sectionHeadingSpaced: {
+    marginTop: 4,
+  },
   field: {
     gap: 4,
   },
@@ -451,6 +529,40 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  readOnlyValue: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  readOnlyText: {
+    color: '#4B5563',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  readOnlyNotice: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 17,
+  },
+  applyAdminButton: {
+    alignItems: 'center',
+    backgroundColor: colors.purple,
+    borderRadius: 12,
+    marginTop: 4,
+    paddingVertical: 14,
+  },
+  applyAdminButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  buttonDisabled: {
+    opacity: 0.55,
   },
   previewCard: {
     backgroundColor: '#FFFFFF',
