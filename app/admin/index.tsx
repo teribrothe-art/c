@@ -1,12 +1,16 @@
 import { Link, router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useState } from 'react';
-import type { VirtualSimulationScenario } from '../../lib/org-virtual-simulation';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { formatAmount } from '../../lib/currency-input';
 import { formatDesignerNamePreview } from '../../lib/designer-name-preview';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
+import {
+  fetchOrgWeeklySalesSummary,
+  type OrgWeeklySalesSummary,
+  type WeeklySalesSegment,
+} from '../../lib/org-weekly-sales';
 import { buildVirtualStoreSummaries } from '../../lib/org-virtual-simulation';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
@@ -16,23 +20,25 @@ import { LoadingState } from '../../src/components/loading-state';
 import { AdminBottomTabBar } from '../../src/components/admin-bottom-tab-bar';
 import { HqRevenueSummaryCard } from '../../src/components/hq-revenue-summary-card';
 import { RevenueSplitStructureCard } from '../../src/components/revenue-split-structure-card';
-import { VirtualSimulationBanner } from '../../src/components/virtual-simulation-banner';
+import { WeeklySalesTabBar } from '../../src/components/weekly-sales-tab-bar';
 
 export default function AdminHomeScreen() {
   useOrgRoleGuard('admin');
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
+  const [weeklySales, setWeeklySales] = useState<OrgWeeklySalesSummary | null>(null);
+  const [weeklySegment, setWeeklySegment] = useState<WeeklySalesSegment>('weekday');
   const [virtualStores, setVirtualStores] = useState<ReturnType<typeof buildVirtualStoreSummaries>>([]);
-  const [scenario, setScenario] = useState<VirtualSimulationScenario>('weekday');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
   const load = useCallback(() => {
     setIsLoading(true);
 
-    fetchOrgDashboardSummary('admin', { scenario, withVirtualSimulation: true })
-      .then((data) => {
+    Promise.all([fetchOrgDashboardSummary('admin'), fetchOrgWeeklySalesSummary('admin')])
+      .then(([data, weekData]) => {
         setSummary(data);
+        setWeeklySales(weekData);
         setVirtualStores(buildVirtualStoreSummaries(data));
         setErrorMessage('');
       })
@@ -40,7 +46,7 @@ export default function AdminHomeScreen() {
         setErrorMessage(getErrorMessage(error, '본사 현황을 불러오지 못했습니다.'));
       })
       .finally(() => setIsLoading(false));
-  }, [scenario]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -59,11 +65,16 @@ export default function AdminHomeScreen() {
         <Text style={styles.badge}>ADMIN</Text>
         <Text style={styles.title}>본사</Text>
         <Text style={styles.subtitle}>
-          등록된 디자이너·시술·시술 금액을 불러오고, 가상 시나리오(평일·주말)로 운영 지표를 조정해
-          봅니다.
+          등록된 디자이너·시술·매출을 불러오고, 이번 주 평일·주말 매출을 함께 확인합니다.
         </Text>
 
-        <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
+        {weeklySales ? (
+          <WeeklySalesTabBar
+            segment={weeklySegment}
+            summary={weeklySales}
+            onSegmentChange={setWeeklySegment}
+          />
+        ) : null}
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
