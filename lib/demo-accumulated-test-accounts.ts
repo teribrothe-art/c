@@ -1,6 +1,6 @@
 import type { BetaTestAccount } from './beta-test-accounts';
 import type { AccumulatedSeedProfileConfig } from './demo-accumulated-seed-builder';
-import { estimateCustomerPoolSize } from './customer-pool-estimator';
+import { estimateCustomerPoolSize } from './customer-treatment-patterns';
 
 export const ACCUMULATED_TEST_PASSWORD = 'test1234';
 
