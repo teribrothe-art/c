@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -120,6 +120,9 @@ function getSectionTitle(tab: RevenueMetricTab, scope: OrgScope, monthScopeLabel
 export function OrgRevenueOverviewScreen({ scope }: Props) {
   useOrgRoleGuard(scope);
   const insets = useSafeAreaInsets();
+  const { q, region } = useLocalSearchParams<{ q?: string; region?: string }>();
+  const initialQuery = typeof q === 'string' ? q : '';
+  const initialRegionKey = typeof region === 'string' ? (region as DesignerRegionFilterKey) : 'all';
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [weeklySales, setWeeklySales] = useState<OrgWeeklySalesSummary | null>(null);
   const [weeklySegment, setWeeklySegment] = useState<WeeklySalesSegment>('weekday');
@@ -130,8 +133,8 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   const [monthlySummary, setMonthlySummary] = useState<OrgMonthlySalesSummary | null>(null);
   const [monthSearchQuery, setMonthSearchQuery] = useState('');
   const [selectedMonthKey, setSelectedMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
-  const [searchQuery, setSearchQuery] = useState('');
-  const [regionFilterKey, setRegionFilterKey] = useState<DesignerRegionFilterKey>('all');
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
+  const [regionFilterKey, setRegionFilterKey] = useState<DesignerRegionFilterKey>(initialRegionKey);
   const [metricTab, setMetricTab] = useState<RevenueMetricTab>(
     scope === 'admin' ? 'sales' : 'payout',
   );
@@ -196,6 +199,16 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   useEffect(() => {
     void loadSummary();
   }, [loadSummary]);
+
+  useEffect(() => {
+    if (initialQuery) {
+      setSearchQuery(initialQuery);
+    }
+
+    if (initialRegionKey && initialRegionKey !== 'all') {
+      setRegionFilterKey(initialRegionKey);
+    }
+  }, [initialQuery, initialRegionKey]);
 
   useEffect(() => {
     void fetchOrgMonthlySalesSummary(scope, selectedMonthKey).then(setMonthlySummary);

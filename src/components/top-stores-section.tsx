@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, type Href } from 'expo-router';
+import { Link, router, type Href } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { OrgDesignerMetrics } from '../../lib/org-aggregates';
@@ -24,6 +24,7 @@ type TopStoresSectionProps = {
   virtualStores: VirtualStoreSummary[];
   designers: OrgDesignerMetrics[];
   viewAllHref?: Href;
+  revenueHref?: Href;
 };
 
 function sortStoresByMetric(stores: VirtualStoreSummary[], metricTab: StoreMetricTab) {
@@ -60,7 +61,12 @@ function metricSectionTitle(metricTab: StoreMetricTab) {
   }
 }
 
-export function TopStoresSection({ virtualStores, designers, viewAllHref = '/admin/designers' }: TopStoresSectionProps) {
+export function TopStoresSection({
+  virtualStores,
+  designers,
+  viewAllHref = '/admin/designers',
+  revenueHref = '/admin/revenue',
+}: TopStoresSectionProps) {
   const [regionFilterKey, setRegionFilterKey] = useState<DesignerRegionFilterKey>('all');
   const [metricTab, setMetricTab] = useState<StoreMetricTab>('sales');
 
@@ -135,7 +141,14 @@ export function TopStoresSection({ virtualStores, designers, viewAllHref = '/adm
             );
 
             return (
-              <View key={store.id} style={styles.card}>
+              <Pressable
+                key={store.id}
+                accessibilityRole="button"
+                onPress={() => {
+                  const query = `q=${encodeURIComponent(store.name)}&region=${encodeURIComponent(regionFilterKey)}`;
+                  router.push(`${revenueHref}?${query}` as Href);
+                }}
+                style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
                 <Text style={styles.storeName}>{store.name}</Text>
                 <Text style={styles.storeMeta}>
                   {store.region} · 디자이너 {store.designerCount}명
@@ -154,7 +167,7 @@ export function TopStoresSection({ virtualStores, designers, viewAllHref = '/adm
                 <Text style={styles.designers} numberOfLines={2}>
                   {formatDesignerNamePreview(storeDesigners.map((designer) => designer.name))}
                 </Text>
-              </View>
+              </Pressable>
             );
           })}
         </View>
@@ -247,6 +260,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     width: '48%',
+  },
+  cardPressed: {
+    opacity: 0.92,
   },
   storeName: {
     color: '#1A1A2E',
