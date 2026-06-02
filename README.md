@@ -10,11 +10,82 @@ cp .env.example .env
 npm start
 ```
 
+## Metro 없이 사용하기
+
+**Expo Go**는 실행할 때마다 PC의 **Metro**가 JS 번들을 보내줘야 합니다. Metro·ngrok 없이 쓰려면 아래 중 하나를 씁니다.
+
+### A. 설치형 앱 (EAS Build) — 폰에서 단독 실행
+
+1. [Expo 계정](https://expo.dev) + `npm i -g eas-cli` + `eas login`
+2. Android APK 빌드:
+
+```sh
+npm run build:preview:android
+```
+
+3. EAS 대시보드에서 **APK 다운로드 → 폰 설치**
+4. 이후 **앱 아이콘**으로 실행 (Metro·PC 불필요)
+
+코드만 바꿨을 때 (앱 재설치 없이):
+
+```sh
+npm run update:preview
+```
+
+앱을 열면 OTA로 최신 JS 반영 (`preview` 채널, `eas.json` 참고).
+
+iOS는 `npm run build:preview:ios` 후 TestFlight/Ad Hoc.
+
+### B. 웹만 (정적 export)
+
+```sh
+npm run export:web
+```
+
+`dist/` 폴더를 Netlify·Vercel·NAS 등에 올리면 **브라우저**에서 Metro 없이 접속. (네이티브 Expo Go와는 별도)
+
+### C. 개발 중 (Metro 필요)
+
+| 목적 | 명령 |
+|------|------|
+| 같은 Wi‑Fi | `npm run start:wifi` → `npm run share` |
+| Android USB | `npm run start` → `npm run android:usb` |
+| ngrok 터널 | `npm run start:phone` → `npm run share` |
+
+요약: `npm run phone:standalone`
+
 ## 휴대폰에서 접속 (Expo Go) — PC 공유
 
 **브라우저용** `npm run web` / `web:clear` 만 켜 두면 휴대폰 QR이 안 보이거나 접속이 실패할 수 있습니다.
 
-### PC에서 공유 주소 받기 (권장 순서)
+### 휴대폰 접속 — ngrok 없이 (권장, 같은 Wi‑Fi)
+
+**터미널 1:**
+
+```sh
+npm run start:wifi
+```
+
+**터미널 2:**
+
+```sh
+npm run share
+```
+
+Expo Go → QR 스캔 (`exp://192.168.x.x:8081` 형식). PC·폰이 **같은 Wi‑Fi**, 게스트 Wi‑Fi·VPN 끄기.
+
+Windows: `scripts\start-wifi-pc.cmd` → Metro 뜬 뒤 `scripts\share-expo-pc.cmd`
+
+### Android USB (Wi‑Fi 없이)
+
+```sh
+npm run start
+npm run android:usb
+```
+
+Expo Go → `exp://127.0.0.1:8081` 입력
+
+### ngrok 터널 (PC·폰 네트워크가 다를 때만)
 
 **터미널 1** — Metro 터널 (이 창을 닫지 않음):
 

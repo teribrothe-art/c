@@ -61,6 +61,7 @@
     "start:phone": "CI=false expo start --tunnel --clear",
     "share": "node scripts/share-expo-go.mjs",
     "phone:wifi": "node -e \"console.log('ngrok 없음 (같은 Wi-Fi)\\n\\n터미널1: npm run start:wifi\\n터미널2: npm run share\\n\\nAndroid USB: npm run start && npm run android:usb\\nWindows: scripts\\\\start-wifi-pc.cmd')\"",
+    "phone:standalone": "node -e \"console.log('Metro 없이 (설치형 앱)\\n\\n1회 빌드: npm run build:preview:android\\nAPK 설치 후 앱 아이콘으로 실행\\n\\n코드만 갱신: npm run update:preview\\n\\n웹만: npm run export:web → dist 폴더를 정적 호스팅')\"",
     "phone:pc": "node -e \"console.log('터널(ngrok) 필요 시:\\n터미널1: npm run start:phone\\n터미널2: npm run share\\n\\nngrok 없음: npm run phone:wifi\\nWindows: scripts\\\\start-wifi-pc.cmd')\"",
     "android:usb": "node scripts/setup-android-usb.mjs",
     "reset-project": "node ./scripts/reset-project.js",
@@ -84,6 +85,9 @@
     "verify:nationwide-login": "node --experimental-strip-types scripts/verify-nationwide-designer-login.mjs",
     "verify:staged-login": "node --experimental-strip-types scripts/verify-staged-login.mjs",
     "beta:e2e": "node scripts/beta-e2e-ten-users.mjs",
+    "export:web": "expo export --platform web",
+    "build:preview:android": "eas build --profile preview --platform android --non-interactive",
+    "build:preview:ios": "eas build --profile preview --platform ios --non-interactive",
     "update:preview": "eas update --branch preview --message \"베타 v1.0.7 · 원 단위 · 주간/월별 매출\""
   },
   "private": true
