@@ -38,12 +38,12 @@ npm run share
 
 Windows: `scripts\start-phone-pc.cmd` 실행 후, Metro가 뜨면 `scripts\share-expo-pc.cmd` (HTML 자동 열림).
 
-`npm run share`가 **터널 없음 / 사설 IP**이면 종료 코드 2 — 반드시 `start:phone`으로 터널이 켜졌는지 확인하세요.
+`npm run share`가 **localhost / 사설 IP(172·10 대역)** 이면 같은 Wi‑Fi·VPN 확인. LAN은 `start:wifi` 권장.
 
-### 같은 Wi‑Fi만 쓸 때
+### ~~같은 Wi‑Fi만 쓸 때~~ → 위 `start:wifi` 참고
 
 ```sh
-npm run start:lan
+npm run start:wifi
 npm run share
 ```
 

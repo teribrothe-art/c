@@ -34,7 +34,7 @@ export function ConnectQrPanel({ embedded = false }: ConnectQrPanelProps) {
             (터널 URL은 Metro를 끄면 만료됩니다 — 브라우저 HTTPS 주소는 앱이 아닙니다.)
           </Text>
         )}
-        <Text style={styles.helpLine}>터미널 1: npm run start:phone</Text>
+        <Text style={styles.helpLine}>터미널 1: npm run start:wifi</Text>
         <Text style={styles.helpLine}>터미널 2: npm run share</Text>
       </View>
     );

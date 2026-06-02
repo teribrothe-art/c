@@ -192,8 +192,12 @@ async function main() {
   }
 
   console.log('\n✅ 공유 준비 완료');
-  console.log('  · 카톡/메일: expo-go-share.txt 내용 복사');
-  console.log('  · 브라우저: expo-go-share.html 열기 → 주소 복사 또는 QR 스캔');
+  if (classification.mode === 'lan') {
+    console.log('  · LAN 모드 — PC·폰 같은 Wi‑Fi에서만 접속');
+    console.log('  · 다른 네트워크면 npm run start:phone (터널)');
+  } else {
+    console.log('  · 카톡/메일: expo-go-share.txt 내용 복사');
+  }
   console.log('  · Expo Go: QR 스캔 (expo-go-qr.png)\n');
   process.exit(0);
 }
