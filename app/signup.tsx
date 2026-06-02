@@ -1,5 +1,5 @@
-import { Link, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { Href, Link, router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -57,34 +57,27 @@ export default function SignupScreen() {
   const [inviteValid, setInviteValid] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (!inviteCodeParam) {
+    if (inviteCodeParam && role === null) {
+      setRole('customer');
+    }
+  }, [inviteCodeParam, role]);
+
+  useEffect(() => {
+    if (inviteCodeParam) {
       return;
     }
 
-    const code = sanitizeInviteCode(String(inviteCodeParam));
-
-    if (isValidInviteCodeFormat(code)) {
-      setInviteCode(code);
-      setInviteOpen(true);
-      setRole((current) => current ?? 'customer');
-    }
-  }, [inviteCodeParam]);
-
-  useFocusEffect(
-    useCallback(() => {
-      peekPendingInviteCode()
-        .then((pending) => {
-          if (!isValidInviteCodeFormat(pending)) {
-            return;
-          }
-
+    peekPendingInviteCode()
+      .then((pending) => {
+        if (isValidInviteCodeFormat(pending)) {
           setInviteCode(pending);
-          setInviteOpen(true);
           setRole((current) => current ?? 'customer');
-        })
-        .catch(() => undefined);
-    }, []),
-  );
+        } else {
+          void clearPendingInviteCode();
+        }
+      })
+      .catch(() => undefined);
+  }, [inviteCodeParam]);
 
   useEffect(() => {
     if (!inviteOpen || role !== 'customer') {
@@ -166,7 +159,7 @@ export default function SignupScreen() {
       });
 
       if (role === 'designer') {
-        router.replace('/designer/clients');
+        router.replace('/designer/home' as Href);
         return;
       }
 
@@ -295,12 +288,11 @@ export default function SignupScreen() {
                 style={styles.input}
                 value={inviteCode}
               />
-              <Pressable
-                disabled={isLoading}
-                onPress={() => router.push('/scan-invite?returnTo=/signup')}
-                style={styles.scanButton}>
-                <Text style={styles.scanButtonText}>QR 스캔</Text>
-              </Pressable>
+              <Link href="/scan-invite?returnTo=/signup" asChild>
+                <Pressable style={styles.scanButton}>
+                  <Text style={styles.scanButtonText}>QR 스캔</Text>
+                </Pressable>
+              </Link>
               {inviteHint ? (
                 <Text
                   style={[

@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 
-import { getCurrentUser } from '../lib/auth';
+import { getCurrentUser, type UserRole } from '../lib/auth';
 import { getErrorMessage } from '../lib/errors';
 import {
   AppNotification,
@@ -14,13 +14,14 @@ import {
 } from '../lib/notifications';
 import { LoadingState } from '../src/components/loading-state';
 import { EmptyState } from '../src/components/empty-state';
+import { RoleBottomTabBar, TAB_BAR_BOTTOM_INSET } from '../src/components/role-bottom-tab-bar';
 
 const CORAL = '#FF5A5F';
 
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<AppNotification[]>([]);
-  const [userRole, setUserRole] = useState<'customer' | 'designer' | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -75,7 +76,7 @@ export default function NotificationsScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: Math.max(insets.bottom, 20) + 20 },
+          { paddingBottom: Math.max(insets.bottom, 20) + TAB_BAR_BOTTOM_INSET },
         ]}
         showsVerticalScrollIndicator={false}>
         {isLoading ? (
@@ -105,6 +106,7 @@ export default function NotificationsScreen() {
           ))
         )}
       </ScrollView>
+      <RoleBottomTabBar role={userRole} />
     </View>
   );
 }

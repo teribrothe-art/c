@@ -3,7 +3,13 @@ import { Platform } from 'react-native';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
-import { isDisplayableImageUri, normalizePickerAssetUri, treatmentPhotoPickerOptions } from './image-uri';
+import {
+  isDisplayableImageUri,
+  normalizePickerAssetUri,
+  pickImageFileOnWeb,
+  treatmentCameraPickerOptions,
+  treatmentPhotoPickerOptions,
+} from './image-uri';
 import { prepareImageForUpload } from './prepare-upload-image';
 import { supabase } from './supabase';
 import { Treatment, updateTreatment } from './treatments';
@@ -25,29 +31,6 @@ export function getTreatmentPhotoColumn(kind: TreatmentPhotoKind) {
   return kind === 'before' ? 'before_photo_url' : 'after_photo_url';
 }
 
-/** 슬롯 미리보기용 — 로컬 URI 우선, Supabase는 signed URL */
-export async function resolveTreatmentPhotoPreviewUrl(
-  storagePath: string | null | undefined,
-  localFallback?: string | null,
-): Promise<string | null> {
-  const fallback = localFallback && isDisplayableImageUri(localFallback) ? localFallback : null;
-
-  if (!storagePath) {
-    return fallback;
-  }
-
-  if (isDisplayableImageUri(storagePath)) {
-    return storagePath;
-  }
-
-  try {
-    const signed = await getTreatmentPhotoSignedUrl(storagePath);
-    return signed ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 export async function getTreatmentPhotoSignedUrl(
   storagePath: string | null | undefined,
 ): Promise<string | null> {
@@ -60,7 +43,7 @@ export async function getTreatmentPhotoSignedUrl(
   }
 
   if (isDemoAuthMode || !supabase) {
-    return isDisplayableImageUri(storagePath) ? storagePath : null;
+    return null;
   }
 
   const { data, error } = await supabase.storage
@@ -76,9 +59,9 @@ export async function getTreatmentPhotoSignedUrl(
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
-export type TreatmentPhotoPickSource = 'library' | 'camera';
+export type TreatmentPhotoPickSource = 'camera' | 'library';
 
-async function processTreatmentPhotoPickerResult(
+async function normalizePickedTreatmentPhoto(
   result: ImagePicker.ImagePickerResult,
 ): Promise<string | null> {
   if (result.canceled || !result.assets[0]?.uri) {
@@ -109,29 +92,35 @@ export async function pickTreatmentPhotoFromLibrary() {
 
   const result = await ImagePicker.launchImageLibraryAsync(treatmentPhotoPickerOptions());
 
-  return processTreatmentPhotoPickerResult(result);
+  return normalizePickedTreatmentPhoto(result);
 }
 
-export async function captureTreatmentPhotoWithCamera() {
+export async function pickTreatmentPhotoFromCamera() {
   if (Platform.OS === 'web') {
-    throw new Error('웹에서는 카메라 촬영을 지원하지 않습니다. 앨범에서 선택해주세요.');
+    return pickImageFileOnWeb({ useCamera: true });
   }
 
   const permission = await ImagePicker.requestCameraPermissionsAsync();
 
   if (!permission.granted) {
+    if (permission.canAskAgain === false) {
+      throw new Error('카메라 권한이 꺼져 있습니다. 기기 설정에서 허용해주세요.');
+    }
+
     throw new Error('카메라 접근 권한이 필요합니다.');
   }
 
-  const result = await ImagePicker.launchCameraAsync(treatmentPhotoPickerOptions());
+  const result = await ImagePicker.launchCameraAsync(treatmentCameraPickerOptions());
 
-  return processTreatmentPhotoPickerResult(result);
+  return normalizePickedTreatmentPhoto(result);
 }
 
 export async function pickTreatmentPhoto(source: TreatmentPhotoPickSource) {
-  return source === 'camera'
-    ? captureTreatmentPhotoWithCamera()
-    : pickTreatmentPhotoFromLibrary();
+  if (source === 'camera') {
+    return pickTreatmentPhotoFromCamera();
+  }
+
+  return pickTreatmentPhotoFromLibrary();
 }
 
 export async function uploadTreatmentPhoto(

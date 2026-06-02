@@ -71,6 +71,10 @@ export function inferDamageLevelRuleBased(treatment: Treatment): number {
     return 4;
   }
 
+  if (type.includes('스파') || text.includes('스파')) {
+    return 3;
+  }
+
   if (type.includes('케어') || type.includes('트리트먼트')) {
     return 4;
   }

@@ -1,5 +1,9 @@
 /** 금액 입력 — 숫자만 저장, 화면에는 천 단위 구분 */
 
+export function formatAmount(amount: number) {
+  return amount.toLocaleString('ko-KR');
+}
+
 export function sanitizeWonDigits(value: string) {
   return value.replace(/[^0-9]/g, '');
 }

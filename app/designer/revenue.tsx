@@ -1,92 +1,61 @@
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, router } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   fetchDesignerRevenueAnalytics,
+  type DailyRevenuePoint,
   type DesignerRevenueAnalytics,
-  type WeekdayRevenueCell,
 } from '../../lib/designer-revenue-analytics';
+import { formatDateWithWeekday } from '../../lib/designer-revenue-weekly';
+import { formatAmount } from '../../lib/currency-input';
 import { getErrorMessage } from '../../lib/errors';
+import { mapRevenueSettlementsToGridItems } from '../../lib/designer-customer-grid';
 import { RevenueBarChart } from '../../src/components/revenue-bar-chart';
+import { CustomerGrid } from '../../src/components/customer-grid';
 import { EmptyState } from '../../src/components/empty-state';
 import { LoadingState } from '../../src/components/loading-state';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
+import {
+  DesignerRevenueMetricGrid,
+  type DesignerRevenueMetricItem,
+} from '../../src/components/designer-revenue-metric-grid';
 import { WeeklyRevenuePanel } from '../../src/components/weekly-revenue-panel';
 
-const CORAL = '#FF5A5F';
-const MINT = '#00C2A8';
 const PURPLE = '#7B5EE6';
 
-function MetricCard({
-  label,
-  value,
-  tone = 'default',
-}: {
-  label: string;
-  value: string;
-  tone?: 'default' | 'danger' | 'success';
-}) {
-  return (
-    <View style={styles.metricCard}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text
-        style={[
-          styles.metricValue,
-          tone === 'danger' && styles.metricDanger,
-          tone === 'success' && styles.metricSuccess,
-        ]}>
-        {value}
-      </Text>
-    </View>
-  );
-}
+type SettlementListMode = 'month' | 'pending';
 
 export default function DesignerRevenueScreen() {
   const insets = useSafeAreaInsets();
-  const { month: monthParam } = useLocalSearchParams<{ month?: string }>();
+  const { month: monthParam } = useLocalSearchParams<{ month?: string | string[] }>();
   const [analytics, setAnalytics] = useState<DesignerRevenueAnalytics | null>(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | undefined>(undefined);
-  const [selectedWeekKey, setSelectedWeekKey] = useState<string | undefined>(undefined);
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
+  const [settlementListMode, setSettlementListMode] = useState<SettlementListMode>('month');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
-  const selectedMonthKeyRef = useRef<string | undefined>(undefined);
-  const selectedWeekKeyRef = useRef<string | undefined>(undefined);
-  const routeMonthHandledRef = useRef<string | null>(null);
-  const hasLoadedOnceRef = useRef(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const weekSectionY = useRef(0);
+  const settlementSectionY = useRef(0);
 
-  selectedMonthKeyRef.current = selectedMonthKey;
-  selectedWeekKeyRef.current = selectedWeekKey;
+  const scrollToSection = useCallback((offsetY: number) => {
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, offsetY - 12),
+      animated: true,
+    });
+  }, []);
 
-  const loadRevenue = useCallback((monthKey?: string, weekKey?: string) => {
-    if (!hasLoadedOnceRef.current) {
-      setIsLoading(true);
-    }
+  const loadRevenue = useCallback((monthKey?: string) => {
+    setIsLoading(true);
 
-    fetchDesignerRevenueAnalytics(monthKey, weekKey)
+    fetchDesignerRevenueAnalytics(monthKey)
       .then((data) => {
         setAnalytics(data);
         setSelectedMonthKey(data.selectedMonthKey);
-        setSelectedWeekKey(data.selectedWeekKey);
-        setSelectedDayDate((prev) => {
-          if (prev && data.selectedWeek.days.some((day) => day.date === prev)) {
-            return prev;
-          }
-
-          const todayInWeek = data.selectedWeek.days.find((day) => day.isToday);
-
-          if (todayInWeek) {
-            return todayInWeek.date;
-          }
-
-          const withRevenue = data.selectedWeek.days.find((day) => day.totalAmount > 0);
-
-          return withRevenue?.date ?? data.selectedWeek.days[0]?.date ?? null;
-        });
+        setSelectedDayDate(null);
         setErrorMessage('');
-        hasLoadedOnceRef.current = true;
       })
       .catch((error) => {
         setErrorMessage(getErrorMessage(error, '매출 데이터를 불러오지 못했습니다.'));
@@ -96,32 +65,22 @@ export default function DesignerRevenueScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      const monthFromRoute = typeof monthParam === 'string' ? monthParam.trim() : '';
+      const monthFromRoute = Array.isArray(monthParam) ? monthParam[0] : monthParam;
+      const monthToLoad =
+        typeof monthFromRoute === 'string' && /^\d{4}-\d{2}$/.test(monthFromRoute)
+          ? monthFromRoute
+          : selectedMonthKey;
 
-      if (monthFromRoute) {
-        if (routeMonthHandledRef.current === monthFromRoute) {
-          return;
-        }
-
-        routeMonthHandledRef.current = monthFromRoute;
-        setSelectedMonthKey(monthFromRoute);
-        setSelectedWeekKey(undefined);
-        setSelectedDayDate(null);
-        loadRevenue(monthFromRoute);
-        return;
-      }
-
-      routeMonthHandledRef.current = null;
-      loadRevenue(selectedMonthKeyRef.current, selectedWeekKeyRef.current);
-    }, [loadRevenue, monthParam]),
+      loadRevenue(monthToLoad);
+    }, [loadRevenue, monthParam, selectedMonthKey]),
   );
 
   const monthlyChartPoints = useMemo(
     () =>
       [...(analytics?.months ?? [])]
         .filter((month) => month.revenue > 0)
-        .sort((a, b) => a.monthKey.localeCompare(b.monthKey))
-        .slice(-6)
+        .sort((a, b) => b.monthKey.localeCompare(a.monthKey))
+        .slice(0, 6)
         .map((month) => ({
           key: month.monthKey,
           label: month.label.replace(/^\d{4}년\s/, ''),
@@ -131,41 +90,37 @@ export default function DesignerRevenueScreen() {
     [analytics?.months],
   );
 
-  const weekIndex = useMemo(() => {
-    if (!analytics) {
-      return -1;
-    }
-
-    return analytics.weeklyWeeks.findIndex((week) => week.weekKey === analytics.selectedWeekKey);
-  }, [analytics]);
-
   const visibleSettlements = useMemo(() => {
     if (!analytics) {
       return [];
     }
 
-    if (!selectedDayDate) {
-      return analytics.recentSettlements;
+    if (settlementListMode === 'pending') {
+      return analytics.pendingSettlements;
     }
 
-    return analytics.recentSettlements.filter((item) => item.date === selectedDayDate);
-  }, [analytics, selectedDayDate]);
+    if (!selectedDayDate) {
+      return analytics.selectedMonthSettlements;
+    }
+
+    return analytics.selectedMonthSettlements.filter((item) => item.date === selectedDayDate);
+  }, [analytics, selectedDayDate, settlementListMode]);
 
   const settlementSectionTitle = useMemo(() => {
     if (!analytics) {
       return '';
     }
 
-    if (selectedDayDate) {
-      const day = analytics.selectedWeek.days.find((cell) => cell.date === selectedDayDate);
+    if (settlementListMode === 'pending') {
+      return '정산 대기';
+    }
 
-      if (day) {
-        return `${day.dateWithWeekdayLabel} 정산`;
-      }
+    if (selectedDayDate) {
+      return `${formatDateWithWeekday(selectedDayDate)} 정산`;
     }
 
     return `${analytics.selectedMonth.label} 정산 상세`;
-  }, [analytics, selectedDayDate]);
+  }, [analytics, selectedDayDate, settlementListMode]);
 
   const hasAnyRevenue = Boolean(
     analytics &&
@@ -177,68 +132,94 @@ export default function DesignerRevenueScreen() {
       return;
     }
 
-    routeMonthHandledRef.current = monthKey;
-
-    if (typeof monthParam === 'string' && monthParam.trim()) {
-      router.setParams({ month: '' });
-    }
-
+    setSettlementListMode('month');
     setSelectedMonthKey(monthKey);
-    setSelectedWeekKey(undefined);
     setSelectedDayDate(null);
     loadRevenue(monthKey);
   };
 
-  const handleSelectWeek = (weekKey: string) => {
-    if (weekKey === selectedWeekKey) {
-      return;
-    }
-
-    setSelectedWeekKey(weekKey);
-    setSelectedDayDate(null);
-    loadRevenue(selectedMonthKey, weekKey);
-  };
-
-  const handleSelectDay = (day: WeekdayRevenueCell) => {
+  const handleSelectDay = (day: DailyRevenuePoint) => {
+    setSettlementListMode('month');
     setSelectedDayDate(day.date);
   };
 
-  const handlePrevWeek = () => {
-    if (!analytics || weekIndex <= 0) {
-      return;
+  const showPendingSettlements = useCallback(() => {
+    setSettlementListMode('pending');
+    setSelectedDayDate(null);
+    scrollToSection(settlementSectionY.current);
+  }, [scrollToSection]);
+
+  const revenueMetricItems = useMemo((): DesignerRevenueMetricItem[] => {
+    if (!analytics) {
+      return [];
     }
 
-    const prev = analytics.weeklyWeeks[weekIndex - 1];
+    return [
+      {
+        key: 'avg-price',
+        label: '월 평균 시술가',
+        value: formatAmount(analytics.averageTreatmentPrice),
+        onPress: () => {
+          setSettlementListMode('month');
+          setSelectedDayDate(null);
+          scrollToSection(weekSectionY.current);
+        },
+      },
+      {
+        key: 'month-total',
+        label: '이번 달 합계',
+        tone: 'success',
+        value: formatAmount(analytics.selectedMonth.revenue),
+        onPress: () => {
+          setSettlementListMode('month');
+          setSelectedDayDate(null);
+          scrollToSection(weekSectionY.current);
+        },
+      },
+      {
+        key: 'pending-count',
+        label: '대기 건수',
+        tone: 'danger',
+        value: `${analytics.pendingPayoutCount}건`,
+        onPress: showPendingSettlements,
+      },
+      {
+        key: 'pending-amount',
+        label: '정산 대기',
+        tone: 'danger',
+        value: formatAmount(analytics.pendingPayoutAmount),
+        onPress: showPendingSettlements,
+      },
+    ];
+  }, [analytics, scrollToSection, showPendingSettlements]);
 
-    if (prev) {
-      handleSelectWeek(prev.weekKey);
-    }
-  };
+  const settlementGridItems = useMemo(
+    () => mapRevenueSettlementsToGridItems(visibleSettlements),
+    [visibleSettlements],
+  );
 
-  const handleNextWeek = () => {
-    if (!analytics || weekIndex < 0 || weekIndex >= analytics.weeklyWeeks.length - 1) {
-      return;
-    }
+  const handleSettlementPress = useCallback(
+    (paymentId: string) => {
+      const item = visibleSettlements.find((row) => row.paymentId === paymentId);
 
-    const next = analytics.weeklyWeeks[weekIndex + 1];
-
-    if (next) {
-      handleSelectWeek(next.weekKey);
-    }
-  };
+      if (item?.treatmentId) {
+        router.push(`/designer/treatment/${item.treatmentId}`);
+      }
+    },
+    [visibleSettlements],
+  );
 
   return (
     <View style={styles.container}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[
           styles.content,
           { paddingTop: insets.top + 20, paddingBottom: Math.max(insets.bottom, 20) + 100 },
         ]}
         showsVerticalScrollIndicator={false}>
-        <Text style={styles.pageTitle}>매출 분석</Text>
-        <Text style={styles.pageSubtitle}>
-          월별 매출과 주간(월~일) 합계를 한 화면에서 확인하세요
-        </Text>
+        <Text style={styles.pageTitle}>매출</Text>
+        <Text style={styles.pageSubtitle}>월별 정산 매출을 확인하세요</Text>
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -249,114 +230,58 @@ export default function DesignerRevenueScreen() {
         ) : !hasAnyRevenue ? (
           <EmptyState
             icon="📊"
-            subtitle="정산 완료되면 월별·주간 매출이 표시됩니다"
+            subtitle="정산 완료되면 월별 매출이 표시됩니다"
             title="매출 데이터가 없어요"
           />
         ) : (
           <>
-            <RevenueBarChart
-              barColor={PURPLE}
-              emptyMessage="월별 정산 매출이 없습니다"
-              points={monthlyChartPoints}
-              title="월별 매출 (정산 완료)"
-            />
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>월 선택</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.monthChipRow}>
-                  {analytics.months.map((month) => {
-                    const selected = month.monthKey === analytics.selectedMonthKey;
-
-                    return (
-                      <Pressable
-                        key={month.monthKey}
-                        onPress={() => handleSelectMonth(month.monthKey)}
-                        style={({ pressed }) => [
-                          styles.monthChip,
-                          selected && styles.monthChipSelected,
-                          pressed && styles.monthChipPressed,
-                        ]}>
-                        <Text style={[styles.monthChipText, selected && styles.monthChipTextSelected]}>
-                          {month.label}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.monthChipAmount,
-                            selected && styles.monthChipAmountSelected,
-                          ]}>
-                          {month.revenue.toLocaleString('ko-KR')}원
-                        </Text>
-                        <Text
-                          style={[
-                            styles.monthChipMeta,
-                            selected && styles.monthChipMetaSelected,
-                          ]}>
-                          {month.settlementCount}건
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </ScrollView>
-            </View>
-
             <View style={styles.heroCard}>
               <Text style={styles.heroLabel}>{analytics.selectedMonth.label} 매출</Text>
               <Text style={styles.heroValue}>
-                {analytics.selectedMonth.revenue.toLocaleString('ko-KR')}
+                {formatAmount(analytics.selectedMonth.revenue)}
               </Text>
-              <Text style={styles.heroUnit}>원 · 정산 {analytics.selectedMonth.settlementCount}건</Text>
+              <Text style={styles.heroUnit}>정산 {analytics.selectedMonth.settlementCount}건</Text>
             </View>
 
-            <View style={styles.metricGrid}>
-              <MetricCard
-                label="월 평균 시술가"
-                value={`${analytics.averageTreatmentPrice.toLocaleString('ko-KR')}원`}
-              />
-              <MetricCard
-                label="정산 대기"
-                tone="danger"
-                value={`${analytics.pendingPayoutAmount.toLocaleString('ko-KR')}원`}
-              />
-              <MetricCard label="대기 건수" tone="danger" value={`${analytics.pendingPayoutCount}건`} />
-              <MetricCard
-                label="선택 주 합계"
-                tone="success"
-                value={`${analytics.selectedWeek.weekTotal.toLocaleString('ko-KR')}원`}
-              />
-            </View>
+            <DesignerRevenueMetricGrid items={revenueMetricItems} />
 
-            <WeeklyRevenuePanel
-              canGoNext={weekIndex >= 0 && weekIndex < analytics.weeklyWeeks.length - 1}
-              canGoPrev={weekIndex > 0}
-              days={analytics.selectedWeek.days}
-              onNextWeek={handleNextWeek}
-              onPrevWeek={handlePrevWeek}
-              onSelectDay={handleSelectDay}
-              selectedDate={selectedDayDate}
-              weekLabel={analytics.selectedWeek.label}
+            <RevenueBarChart
+              barColor={PURPLE}
+              emptyMessage="월별 정산 매출이 없습니다"
+              onPressPoint={handleSelectMonth}
+              points={monthlyChartPoints}
+              selectedKey={analytics.selectedMonthKey}
+              title="월별 매출 (정산 완료)"
             />
 
-            <View style={styles.card}>
+            <View
+              onLayout={(event) => {
+                weekSectionY.current = event.nativeEvent.layout.y;
+              }}>
+              <WeeklyRevenuePanel
+                dailyTotals={analytics.dailyTotals}
+                monthLabel={analytics.selectedMonth.label}
+                onSelectDay={handleSelectDay}
+                selectedDate={selectedDayDate}
+              />
+            </View>
+
+            <View
+              style={styles.card}
+              onLayout={(event) => {
+                settlementSectionY.current = event.nativeEvent.layout.y;
+              }}>
               <Text style={styles.cardTitle}>{settlementSectionTitle}</Text>
               {visibleSettlements.length === 0 ? (
                 <Text style={styles.emptyText}>
-                  {selectedDayDate
-                    ? '해당 날짜에 정산 완료 내역이 없습니다.'
-                    : '해당 월 정산 완료 내역이 없습니다.'}
+                  {settlementListMode === 'pending'
+                    ? '정산 대기 중인 시술이 없습니다.'
+                    : selectedDayDate
+                      ? '해당 날짜에 정산 완료 내역이 없습니다.'
+                      : '해당 월 정산 완료 내역이 없습니다.'}
                 </Text>
               ) : (
-                visibleSettlements.map((item) => (
-                  <View key={item.paymentId} style={styles.settlementRow}>
-                    <View style={styles.settlementInfo}>
-                      <Text style={styles.settlementDate}>{item.dateWithWeekdayLabel}</Text>
-                      <Text style={styles.settlementCustomer}>{item.customerName}</Text>
-                      <Text style={styles.settlementMeta}>{item.treatmentTitle}</Text>
-                    </View>
-                    <Text style={styles.settlementPrice}>{item.payout.toLocaleString('ko-KR')}원</Text>
-                  </View>
-                ))
+                <CustomerGrid items={settlementGridItems} onPressItem={handleSettlementPress} />
               )}
             </View>
           </>
@@ -393,19 +318,6 @@ const styles = StyleSheet.create({
   heroLabel: { color: '#6B6B7B', fontSize: 14, fontWeight: '700', marginBottom: 8 },
   heroValue: { color: '#1A1A2E', fontSize: 40, fontWeight: '900' },
   heroUnit: { color: '#6B6B7B', fontSize: 14, fontWeight: '600', marginTop: 4 },
-  metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  metricCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    minHeight: 92,
-    padding: 14,
-    width: '48%',
-    elevation: 3,
-  },
-  metricLabel: { color: '#6B6B7B', fontSize: 13, fontWeight: '700', marginBottom: 10 },
-  metricValue: { color: '#1A1A2E', fontSize: 20, fontWeight: '900' },
-  metricDanger: { color: CORAL },
-  metricSuccess: { color: MINT },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -413,40 +325,6 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   cardTitle: { color: '#1A1A2E', fontSize: 16, fontWeight: '800', marginBottom: 12 },
-  monthChipRow: { flexDirection: 'row', gap: 10, paddingBottom: 4 },
-  monthChip: {
-    backgroundColor: '#F5F5F8',
-    borderColor: '#E8E8F0',
-    borderRadius: 14,
-    borderWidth: 1,
-    minWidth: 132,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  monthChipSelected: {
-    backgroundColor: '#F0EBFF',
-    borderColor: PURPLE,
-  },
-  monthChipPressed: { opacity: 0.9 },
-  monthChipText: { color: '#1A1A2E', fontSize: 14, fontWeight: '800', marginBottom: 4 },
-  monthChipTextSelected: { color: PURPLE },
-  monthChipAmount: { color: CORAL, fontSize: 16, fontWeight: '900' },
-  monthChipAmountSelected: { color: CORAL },
-  monthChipMeta: { color: '#6B6B7B', fontSize: 12, fontWeight: '600', marginTop: 2 },
-  monthChipMetaSelected: { color: '#6B6B7B' },
-  settlementRow: {
-    borderTopColor: '#EFEFF4',
-    borderTopWidth: 1,
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-  },
-  settlementInfo: { flex: 1, gap: 2 },
-  settlementDate: { color: '#9CA3AF', fontSize: 12, fontWeight: '600' },
-  settlementCustomer: { color: '#1A1A2E', fontSize: 15, fontWeight: '800' },
-  settlementMeta: { color: '#6B6B7B', fontSize: 13, fontWeight: '600' },
-  settlementPrice: { color: CORAL, fontSize: 15, fontWeight: '900' },
   emptyText: { color: '#6B6B7B', fontSize: 14, fontWeight: '600' },
   stateBox: {
     alignItems: 'center',

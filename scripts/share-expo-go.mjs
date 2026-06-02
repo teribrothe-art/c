@@ -17,6 +17,7 @@ import {
   resolveExpoGoShareUrl,
   waitForMetro,
 } from './lib/expo-go-share.mjs';
+import { writeExpoConnectManifest } from './lib/write-expo-connect-manifest.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -116,7 +117,15 @@ async function main() {
 
   await writeShareArtifacts(url, meta);
 
+  const manifest = writeExpoConnectManifest(projectRoot, {
+    url,
+    mode: meta.mode,
+    shareable: meta.shareable,
+    ngrokPublicUrl: meta.ngrokPublicUrl,
+  });
+
   console.log(`접속 URL: ${url}`);
+  console.log(`manifest: v${manifest.version} (${manifest.updatedAt})`);
 
   if (allPlatforms?.android?.url && allPlatforms.android.url !== url) {
     console.log(`Android: ${allPlatforms.android.url}`);

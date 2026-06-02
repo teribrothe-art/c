@@ -1,5 +1,6 @@
-import { router, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { router, useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -13,132 +14,44 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DesignerBottomTabBar } from '../../src/components/designer-bottom-tab-bar';
 import { getErrorMessage } from '../../lib/errors';
 import { normalizePaymentStatus } from '../../lib/payment-status';
+import { groupDesignerClientsByDate } from '../../lib/designer-customer-grid';
 import {
   DesignerClientListItem,
   getDesignerClientListItems,
-  renewCustomerInvitation,
 } from '../../lib/customer-invitations';
+import { peekDesignerClientListCache } from '../../lib/designer-workspace-cache';
 import {
   DESIGNER_ONBOARDING_SLIDES,
   markOnboardingSeen,
   shouldShowOnboarding,
 } from '../../lib/onboarding';
-import { showErrorAlert, showSuccessAlert } from '../../lib/alerts';
+import { CustomerGridByDate } from '../../src/components/customer-grid-by-date';
 import { EmptyState } from '../../src/components/empty-state';
 import { LoadingState } from '../../src/components/loading-state';
 import { OnboardingModal } from '../../src/components/onboarding-modal';
-import { Treatment } from '../../lib/treatments';
 
-function formatDate(date: string) {
-  return date.replaceAll('-', '.');
-}
-
-function getInitial(name?: string | null) {
-  return name?.trim().slice(0, 1) || '?';
-}
-
-function getInviteBadgeMeta(status?: DesignerClientListItem['inviteStatus']) {
-  if (status === 'pending') {
-    return { label: '초대 발송됨', style: styles.inviteActiveBadge, textStyle: styles.inviteActiveText };
-  }
-
-  if (status === 'expired') {
-    return { label: '만료됨', style: styles.inviteExpiredBadge, textStyle: styles.inviteExpiredText };
-  }
-
-  if (status === 'used') {
-    return { label: '가입 완료', style: styles.inviteUsedBadge, textStyle: styles.inviteUsedText };
-  }
-
-  return null;
-}
-
-function getPaymentBadge(treatment?: Treatment) {
-  const normalized = normalizePaymentStatus(treatment?.payment_status);
-
-  if (normalized === 'completed') {
-    return { label: '정산 완료', style: styles.completedBadge, textStyle: styles.completedBadgeText };
-  }
-
-  if (normalized === 'escrow') {
-    return {
-      label: '결제 완료, 피드백 대기',
-      style: styles.paidWaitingBadge,
-      textStyle: styles.paidWaitingBadgeText,
-    };
-  }
-
-  if (normalized === 'payment_requested') {
-    return { label: '결제 요청', style: styles.pendingBadge, textStyle: styles.pendingBadgeText };
-  }
-
-  return { label: '결제 대기', style: styles.pendingBadge, textStyle: styles.pendingBadgeText };
-}
-
-function DesignerClientCard({
-  item,
-  onPress,
-  onReinvite,
-}: {
-  item: DesignerClientListItem;
-  onPress: () => void;
-  onReinvite?: () => void;
-}) {
-  const inviteBadge = getInviteBadgeMeta(item.inviteStatus);
-  const paymentBadge = item.isRegistered ? getPaymentBadge(item.treatment) : inviteBadge;
-
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.clientCard, pressed && styles.clientCardPressed]}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{getInitial(item.customerName)}</Text>
-      </View>
-      <View style={styles.clientInfo}>
-        <View style={styles.cardTopRow}>
-          <Text style={styles.customerName}>{item.customerName}</Text>
-          {paymentBadge ? (
-            <View style={[styles.statusBadge, paymentBadge.style]}>
-              <Text style={[styles.statusText, paymentBadge.textStyle]}>{paymentBadge.label}</Text>
-            </View>
-          ) : null}
-        </View>
-        <Text style={styles.treatmentMeta}>
-          {formatDate(item.treatmentDate)} · {item.treatment?.treatment_type ?? '시술'}
-        </Text>
-        <Text style={styles.treatmentTitle}>{item.treatmentTitle}</Text>
-        {item.inviteCode && item.inviteStatus === 'pending' ? (
-          <Text style={styles.inviteCodeText}>코드 {item.inviteCode}</Text>
-        ) : null}
-        {(item.inviteStatus === 'pending' || item.inviteStatus === 'expired') && onReinvite ? (
-          <Pressable
-            onPress={(event) => {
-              event.stopPropagation?.();
-              onReinvite();
-            }}
-            style={styles.reinviteButton}>
-            <Text style={styles.reinviteText}>
-              {item.inviteStatus === 'pending' ? '초대 다시 보내기' : '재초대'}
-            </Text>
-          </Pressable>
-        ) : null}
-      </View>
-    </Pressable>
-  );
-}
 
 export default function DesignerClientsScreen() {
   const insets = useSafeAreaInsets();
   const detailRouter = useRouter();
-  const { filter: filterParam } = useLocalSearchParams<{ filter?: string }>();
-  const escrowOnly = filterParam === 'escrow';
   const [clientItems, setClientItems] = useState<DesignerClientListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const loadClients = useCallback(() => {
-    setIsLoading(true);
+    const cached = peekDesignerClientListCache();
+
+    if (cached) {
+      setClientItems(cached);
+      setErrorMessage('');
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
+    }
 
     getDesignerClientListItems()
       .then((items) => {
@@ -159,22 +72,13 @@ export default function DesignerClientsScreen() {
   );
 
   const visibleItems = useMemo(() => {
-    let items = clientItems;
-
-    if (escrowOnly) {
-      items = items.filter(
-        (item) =>
-          item.treatment && normalizePaymentStatus(item.treatment.payment_status) === 'escrow',
-      );
-    }
-
     const query = searchQuery.trim().toLowerCase();
 
     if (!query) {
-      return items;
+      return clientItems;
     }
 
-    return items.filter((item) => {
+    return clientItems.filter((item) => {
       const haystack = [
         item.customerName,
         item.treatmentTitle,
@@ -186,7 +90,7 @@ export default function DesignerClientsScreen() {
 
       return haystack.includes(query);
     });
-  }, [clientItems, escrowOnly, searchQuery]);
+  }, [clientItems, searchQuery]);
 
   const summary = useMemo(() => {
     const now = new Date();
@@ -202,25 +106,28 @@ export default function DesignerClientsScreen() {
     };
   }, [clientItems]);
 
-  const handleReinvite = (item: DesignerClientListItem) => {
-    if (!item.invitationId || !item.treatmentId) {
-      return;
-    }
+  const dateGroups = useMemo(() => groupDesignerClientsByDate(visibleItems), [visibleItems]);
 
-    Promise.resolve()
-      .then(async () => {
-        await renewCustomerInvitation({
-          invitationId: item.invitationId!,
-          treatmentId: item.treatmentId,
-          customerName: item.treatment?.customer_name?.trim() || item.customerName,
-        });
-        showSuccessAlert('새 초대 코드를 만들었어요. 이전 코드는 더 이상 사용할 수 없어요.');
-        loadClients();
-      })
-      .catch((error) => {
-        showErrorAlert(getErrorMessage(error, '재초대에 실패했습니다.'));
-      });
-  };
+  useEffect(() => {
+    setSelectedDate(null);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (selectedDate && !dateGroups.some((group) => group.date === selectedDate)) {
+      setSelectedDate(null);
+    }
+  }, [dateGroups, selectedDate]);
+
+  const handleGridPress = useCallback(
+    (key: string) => {
+      const item = visibleItems.find((row) => row.key === key);
+
+      if (item) {
+        detailRouter.push(`/designer/treatment/${item.treatmentId}`);
+      }
+    },
+    [detailRouter, visibleItems],
+  );
 
   return (
     <View style={styles.container}>
@@ -228,7 +135,7 @@ export default function DesignerClientsScreen() {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 24 }]}
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.title}>내 고객들</Text>
+          <Text style={styles.title}>고객</Text>
           <View style={styles.headerActions}>
             <Pressable
               onPress={() => setSearchOpen((open) => !open)}
@@ -283,16 +190,12 @@ export default function DesignerClientsScreen() {
         ) : visibleItems.length === 0 ? (
           <EmptyState icon="🔍" title="검색 결과가 없어요" subtitle="다른 검색어를 시도해보세요" />
         ) : (
-          <View style={styles.list}>
-            {visibleItems.map((item) => (
-              <DesignerClientCard
-                key={item.key}
-                item={item}
-                onPress={() => detailRouter.push(`/designer/treatment/${item.treatmentId}`)}
-                onReinvite={() => handleReinvite(item)}
-              />
-            ))}
-          </View>
+          <CustomerGridByDate
+            groups={dateGroups}
+            onPressItem={handleGridPress}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+          />
         )}
       </ScrollView>
 
@@ -386,137 +289,6 @@ const styles = StyleSheet.create({
     width: 1,
     height: 44,
     backgroundColor: '#EFEFF4',
-  },
-  list: {
-    gap: 14,
-  },
-  clientCard: {
-    alignItems: 'flex-start',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    flexDirection: 'row',
-    gap: 14,
-    padding: 18,
-    shadowColor: '#1A1A2E',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 4,
-  },
-  clientCardPressed: {
-    opacity: 0.82,
-  },
-  avatar: {
-    alignItems: 'center',
-    backgroundColor: '#FFD4D5',
-    borderRadius: 24,
-    height: 48,
-    justifyContent: 'center',
-    width: 48,
-  },
-  avatarText: {
-    color: '#FF5A5F',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  clientInfo: {
-    flex: 1,
-  },
-  cardTopRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  customerName: {
-    color: '#1A1A2E',
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  treatmentMeta: {
-    color: '#6B6B7B',
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 5,
-  },
-  treatmentTitle: {
-    color: '#1A1A2E',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  inviteCodeText: {
-    color: '#7B5EE6',
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 6,
-  },
-  reinviteButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#FFD4D5',
-    borderRadius: 8,
-    marginTop: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  reinviteText: {
-    color: '#FF5A5F',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  priceText: {
-    color: '#6B6B7B',
-    fontSize: 13,
-    fontWeight: '800',
-    marginTop: 8,
-  },
-  statusBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  completedBadge: {
-    backgroundColor: '#CCF2EC',
-  },
-  completedBadgeText: {
-    color: '#00C2A8',
-  },
-  inviteActiveBadge: {
-    backgroundColor: '#E0D7FA',
-  },
-  inviteActiveText: {
-    color: '#7B5EE6',
-  },
-  inviteExpiredBadge: {
-    backgroundColor: '#FFD4D5',
-  },
-  inviteExpiredText: {
-    color: '#FF5A5F',
-  },
-  inviteUsedBadge: {
-    backgroundColor: '#CCF2EC',
-  },
-  inviteUsedText: {
-    color: '#00C2A8',
-  },
-  paidWaitingBadge: {
-    backgroundColor: '#FFE8E9',
-  },
-  paidWaitingBadgeText: {
-    color: '#FF5A5F',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  pendingBadge: {
-    backgroundColor: '#FFF0C7',
-  },
-  pendingBadgeText: {
-    color: '#FFB627',
   },
   stateBox: {
     alignItems: 'center',

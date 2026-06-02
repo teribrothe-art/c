@@ -24,3 +24,16 @@ export const formTextInputStyle = {
   backgroundColor: '#FFFFFF',
   color: colors.text,
 } as const;
+
+/** 로그인 화면 중앙 컬럼 (좌우 여백·최대 너비) */
+export const loginLayout = {
+  maxContentWidth: 400,
+  horizontalPadding: 36,
+} as const;
+
+export function getLoginContentWidth(windowWidth: number) {
+  return Math.min(
+    windowWidth - loginLayout.horizontalPadding * 2,
+    loginLayout.maxContentWidth,
+  );
+}

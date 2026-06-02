@@ -11,15 +11,17 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { signOut } from '../lib/auth';
+import { formatAmount } from '../lib/currency-input';
 import { showConfirmAlert, showErrorAlert, showWarningAlert } from '../lib/alerts';
 import { getErrorMessage } from '../lib/errors';
 import { LoadingState } from '../src/components/loading-state';
 import { getProfileAvatarUri } from '../lib/profile-update';
-import { getCurrentSettlementMonthKey } from '../lib/designer-payment-stats';
 import { getProfileScreenData, ProfileData, ProfileStats } from '../lib/profile';
-import { safeNavigate } from '../lib/safe-navigate';
 import { BottomTabBar } from '../src/components/bottom-tab-bar';
 import { DesignerBottomTabBar } from '../src/components/designer-bottom-tab-bar';
+import { CustomerGrid } from '../src/components/customer-grid';
+import { MonthlySettlementGrid } from '../src/components/monthly-settlement-grid';
+import { mapSettlementsToGridItems } from '../lib/designer-customer-grid';
 
 type SettingItem = {
   icon: string;
@@ -37,10 +39,6 @@ function formatDate(date?: string | null) {
   return date ? date.replaceAll('-', '.') : '-';
 }
 
-function formatCurrency(amount: number) {
-  return `${amount.toLocaleString('ko-KR')}원`;
-}
-
 function getDisplayName(profile: ProfileData) {
   return profile.name?.trim() || profile.email.split('@')[0] || '사용자';
 }
@@ -50,36 +48,27 @@ function getInitial(profile: ProfileData) {
   return source.charAt(0).toUpperCase();
 }
 
-function StatRow({
-  label,
-  value,
-  onPress,
-}: {
-  label: string;
-  value: string;
-  onPress?: () => void;
-}) {
-  const content = (
+function StatRow({ label, value }: { label: string; value: string }) {
+  return (
     <View style={styles.statRow}>
       <Text style={styles.statLabel}>{label}</Text>
-      <View style={styles.statValueWrap}>
-        <Text style={styles.statValue}>{value}</Text>
-        {onPress ? <Text style={styles.statChevron}>›</Text> : null}
-      </View>
+      <Text style={styles.statValue}>{value}</Text>
     </View>
   );
+}
 
-  if (!onPress) {
-    return content;
-  }
-
+function ActivitySummaryColumn({ label, value }: { label: string; value: string }) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [pressed && styles.statRowPressed]}>
-      {content}
-    </Pressable>
+    <View style={styles.activityColumn}>
+      <Text style={styles.activityColumnLabel}>{label}</Text>
+      <Text
+        style={styles.activityColumnValue}
+        numberOfLines={2}
+        adjustsFontSizeToFit
+        minimumFontScale={0.65}>
+        {value}
+      </Text>
+    </View>
   );
 }
 
@@ -98,126 +87,66 @@ function SettingsRow({
 }
 
 function ActivityCard({ stats }: { stats: ProfileStats }) {
-  if (stats.kind === 'customer') {
-    return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>📊 내 활동</Text>
-        <StatRow
-          label="누적 시술 횟수"
-          value={`${stats.treatmentCount}회`}
-          onPress={() => router.push('/home')}
-        />
-        <StatRow
-          label="최근 시술일"
-          value={formatDate(stats.latestTreatmentDate)}
-          onPress={
-            stats.latestTreatmentId
-              ? () =>
-                  router.push({
-                    pathname: '/treatment/[id]',
-                    params: { id: stats.latestTreatmentId! },
-                  })
-              : undefined
-          }
-        />
-        <StatRow
-          label="함께한 디자이너"
-          value={`${stats.designerCount}명`}
-          onPress={() => router.push('/profile/designers')}
-        />
-      </View>
-    );
-  }
-
-  const currentMonthKey = getCurrentSettlementMonthKey();
-  const pastMonthlyTotals = stats.monthlySettlementTotals.filter(
-    (month) => month.monthKey !== currentMonthKey,
-  );
+  const settlementGridItems =
+    stats.kind === 'designer' ? mapSettlementsToGridItems(stats.recentSettlements) : [];
 
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>📊 내 활동</Text>
-      <StatRow
-        label="누적 시술 건수"
-        value={`${stats.treatmentCount}건`}
-        onPress={() => router.push('/designer/clients')}
-      />
-      <StatRow
-        label="누적 정산 총액"
-        value={formatCurrency(stats.totalSettlementAmount)}
-        onPress={() => safeNavigate('/designer/revenue')}
-      />
-      <StatRow
-        label="이번 달 정산"
-        value={formatCurrency(stats.monthSettlementAmount)}
-        onPress={() =>
-          safeNavigate({
-            pathname: '/designer/revenue',
-            params: { month: currentMonthKey },
-          })
-        }
-      />
-      {pastMonthlyTotals.length > 0 ? (
-        <View style={styles.monthlySettlementBlock}>
-          {pastMonthlyTotals.map((month) => (
-            <StatRow
-              key={month.monthKey}
-              label={month.label}
-              value={formatCurrency(month.amount)}
-              onPress={() =>
-                safeNavigate({
-                  pathname: '/designer/revenue',
-                  params: { month: month.monthKey },
-                })
-              }
-            />
-          ))}
-        </View>
-      ) : null}
-      <StatRow
-        label="정산 대기"
-        value={`${stats.pendingSettlementCount}건`}
-        onPress={() =>
-          router.push({
-            pathname: '/designer/clients',
-            params: { filter: 'escrow' },
-          })
-        }
-      />
-      <StatRow
-        label="단골 고객"
-        value={`${stats.regularCustomerCount}명`}
-        onPress={() => router.push('/designer/clients')}
-      />
-      {stats.recentSettlements.length ? (
-        <View style={styles.activityList}>
-          <Text style={styles.activityListTitle}>최근 정산</Text>
-          {stats.recentSettlements.map((item) => (
-            <Pressable
-              key={item.paymentId}
-              accessibilityRole="button"
-              onPress={() =>
-                router.push({
-                  pathname: '/designer/treatment/[id]',
-                  params: { id: item.treatmentId },
-                })
-              }
-              style={({ pressed }) => [styles.activityRow, pressed && styles.statRowPressed]}>
-              <View style={styles.activityRowMain}>
-                <Text style={styles.activityRowTitle}>
-                  {item.customerName} · {item.treatmentTitle}
-                </Text>
-                <Text style={styles.activityRowDate}>{formatDate(item.date)}</Text>
-              </View>
-              <View style={styles.statValueWrap}>
-                <Text style={styles.activityRowAmount}>+{formatCurrency(item.payout)}</Text>
-                <Text style={styles.statChevron}>›</Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
+      {stats.kind === 'customer' ? (
+        <>
+          <StatRow label="누적 시술 횟수" value={`${stats.treatmentCount}회`} />
+          <StatRow label="최근 시술일" value={formatDate(stats.latestTreatmentDate)} />
+          <StatRow label="함께한 디자이너" value={`${stats.designerCount}명`} />
+        </>
       ) : (
-        <Text style={styles.activityEmpty}>정산 완료 내역이 여기에 표시됩니다.</Text>
+        <>
+          <View style={styles.activitySummaryGrid}>
+            <ActivitySummaryColumn
+              label="누적시술"
+              value={`${stats.treatmentCount.toLocaleString('ko-KR')}건`}
+            />
+            <ActivitySummaryColumn
+              label="누적정산"
+              value={formatAmount(stats.totalSettlementAmount)}
+            />
+            <ActivitySummaryColumn
+              label="이달의정산"
+              value={formatAmount(stats.monthSettlementAmount)}
+            />
+          </View>
+          {stats.monthlySettlementTotals.length > 0 ? (
+            <View style={styles.monthlySettlementBlock}>
+              <Text style={styles.monthlySettlementTitle}>월별 정산</Text>
+              <MonthlySettlementGrid
+                items={stats.monthlySettlementTotals}
+                onPressAll={() => router.push('/designer/revenue')}
+                onPressItem={(monthKey) =>
+                  router.push({ pathname: '/designer/revenue', params: { month: monthKey } })
+                }
+              />
+            </View>
+          ) : null}
+          <StatRow label="정산 대기" value={`${stats.pendingSettlementCount}건`} />
+          <StatRow label="단골 고객" value={`${stats.regularCustomerCount}명`} />
+          {stats.recentSettlements.length ? (
+            <View style={styles.activityList}>
+              <Text style={styles.activityListTitle}>최근 정산</Text>
+              <CustomerGrid
+                items={settlementGridItems}
+                onPressItem={(paymentId) => {
+                  const item = stats.recentSettlements.find((row) => row.paymentId === paymentId);
+
+                  if (item?.treatmentId) {
+                    router.push(`/designer/treatment/${item.treatmentId}`);
+                  }
+                }}
+              />
+            </View>
+          ) : (
+            <Text style={styles.activityEmpty}>정산 완료 내역이 여기에 표시됩니다.</Text>
+          )}
+        </>
       )}
     </View>
   );
@@ -308,6 +237,7 @@ export default function ProfileScreen() {
           </View>
         ) : (
           <>
+            {isDesigner ? <Text style={styles.pageTitle}>계정</Text> : null}
             <View style={styles.profileSection}>
               <View
                 style={[
@@ -382,6 +312,12 @@ const styles = StyleSheet.create({
   content: {
     gap: 16,
     paddingHorizontal: 16,
+  },
+  pageTitle: {
+    color: '#1A1A2E',
+    fontSize: 28,
+    fontWeight: '900',
+    marginBottom: 4,
   },
   profileSection: {
     alignItems: 'center',
@@ -489,23 +425,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  statValueWrap: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 6,
-  },
   statValue: {
     color: '#1A1A2E',
     fontSize: 14,
     fontWeight: '800',
   },
-  statChevron: {
-    color: '#9CA3AF',
-    fontSize: 18,
-    fontWeight: '700',
+  activitySummaryGrid: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
   },
-  statRowPressed: {
-    opacity: 0.75,
+  activityColumn: {
+    alignItems: 'center',
+    backgroundColor: '#F7F7FA',
+    borderRadius: 12,
+    flex: 1,
+    gap: 6,
+    minHeight: 72,
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 12,
+  },
+  activityColumnLabel: {
+    color: '#6B6B7B',
+    fontSize: 11,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  activityColumnValue: {
+    color: '#1A1A2E',
+    fontSize: 13,
+    fontWeight: '900',
+    textAlign: 'center',
   },
   monthlySettlementBlock: {
     borderTopColor: '#EFEFF4',
@@ -513,6 +464,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     marginTop: 4,
     paddingTop: 10,
+  },
+  monthlySettlementTitle: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 6,
   },
   activityList: {
     borderTopColor: '#EFEFF4',
@@ -525,31 +482,6 @@ const styles = StyleSheet.create({
     color: '#6B6B7B',
     fontSize: 13,
     fontWeight: '800',
-  },
-  activityRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'space-between',
-  },
-  activityRowMain: {
-    flex: 1,
-    gap: 2,
-  },
-  activityRowTitle: {
-    color: '#1A1A2E',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  activityRowDate: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  activityRowAmount: {
-    color: '#00C2A8',
-    fontSize: 13,
-    fontWeight: '900',
   },
   activityEmpty: {
     color: '#9CA3AF',

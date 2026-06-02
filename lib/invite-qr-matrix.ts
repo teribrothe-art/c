@@ -15,7 +15,7 @@ export function buildInviteQrMatrix(value: string): QrMatrix | null {
   try {
     const encoded = createQrCode(trimmed, { errorCorrectionLevel: 'M' });
     const size = encoded.modules.size;
-    const data = encoded.modules.data as Array<number | boolean>;
+    const data = encoded.modules.data as unknown as Array<number | boolean>;
     const cells: boolean[][] = [];
 
     for (let row = 0; row < size; row += 1) {

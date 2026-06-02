@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { BETA_CUSTOMERS } from './beta-test-accounts';
+import { getDesignerLinkedCustomerLoginSources } from './demo-designer-linked-customers';
 import { expireInvitation, getPendingInvitationForTreatment } from './customer-invitations';
 import { toAppError } from './errors';
 import { addNotification } from './notifications';
@@ -31,7 +32,7 @@ async function writeDemoRelationships(items: DemoRelationship[]) {
   await AsyncStorage.setItem(DEMO_RELATIONSHIPS_KEY, JSON.stringify(items));
 }
 
-async function ensureDesignerCustomerRelationship(designerId: string, customerId: string) {
+export async function ensureDesignerCustomerRelationship(designerId: string, customerId: string) {
   if (isDemoAuthMode || !supabase) {
     const items = await readDemoRelationships();
 
@@ -103,6 +104,21 @@ async function fetchDemoRegisteredCustomers(
     email: 'demo2@hair.app',
     linked: false,
   });
+
+  for (const source of getDesignerLinkedCustomerLoginSources()) {
+    if (source.designerId !== designerId) {
+      continue;
+    }
+
+    for (const customer of source.customers) {
+      merged.set(customer.id, {
+        id: customer.id,
+        name: customer.name?.trim() || '고객',
+        email: customer.email,
+        linked: false,
+      });
+    }
+  }
 
   const relationships = await readDemoRelationships();
   const linkedIds = new Set(

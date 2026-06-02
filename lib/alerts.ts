@@ -92,27 +92,37 @@ export function showConfirmAlert({
   ]);
 }
 
-/** 시술 Before/After — 앨범 또는 카메라 선택 (웹은 앨범만) */
+/** 시술 Before/After — 카메라 촬영 vs 앨범 선택 */
 export function showTreatmentPhotoSourceAlert({
-  title,
-  message,
-  onLibrary,
+  title = '사진 추가',
+  message = '촬영 방법을 선택하세요.',
   onCamera,
+  onLibrary,
 }: {
-  title: string;
-  message: string;
-  onLibrary: () => void;
+  title?: string;
+  message?: string;
   onCamera: () => void;
+  onLibrary: () => void;
 }) {
   if (Platform.OS === 'web') {
-    onLibrary();
+    const useCamera = showWebConfirm(
+      title,
+      `${message}\n\n확인 → 바로 촬영\n취소 → 앨범에서 선택`,
+    );
+
+    if (useCamera) {
+      onCamera();
+    } else {
+      onLibrary();
+    }
+
     return;
   }
 
   Alert.alert(title, message, [
     { text: '취소', style: 'cancel' },
     { text: '앨범에서 선택', onPress: onLibrary },
-    { text: '카메라로 촬영', onPress: onCamera },
+    { text: '바로 촬영', onPress: onCamera },
   ]);
 }
 

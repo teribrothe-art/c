@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import QRCode from 'qrcode';
 
 import { resolveExpoGoShareUrl } from './lib/expo-go-share.mjs';
+import { writeExpoConnectManifest } from './lib/write-expo-connect-manifest.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -75,6 +76,13 @@ async function main() {
     width: 320,
   });
   console.log(`PNG 저장: ${outFile}`);
+
+  const manifest = writeExpoConnectManifest(projectRoot, {
+    url,
+    mode: classification?.mode ?? null,
+    shareable: classification?.shareable ?? null,
+  });
+  console.log(`manifest: v${manifest.version} (${manifest.updatedAt})`);
 
   if (saveHtml) {
     const dataUrl = await QRCode.toDataURL(url, { width: 360, margin: 2 });

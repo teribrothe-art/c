@@ -1,6 +1,6 @@
 import { TREATMENT_TYPE_OPTIONS } from './treatment-options';
 
-export type DiaryFilterKey = '전체' | '컷' | '컬러' | '펌' | '탈색' | '케어' | '매직';
+export type DiaryFilterKey = '전체' | '컷' | '컬러' | '펌' | '탈색' | '케어' | '매직' | '스파';
 
 export type DiaryFilterOption = {
   key: DiaryFilterKey;
@@ -17,6 +17,7 @@ export const DIARY_FILTER_OPTIONS: DiaryFilterOption[] = [
   { key: '탈색', label: '탈색', icon: '✨' },
   { key: '케어', label: '케어', icon: '💧' },
   { key: '매직', label: '매직', icon: '🪄' },
+  { key: '스파', label: '스파', icon: '🧖' },
 ];
 
 const normalizeType = (value: string) => value.trim().toLowerCase();
@@ -57,11 +58,19 @@ export function treatmentMatchesDiaryFilter(
       return combined.includes('탈색') || combined.includes('브리칭') || combined.includes('bleach');
     case '케어':
       return (
-        combined.includes('트리트먼트') ||
-        combined.includes('케어') ||
-        combined.includes('케라틴') ||
-        combined.includes('두피') ||
-        combined.includes('treatment')
+        (combined.includes('트리트먼트') ||
+          combined.includes('케어') ||
+          combined.includes('케라틴') ||
+          combined.includes('treatment')) &&
+        !combined.includes('스파')
+      );
+    case '스파':
+      return (
+        combined.includes('스파') ||
+        combined.includes('head spa') ||
+        combined.includes('헤드스파') ||
+        combined.includes('두피 스파') ||
+        combined.includes('스켈링')
       );
     case '매직':
       return (

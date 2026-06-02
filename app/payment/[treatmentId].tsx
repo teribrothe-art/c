@@ -1,8 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  BackHandler,
   Platform,
   Pressable,
   ScrollView,
@@ -13,12 +12,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { showErrorAlert } from '../../lib/alerts';
+import { formatAmount } from '../../lib/currency-input';
 import { getErrorMessage } from '../../lib/errors';
-import { navigateBackOrReplace } from '../../lib/navigation';
-import { isLocalPaymentSimulation } from '../../lib/payment-config';
 import { ensurePaymentRecordForTreatment } from '../../lib/payment-record';
 import {
-  completeLocalTestPayment,
   handleTossPaymentFailure,
   handleTossPaymentSuccess,
   preparePaymentSession,
@@ -31,8 +28,6 @@ import {
   isTossTestKey,
   requestTossPaymentOnWeb,
   shouldShowTossTestCardGuide,
-  shouldUseInAppDemoPayment,
-  shouldUseWebViewPaymentSimulator,
   TOSS_TEST_CARD,
   shouldUsePaymentWebView,
 } from '../../lib/toss';
@@ -40,6 +35,8 @@ import { colors, disabledButtonStyle } from '../../lib/theme';
 import { getTreatmentById, Treatment } from '../../lib/treatments';
 import { LoadingState } from '../../src/components/loading-state';
 import { TossPaymentWebView } from '../../src/components/toss-payment-webview';
+import { BottomTabBar } from '../../src/components/bottom-tab-bar';
+import { TAB_BAR_BOTTOM_INSET } from '../../src/components/role-bottom-tab-bar';
 
 const CORAL = '#FF5A5F';
 const MINT = '#00C2A8';
@@ -53,22 +50,9 @@ function getInitials(name?: string | null) {
   return name.trim().slice(0, 1);
 }
 
-function formatWon(value: number) {
-  return `${value.toLocaleString('ko-KR')}원`;
-}
-
-function normalizeRouteParam(value?: string | string[]) {
-  if (Array.isArray(value)) {
-    return value[0];
-  }
-
-  return value;
-}
-
 export default function CustomerPaymentScreen() {
   const insets = useSafeAreaInsets();
-  const { treatmentId: treatmentIdParam } = useLocalSearchParams<{ treatmentId?: string | string[] }>();
-  const treatmentId = normalizeRouteParam(treatmentIdParam);
+  const { treatmentId } = useLocalSearchParams<{ treatmentId?: string }>();
   const [treatment, setTreatment] = useState<Treatment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPaying, setIsPaying] = useState(false);
@@ -76,44 +60,6 @@ export default function CustomerPaymentScreen() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [webViewHtml, setWebViewHtml] = useState('');
   const [webViewVisible, setWebViewVisible] = useState(false);
-
-  const closePaymentWebView = useCallback(() => {
-    setWebViewVisible(false);
-    setIsPaying(false);
-  }, []);
-
-  const handleBack = useCallback(() => {
-    if (webViewVisible) {
-      closePaymentWebView();
-      return;
-    }
-
-    navigateBackOrReplace('/home');
-  }, [closePaymentWebView, webViewVisible]);
-
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      handleBack();
-      return true;
-    });
-
-    return () => subscription.remove();
-  }, [handleBack]);
-
-  const renderHeader = () => (
-    <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-      <Pressable
-        accessibilityLabel="뒤로가기"
-        accessibilityRole="button"
-        hitSlop={12}
-        onPress={handleBack}
-        style={({ pressed }) => [styles.headerBack, pressed && styles.headerBackPressed]}>
-        <Text style={styles.headerBackText}>‹</Text>
-      </Pressable>
-      <Text style={styles.headerTitle}>결제</Text>
-      <View style={styles.headerSpacer} />
-    </View>
-  );
 
   useEffect(() => {
     let isMounted = true;
@@ -189,17 +135,7 @@ export default function CustomerPaymentScreen() {
   const amount = treatment?.price ?? 0;
 
   const handlePay = async () => {
-    if (!treatment || !treatmentId) {
-      showErrorAlert('결제 정보를 불러오지 못했습니다.');
-      return;
-    }
-
-    if (amount <= 0) {
-      showErrorAlert('결제 금액이 설정되지 않았습니다.');
-      return;
-    }
-
-    if (isPaying) {
+    if (!treatment || !treatmentId || isPaying) {
       return;
     }
 
@@ -207,15 +143,9 @@ export default function CustomerPaymentScreen() {
       setIsPaying(true);
 
       const { orderId } = await preparePaymentSession(treatmentId);
-
-      if (shouldUseInAppDemoPayment()) {
-        await completeLocalTestPayment(treatmentId, orderId);
-        setIsSuccess(true);
-        return;
-      }
-
       const orderName = `${treatment.treatment_type} · ${treatment.treatment_title}`;
       const clientKey = getTossClientKey();
+      const useDemoSimulator = !isTossConfigured();
 
       if (shouldUsePaymentWebView()) {
         const html = buildTossPaymentWebViewHtml({
@@ -224,10 +154,19 @@ export default function CustomerPaymentScreen() {
           orderName,
           treatmentId,
           clientKey: clientKey || 'test_ck_demo',
-          useDemoSimulator: shouldUseWebViewPaymentSimulator(),
+          useDemoSimulator,
         });
         setWebViewHtml(html);
         setWebViewVisible(true);
+        return;
+      }
+
+      if (useDemoSimulator) {
+        await handleTossPaymentSuccess(treatmentId, {
+          paymentKey: `demo_${Date.now()}`,
+          orderId,
+        });
+        setIsSuccess(true);
         return;
       }
 
@@ -251,12 +190,8 @@ export default function CustomerPaymentScreen() {
     paymentKey: string;
     orderId: string;
     amount: number;
-    treatmentId?: string;
   }) => {
-    const resolvedTreatmentId = result.treatmentId ?? treatmentId;
-
-    if (!resolvedTreatmentId) {
-      showErrorAlert('결제 정보를 확인하지 못했습니다.');
+    if (!treatmentId) {
       return;
     }
 
@@ -264,13 +199,13 @@ export default function CustomerPaymentScreen() {
     setIsPaying(true);
 
     try {
-      await handleTossPaymentSuccess(resolvedTreatmentId, {
+      await handleTossPaymentSuccess(treatmentId, {
         paymentKey: result.paymentKey,
         orderId: result.orderId,
       });
       setIsSuccess(true);
     } catch (error) {
-      await handleTossPaymentFailure(resolvedTreatmentId).catch(() => undefined);
+      await handleTossPaymentFailure(treatmentId).catch(() => undefined);
       showErrorAlert(getErrorMessage(error, '결제에 실패했어요'), '결제 실패');
     } finally {
       setIsPaying(false);
@@ -288,33 +223,23 @@ export default function CustomerPaymentScreen() {
   };
 
   if (isLoading) {
-    return (
-      <View style={styles.container}>
-        {renderHeader()}
-        <LoadingState message="결제 정보를 불러오는 중..." />
-      </View>
-    );
+    return <LoadingState message="결제 정보를 불러오는 중..." />;
   }
 
   if (errorMessage) {
     return (
-      <View style={styles.container}>
-        {renderHeader()}
-        <View style={styles.centeredBody}>
-          <Text style={styles.errorText}>{errorMessage}</Text>
-          <Pressable style={styles.backLink} onPress={handleBack}>
-            <Text style={styles.backLinkText}>돌아가기</Text>
-          </Pressable>
-        </View>
+      <View style={[styles.centered, { paddingTop: insets.top }]}>
+        <Text style={styles.errorText}>{errorMessage}</Text>
+        <Pressable style={styles.backLink} onPress={() => router.back()}>
+          <Text style={styles.backLinkText}>돌아가기</Text>
+        </Pressable>
       </View>
     );
   }
 
   if (isSuccess) {
     return (
-      <View style={styles.container}>
-        {renderHeader()}
-        <View style={[styles.successContainer, { paddingBottom: insets.bottom + 24 }]}>
+      <View style={[styles.successContainer, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 }]}>
         <Text style={styles.successIcon}>✓</Text>
         <Text style={styles.successTitle}>결제가 완료되었습니다 ✓</Text>
         <Text style={styles.successSub}>디자이너 피드백 입력 후 정산됩니다</Text>
@@ -334,7 +259,6 @@ export default function CustomerPaymentScreen() {
         <Pressable style={styles.confirmSecondary} onPress={() => router.replace('/home')}>
           <Text style={styles.confirmSecondaryText}>다이어리로</Text>
         </Pressable>
-        </View>
       </View>
     );
   }
@@ -347,7 +271,13 @@ export default function CustomerPaymentScreen() {
 
   return (
     <View style={styles.container}>
-      {renderHeader()}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <Pressable onPress={() => router.back()} style={styles.headerBack}>
+          <Text style={styles.headerBackText}>‹</Text>
+        </Pressable>
+        <Text style={styles.headerTitle}>결제</Text>
+        <View style={styles.headerSpacer} />
+      </View>
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]}
@@ -366,7 +296,7 @@ export default function CustomerPaymentScreen() {
 
         <View style={styles.amountHero}>
           <Text style={styles.amountLabel}>결제 금액</Text>
-          <Text style={styles.amountValue}>{formatWon(amount)}</Text>
+          <Text style={styles.amountValue}>{formatAmount(amount)}</Text>
         </View>
 
         <View style={styles.methodCard}>
@@ -379,24 +309,7 @@ export default function CustomerPaymentScreen() {
           <Text style={styles.noticeSub}>에스크로 방식으로 안전하게 보관됩니다</Text>
         </View>
 
-        {isLocalPaymentSimulation() ? (
-          <View style={styles.testCardBox}>
-            <Text style={styles.testCardTitle}>테스트 결제 모드</Text>
-            <Text style={styles.demoHint}>
-              결제 서버 연동 없이 앱 안에서만 진행됩니다. 「결제하기」를 누르면 결제 완료 → 에스크로
-              보관 → 디자이너 정산까지 이어집니다. 실제 토스 연동은 나중에 설정에서 켤 수 있습니다.
-            </Text>
-          </View>
-        ) : shouldUseInAppDemoPayment() ? (
-          <View style={styles.testCardBox}>
-            <Text style={styles.testCardTitle}>샌드박스 테스트</Text>
-            <Text style={styles.demoHint}>
-              test_ck · Expo Go에서는 「테스트 결제하기」로 즉시 완료됩니다.
-            </Text>
-          </View>
-        ) : null}
-
-        {shouldShowTossTestCardGuide() && !shouldUseInAppDemoPayment() ? (
+        {shouldShowTossTestCardGuide() ? (
           <View style={styles.testCardBox}>
             <Text style={styles.testCardTitle}>토스 테스트 카드 (샌드박스)</Text>
             {!isTossConfigured() ? (
@@ -431,19 +344,15 @@ export default function CustomerPaymentScreen() {
         ) : null}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16), marginBottom: TAB_BAR_BOTTOM_INSET }]}>
         <Pressable
-          style={[styles.payButton, (isPaying || amount <= 0) && disabledButtonStyle]}
-          disabled={isPaying || amount <= 0}
-          onPress={() => void handlePay()}>
+          style={[styles.payButton, isPaying && disabledButtonStyle]}
+          disabled={isPaying}
+          onPress={handlePay}>
           {isPaying ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.payButtonText}>
-              {shouldUseInAppDemoPayment()
-                ? `${formatWon(amount)} ${isLocalPaymentSimulation() ? '결제하기' : '테스트 결제하기'}`
-                : `${formatWon(amount)} 결제하기`}
-            </Text>
+            <Text style={styles.payButtonText}>{formatAmount(amount)} 결제하기</Text>
           )}
         </Pressable>
       </View>
@@ -451,10 +360,15 @@ export default function CustomerPaymentScreen() {
       <TossPaymentWebView
         visible={webViewVisible}
         html={webViewHtml}
-        onClose={closePaymentWebView}
+        onClose={() => {
+          setWebViewVisible(false);
+          setIsPaying(false);
+        }}
         onSuccess={onWebViewSuccess}
         onFail={onWebViewFail}
       />
+
+      <BottomTabBar />
     </View>
   );
 }
@@ -464,9 +378,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FAFAFC',
   },
-  centeredBody: {
-    alignItems: 'center',
+  centered: {
     flex: 1,
+    alignItems: 'center',
+    backgroundColor: '#FAFAFC',
     justifyContent: 'center',
     padding: 24,
   },
@@ -492,14 +407,9 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   headerBack: {
-    alignItems: 'center',
     height: 44,
     justifyContent: 'center',
     width: 44,
-    zIndex: 2,
-  },
-  headerBackPressed: {
-    opacity: 0.6,
   },
   headerBackText: {
     color: '#1A1A2E',
@@ -666,10 +576,10 @@ const styles = StyleSheet.create({
   },
   successContainer: {
     alignItems: 'center',
+    backgroundColor: '#FAFAFC',
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 32,
-    paddingTop: 24,
   },
   successIcon: {
     backgroundColor: MINT,

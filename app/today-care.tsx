@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Href, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -49,7 +49,7 @@ export default function TodayCareScreen() {
         }
 
         if (user.role === 'designer') {
-          router.replace('/designer/clients');
+          router.replace('/designer/home' as Href);
           return;
         }
 
@@ -60,7 +60,7 @@ export default function TodayCareScreen() {
         }
 
         if (!care) {
-          router.replace('/home');
+          router.replace('/customer-home');
           return;
         }
 
@@ -68,7 +68,7 @@ export default function TodayCareScreen() {
       })
       .catch(() => {
         if (isMounted) {
-          router.replace('/home');
+          router.replace('/customer-home');
         }
       })
       .finally(() => {
@@ -103,7 +103,11 @@ export default function TodayCareScreen() {
 
       <View style={styles.topSpacer} />
 
-      <Text style={styles.sectionLabel}>💡 오늘의 케어</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionEmoji}>💡</Text>
+        <Text style={styles.sectionLabel}>오늘의 케어</Text>
+        <Text style={styles.sectionEmoji}>✨</Text>
+      </View>
       <View style={styles.divider} />
 
       <View style={styles.gap40} />
@@ -125,9 +129,9 @@ export default function TodayCareScreen() {
       <View style={styles.flexFill} />
 
       <Pressable
-        onPress={() => router.replace('/home')}
+        onPress={() => router.replace('/customer-home')}
         style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryPressed]}>
-        <Text style={styles.primaryButtonText}>내 다이어리 보기 →</Text>
+        <Text style={styles.primaryButtonText}>홈으로 이동 →</Text>
       </Pressable>
 
       <View style={styles.bottomSpacer} />
@@ -144,6 +148,15 @@ const styles = StyleSheet.create({
   topSpacer: {
     flex: 0.25,
     minHeight: 48,
+  },
+  sectionHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+  },
+  sectionEmoji: {
+    fontSize: 16,
   },
   sectionLabel: {
     color: colors.purple,

@@ -24,6 +24,12 @@ export type WeeklyRevenueWeek = {
   settlementCount: number;
 };
 
+export type MonthWeekdayTotal = {
+  weekdayLabel: (typeof WEEKDAY_LABELS)[number];
+  totalAmount: number;
+  settlementCount: number;
+};
+
 export function toLocalDateString(date = new Date()) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -45,6 +51,49 @@ function addDays(date: string, amount: number) {
   parsed.setDate(parsed.getDate() + amount);
 
   return toLocalDateString(parsed);
+}
+
+export function getWeekdayLabelForDate(date: string): (typeof WEEKDAY_LABELS)[number] {
+  const parsed = new Date(`${date}T12:00:00`);
+  const calendarLabel = CALENDAR_WEEKDAY_LABELS[parsed.getDay()];
+
+  return calendarLabel as (typeof WEEKDAY_LABELS)[number];
+}
+
+/** 선택한 달의 요일(월~일)별 정산 합계 */
+export function buildMonthWeekdayTotals(
+  completed: PaymentRecord[],
+  monthKey: string,
+): MonthWeekdayTotal[] {
+  const totals = new Map<(typeof WEEKDAY_LABELS)[number], { totalAmount: number; settlementCount: number }>();
+
+  for (const label of WEEKDAY_LABELS) {
+    totals.set(label, { totalAmount: 0, settlementCount: 0 });
+  }
+
+  for (const payment of completed) {
+    const date = settlementDateOf(payment);
+
+    if (date.slice(0, 7) !== monthKey) {
+      continue;
+    }
+
+    const weekdayLabel = getWeekdayLabelForDate(date);
+    const current = totals.get(weekdayLabel) ?? { totalAmount: 0, settlementCount: 0 };
+    current.totalAmount += payoutOf(payment);
+    current.settlementCount += 1;
+    totals.set(weekdayLabel, current);
+  }
+
+  return WEEKDAY_LABELS.map((weekdayLabel) => {
+    const stats = totals.get(weekdayLabel) ?? { totalAmount: 0, settlementCount: 0 };
+
+    return {
+      weekdayLabel,
+      totalAmount: stats.totalAmount,
+      settlementCount: stats.settlementCount,
+    };
+  });
 }
 
 export function getWeekStartMonday(date: string) {

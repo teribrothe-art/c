@@ -4,6 +4,10 @@ import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
 import { addNotification } from './notifications';
 import { supabase } from './supabase';
+import {
+  peekDesignerClientListCache,
+  storeDesignerClientList,
+} from './designer-workspace-cache';
 import { getTreatmentById, Treatment, updateTreatment } from './treatments';
 
 const DEMO_INVITATIONS_KEY = 'hair-diary-customer-invitations';
@@ -623,26 +627,22 @@ export async function redeemInviteCode(rawCode: string, customerId: string) {
   };
 }
 
-export async function getDesignerClientListItems(): Promise<DesignerClientListItem[]> {
-  const user = await getCurrentUser();
-
-  if (!user || user.role !== 'designer') {
-    return [];
-  }
-
-  const { getDesignerTreatments } = await import('./treatments');
-  const { treatments } = await getDesignerTreatments();
+export async function getDesignerClientListItemsForDesigner(
+  designerId: string,
+): Promise<DesignerClientListItem[]> {
+  const { listTreatmentsForDesignerId } = await import('./treatments');
+  const treatments = await listTreatmentsForDesignerId(designerId);
 
   let invitations: CustomerInvitation[] = [];
 
   if (isDemoAuthMode || !supabase) {
     invitations = await readDemoInvitations();
-    invitations = invitations.filter((item) => item.designer_id === user.id);
+    invitations = invitations.filter((item) => item.designer_id === designerId);
   } else {
     const { data, error } = await supabase
       .from('customer_invitations')
       .select(invitationSelect)
-      .eq('designer_id', user.id)
+      .eq('designer_id', designerId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -696,6 +696,25 @@ export async function getDesignerClientListItems(): Promise<DesignerClientListIt
   }
 
   return rows.sort((a, b) => b.treatmentDate.localeCompare(a.treatmentDate));
+}
+
+export async function getDesignerClientListItems(): Promise<DesignerClientListItem[]> {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== 'designer') {
+    return [];
+  }
+
+  const cached = peekDesignerClientListCache();
+
+  if (cached) {
+    return cached;
+  }
+
+  const items = await getDesignerClientListItemsForDesigner(user.id);
+  storeDesignerClientList(items);
+
+  return items;
 }
 
 export async function renewCustomerInvitation(input: {

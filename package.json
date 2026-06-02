@@ -1,7 +1,7 @@
 {
   "name": "hair-diary-app",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "1.0.5",
   "dependencies": {
     "@expo/ui": "~56.0.13",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -57,7 +57,8 @@
     "start:lan": "expo start --lan",
     "start:tunnel": "expo start --tunnel",
     "start:clear": "expo start --clear",
-    "start:phone": "expo start --tunnel --clear",
+    "prestart:phone": "node scripts/invalidate-connect-manifest.mjs",
+    "start:phone": "CI=false expo start --tunnel --clear",
     "share": "node scripts/share-expo-go.mjs",
     "phone:pc": "node -e \"console.log('터미널1: npm run start:phone\\n터미널2: npm run share\\nWindows: scripts\\\\start-phone-pc.cmd → scripts\\\\share-expo-pc.cmd')\"",
     "reset-project": "node ./scripts/reset-project.js",
@@ -72,9 +73,13 @@
     "qr:html": "node scripts/generate-expo-qr.mjs --html",
     "lint": "expo lint",
     "beta:smoke": "node scripts/beta-smoke-demo.mjs",
+    "designer:link-mock": "node scripts/designer-customer-link-mock.mjs",
+    "verify:login": "node scripts/verify-login-screen.mjs",
+    "verify:designer-home": "node scripts/verify-designer-home-feed.mjs",
     "verify:diary": "node scripts/verify-diary-home.mjs",
+    "verify:org-simulation": "node scripts/verify-org-virtual-simulation.mjs",
     "beta:e2e": "node scripts/beta-e2e-ten-users.mjs",
-    "update:preview": "eas update --branch preview --message \"베타 v1.0\""
+    "update:preview": "eas update --branch preview --message \"베타 v1.0.5\""
   },
   "private": true
 }

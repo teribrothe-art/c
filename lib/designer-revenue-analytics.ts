@@ -1,19 +1,22 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
-import { calculatePaymentFees, getPaymentByTreatmentId, PaymentRecord } from './payment-record';
+import { calculatePaymentFees, getPaymentByTreatmentId, listPaymentsForDesignerId, PaymentRecord } from './payment-record';
+import { canViewOrgDesignerData } from './org-access';
 import {
+  buildMonthWeekdayTotals,
   buildWeeklyRevenueWeeks,
   formatDateWithWeekday,
   getWeekStartMonday,
   resolveDefaultWeekKey,
   toLocalDateString,
+  type MonthWeekdayTotal,
   type WeeklyRevenueWeek,
   type WeekdayRevenueCell,
 } from './designer-revenue-weekly';
 import { supabase } from './supabase';
-import { getDesignerTreatments } from './treatments';
+import { getDesignerTreatments, listTreatmentsForDesignerId, type Treatment } from './treatments';
 
-export type { WeekdayRevenueCell, WeeklyRevenueWeek };
+export type { MonthWeekdayTotal, WeekdayRevenueCell, WeeklyRevenueWeek };
 export { formatDateWithWeekday };
 
 export type MonthlyRevenueBucket = {
@@ -38,11 +41,32 @@ export type DesignerRevenueAnalytics = {
   selectedWeekKey: string;
   selectedWeek: WeeklyRevenueWeek;
   dailyTotals: DailyRevenuePoint[];
+  monthWeekdayTotals: MonthWeekdayTotal[];
   pendingPayoutAmount: number;
   pendingPayoutCount: number;
   averageTreatmentPrice: number;
+  selectedMonthTreatmentCount: number;
+  selectedMonthSettlements: {
+    paymentId: string;
+    treatmentId: string;
+    customerName: string;
+    treatmentTitle: string;
+    date: string;
+    dateWithWeekdayLabel: string;
+    payout: number;
+  }[];
   recentSettlements: {
     paymentId: string;
+    treatmentId: string;
+    customerName: string;
+    treatmentTitle: string;
+    date: string;
+    dateWithWeekdayLabel: string;
+    payout: number;
+  }[];
+  pendingSettlements: {
+    paymentId: string;
+    treatmentId: string;
     customerName: string;
     treatmentTitle: string;
     date: string;
@@ -75,18 +99,7 @@ function monthKeyFromDate(date: string) {
 
 async function loadDesignerPayments(designerId: string): Promise<PaymentRecord[]> {
   if (isDemoAuthMode || !supabase) {
-    const { treatments } = await getDesignerTreatments();
-    const records: PaymentRecord[] = [];
-
-    for (const treatment of treatments) {
-      const payment = await getPaymentByTreatmentId(treatment.id);
-
-      if (payment) {
-        records.push(payment);
-      }
-    }
-
-    return records;
+    return listPaymentsForDesignerId(designerId);
   }
 
   const { data, error } = await supabase
@@ -164,43 +177,74 @@ function emptyMonth(monthKey: string): MonthlyRevenueBucket {
   };
 }
 
+function emptyAnalytics(monthKey: string): DesignerRevenueAnalytics {
+  const emptyWeekStart = `${monthKey}-01`;
+  const emptyDays = buildWeeklyRevenueWeeks([], monthKey)[0]?.days ?? [];
+
+  return {
+    months: [emptyMonth(monthKey)],
+    selectedMonthKey: monthKey,
+    selectedMonth: emptyMonth(monthKey),
+    weeklyWeeks: [],
+    selectedWeekKey: emptyWeekStart,
+    selectedWeek: {
+      weekKey: emptyWeekStart,
+      label: '',
+      days: emptyDays,
+      weekTotal: 0,
+      settlementCount: 0,
+    },
+    dailyTotals: [],
+    monthWeekdayTotals: buildMonthWeekdayTotals([], monthKey),
+    pendingPayoutAmount: 0,
+    pendingPayoutCount: 0,
+    averageTreatmentPrice: 0,
+    selectedMonthTreatmentCount: 0,
+    selectedMonthSettlements: [],
+    recentSettlements: [],
+    pendingSettlements: [],
+  };
+}
+
+function mapPaymentToSettlementRow(payment: PaymentRecord, treatmentMap: Map<string, Treatment>) {
+  const treatment = treatmentMap.get(payment.treatment_id);
+  const date = (payment.paid_at ?? payment.created_at).slice(0, 10);
+
+  return {
+    paymentId: payment.id,
+    treatmentId: payment.treatment_id,
+    customerName: treatment?.customer_name || '고객',
+    treatmentTitle: treatment?.treatment_title || '시술',
+    date,
+    dateWithWeekdayLabel: formatDateWithWeekday(date),
+    payout: payoutOf(payment),
+  };
+}
+
 export async function fetchDesignerRevenueAnalytics(
   selectedMonthKey?: string,
   selectedWeekKey?: string,
+  designerId?: string,
 ): Promise<DesignerRevenueAnalytics> {
   const user = await getCurrentUser();
   const fallbackMonth = currentMonthKey();
+  const resolvedDesignerId =
+    designerId ?? (user?.role === 'designer' ? user.id : undefined);
+  const canLoad =
+    Boolean(resolvedDesignerId) &&
+    ((user?.role === 'designer' && user.id === resolvedDesignerId) ||
+      (Boolean(designerId) && canViewOrgDesignerData(user?.role)));
 
-  if (!user || user.role !== 'designer') {
-    const month = selectedMonthKey ?? fallbackMonth;
-
-    const emptyWeekStart = getWeekStartMonday(`${month}-01`);
-    const emptyDays = buildWeeklyRevenueWeeks([], month)[0]?.days ?? [];
-
-    return {
-      months: [emptyMonth(month)],
-      selectedMonthKey: month,
-      selectedMonth: emptyMonth(month),
-      weeklyWeeks: buildWeeklyRevenueWeeks([], month),
-      selectedWeekKey: emptyWeekStart,
-      selectedWeek: {
-        weekKey: emptyWeekStart,
-        label: '',
-        days: emptyDays,
-        weekTotal: 0,
-        settlementCount: 0,
-      },
-      dailyTotals: [],
-      pendingPayoutAmount: 0,
-      pendingPayoutCount: 0,
-      averageTreatmentPrice: 0,
-      recentSettlements: [],
-    };
+  if (!canLoad || !resolvedDesignerId) {
+    return emptyAnalytics(selectedMonthKey ?? fallbackMonth);
   }
 
-  const { treatments } = await getDesignerTreatments();
+  const treatments =
+    user?.role === 'designer' && !designerId
+      ? (await getDesignerTreatments()).treatments
+      : await listTreatmentsForDesignerId(resolvedDesignerId);
   const treatmentMap = new Map(treatments.map((treatment) => [treatment.id, treatment]));
-  const payments = await loadDesignerPayments(user.id);
+  const payments = await loadDesignerPayments(resolvedDesignerId);
   const completed = payments.filter((payment) => payment.status === 'completed' && payment.settled_at);
 
   let months = buildMonthlyBuckets(completed);
@@ -235,6 +279,7 @@ export async function fetchDesignerRevenueAnalytics(
       settlementCount: 0,
     };
   const dailyTotals = buildDailyTotals(completed, resolvedMonthKey);
+  const monthWeekdayTotals = buildMonthWeekdayTotals(completed, resolvedMonthKey);
 
   const paidPending = payments.filter(
     (payment) => payment.status === 'paid' || payment.status === 'in_escrow',
@@ -250,25 +295,17 @@ export async function fetchDesignerRevenueAnalytics(
       ? Math.round(priced.reduce((sum, treatment) => sum + (treatment.price ?? 0), 0) / priced.length)
       : 0;
 
-  const recentSettlements = payments
+  const selectedMonthSettlements = payments
     .filter((payment) => payment.status === 'completed' && payment.settled_at)
     .filter((payment) => monthKeyFromDate(settlementDateOf(payment)) === resolvedMonthKey)
     .sort((a, b) => (b.settled_at ?? '').localeCompare(a.settled_at ?? ''))
-    .slice(0, 8)
-    .map((payment) => {
-      const treatment = treatmentMap.get(payment.treatment_id);
+    .map((payment) => mapPaymentToSettlementRow(payment, treatmentMap));
 
-      const date = settlementDateOf(payment);
+  const recentSettlements = selectedMonthSettlements.slice(0, 8);
 
-      return {
-        paymentId: payment.id,
-        customerName: treatment?.customer_name || '고객',
-        treatmentTitle: treatment?.treatment_title || '시술',
-        date,
-        dateWithWeekdayLabel: formatDateWithWeekday(date),
-        payout: payoutOf(payment),
-      };
-    });
+  const pendingSettlements = paidPending
+    .map((payment) => mapPaymentToSettlementRow(payment, treatmentMap))
+    .sort((a, b) => b.date.localeCompare(a.date));
 
   return {
     months,
@@ -278,9 +315,13 @@ export async function fetchDesignerRevenueAnalytics(
     selectedWeekKey: resolvedWeekKey,
     selectedWeek,
     dailyTotals,
+    monthWeekdayTotals,
     pendingPayoutAmount,
     pendingPayoutCount: paidPending.length,
     averageTreatmentPrice,
+    selectedMonthTreatmentCount: monthTreatments.length,
+    selectedMonthSettlements,
     recentSettlements,
+    pendingSettlements,
   };
 }

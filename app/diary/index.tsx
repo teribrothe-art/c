@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
+import { Href, router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,8 @@ import { getTreatments, Treatment } from '../../lib/treatments';
 import { colors } from '../../lib/theme';
 import { EmptyState } from '../../src/components/empty-state';
 import { LoadingState } from '../../src/components/loading-state';
+import { BottomTabBar } from '../../src/components/bottom-tab-bar';
+import { TAB_BAR_BOTTOM_INSET } from '../../src/components/role-bottom-tab-bar';
 
 export default function DiaryYearBrowseScreen() {
   const insets = useSafeAreaInsets();
@@ -27,7 +29,7 @@ export default function DiaryYearBrowseScreen() {
         }
 
         if (user.role === 'designer') {
-          router.replace('/designer/clients');
+          router.replace('/designer/home' as Href);
           return;
         }
 
@@ -68,7 +70,7 @@ export default function DiaryYearBrowseScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_BOTTOM_INSET + insets.bottom }]}
         showsVerticalScrollIndicator={false}>
         {isLoading ? (
           <LoadingState message="연도 목록 불러오는 중..." />
@@ -105,6 +107,7 @@ export default function DiaryYearBrowseScreen() {
           </View>
         )}
       </ScrollView>
+      <BottomTabBar />
     </View>
   );
 }

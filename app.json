@@ -2,7 +2,7 @@
   "expo": {
     "name": "헤어 다이어리",
     "slug": "hair-diary-app",
-    "version": "1.0.0",
+    "version": "1.0.5",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "splash": {
@@ -98,6 +98,9 @@
     },
     "runtimeVersion": {
       "policy": "appVersion"
+    },
+    "extra": {
+      "buildLabel": "2026-05-30 · 카드·PG·예약·매출검색·본사탭"
     }
   }
 }
