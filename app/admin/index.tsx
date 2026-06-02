@@ -18,6 +18,7 @@ import {
   type OrgWeeklySalesSummary,
   type WeeklySalesSegment,
 } from '../../lib/org-weekly-sales';
+import { getWeekStartMonday, toLocalDateString } from '../../lib/designer-revenue-weekly';
 import { buildVirtualStoreSummaries } from '../../lib/org-virtual-simulation';
 import { getErrorMessage } from '../../lib/errors';
 import {
@@ -45,6 +46,8 @@ export default function AdminHomeScreen() {
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [weeklySales, setWeeklySales] = useState<OrgWeeklySalesSummary | null>(null);
   const [weeklySegment, setWeeklySegment] = useState<WeeklySalesSegment>('weekday');
+  const maxWeekStart = useMemo(() => getWeekStartMonday(toLocalDateString(new Date())), []);
+  const [selectedWeekStart, setSelectedWeekStart] = useState(maxWeekStart);
   const [periodMode, setPeriodMode] = useState<SalesPeriodMode>('weekly');
   const [monthlyCatalog, setMonthlyCatalog] = useState<OrgMonthlySalesCatalogItem[]>([]);
   const [monthlySummary, setMonthlySummary] = useState<OrgMonthlySalesSummary | null>(null);
@@ -86,7 +89,10 @@ export default function AdminHomeScreen() {
   const load = useCallback(() => {
     setIsLoading(true);
 
-    Promise.all([fetchOrgDashboardSummary('admin'), fetchOrgWeeklySalesSummary('admin')])
+    Promise.all([
+      fetchOrgDashboardSummary('admin'),
+      fetchOrgWeeklySalesSummary('admin', { referenceDate: selectedWeekStart }),
+    ])
       .then(([data, weekData]) => {
         setSummary(data);
         setWeeklySales(weekData);
@@ -97,7 +103,7 @@ export default function AdminHomeScreen() {
         setErrorMessage(getErrorMessage(error, '본사 현황을 불러오지 못했습니다.'));
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [selectedWeekStart]);
 
   useEffect(() => {
     void fetchOrgMonthlySalesSummary('admin', selectedMonthKey).then(setMonthlySummary);
@@ -130,6 +136,14 @@ export default function AdminHomeScreen() {
     void fetchOrgMonthlySalesSummary('admin', monthKey).then(setMonthlySummary);
   }, []);
 
+  const handleSelectWeekStart = useCallback(
+    (weekStart: string) => {
+      setSelectedWeekStart(weekStart);
+      void fetchOrgWeeklySalesSummary('admin', { referenceDate: weekStart }).then(setWeeklySales);
+    },
+    [],
+  );
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -153,10 +167,13 @@ export default function AdminHomeScreen() {
             onPeriodModeChange={setPeriodMode}
             onSalesFilterContextChange={setSalesFilterContext}
             onSelectMonthKey={handleSelectMonthKey}
+            onSelectWeekStart={handleSelectWeekStart}
             onWeeklySegmentChange={setWeeklySegment}
             periodMode={periodMode}
             scope="admin"
             selectedMonthKey={selectedMonthKey}
+            selectedWeekStart={selectedWeekStart}
+            maxWeekStart={maxWeekStart}
             weeklySegment={weeklySegment}
             weeklySummary={weeklySales}
           />

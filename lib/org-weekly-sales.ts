@@ -46,6 +46,15 @@ function formatWeekLabel(weekStart: string, weekEnd: string) {
   return `${Number(startMonth)}.${Number(startDay)} ~ ${Number(endMonth)}.${Number(endDay)}`;
 }
 
+export function formatWeekRangeLabel(weekStart: string) {
+  const weekEnd = addDays(weekStart, 6);
+  return formatWeekLabel(weekStart, weekEnd);
+}
+
+export function getWeekEndSunday(weekStart: string) {
+  return addDays(weekStart, 6);
+}
+
 function settlementDateOf(payment: PaymentRecord) {
   return (payment.settled_at ?? payment.paid_at ?? payment.created_at).slice(0, 10);
 }
@@ -134,17 +143,21 @@ export function buildOrgWeeklySalesSummary(
 
 export async function fetchOrgWeeklySalesSummary(
   scope: OrgScope,
-  options?: { storeOrgId?: string },
+  options?: { storeOrgId?: string; referenceDate?: Date | string },
 ): Promise<OrgWeeklySalesSummary> {
   const storeOrgId = await resolveStoreOrgIdForOrgScope(scope, options?.storeOrgId);
   const config = await getActiveRevenueSplitConfig();
   const nationwideIds = listNationwideDesignerIdsForScope(scope, storeOrgId);
+  const referenceDate =
+    typeof options?.referenceDate === 'string'
+      ? new Date(`${options.referenceDate}T12:00:00`)
+      : options?.referenceDate ?? new Date();
   const [legacyPayments, nationwideBuckets] = await Promise.all([
     listLegacyPaymentsForOrgScope(scope, storeOrgId),
     Promise.resolve(sumNationwideWeeklyBuckets(nationwideIds, config)),
   ]);
 
-  return buildOrgWeeklySalesSummary(legacyPayments, config, new Date(), nationwideBuckets);
+  return buildOrgWeeklySalesSummary(legacyPayments, config, referenceDate, nationwideBuckets);
 }
 
 export function getWeeklySalesBucket(

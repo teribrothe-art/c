@@ -12,7 +12,7 @@ import {
 } from '../../lib/org-sales-segment-drilldown';
 import { buildSalesFilterContext } from '../../lib/build-sales-filter-context';
 import type { SalesFilterContext } from '../../lib/org-sales-filter-context';
-import type { OrgWeeklySalesSummary, SalesPeriodMode, WeeklySalesSegment } from '../../lib/org-weekly-sales';
+import { formatWeekRangeLabel, type OrgWeeklySalesSummary, type SalesPeriodMode, type WeeklySalesSegment } from '../../lib/org-weekly-sales';
 
 export type { SalesFilterContext } from '../../lib/org-sales-filter-context';
 export type { SalesPeriodMode } from '../../lib/org-weekly-sales';
@@ -23,6 +23,11 @@ type WeeklySalesTabBarProps = {
   scope: OrgScope;
   storeOrgId?: string;
   weeklySummary: OrgWeeklySalesSummary;
+  /** 선택된 주(월요일 기준) */
+  selectedWeekStart?: string;
+  /** 이번 주(상한선) — 다음 주 이동 방지 */
+  maxWeekStart?: string;
+  onSelectWeekStart?: (weekStart: string) => void;
   weeklySegment: WeeklySalesSegment;
   onWeeklySegmentChange: (segment: WeeklySalesSegment) => void;
   periodMode: SalesPeriodMode;
@@ -59,6 +64,24 @@ const PERIOD_MODES: { key: SalesPeriodMode; label: string }[] = [
 ];
 
 const MONTHS_PER_PAGE = 4;
+const WEEKS_PER_PAGE = 4;
+const WEEK_CATALOG_SIZE = 12;
+
+function addDaysFromLocal(date: string, days: number) {
+  const parsed = new Date(`${date}T12:00:00`);
+  parsed.setDate(parsed.getDate() + days);
+  return parsed.toISOString().slice(0, 10);
+}
+
+function buildRecentWeekCatalog(maxWeekStart: string) {
+  // 최신(이번 주)부터 과거로 정렬
+  const result: { weekStart: string; label: string }[] = [];
+  for (let index = 0; index < WEEK_CATALOG_SIZE; index += 1) {
+    const weekStart = addDaysFromLocal(maxWeekStart, -7 * index);
+    result.push({ weekStart, label: formatWeekRangeLabel(weekStart) });
+  }
+  return result;
+}
 
 function segmentLabel(segment: WeeklySalesSegment) {
   return segment === 'weekend' ? '주말' : '평일';
@@ -75,6 +98,9 @@ export function WeeklySalesTabBar({
   scope,
   storeOrgId,
   weeklySummary,
+  selectedWeekStart,
+  maxWeekStart,
+  onSelectWeekStart,
   weeklySegment,
   onWeeklySegmentChange,
   periodMode,
@@ -96,6 +122,7 @@ export function WeeklySalesTabBar({
   const [isDrillLoading, setIsDrillLoading] = useState(false);
   const [openDrillSegment, setOpenDrillSegment] = useState<WeeklySalesSegment | null>(null);
   const [monthPage, setMonthPage] = useState(0);
+  const [weekPage, setWeekPage] = useState(0);
   const drillLoadGenerationRef = useRef(0);
 
   const monthPageCount = Math.max(1, Math.ceil(monthlyCatalog.length / MONTHS_PER_PAGE));
@@ -113,6 +140,31 @@ export function WeeklySalesTabBar({
 
   const canGoPrevMonthPage = monthPageIndex > 0;
   const canGoNextMonthPage = monthPageIndex < monthPageCount - 1;
+
+  const resolvedMaxWeekStart = maxWeekStart ?? weeklySummary.weekStart;
+  const weekCatalog = useMemo(
+    () => buildRecentWeekCatalog(resolvedMaxWeekStart),
+    [resolvedMaxWeekStart],
+  );
+  const activeWeekStart = selectedWeekStart ?? weeklySummary.weekStart;
+  const selectedWeekIndex = useMemo(
+    () => weekCatalog.findIndex((week) => week.weekStart === activeWeekStart),
+    [activeWeekStart, weekCatalog],
+  );
+  const weekPageCount = Math.max(1, Math.ceil(weekCatalog.length / WEEKS_PER_PAGE));
+  const weekPageIndex = Math.min(weekPage, weekPageCount - 1);
+  const visibleWeeks = useMemo(() => {
+    const start = weekPageIndex * WEEKS_PER_PAGE;
+    return weekCatalog.slice(start, start + WEEKS_PER_PAGE);
+  }, [weekCatalog, weekPageIndex]);
+  const canGoPrevWeekPage = weekPageIndex > 0;
+  const canGoNextWeekPage = weekPageIndex < weekPageCount - 1;
+
+  useEffect(() => {
+    if (selectedWeekIndex >= 0) {
+      setWeekPage(Math.floor(selectedWeekIndex / WEEKS_PER_PAGE));
+    }
+  }, [selectedWeekIndex]);
 
   useEffect(() => {
     if (monthPage !== monthPageIndex) {
@@ -317,7 +369,76 @@ export function WeeklySalesTabBar({
         })}
       </View>
 
-      <Text style={styles.badge}>{periodBadge}</Text>
+      {periodMode === 'weekly' && onSelectWeekStart ? (
+        <View style={styles.weekPager}>
+          <View style={styles.weekNavRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !canGoPrevWeekPage }}
+              disabled={!canGoPrevWeekPage}
+              onPress={() => setWeekPage((page) => Math.max(0, page - 1))}
+              style={({ pressed }) => [
+                styles.weekNavButton,
+                !canGoPrevWeekPage && styles.weekNavButtonDisabled,
+                pressed && canGoPrevWeekPage && styles.weekNavButtonPressed,
+              ]}>
+              <Text
+                style={[
+                  styles.weekNavButtonText,
+                  !canGoPrevWeekPage && styles.weekNavButtonTextDisabled,
+                ]}>
+                ‹
+              </Text>
+            </Pressable>
+            <Text style={styles.weekNavIndicator}>
+              {Math.max(1, Math.min(weekCatalog.length, selectedWeekIndex + 1))} / {weekCatalog.length}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !canGoNextWeekPage }}
+              disabled={!canGoNextWeekPage}
+              onPress={() => setWeekPage((page) => Math.min(weekPageCount - 1, page + 1))}
+              style={({ pressed }) => [
+                styles.weekNavButton,
+                !canGoNextWeekPage && styles.weekNavButtonDisabled,
+                pressed && canGoNextWeekPage && styles.weekNavButtonPressed,
+              ]}>
+              <Text
+                style={[
+                  styles.weekNavButtonText,
+                  !canGoNextWeekPage && styles.weekNavButtonTextDisabled,
+                ]}>
+                ›
+              </Text>
+            </Pressable>
+          </View>
+          <View style={styles.weekRow}>
+            {visibleWeeks.map((week) => {
+              const selected = week.weekStart === activeWeekStart;
+              return (
+                <Pressable
+                  key={week.weekStart}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => onSelectWeekStart(week.weekStart)}
+                  style={({ pressed }) => [
+                    styles.weekChip,
+                    selected && styles.weekChipSelected,
+                    pressed && styles.weekChipPressed,
+                  ]}>
+                  <Text
+                    style={[styles.weekChipLabel, selected && styles.weekChipLabelSelected]}
+                    numberOfLines={1}>
+                    {week.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ) : (
+        <Text style={styles.badge}>{periodBadge}</Text>
+      )}
 
       {periodMode === 'monthly' ? (
         <>
@@ -543,6 +664,77 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     paddingHorizontal: 8,
     paddingVertical: 4,
+  },
+  weekPager: {
+    gap: 8,
+  },
+  weekNavRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  weekNavButton: {
+    backgroundColor: '#F0FDFA',
+    borderColor: '#14B8A6',
+    borderRadius: 999,
+    borderWidth: 1,
+    minWidth: 44,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  weekNavButtonDisabled: {
+    backgroundColor: '#F7F7FA',
+    borderColor: '#E8E8F0',
+  },
+  weekNavButtonPressed: {
+    opacity: 0.92,
+  },
+  weekNavButtonText: {
+    color: '#0F766E',
+    fontSize: 14,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  weekNavButtonTextDisabled: {
+    color: '#9CA3AF',
+  },
+  weekNavIndicator: {
+    color: '#6B6B7B',
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  weekRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  weekChip: {
+    backgroundColor: '#F7FDFC',
+    borderColor: '#B2F5EA',
+    borderRadius: 999,
+    borderWidth: 1,
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  weekChipSelected: {
+    backgroundColor: '#CCFBF1',
+    borderColor: '#14B8A6',
+  },
+  weekChipPressed: {
+    opacity: 0.92,
+  },
+  weekChipLabel: {
+    color: '#0F766E',
+    fontSize: 10,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  weekChipLabelSelected: {
+    color: '#0F766E',
   },
   searchInput: {
     backgroundColor: '#FFFFFF',

@@ -18,6 +18,7 @@ import {
   type OrgWeeklySalesSummary,
   type WeeklySalesSegment,
 } from '../../lib/org-weekly-sales';
+import { getWeekStartMonday, toLocalDateString } from '../../lib/designer-revenue-weekly';
 import { formatMonthKeyLabel, formatThisMonthScopedLabel } from '../../lib/designer-revenue-analytics';
 import { getErrorMessage } from '../../lib/errors';
 import {
@@ -122,6 +123,8 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [weeklySales, setWeeklySales] = useState<OrgWeeklySalesSummary | null>(null);
   const [weeklySegment, setWeeklySegment] = useState<WeeklySalesSegment>('weekday');
+  const maxWeekStart = useMemo(() => getWeekStartMonday(toLocalDateString(new Date())), []);
+  const [selectedWeekStart, setSelectedWeekStart] = useState(maxWeekStart);
   const [periodMode, setPeriodMode] = useState<SalesPeriodMode>('weekly');
   const [monthlyCatalog, setMonthlyCatalog] = useState<OrgMonthlySalesCatalogItem[]>([]);
   const [monthlySummary, setMonthlySummary] = useState<OrgMonthlySalesSummary | null>(null);
@@ -158,7 +161,7 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
 
     return Promise.all([
       fetchOrgDashboardSummary(scope, { monthKey: selectedMonthKey }),
-      fetchOrgWeeklySalesSummary(scope),
+      fetchOrgWeeklySalesSummary(scope, { referenceDate: selectedWeekStart }),
     ])
       .then(([data, weekData]) => {
         setSummary(data);
@@ -169,13 +172,21 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
         setErrorMessage(getErrorMessage(error, '매출을 불러오지 못했습니다.'));
       })
       .finally(() => setIsLoading(false));
-  }, [scope, selectedMonthKey]);
+  }, [scope, selectedMonthKey, selectedWeekStart]);
 
   const handleSelectMonth = useCallback((monthKey: string) => {
     setSelectedMonthKey(monthKey);
 
     void fetchOrgMonthlySalesSummary(scope, monthKey).then(setMonthlySummary);
   }, [scope]);
+
+  const handleSelectWeekStart = useCallback(
+    (weekStart: string) => {
+      setSelectedWeekStart(weekStart);
+      void fetchOrgWeeklySalesSummary(scope, { referenceDate: weekStart }).then(setWeeklySales);
+    },
+    [scope],
+  );
 
   const filteredMonthlyCatalog = useMemo(
     () => filterMonthlyCatalogByQuery(monthlyCatalog, monthSearchQuery),
@@ -288,10 +299,13 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
             onPeriodModeChange={setPeriodMode}
             onSalesFilterContextChange={setSalesFilterContext}
             onSelectMonthKey={handleSelectMonth}
+            onSelectWeekStart={handleSelectWeekStart}
             onWeeklySegmentChange={setWeeklySegment}
             periodMode={periodMode}
             scope={scope}
             selectedMonthKey={selectedMonthKey}
+            selectedWeekStart={selectedWeekStart}
+            maxWeekStart={maxWeekStart}
             weeklySegment={weeklySegment}
             weeklySummary={weeklySales}
           />

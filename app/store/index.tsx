@@ -23,6 +23,7 @@ import {
   type OrgWeeklySalesSummary,
   type WeeklySalesSegment,
 } from '../../lib/org-weekly-sales';
+import { getWeekStartMonday, toLocalDateString } from '../../lib/designer-revenue-weekly';
 import { getCurrentUser } from '../../lib/auth';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
@@ -42,6 +43,8 @@ export default function StoreHomeScreen() {
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [weeklySales, setWeeklySales] = useState<OrgWeeklySalesSummary | null>(null);
   const [weeklySegment, setWeeklySegment] = useState<WeeklySalesSegment>('weekday');
+  const maxWeekStart = useMemo(() => getWeekStartMonday(toLocalDateString(new Date())), []);
+  const [selectedWeekStart, setSelectedWeekStart] = useState(maxWeekStart);
   const [periodMode, setPeriodMode] = useState<SalesPeriodMode>('weekly');
   const [monthlyCatalog, setMonthlyCatalog] = useState<OrgMonthlySalesCatalogItem[]>([]);
   const [monthlySummary, setMonthlySummary] = useState<OrgMonthlySalesSummary | null>(null);
@@ -62,7 +65,7 @@ export default function StoreHomeScreen() {
       .then(([user, storeOrgId]) =>
         Promise.all([
           fetchOrgDashboardSummary('store', { storeOrgId }),
-          fetchOrgWeeklySalesSummary('store', { storeOrgId }),
+          fetchOrgWeeklySalesSummary('store', { storeOrgId, referenceDate: selectedWeekStart }),
         ]).then(([data, weekData]) => ({
           user,
           data,
@@ -85,7 +88,7 @@ export default function StoreHomeScreen() {
         setErrorMessage(getErrorMessage(error, '매장 현황을 불러오지 못했습니다.'));
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [selectedWeekStart]);
 
   useEffect(() => {
     if (periodMode !== 'monthly') {
@@ -123,6 +126,19 @@ export default function StoreHomeScreen() {
     [],
   );
 
+  const handleSelectWeekStart = useCallback(
+    (weekStart: string) => {
+      setSelectedWeekStart(weekStart);
+      void resolveCurrentStoreOrgId().then((resolvedStoreOrgId) => {
+        void fetchOrgWeeklySalesSummary('store', {
+          storeOrgId: resolvedStoreOrgId,
+          referenceDate: weekStart,
+        }).then(setWeeklySales);
+      });
+    },
+    [],
+  );
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -144,10 +160,13 @@ export default function StoreHomeScreen() {
             onMonthSearchQueryChange={setMonthSearchQuery}
             onPeriodModeChange={setPeriodMode}
             onSelectMonthKey={handleSelectMonthKey}
+            onSelectWeekStart={handleSelectWeekStart}
             onWeeklySegmentChange={setWeeklySegment}
             periodMode={periodMode}
             scope="store"
             selectedMonthKey={selectedMonthKey}
+            selectedWeekStart={selectedWeekStart}
+            maxWeekStart={maxWeekStart}
             storeOrgId={storeOrgId}
             weeklySegment={weeklySegment}
             weeklySummary={weeklySales}
