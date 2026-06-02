@@ -51,17 +51,23 @@ function StoreGroupCard({
   group,
   tab,
   onPress,
+  tone,
 }: {
   group: OrgDesignerStoreGroup;
   tab: StoreMetricTab;
   onPress: () => void;
+  tone: 'even' | 'odd';
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${group.storeName} 디자이너 보기`}
       onPress={onPress}
-      style={({ pressed }) => [styles.storeCard, pressed && styles.storeCardPressed]}>
+      style={({ pressed }) => [
+        styles.storeCard,
+        tone === 'even' ? styles.storeCardEven : styles.storeCardOdd,
+        pressed && styles.storeCardPressed,
+      ]}>
       <Text style={styles.storeLabel}>소속 매장</Text>
       <Text style={styles.storeName}>{group.storeName}</Text>
       <Text style={styles.storeRegion}>{group.storeRegion}</Text>
@@ -231,11 +237,12 @@ export function OrgDesignersRosterScreen() {
             ListEmptyComponent={
               <EmptyState title="검색 결과 없음" subtitle="다른 키워드로 검색해 보세요." />
             }
-            renderItem={({ item }) => (
+            renderItem={({ item, index }) => (
               <StoreGroupCard
                 group={item}
                 tab={globalMetricTab}
                 onPress={() => setSelectedStoreId(item.storeId)}
+                tone={index % 2 === 0 ? 'even' : 'odd'}
               />
             )}
           />
@@ -311,22 +318,26 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   storeList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 10,
   },
   storeCard: {
-    backgroundColor: '#E8F5E9',
-    borderColor: '#C8E6C9',
     borderRadius: 14,
     borderWidth: 1,
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 12,
-    width: '48%',
+    width: '100%',
+  },
+  storeCardEven: {
+    backgroundColor: '#E8F5E9',
+    borderColor: '#C8E6C9',
+  },
+  storeCardOdd: {
+    backgroundColor: '#E0F2FE',
+    borderColor: '#BAE6FD',
   },
   storeCardPressed: {
-    backgroundColor: '#DFF2E0',
+    backgroundColor: '#F5F5F8',
     opacity: 0.95,
   },
   storeTapHint: {
