@@ -123,16 +123,16 @@ async function main() {
     process.exit(1);
   }
 
-  const { url, classification, ngrokPublicUrl, allPlatforms, lanHost } = resolved;
+  const { url, classification, ngrokPublicUrl, tunnelProvider, allPlatforms, lanHost } = resolved;
 
   if (!url) {
     console.log('FAIL: exp:// URL을 받지 못했습니다. npm run start:connect 으로 다시 시작하세요.');
     process.exit(1);
   }
 
-  const ngrok = await fetchNgrokTunnel();
+  const ngrok = ngrokPublicUrl ? { public_url: ngrokPublicUrl } : await fetchNgrokTunnel();
 
-  if (classification.mode === 'tunnel' && !ngrok) {
+  if (classification.mode === 'tunnel' && !ngrokPublicUrl && !ngrok) {
     console.log('FAIL: 터널 모드인데 ngrok이 연결되지 않았습니다.');
     console.log('  → npm run start:connect (또는 start:phone) 이 실행 중인지 확인하세요.');
     console.log('  → 같은 Wi‑Fi면 npm run start:wifi 후 npm run share 도 가능합니다.');
@@ -167,6 +167,10 @@ async function main() {
 
   console.log(`접속 URL: ${url}`);
   console.log(`manifest: v${manifest.version} (${manifest.updatedAt})`);
+
+  if (tunnelProvider) {
+    console.log(`터널: ${tunnelProvider}${ngrokPublicUrl ? ` → ${ngrokPublicUrl}` : ''}`);
+  }
 
   if (allPlatforms?.android?.url && allPlatforms.android.url !== url) {
     console.log(`Android: ${allPlatforms.android.url}`);

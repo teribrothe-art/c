@@ -100,11 +100,17 @@ export default function ConnectShareScreen() {
       </View>
 
       <View style={styles.helpCard}>
-        <Text style={styles.helpTitle}>폰 접속 (권장)</Text>
-        <Text style={styles.helpLine}>1. 터미널 1: npm run start:connect</Text>
-        <Text style={styles.helpLine}>2. 터미널 2: npm run share</Text>
-        <Text style={styles.helpLine}>3. Expo Go → QR 스캔 또는 exp:// 주소 입력</Text>
-        <Text style={styles.helpMeta}>ngrok v3 있으면 자동 터널 · 없으면 Wi‑Fi LAN</Text>
+        <Text style={styles.helpTitle}>원클릭 접속 (권장)</Text>
+        <Text style={styles.helpLine}>PC: npm run connect</Text>
+        <Text style={styles.helpLine}>Expo Go → expo-go-qr.png 스캔</Text>
+        <Text style={styles.helpMeta}>cloudflared 터널 자동 · ngrok 토큰 없어도 OK</Text>
+      </View>
+
+      <View style={styles.helpCard}>
+        <Text style={styles.helpTitle}>수동 (터미널 2개)</Text>
+        <Text style={styles.helpLine}>1. npm run start:connect</Text>
+        <Text style={styles.helpLine}>2. npm run share</Text>
+        <Text style={styles.helpMeta}>ngrok 토큰 있으면 ngrok 우선 사용</Text>
       </View>
 
       <View style={styles.helpCard}>

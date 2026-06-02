@@ -1,10 +1,20 @@
 /**
  * Expo Go 공유 URL 조회 (Metro + 터널)
  */
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { pickLanHost } from './pick-lan-host.mjs';
+import { fetchActiveTunnel } from './tunnel-provider.mjs';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.resolve(__dirname, '../..');
 
 const DEFAULT_PORT = Number(process.env.PORT || 8081);
 const DEFAULT_HOST = process.env.HOST || '127.0.0.1';
+
+const TUNNEL_HOST_RE =
+  /\.exp\.direct|\.ngrok|trycloudflare\.com|loca\.lt|u\.expo\.dev/i;
 
 export async function waitForMetro({
   port = DEFAULT_PORT,
@@ -33,6 +43,7 @@ export async function waitForMetro({
   return false;
 }
 
+/** @deprecated use fetchActiveTunnel */
 export async function fetchNgrokTunnel() {
   try {
     const response = await fetch('http://127.0.0.1:4040/api/tunnels');
@@ -58,7 +69,7 @@ export async function fetchExpoOpenPayload({
   return response.json();
 }
 
-/** ngrok https:// URL → Expo Go exp:// URL */
+/** 공개 HTTPS 터널 URL → Expo Go exp:// URL */
 export function publicUrlToExpUrl(publicUrl) {
   const parsed = new URL(publicUrl);
   let port = parsed.port;
@@ -70,7 +81,7 @@ export function publicUrlToExpUrl(publicUrl) {
   return `exp://${parsed.hostname}:${port}`;
 }
 
-export function classifyExpoUrl(url, hasNgrokTunnel) {
+export function classifyExpoUrl(url, hasPublicTunnel) {
   if (!url || !url.startsWith('exp://')) {
     return { mode: 'invalid', shareable: false };
   }
@@ -79,7 +90,7 @@ export function classifyExpoUrl(url, hasNgrokTunnel) {
     return { mode: 'localhost', shareable: false };
   }
 
-  if (/\.exp\.direct|\.ngrok|u\.expo\.dev/i.test(url) || hasNgrokTunnel) {
+  if (TUNNEL_HOST_RE.test(url) || hasPublicTunnel) {
     return { mode: 'tunnel', shareable: true };
   }
 
@@ -94,42 +105,24 @@ export function classifyExpoUrl(url, hasNgrokTunnel) {
   return { mode: 'unknown', shareable: true };
 }
 
-function shouldPreferNgrokUrl(metroUrl, hasNgrok) {
-  if (!hasNgrok) {
-    return false;
-  }
-
-  if (!metroUrl) {
-    return true;
-  }
-
-  const classification = classifyExpoUrl(metroUrl, false);
-
-  return (
-    !classification.shareable ||
-    classification.mode === 'private' ||
-    classification.mode === 'localhost' ||
-    classification.mode === 'invalid'
-  );
-}
-
 export async function resolveExpoGoShareUrl(platform = process.env.PLATFORM || 'ios') {
   const payload = await fetchExpoOpenPayload();
-  const ngrok = await fetchNgrokTunnel();
-  const hasNgrok = Boolean(ngrok?.public_url);
+  const tunnel = await fetchActiveTunnel(projectRoot);
+  const hasPublicTunnel = Boolean(tunnel?.publicUrl);
   let url = payload.platforms?.[platform]?.url ?? payload.url ?? null;
 
-  if (hasNgrok && shouldPreferNgrokUrl(url, hasNgrok)) {
-    url = publicUrlToExpUrl(ngrok.public_url);
+  if (hasPublicTunnel) {
+    url = publicUrlToExpUrl(tunnel.publicUrl);
   }
 
-  const classification = classifyExpoUrl(url, hasNgrok);
+  const classification = classifyExpoUrl(url, hasPublicTunnel);
 
   return {
     url,
     platform,
     classification,
-    ngrokPublicUrl: ngrok?.public_url ?? null,
+    ngrokPublicUrl: tunnel?.publicUrl ?? null,
+    tunnelProvider: tunnel?.provider ?? null,
     allPlatforms: payload.platforms ?? {},
     lanHost: pickLanHost(),
   };

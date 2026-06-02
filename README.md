@@ -50,7 +50,8 @@ npm run export:web
 |------|------|
 | 같은 Wi‑Fi | `npm run start:wifi` → `npm run share` |
 | Android USB | `npm run start` → `npm run android:usb` |
-| ngrok 터널 | `npm run start:connect` → `npm run share` |
+| 다른 네트워크 | `npm run connect` (원클릭) |
+| 수동 터널 | `npm run start:connect` → `npm run share` |
 
 요약: `npm run phone:standalone`
 
@@ -85,27 +86,29 @@ npm run android:usb
 
 Expo Go → `exp://127.0.0.1:8081` 입력
 
-### ngrok 터널 (PC·폰 네트워크가 다를 때)
+### 원클릭 접속 (권장)
 
-**터미널 1** — 접속 Metro (ngrok v3 자동 + LAN IP, 이 창을 닫지 않음):
+```sh
+npm run connect
+```
+
+cloudflared 터널(토큰 불필요) + Metro + QR 자동 생성 → `expo-go-qr.png` 스캔
+
+### 수동 (터미널 2개)
+
+**터미널 1:**
 
 ```sh
 npm run start:connect
 ```
 
-(`start:phone` 과 동일)
-
-**터미널 2** — 공유 URL·QR·HTML 생성:
+**터미널 2:**
 
 ```sh
 npm run share
 ```
 
-ngrok v3가 설치·인증되어 있으면 자동으로 `exp://…ngrok…` 주소가 생성됩니다. 없으면 같은 Wi‑Fi LAN(`192.168.x.x`)으로 폴백합니다.
-
-```sh
-ngrok config add-authtoken YOUR_TOKEN   # 1회
-```
+터널 우선순위: **ngrok**(`.env`에 `NGROK_AUTHTOKEN`) → **cloudflared**(무료) → **localtunnel**
 
 생성 파일:
 

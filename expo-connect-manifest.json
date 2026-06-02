@@ -1,10 +1,10 @@
 {
   "version": "1.0.7",
   "buildLabel": "2026-05-27 · 원 단위 · 주간/월별 매출 · 본사 연동 · v1.0.7",
-  "url": "exp://172.30.0.2:8081",
-  "webUrl": "http://172.30.0.2:8081",
-  "updatedAt": "2026-06-02T18:59:05.174Z",
-  "mode": "private",
-  "shareable": false,
-  "ngrokPublicUrl": null
+  "url": "exp://purse-flavor-reached-competitive.trycloudflare.com:443",
+  "webUrl": "https://purse-flavor-reached-competitive.trycloudflare.com",
+  "updatedAt": "2026-06-02T19:07:29.413Z",
+  "mode": "tunnel",
+  "shareable": true,
+  "ngrokPublicUrl": "https://purse-flavor-reached-competitive.trycloudflare.com"
 }
