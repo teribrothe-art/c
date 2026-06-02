@@ -23,6 +23,30 @@ import {
   type StoreMetricTab,
 } from '../components/store-metric-tabs';
 
+function metricValueForStoreGroup(group: OrgDesignerStoreGroup, tab: StoreMetricTab) {
+  switch (tab) {
+    case 'customers':
+      return group.customerCount;
+    case 'treatments':
+      return group.monthTreatmentCount;
+    case 'sales':
+      return group.monthGrossSales;
+    case 'hq':
+      return group.monthHqRevenue;
+    case 'designers':
+    default:
+      return group.designers.length;
+  }
+}
+
+function sortStoreGroups(groups: OrgDesignerStoreGroup[], tab: StoreMetricTab) {
+  return [...groups].sort((a, b) => {
+    const diff = metricValueForStoreGroup(b, tab) - metricValueForStoreGroup(a, tab);
+    if (diff !== 0) return diff;
+    return a.storeName.localeCompare(b.storeName, 'ko');
+  });
+}
+
 function StoreGroupCard({
   group,
   tab,
@@ -122,17 +146,17 @@ export function OrgDesignersRosterScreen() {
   const filteredStoreGroups = useMemo(() => {
     const query = storeSearch.trim().toLowerCase();
 
-    if (!query) {
-      return storeGroups;
-    }
-
-    return storeGroups.filter(
+    const base = query
+      ? storeGroups.filter(
       (group) =>
         group.storeName.toLowerCase().includes(query) ||
         group.storeRegion.toLowerCase().includes(query) ||
         group.storeId.toLowerCase().includes(query),
-    );
-  }, [storeGroups, storeSearch]);
+      )
+      : storeGroups;
+
+    return sortStoreGroups(base, globalMetricTab);
+  }, [globalMetricTab, storeGroups, storeSearch]);
 
   return (
     <View style={styles.container}>
