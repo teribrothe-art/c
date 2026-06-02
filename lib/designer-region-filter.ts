@@ -1,7 +1,7 @@
 import type { OrgDesignerMetrics } from './org-aggregates';
 import {
   getNationwideStoreById,
-  isNationwideDesignerId,
+  isNationwideStoreId,
   REGION_SPECS,
 } from './nationwide-org-catalog';
 import { getDesignerStoreAffiliation } from './org-store-affiliation';
@@ -40,18 +40,20 @@ export const DESIGNER_REGION_FILTER_TABS: { key: DesignerRegionFilterKey; label:
   }),
 ];
 
-export function resolveDesignerRegionFilterKey(designer: Pick<OrgDesignerMetrics, 'storeId' | 'storeName'>) {
-  const nationwideStore = isNationwideDesignerId(designer.storeId)
+export function resolveDesignerRegionFilterKey(
+  designer: Pick<OrgDesignerMetrics, 'id' | 'storeId' | 'storeName'>,
+) {
+  const nationwideStore = isNationwideStoreId(designer.storeId)
     ? getNationwideStoreById(designer.storeId)
     : null;
-  const affiliation = getDesignerStoreAffiliation(designer.storeId);
+  const affiliation = getDesignerStoreAffiliation(designer.id);
   const storeRegion = nationwideStore?.region ?? affiliation?.store.region ?? designer.storeName;
 
   return formatDesignerRegionShortLabel(storeRegion);
 }
 
 export function designerMatchesRegionFilter(
-  designer: Pick<OrgDesignerMetrics, 'storeId' | 'storeName' | 'name' | 'subtitle' | 'email'>,
+  designer: Pick<OrgDesignerMetrics, 'id' | 'storeId' | 'storeName' | 'storeRegion' | 'name' | 'subtitle' | 'email'>,
   regionKey: DesignerRegionFilterKey,
 ) {
   if (regionKey === 'all') {
@@ -64,7 +66,13 @@ export function designerMatchesRegionFilter(
     return true;
   }
 
-  const haystack = [designer.name, designer.subtitle ?? '', designer.storeName, designer.email]
+  const haystack = [
+    designer.name,
+    designer.subtitle ?? '',
+    designer.storeName,
+    designer.storeRegion,
+    designer.email,
+  ]
     .join(' ')
     .toLowerCase();
 

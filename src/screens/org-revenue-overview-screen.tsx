@@ -40,6 +40,7 @@ import {
   designerMatchesRegionFilter,
   type DesignerRegionFilterKey,
 } from '../../lib/designer-region-filter';
+import { designerMatchesOrgSearch } from '../../lib/org-designer-search';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
@@ -120,8 +121,13 @@ function getSectionTitle(tab: RevenueMetricTab, scope: OrgScope, monthScopeLabel
 export function OrgRevenueOverviewScreen({ scope }: Props) {
   useOrgRoleGuard(scope);
   const insets = useSafeAreaInsets();
-  const { q, region } = useLocalSearchParams<{ q?: string; region?: string }>();
+  const { q, region, storeId: storeIdParam } = useLocalSearchParams<{
+    q?: string;
+    region?: string;
+    storeId?: string;
+  }>();
   const initialQuery = typeof q === 'string' ? q : '';
+  const initialStoreId = typeof storeIdParam === 'string' ? storeIdParam : '';
   const initialRegionKey = typeof region === 'string' ? (region as DesignerRegionFilterKey) : 'all';
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [weeklySales, setWeeklySales] = useState<OrgWeeklySalesSummary | null>(null);
@@ -134,6 +140,7 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   const [monthSearchQuery, setMonthSearchQuery] = useState('');
   const [selectedMonthKey, setSelectedMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
   const [searchQuery, setSearchQuery] = useState(initialQuery);
+  const [selectedStoreId, setSelectedStoreId] = useState(initialStoreId);
   const [regionFilterKey, setRegionFilterKey] = useState<DesignerRegionFilterKey>(initialRegionKey);
   const [metricTab, setMetricTab] = useState<RevenueMetricTab>(
     scope === 'admin' ? 'sales' : 'payout',
@@ -205,10 +212,14 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
       setSearchQuery(initialQuery);
     }
 
+    if (initialStoreId) {
+      setSelectedStoreId(initialStoreId);
+    }
+
     if (initialRegionKey && initialRegionKey !== 'all') {
       setRegionFilterKey(initialRegionKey);
     }
-  }, [initialQuery, initialRegionKey]);
+  }, [initialQuery, initialRegionKey, initialStoreId]);
 
   useEffect(() => {
     void fetchOrgMonthlySalesSummary(scope, selectedMonthKey).then(setMonthlySummary);
@@ -232,19 +243,16 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
       return [];
     }
 
-    const query = searchQuery.trim().toLowerCase();
+    const query = searchQuery.trim();
     let rows = summary.designers;
 
     if (regionFilterKey !== 'all') {
       rows = rows.filter((designer) => designerMatchesRegionFilter(designer, regionFilterKey));
     }
 
-    if (query) {
+    if (selectedStoreId.trim() || query) {
       rows = rows.filter((designer) =>
-        [designer.name, designer.storeName, designer.storeRegion, designer.subtitle ?? '', designer.email]
-          .join(' ')
-          .toLowerCase()
-          .includes(query),
+        designerMatchesOrgSearch(designer, query, selectedStoreId.trim() || undefined),
       );
     }
 
@@ -253,38 +261,36 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
         (a, b) => getDesignerMetricValue(b, metricTab, scope) - getDesignerMetricValue(a, metricTab, scope),
       )
       .slice(0, 80);
-  }, [metricTab, regionFilterKey, scope, searchQuery, summary]);
+  }, [metricTab, regionFilterKey, scope, searchQuery, selectedStoreId, summary]);
 
   const totalsDesigners = useMemo(() => {
     if (!summary) {
       return [];
     }
 
-    const query = searchQuery.trim().toLowerCase();
+    const query = searchQuery.trim();
     let rows = summary.designers;
 
     if (regionFilterKey !== 'all') {
       rows = rows.filter((designer) => designerMatchesRegionFilter(designer, regionFilterKey));
     }
 
-    if (query) {
+    if (selectedStoreId.trim() || query) {
       rows = rows.filter((designer) =>
-        [designer.name, designer.storeName, designer.storeRegion, designer.subtitle ?? '', designer.email]
-          .join(' ')
-          .toLowerCase()
-          .includes(query),
+        designerMatchesOrgSearch(designer, query, selectedStoreId.trim() || undefined),
       );
     }
 
     return rows;
-  }, [regionFilterKey, searchQuery, summary]);
+  }, [regionFilterKey, searchQuery, selectedStoreId, summary]);
 
   const totalsSource = useMemo(() => {
     if (!summary) {
       return null;
     }
 
-    const filterActive = regionFilterKey !== 'all' || Boolean(searchQuery.trim());
+    const filterActive =
+      regionFilterKey !== 'all' || Boolean(searchQuery.trim()) || Boolean(selectedStoreId.trim());
 
     if (!filterActive) {
       return summary;
@@ -305,17 +311,24 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
       monthDesignerPayout,
       monthRevenue: monthDesignerPayout,
     };
-  }, [regionFilterKey, searchQuery, summary, totalsDesigners]);
+  }, [regionFilterKey, searchQuery, selectedStoreId, summary, totalsDesigners]);
 
   const monthLabel = formatMonthKeyLabel(selectedMonthKey);
   const monthScopeLabel = isCurrentMonth ? formatThisMonthScopedLabel() : monthLabel;
+
+  const filterActive =
+    regionFilterKey !== 'all' || Boolean(searchQuery.trim()) || Boolean(selectedStoreId.trim());
+
+  const displayMonthGrossSales = filterActive
+    ? totalsSource?.monthGrossSales ?? 0
+    : sumMonthlyGrossSales(monthlySummary, totalsSource?.monthGrossSales ?? 0);
 
   const adminMetricTabs: { key: AdminRevenueMetricTab; label: string; value: string }[] = totalsSource
     ? [
         {
           key: 'sales',
           label: `${monthScopeLabel} 매출`,
-          value: formatSalesAmount(sumMonthlyGrossSales(monthlySummary, totalsSource.monthGrossSales)),
+          value: formatSalesAmount(displayMonthGrossSales),
         },
         { key: 'hq', label: '본사 수익', value: formatPlainAmount(totalsSource.monthHqRevenue) },
         {
@@ -411,7 +424,10 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
             <Text style={styles.sectionTitle}>{getSectionTitle(metricTab, scope, monthScopeLabel)}</Text>
             <DesignerRegionFilterTabBar activeKey={regionFilterKey} onSelect={setRegionFilterKey} />
             <TextInput
-              onChangeText={setSearchQuery}
+              onChangeText={(text) => {
+                setSearchQuery(text);
+                setSelectedStoreId('');
+              }}
               placeholder="디자이너·매장·지역 검색"
               placeholderTextColor="#9CA3AF"
               style={styles.searchInput}
@@ -420,7 +436,11 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
             {visibleDesigners.length === 0 ? (
               <EmptyState
                 title="검색 결과 없음"
-                subtitle={searchQuery.trim() ? `"${searchQuery.trim()}"에 맞는 디자이너가 없습니다.` : '표시할 디자이너가 없습니다.'}
+                subtitle={
+                  searchQuery.trim() || selectedStoreId.trim()
+                    ? `"${searchQuery.trim() || (summary?.designers.find((d) => d.storeId === selectedStoreId)?.storeName ?? '선택 매장')}"에 맞는 디자이너가 없습니다.`
+                    : '표시할 디자이너가 없습니다.'
+                }
               />
             ) : (
               visibleDesigners.map((designer) => (

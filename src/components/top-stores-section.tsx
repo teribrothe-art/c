@@ -145,7 +145,7 @@ export function TopStoresSection({
                 key={store.id}
                 accessibilityRole="button"
                 onPress={() => {
-                  const query = `q=${encodeURIComponent(store.name)}&region=${encodeURIComponent(regionFilterKey)}`;
+                  const query = `storeId=${encodeURIComponent(store.id)}&q=${encodeURIComponent(store.name)}&region=${encodeURIComponent(regionFilterKey)}`;
                   router.push(`${revenueHref}?${query}` as Href);
                 }}
                 style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>

@@ -154,12 +154,8 @@ export type VirtualStoreSummary = VirtualStore & {
 };
 
 export function buildVirtualStoreSummaries(summary: OrgDashboardSummary): VirtualStoreSummary[] {
-  const designerMap = new Map(summary.designers.map((designer) => [designer.id, designer]));
-
   return VIRTUAL_STORES.map((store) => {
-    const designers = store.designerIds
-      .map((id) => designerMap.get(id))
-      .filter((item): item is OrgDesignerMetrics => Boolean(item));
+    const designers = summary.designers.filter((designer) => designer.storeId === store.id);
 
     return {
       ...store,
