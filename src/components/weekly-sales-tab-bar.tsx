@@ -87,11 +87,24 @@ function segmentLabel(segment: WeeklySalesSegment) {
   return segment === 'weekend' ? '주말' : '평일';
 }
 
-function resolveDrillContextSegment(
-  openDrillSegment: WeeklySalesSegment | null,
-  weeklySegment: WeeklySalesSegment,
-) {
-  return openDrillSegment ?? weeklySegment;
+type SegmentDrillState = {
+  level: DrillLevel;
+  weekRows: SegmentWeekRow[];
+  dayRows: SegmentDayRow[];
+  selectedWeekKey: string;
+  selectedWeekLabel: string;
+  isLoading: boolean;
+};
+
+function createInitialSegmentState(): SegmentDrillState {
+  return {
+    level: 'summary',
+    weekRows: [],
+    dayRows: [],
+    selectedWeekKey: '',
+    selectedWeekLabel: '',
+    isLoading: false,
+  };
 }
 
 export function WeeklySalesTabBar({
@@ -114,13 +127,10 @@ export function WeeklySalesTabBar({
   onSalesFilterContextChange,
 }: WeeklySalesTabBarProps) {
   const activeMonthKey = selectedMonthKey ?? monthlyCatalog[0]?.monthKey;
-  const [drillLevel, setDrillLevel] = useState<DrillLevel>('summary');
-  const [weekRows, setWeekRows] = useState<SegmentWeekRow[]>([]);
-  const [dayRows, setDayRows] = useState<SegmentDayRow[]>([]);
-  const [selectedWeekKey, setSelectedWeekKey] = useState('');
-  const [selectedWeekLabel, setSelectedWeekLabel] = useState('');
-  const [isDrillLoading, setIsDrillLoading] = useState(false);
-  const [openDrillSegment, setOpenDrillSegment] = useState<WeeklySalesSegment | null>(null);
+  const [segmentState, setSegmentState] = useState<Record<WeeklySalesSegment, SegmentDrillState>>({
+    weekday: createInitialSegmentState(),
+    weekend: createInitialSegmentState(),
+  });
   const [monthPage, setMonthPage] = useState(0);
   const [weekPage, setWeekPage] = useState(0);
   const drillLoadGenerationRef = useRef(0);
@@ -188,13 +198,10 @@ export function WeeklySalesTabBar({
   }, [activeMonthKey, monthCatalogKeys, monthlyCatalog]);
 
   const resetDrill = useCallback(() => {
-    setDrillLevel('summary');
-    setOpenDrillSegment(null);
-    setWeekRows([]);
-    setDayRows([]);
-    setSelectedWeekKey('');
-    setSelectedWeekLabel('');
-    setIsDrillLoading(false);
+    setSegmentState({
+      weekday: createInitialSegmentState(),
+      weekend: createInitialSegmentState(),
+    });
     drillLoadGenerationRef.current += 1;
   }, []);
 
@@ -222,26 +229,22 @@ export function WeeklySalesTabBar({
     () =>
       buildSalesFilterContext({
         periodMode,
-        segment: resolveDrillContextSegment(openDrillSegment, weeklySegment),
-        drillLevel,
+        segment: weeklySegment,
+        drillLevel: segmentState[weeklySegment].level,
         weeklySummary,
         monthlySummary,
         monthlyCatalog,
         activeMonthKey,
-        selectedWeekLabel,
-        weekRows,
-        dayRows,
+        selectedWeekLabel: segmentState[weeklySegment].selectedWeekLabel,
+        weekRows: segmentState[weeklySegment].weekRows,
+        dayRows: segmentState[weeklySegment].dayRows,
       }),
     [
       activeMonthKey,
-      dayRows,
-      drillLevel,
       monthlyCatalog,
       monthlySummary,
       periodMode,
-      selectedWeekLabel,
-      openDrillSegment,
-      weekRows,
+      segmentState,
       weeklySegment,
       weeklySummary,
     ],
@@ -255,8 +258,17 @@ export function WeeklySalesTabBar({
     async (segment: WeeklySalesSegment) => {
       const generation = drillLoadGenerationRef.current + 1;
       drillLoadGenerationRef.current = generation;
-      setIsDrillLoading(true);
-      setWeekRows([]);
+      setSegmentState((current) => ({
+        ...current,
+        [segment]: {
+          ...current[segment],
+          isLoading: true,
+          weekRows: [],
+          dayRows: [],
+          selectedWeekKey: '',
+          selectedWeekLabel: '',
+        },
+      }));
 
       try {
         const rows = await fetchOrgSegmentWeekRows(scope, segment, {
@@ -269,10 +281,22 @@ export function WeeklySalesTabBar({
           return;
         }
 
-        setWeekRows(rows);
+        setSegmentState((current) => ({
+          ...current,
+          [segment]: {
+            ...current[segment],
+            weekRows: rows,
+          },
+        }));
       } finally {
         if (drillLoadGenerationRef.current === generation) {
-          setIsDrillLoading(false);
+          setSegmentState((current) => ({
+            ...current,
+            [segment]: {
+              ...current[segment],
+              isLoading: false,
+            },
+          }));
         }
       }
     },
@@ -283,8 +307,14 @@ export function WeeklySalesTabBar({
     async (segment: WeeklySalesSegment, weekKey: string) => {
       const generation = drillLoadGenerationRef.current + 1;
       drillLoadGenerationRef.current = generation;
-      setIsDrillLoading(true);
-      setDayRows([]);
+      setSegmentState((current) => ({
+        ...current,
+        [segment]: {
+          ...current[segment],
+          isLoading: true,
+          dayRows: [],
+        },
+      }));
 
       try {
         const rows = await fetchOrgSegmentDayRows(scope, segment, weekKey, { storeOrgId });
@@ -293,10 +323,22 @@ export function WeeklySalesTabBar({
           return;
         }
 
-        setDayRows(rows);
+        setSegmentState((current) => ({
+          ...current,
+          [segment]: {
+            ...current[segment],
+            dayRows: rows,
+          },
+        }));
       } finally {
         if (drillLoadGenerationRef.current === generation) {
-          setIsDrillLoading(false);
+          setSegmentState((current) => ({
+            ...current,
+            [segment]: {
+              ...current[segment],
+              isLoading: false,
+            },
+          }));
         }
       }
     },
@@ -305,45 +347,63 @@ export function WeeklySalesTabBar({
 
   const handleSegmentPress = useCallback(
     (segment: WeeklySalesSegment) => {
-      if (openDrillSegment === segment && drillLevel !== 'summary') {
-        resetDrill();
-        return;
-      }
-
-      drillLoadGenerationRef.current += 1;
-      setOpenDrillSegment(segment);
       onWeeklySegmentChange(segment);
-      setDrillLevel('weeks');
-      setSelectedWeekKey('');
-      setSelectedWeekLabel('');
-      setDayRows([]);
-      setWeekRows([]);
-      void loadWeekRows(segment);
+
+      setSegmentState((current) => {
+        const currentLevel = current[segment].level;
+        const nextLevel: DrillLevel = currentLevel === 'summary' ? 'weeks' : 'summary';
+        return {
+          ...current,
+          [segment]: {
+            ...createInitialSegmentState(),
+            level: nextLevel,
+          },
+        };
+      });
+
+      const willOpen = segmentState[segment].level === 'summary';
+      if (willOpen) {
+        drillLoadGenerationRef.current += 1;
+        void loadWeekRows(segment);
+      }
     },
-    [drillLevel, loadWeekRows, onWeeklySegmentChange, openDrillSegment, resetDrill],
+    [loadWeekRows, onWeeklySegmentChange, segmentState],
   );
 
   const handleWeekPress = useCallback(
-    (row: SegmentWeekRow) => {
-      const segment = resolveDrillContextSegment(openDrillSegment, weeklySegment);
-
-      setSelectedWeekKey(row.weekKey);
-      setSelectedWeekLabel(row.weekLabel);
-      setDrillLevel('days');
+    (segment: WeeklySalesSegment, row: SegmentWeekRow) => {
+      setSegmentState((current) => ({
+        ...current,
+        [segment]: {
+          ...current[segment],
+          level: 'days',
+          selectedWeekKey: row.weekKey,
+          selectedWeekLabel: row.weekLabel,
+        },
+      }));
       void loadDayRows(segment, row.weekKey);
     },
-    [loadDayRows, openDrillSegment, weeklySegment],
+    [loadDayRows],
   );
 
-  const handleBackFromWeeks = useCallback(() => {
-    resetDrill();
-  }, [resetDrill]);
+  const handleBackFromWeeks = useCallback((segment: WeeklySalesSegment) => {
+    setSegmentState((current) => ({
+      ...current,
+      [segment]: createInitialSegmentState(),
+    }));
+  }, []);
 
-  const handleBackFromDays = useCallback(() => {
-    setDrillLevel('weeks');
-    setDayRows([]);
-    setSelectedWeekKey('');
-    setSelectedWeekLabel('');
+  const handleBackFromDays = useCallback((segment: WeeklySalesSegment) => {
+    setSegmentState((current) => ({
+      ...current,
+      [segment]: {
+        ...current[segment],
+        level: 'weeks',
+        dayRows: [],
+        selectedWeekKey: '',
+        selectedWeekLabel: '',
+      },
+    }));
   }, []);
 
   return (
@@ -536,7 +596,8 @@ export function WeeklySalesTabBar({
         {SEGMENTS.map(({ key, label, hint }) => {
           const bucket = key === 'weekend' ? segmentBuckets.weekend : segmentBuckets.weekday;
           const active = weeklySegment === key;
-          const isDrillOpen = openDrillSegment === key && drillLevel !== 'summary';
+          const drill = segmentState[key];
+          const isDrillOpen = drill.level !== 'summary';
 
           return (
             <View key={key} style={styles.cellColumn}>
@@ -557,24 +618,24 @@ export function WeeklySalesTabBar({
                 </View>
               </Pressable>
 
-              {isDrillOpen && drillLevel === 'weeks' ? (
+              {isDrillOpen && drill.level === 'weeks' ? (
                 <View style={styles.drillPanel}>
                   <Pressable
                     accessibilityRole="button"
-                    onPress={handleBackFromWeeks}
+                    onPress={() => handleBackFromWeeks(key)}
                     style={({ pressed }) => [styles.drillBackRow, pressed && styles.cellPressed]}>
                     <Text style={styles.drillBackText}>← {segmentLabel(key)} · 주단위</Text>
                   </Pressable>
-                  {isDrillLoading ? (
+                  {drill.isLoading ? (
                     <ActivityIndicator color="#14B8A6" style={styles.drillLoader} />
-                  ) : weekRows.length === 0 ? (
+                  ) : drill.weekRows.length === 0 ? (
                     <Text style={styles.drillEmpty}>표시할 주간 매출이 없습니다.</Text>
                   ) : (
-                    weekRows.map((row) => (
+                    drill.weekRows.map((row) => (
                       <Pressable
                         key={row.weekKey}
                         accessibilityRole="button"
-                        onPress={() => handleWeekPress(row)}
+                        onPress={() => handleWeekPress(key, row)}
                         style={({ pressed }) => [styles.drillRow, pressed && styles.drillRowPressed]}>
                         <View style={styles.drillRowMain}>
                           <Text style={styles.drillRowTitle}>{row.weekLabel}</Text>
@@ -587,22 +648,22 @@ export function WeeklySalesTabBar({
                 </View>
               ) : null}
 
-              {isDrillOpen && drillLevel === 'days' ? (
+              {isDrillOpen && drill.level === 'days' ? (
                 <View style={styles.drillPanel}>
                   <Pressable
                     accessibilityRole="button"
-                    onPress={handleBackFromDays}
+                    onPress={() => handleBackFromDays(key)}
                     style={({ pressed }) => [styles.drillBackRow, pressed && styles.cellPressed]}>
                     <Text style={styles.drillBackText}>
-                      ← {segmentLabel(key)} · {selectedWeekLabel || selectedWeekKey}
+                      ← {segmentLabel(key)} · {drill.selectedWeekLabel || drill.selectedWeekKey}
                     </Text>
                   </Pressable>
-                  {isDrillLoading ? (
+                  {drill.isLoading ? (
                     <ActivityIndicator color="#14B8A6" style={styles.drillLoader} />
-                  ) : dayRows.length === 0 ? (
+                  ) : drill.dayRows.length === 0 ? (
                     <Text style={styles.drillEmpty}>표시할 요일별 매출이 없습니다.</Text>
                   ) : (
-                    dayRows.map((row) => (
+                    drill.dayRows.map((row) => (
                       <View key={row.date} style={styles.drillRow}>
                         <View style={styles.drillRowMain}>
                           <Text style={styles.drillRowTitle}>{row.label}</Text>
