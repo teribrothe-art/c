@@ -255,35 +255,87 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
       .slice(0, 80);
   }, [metricTab, regionFilterKey, scope, searchQuery, summary]);
 
+  const totalsDesigners = useMemo(() => {
+    if (!summary) {
+      return [];
+    }
+
+    const query = searchQuery.trim().toLowerCase();
+    let rows = summary.designers;
+
+    if (regionFilterKey !== 'all') {
+      rows = rows.filter((designer) => designerMatchesRegionFilter(designer, regionFilterKey));
+    }
+
+    if (query) {
+      rows = rows.filter((designer) =>
+        [designer.name, designer.storeName, designer.storeRegion, designer.subtitle ?? '', designer.email]
+          .join(' ')
+          .toLowerCase()
+          .includes(query),
+      );
+    }
+
+    return rows;
+  }, [regionFilterKey, searchQuery, summary]);
+
+  const totalsSource = useMemo(() => {
+    if (!summary) {
+      return null;
+    }
+
+    const filterActive = regionFilterKey !== 'all' || Boolean(searchQuery.trim());
+
+    if (!filterActive) {
+      return summary;
+    }
+
+    const monthGrossSales = totalsDesigners.reduce((sum, item) => sum + item.monthGrossSales, 0);
+    const monthHqRevenue = totalsDesigners.reduce((sum, item) => sum + item.monthHqRevenue, 0);
+    const monthTreatmentCount = totalsDesigners.reduce((sum, item) => sum + item.monthTreatmentCount, 0);
+    const pendingPayoutAmount = totalsDesigners.reduce((sum, item) => sum + item.pendingPayoutAmount, 0);
+    const monthDesignerPayout = totalsDesigners.reduce((sum, item) => sum + item.monthDesignerPayout, 0);
+
+    return {
+      ...summary,
+      monthGrossSales,
+      monthHqRevenue,
+      monthTreatmentCount,
+      pendingPayoutAmount,
+      monthDesignerPayout,
+      monthRevenue: monthDesignerPayout,
+    };
+  }, [regionFilterKey, searchQuery, summary, totalsDesigners]);
+
   const monthLabel = formatMonthKeyLabel(selectedMonthKey);
   const monthScopeLabel = isCurrentMonth ? formatThisMonthScopedLabel() : monthLabel;
 
-  const adminMetricTabs: { key: AdminRevenueMetricTab; label: string; value: string }[] = summary
+  const adminMetricTabs: { key: AdminRevenueMetricTab; label: string; value: string }[] = totalsSource
     ? [
         {
           key: 'sales',
           label: `${monthScopeLabel} 매출`,
-          value: formatSalesAmount(monthGrossSales),
+          value: formatSalesAmount(sumMonthlyGrossSales(monthlySummary, totalsSource.monthGrossSales)),
         },
-        { key: 'hq', label: '본사 수익', value: formatPlainAmount(summary.monthHqRevenue) },
+        { key: 'hq', label: '본사 수익', value: formatPlainAmount(totalsSource.monthHqRevenue) },
         {
           key: 'treatments',
           label: `${monthScopeLabel} 시술`,
-          value: `${summary.monthTreatmentCount.toLocaleString('ko-KR')}건`,
+          value: `${totalsSource.monthTreatmentCount.toLocaleString('ko-KR')}건`,
         },
-        { key: 'pending', label: '정산 대기', value: formatPlainAmount(summary.pendingPayoutAmount) },
+        { key: 'pending', label: '정산 대기', value: formatPlainAmount(totalsSource.pendingPayoutAmount) },
       ]
     : [];
 
-  const storeMetricTabs: { key: StoreRevenueMetricTab; label: string; value: string }[] = summary
+  const storeMetricTabs: { key: StoreRevenueMetricTab; label: string; value: string }[] = totalsSource
     ? [
-        { key: 'payout', label: `${monthScopeLabel} 정산`, value: formatPlainAmount(summary.monthDesignerPayout) },
+        { key: 'payout', label: `${monthScopeLabel} 정산`, value: formatPlainAmount(totalsSource.monthDesignerPayout) },
         {
           key: 'treatments',
           label: `${monthScopeLabel} 시술`,
-          value: `${summary.monthTreatmentCount.toLocaleString('ko-KR')}건`,
+          value: `${totalsSource.monthTreatmentCount.toLocaleString('ko-KR')}건`,
         },
-        { key: 'pending', label: '정산 대기', value: formatPlainAmount(summary.pendingPayoutAmount) },
+        { key: 'pending', label: '정산 대기', value: formatPlainAmount(totalsSource.pendingPayoutAmount) },
       ]
     : [];
 
