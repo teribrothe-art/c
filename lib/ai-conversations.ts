@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { demoPersistedStorage } from './demo-persisted-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { getUserContext, saveAiConversation, UserAiContext } from './ai';
@@ -26,14 +26,14 @@ const selectFields =
 const memoryStore: AiConversation[] = [];
 
 async function readDemoStore(): Promise<AiConversation[]> {
-  const raw = await AsyncStorage.getItem(DEMO_STORAGE_KEY);
+  const raw = await demoPersistedStorage.getItem(DEMO_STORAGE_KEY);
   return raw ? (JSON.parse(raw) as AiConversation[]) : [...memoryStore];
 }
 
 async function writeDemoStore(items: AiConversation[]) {
   memoryStore.length = 0;
   memoryStore.push(...items);
-  await AsyncStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(items));
+  await demoPersistedStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(items));
 }
 
 export function buildTreatmentContext(treatments: Treatment[]) {

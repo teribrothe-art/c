@@ -77,6 +77,16 @@ npm run check:phone
 
 데모 로그인( Supabase 미설정 시): `demo@hair.app` / `demo1234`, `designer@hair.app` / `demo1234`
 
+### 웹·휴대폰 데모 모드
+
+| 환경 | 실행 | 로그인 |
+|------|------|--------|
+| **웹** | `npm run web:clear` → http://127.0.0.1:8081 | 로그인 화면 **고객 데모** / **디자이너 데모** 탭 |
+| **휴대폰** | `npm run start:phone` + Expo Go | 동일 · **테스트 계정**에서 매장·디자이너·베타 계정 |
+
+- Supabase placeholder(`여기에_입력`)이면 자동 데모 모드입니다.
+- 실제 Supabase를 쓰면서도 데모를 보려면 `.env`에 `EXPO_PUBLIC_FORCE_DEMO_MODE=true` 후 `npx expo start --clear` 하세요.
+
 ### 브라우저 `http://localhost:8081` — ERR_EMPTY_RESPONSE (-324)
 
 | 순위 | 가장 흔한 원인 |

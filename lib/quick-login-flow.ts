@@ -5,6 +5,7 @@ import { redeemInviteForCurrentUser } from './apply-pending-invite';
 import { getPostAuthRoute } from './auth-redirect';
 import { getCurrentUser, signInWithEmail } from './auth';
 import { peekPendingInviteCode } from './pending-invite-code';
+import { safeReplace } from './safe-navigate';
 
 export async function signInAndNavigate(
   email: string,
@@ -25,5 +26,10 @@ export async function signInAndNavigate(
   }
 
   const nextRoute = options?.redirectTo ?? (await getPostAuthRoute());
-  router.replace(nextRoute);
+
+  if (nextRoute === '/') {
+    throw new Error('로그인 세션을 저장하지 못했습니다. 앱을 새로고침한 뒤 다시 시도해주세요.');
+  }
+
+  safeReplace(nextRoute);
 }

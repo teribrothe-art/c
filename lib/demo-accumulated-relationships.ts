@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { demoPersistedStorage } from './demo-persisted-storage';
 
 import {
   isAccumulatedTestCustomerId,
@@ -9,7 +9,7 @@ const DEMO_RELATIONSHIPS_KEY = 'hair-diary-designer-customer-relationships';
 
 export async function mergeAccumulatedDesignerRelationships() {
   const { getAccumulatedTestProfiles } = await import('./demo-accumulated-test-seeds');
-  const raw = await AsyncStorage.getItem(DEMO_RELATIONSHIPS_KEY);
+  const raw = await demoPersistedStorage.getItem(DEMO_RELATIONSHIPS_KEY);
   const items: { designer_id: string; customer_id: string }[] = raw ? JSON.parse(raw) : [];
   let changed = false;
 
@@ -30,13 +30,13 @@ export async function mergeAccumulatedDesignerRelationships() {
   }
 
   if (changed) {
-    await AsyncStorage.setItem(DEMO_RELATIONSHIPS_KEY, JSON.stringify(items));
+    await demoPersistedStorage.setItem(DEMO_RELATIONSHIPS_KEY, JSON.stringify(items));
   }
 }
 
-/** AsyncStorage에서 누적 테스트 디자이너·고객 관계 제거 */
+/** demoPersistedStorage에서 누적 테스트 디자이너·고객 관계 제거 */
 export async function stripAccumulatedRelationshipsFromStorage(): Promise<number> {
-  const raw = await AsyncStorage.getItem(DEMO_RELATIONSHIPS_KEY);
+  const raw = await demoPersistedStorage.getItem(DEMO_RELATIONSHIPS_KEY);
 
   if (!raw) {
     return 0;
@@ -51,7 +51,7 @@ export async function stripAccumulatedRelationshipsFromStorage(): Promise<number
   const removed = items.length - cleaned.length;
 
   if (removed > 0) {
-    await AsyncStorage.setItem(DEMO_RELATIONSHIPS_KEY, JSON.stringify(cleaned));
+    await demoPersistedStorage.setItem(DEMO_RELATIONSHIPS_KEY, JSON.stringify(cleaned));
   }
 
   return removed;

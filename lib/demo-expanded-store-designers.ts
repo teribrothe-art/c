@@ -1,5 +1,6 @@
 import type { BetaTestAccount } from './beta-test-accounts';
 import type { AccumulatedSeedProfileConfig } from './demo-accumulated-seed-builder';
+
 const EXPANDED_TEST_PASSWORD = 'test1234';
 
 /** 매장별 증원 디자이너 수 (총 15명) */
@@ -51,22 +52,20 @@ const EXTRA_CUSTOMER_NAMES = [
   '황유나',
 ] as const;
 
-function pad2(value: number) {
-  return String(value).padStart(2, '0');
-}
-
-/** 디자이너별 결정적 난수 (시드·로그인 안정) */
-function hashDesignerSlot(slot: number, salt: number) {
-  return ((slot * 1_103 + salt * 97 + 17) % 10_007) >>> 0;
-}
-
-/** 1년차~2년차 사이 프로필 (15명: 1년차 7 · 2년차 8, slot마다 고정) */
 const EXPANDED_HISTORY_YEAR_PATTERN: (1 | 2)[] = [
   1, 2, 1, 2, 2, 1, 2, 1, 2, 2, 1, 2, 1, 2, 1,
 ];
 
+function pad2(value: number) {
+  return String(value).padStart(2, '0');
+}
+
+function hashDesignerSlot(slot: number, salt: number) {
+  return ((slot * 1_103 + salt * 97 + 17) % 10_007) >>> 0;
+}
+
 function resolveExpandedHistoryYears(slot: number): 1 | 2 {
-  return EXPANDED_HISTORY_YEAR_PATTERN[slot - 1] ?? ((slot % 2) + 1) as 1 | 2;
+  return EXPANDED_HISTORY_YEAR_PATTERN[slot - 1] ?? (((slot % 2) + 1) as 1 | 2);
 }
 
 function customerCountForTier(slot: number, historyYears: 1 | 2) {
@@ -78,6 +77,65 @@ function customerCountForTier(slot: number, historyYears: 1 | 2) {
 
   return 36 + (hash % 18);
 }
+
+function buildExpandedDesignerPublic(slot: number, storeId: string) {
+  const historyYears = resolveExpandedHistoryYears(slot);
+  const designerName = EXPANDED_DESIGNER_NAME_POOL[slot - 1] ?? `증원 디자이너 ${slot}`;
+  const profileKey = `exp-${pad2(slot)}`;
+  const yearLabel = historyYears === 1 ? '1년차' : '2년차';
+
+  return {
+    id: `test-designer-exp-${pad2(slot)}`,
+    email: `test-designer-exp-${pad2(slot)}@hair.app`,
+    password: EXPANDED_TEST_PASSWORD,
+    name: `${designerName} (${yearLabel})`,
+    profileKey,
+    loginLabel: `증원 · ${designerName} · ${yearLabel}`,
+    storeId,
+    historyYears,
+  };
+}
+
+/** 매장 ID → 증원 디자이너 ID (고객 배열 생성 없음) */
+export const EXPANDED_DESIGNER_IDS_BY_STORE: Record<string, string[]> = (() => {
+  let slot = 0;
+
+  return Object.fromEntries(
+    EXPANDED_DESIGNERS_PER_STORE.map(({ storeId, count }) => {
+      const ids: string[] = [];
+
+      for (let index = 0; index < count; index += 1) {
+        slot += 1;
+        ids.push(`test-designer-exp-${pad2(slot)}`);
+      }
+
+      return [storeId, ids];
+    }),
+  );
+})();
+
+export const EXPANDED_STORE_DESIGNERS_PUBLIC = (() => {
+  let slot = 0;
+
+  return EXPANDED_DESIGNERS_PER_STORE.flatMap(({ storeId, count }) =>
+    Array.from({ length: count }, () => {
+      slot += 1;
+      return buildExpandedDesignerPublic(slot, storeId);
+    }),
+  );
+})();
+
+export const EXPANDED_STORE_DESIGNER_IDS = EXPANDED_STORE_DESIGNERS_PUBLIC.map((item) => item.id);
+
+export type ExpandedStoreDesignerDefinition = {
+  slot: number;
+  storeId: string;
+  designer: BetaTestAccount;
+  historyYears: 1 | 2;
+  profileKey: string;
+  loginLabel: string;
+  customers: BetaTestAccount[];
+};
 
 function buildExpandedCustomers(slot: number, count: number): BetaTestAccount[] {
   return Array.from({ length: count }, (_, index) => {
@@ -95,30 +153,18 @@ function buildExpandedCustomers(slot: number, count: number): BetaTestAccount[] 
   });
 }
 
-export type ExpandedStoreDesignerDefinition = {
-  slot: number;
-  storeId: string;
-  designer: BetaTestAccount;
-  historyYears: 1 | 2;
-  profileKey: string;
-  loginLabel: string;
-  customers: BetaTestAccount[];
-};
-
 function buildExpandedDesignerDefinition(
   slot: number,
   storeId: string,
 ): ExpandedStoreDesignerDefinition {
   const historyYears = resolveExpandedHistoryYears(slot);
   const customerCount = customerCountForTier(slot, historyYears);
-  const designerName = EXPANDED_DESIGNER_NAME_POOL[slot - 1] ?? `증원 디자이너 ${slot}`;
-  const profileKey = `exp-${pad2(slot)}`;
-  const yearLabel = historyYears === 1 ? '1년차' : '2년차';
+  const publicDesigner = buildExpandedDesignerPublic(slot, storeId);
 
   const designer: BetaTestAccount = {
-    id: `test-designer-exp-${pad2(slot)}`,
-    email: `test-designer-exp-${pad2(slot)}@hair.app`,
-    name: `${designerName} (${yearLabel})`,
+    id: publicDesigner.id,
+    email: publicDesigner.email,
+    name: publicDesigner.name,
     password: EXPANDED_TEST_PASSWORD,
     role: 'designer',
   };
@@ -128,29 +174,39 @@ function buildExpandedDesignerDefinition(
     storeId,
     designer,
     historyYears,
-    profileKey,
-    loginLabel: `증원 · ${designerName} · ${yearLabel}`,
+    profileKey: publicDesigner.profileKey,
+    loginLabel: publicDesigner.loginLabel,
     customers: buildExpandedCustomers(slot, customerCount),
   };
 }
 
-let expandedSlot = 0;
+let expandedDefinitionsCache: ExpandedStoreDesignerDefinition[] | null = null;
 
-export const EXPANDED_STORE_DESIGNER_DEFINITIONS: ExpandedStoreDesignerDefinition[] =
-  EXPANDED_DESIGNERS_PER_STORE.flatMap(({ storeId, count }) =>
+export function getExpandedStoreDesignerDefinitions(): ExpandedStoreDesignerDefinition[] {
+  if (expandedDefinitionsCache) {
+    return expandedDefinitionsCache;
+  }
+
+  let slot = 0;
+
+  expandedDefinitionsCache = EXPANDED_DESIGNERS_PER_STORE.flatMap(({ storeId, count }) =>
     Array.from({ length: count }, () => {
-      expandedSlot += 1;
-
-      return buildExpandedDesignerDefinition(expandedSlot, storeId);
+      slot += 1;
+      return buildExpandedDesignerDefinition(slot, storeId);
     }),
   );
 
-export const EXPANDED_STORE_DESIGNER_IDS = EXPANDED_STORE_DESIGNER_DEFINITIONS.map(
-  (item) => item.designer.id,
-);
+  return expandedDefinitionsCache;
+}
 
-export const EXPANDED_STORE_DESIGNER_PROFILE_CONFIGS: AccumulatedSeedProfileConfig[] =
-  EXPANDED_STORE_DESIGNER_DEFINITIONS.map((item) => {
+let expandedProfileConfigsCache: AccumulatedSeedProfileConfig[] | null = null;
+
+export function getExpandedStoreDesignerProfileConfigs(): AccumulatedSeedProfileConfig[] {
+  if (expandedProfileConfigsCache) {
+    return expandedProfileConfigsCache;
+  }
+
+  expandedProfileConfigsCache = getExpandedStoreDesignerDefinitions().map((item) => {
     const isOneYear = item.historyYears === 1;
 
     return {
@@ -166,30 +222,49 @@ export const EXPANDED_STORE_DESIGNER_PROFILE_CONFIGS: AccumulatedSeedProfileConf
     };
   });
 
-export const EXPANDED_STORE_DESIGNERS_PUBLIC = EXPANDED_STORE_DESIGNER_DEFINITIONS.map(
-  (item) => ({
-    id: item.designer.id,
-    email: item.designer.email,
-    password: EXPANDED_TEST_PASSWORD,
-    name: item.designer.name,
-    profileKey: item.profileKey,
-    loginLabel: item.loginLabel,
-    storeId: item.storeId,
-    historyYears: item.historyYears,
-  }),
-);
+  return expandedProfileConfigsCache;
+}
 
-export const EXPANDED_STORE_DESIGNER_ACCOUNTS: BetaTestAccount[] = [
-  ...EXPANDED_STORE_DESIGNER_DEFINITIONS.map((item) => item.designer),
-  ...EXPANDED_STORE_DESIGNER_DEFINITIONS.flatMap((item) => item.customers),
-];
+let expandedAccountsCache: BetaTestAccount[] | null = null;
 
-/** 매장 ID → 증원 디자이너 ID 목록 */
-export const EXPANDED_DESIGNER_IDS_BY_STORE = Object.fromEntries(
-  EXPANDED_DESIGNERS_PER_STORE.map(({ storeId }) => [
-    storeId,
-    EXPANDED_STORE_DESIGNER_DEFINITIONS.filter((item) => item.storeId === storeId).map(
-      (item) => item.designer.id,
-    ),
-  ]),
-) as Record<string, string[]>;
+export function getExpandedStoreDesignerAccounts(): BetaTestAccount[] {
+  if (expandedAccountsCache) {
+    return expandedAccountsCache;
+  }
+
+  expandedAccountsCache = getExpandedStoreDesignerDefinitions().flatMap((item) => [
+    item.designer,
+    ...item.customers,
+  ]);
+
+  return expandedAccountsCache;
+}
+
+/** @deprecated getExpandedStoreDesignerDefinitions() */
+export const EXPANDED_STORE_DESIGNER_DEFINITIONS = new Proxy([] as ExpandedStoreDesignerDefinition[], {
+  get(_target, prop) {
+    const definitions = getExpandedStoreDesignerDefinitions();
+    const value = Reflect.get(definitions, prop);
+    return typeof value === 'function' ? value.bind(definitions) : value;
+  },
+});
+
+/** @deprecated getExpandedStoreDesignerProfileConfigs() */
+export const EXPANDED_STORE_DESIGNER_PROFILE_CONFIGS = new Proxy([] as AccumulatedSeedProfileConfig[], {
+  get(_target, prop) {
+    const configs = getExpandedStoreDesignerProfileConfigs();
+    const value = Reflect.get(configs, prop);
+    return typeof value === 'function' ? value.bind(configs) : value;
+  },
+});
+
+/** @deprecated getExpandedStoreDesignerAccounts() */
+export const EXPANDED_STORE_DESIGNER_ACCOUNTS = new Proxy([] as BetaTestAccount[], {
+  get(_target, prop) {
+    const accounts = getExpandedStoreDesignerAccounts();
+    const value = Reflect.get(accounts, prop);
+    return typeof value === 'function' ? value.bind(accounts) : value;
+  },
+});
+
+export const EXPANDED_STORE_DESIGNER_COUNT = EXPANDED_STORE_DESIGNERS_PUBLIC.length;

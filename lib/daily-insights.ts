@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { demoPersistedStorage } from './demo-persisted-storage';
 import type { Href } from 'expo-router';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
@@ -56,23 +56,23 @@ function dismissStorageKey(userId: string, insightDate: string) {
 }
 
 export async function isTodayInsightDismissed(userId: string, insightDate = toLocalDateString()) {
-  const value = await AsyncStorage.getItem(dismissStorageKey(userId, insightDate));
+  const value = await demoPersistedStorage.getItem(dismissStorageKey(userId, insightDate));
   return value === '1';
 }
 
 export async function markTodayInsightDismissed(userId: string, insightDate = toLocalDateString()) {
-  await AsyncStorage.setItem(dismissStorageKey(userId, insightDate), '1');
+  await demoPersistedStorage.setItem(dismissStorageKey(userId, insightDate), '1');
 }
 
 async function readDemoStore(): Promise<DailyInsight[]> {
-  const raw = await AsyncStorage.getItem(DEMO_STORAGE_KEY);
+  const raw = await demoPersistedStorage.getItem(DEMO_STORAGE_KEY);
   return raw ? (JSON.parse(raw) as DailyInsight[]) : [...memoryStore];
 }
 
 async function writeDemoStore(items: DailyInsight[]) {
   memoryStore.length = 0;
   memoryStore.push(...items);
-  await AsyncStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(items));
+  await demoPersistedStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(items));
 }
 
 export async function findTodayInsightRecord(userId: string, insightDate: string) {

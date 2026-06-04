@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  Platform,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -11,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, getLoginContentWidth } from '../../lib/theme';
+import { LoginHeroStatic } from './login-hero-static';
 
 /** 인라인 배너 — content 너비 대비 세로 비율 (기존 1/3 → 약 46%) */
 const INLINE_BANNER_HEIGHT_RATIO = 0.46;
@@ -33,6 +35,7 @@ type LoginHeroAnimationProps = {
 export function LoginHeroAnimation({ docked = false }: LoginHeroAnimationProps) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
+  const useStaticHero = Platform.OS === 'web' && !docked;
   const [messageIndex, setMessageIndex] = useState(0);
   const messageOpacity = useRef(new Animated.Value(1)).current;
   const messageTranslate = useRef(new Animated.Value(0)).current;
@@ -59,6 +62,10 @@ export function LoginHeroAnimation({ docked = false }: LoginHeroAnimationProps) 
   }, [docked, insets.bottom, windowWidth]);
 
   useEffect(() => {
+    if (useStaticHero) {
+      return;
+    }
+
     const floatLoop = Animated.loop(
       Animated.parallel([
         Animated.sequence([
@@ -116,9 +123,13 @@ export function LoginHeroAnimation({ docked = false }: LoginHeroAnimationProps) 
       floatLoop.stop();
       glowLoop.stop();
     };
-  }, [floatA, floatB, glowScale]);
+  }, [floatA, floatB, glowScale, useStaticHero]);
 
   useEffect(() => {
+    if (useStaticHero) {
+      return;
+    }
+
     const timer = setInterval(() => {
       Animated.parallel([
         Animated.timing(messageOpacity, {
@@ -156,7 +167,11 @@ export function LoginHeroAnimation({ docked = false }: LoginHeroAnimationProps) 
     }, 3200);
 
     return () => clearInterval(timer);
-  }, [messageOpacity, messageTranslate]);
+  }, [messageOpacity, messageTranslate, useStaticHero]);
+
+  if (useStaticHero) {
+    return <LoginHeroStatic height={bannerSize.height} width={bannerSize.width} />;
+  }
 
   const floatATranslateY = floatA.interpolate({
     inputRange: [0, 1],
@@ -169,6 +184,7 @@ export function LoginHeroAnimation({ docked = false }: LoginHeroAnimationProps) 
 
   return (
     <View
+      pointerEvents="box-none"
       style={[
         styles.wrap,
         docked ? styles.wrapDocked : styles.wrapInline,
@@ -179,6 +195,7 @@ export function LoginHeroAnimation({ docked = false }: LoginHeroAnimationProps) 
         },
       ]}>
       <Animated.View
+        pointerEvents="none"
         style={[
           styles.glow,
           docked ? styles.glowDocked : styles.glowInline,
@@ -193,16 +210,20 @@ export function LoginHeroAnimation({ docked = false }: LoginHeroAnimationProps) 
       </Animated.View>
 
       <Animated.Text
+        pointerEvents="none"
         style={[styles.floatIcon, styles.floatTopLeft, { transform: [{ translateY: floatATranslateY }] }]}>
         {FLOATING_ICONS[0]}
       </Animated.Text>
       <Animated.Text
+        pointerEvents="none"
         style={[styles.floatIcon, styles.floatTopRight, { transform: [{ translateY: floatBTranslateY }] }]}>
         {FLOATING_ICONS[1]}
       </Animated.Text>
-      <Text style={[styles.floatIcon, styles.floatBottomRight]}>{FLOATING_ICONS[2]}</Text>
+      <Text pointerEvents="none" style={[styles.floatIcon, styles.floatBottomRight]}>
+        {FLOATING_ICONS[2]}
+      </Text>
 
-      <View style={styles.messageCenter}>
+      <View pointerEvents="none" style={styles.messageCenter}>
         <Text style={styles.badge}>✨</Text>
         <Animated.Text
           numberOfLines={2}

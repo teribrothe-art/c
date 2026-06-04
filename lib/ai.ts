@@ -359,8 +359,8 @@ export async function saveAiConversation(input: {
   }
 
   if (isDemoAuthMode || !supabase) {
-    const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
-    const raw = await AsyncStorage.getItem(DEMO_CONVERSATIONS_KEY);
+    const { demoPersistedStorage } = await import('./demo-persisted-storage');
+    const raw = await demoPersistedStorage.getItem(DEMO_CONVERSATIONS_KEY);
     const items = raw ? (JSON.parse(raw) as SavedAiConversation[]) : [];
     const conversation: SavedAiConversation = {
       ...record,
@@ -369,7 +369,7 @@ export async function saveAiConversation(input: {
     };
 
     items.unshift(conversation);
-    await AsyncStorage.setItem(DEMO_CONVERSATIONS_KEY, JSON.stringify(items.slice(0, 100)));
+    await demoPersistedStorage.setItem(DEMO_CONVERSATIONS_KEY, JSON.stringify(items.slice(0, 100)));
     return conversation;
   }
 

@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { demoPersistedStorage } from './demo-persisted-storage';
 
 import { isValidInviteCodeFormat, sanitizeInviteCode } from './customer-invitations';
 
@@ -11,11 +11,11 @@ export async function stashPendingInviteCode(rawCode: string) {
     return;
   }
 
-  await AsyncStorage.setItem(PENDING_INVITE_KEY, code);
+  await demoPersistedStorage.setItem(PENDING_INVITE_KEY, code);
 }
 
 export async function peekPendingInviteCode() {
-  const raw = await AsyncStorage.getItem(PENDING_INVITE_KEY);
+  const raw = await demoPersistedStorage.getItem(PENDING_INVITE_KEY);
 
   if (!raw) {
     return '';
@@ -24,7 +24,7 @@ export async function peekPendingInviteCode() {
   const code = sanitizeInviteCode(raw);
 
   if (!isValidInviteCodeFormat(code)) {
-    await AsyncStorage.removeItem(PENDING_INVITE_KEY);
+    await demoPersistedStorage.removeItem(PENDING_INVITE_KEY);
     return '';
   }
 
@@ -35,12 +35,12 @@ export async function consumePendingInviteCode() {
   const code = await peekPendingInviteCode();
 
   if (code) {
-    await AsyncStorage.removeItem(PENDING_INVITE_KEY);
+    await demoPersistedStorage.removeItem(PENDING_INVITE_KEY);
   }
 
   return code;
 }
 
 export async function clearPendingInviteCode() {
-  await AsyncStorage.removeItem(PENDING_INVITE_KEY);
+  await demoPersistedStorage.removeItem(PENDING_INVITE_KEY);
 }

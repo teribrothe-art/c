@@ -1,5 +1,7 @@
-import { Href, Link, usePathname } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Href, usePathname } from 'expo-router';
+import { StyleSheet, Text, View } from 'react-native';
+
+import { RouterPressable } from './router-pressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const tabs: { href: Href; label: string; match?: (pathname: string) => boolean }[] = [
@@ -54,23 +56,22 @@ export function BottomTabBar() {
     <View
       pointerEvents="box-none"
       style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-      <View style={styles.tabBar}>
+      <View pointerEvents="auto" style={styles.tabBar}>
         {tabs.map((tab) => {
           const selected = isTabSelected(pathname, tab);
 
           return (
-            <Link href={tab.href} key={String(tab.href)} asChild>
-              <Pressable accessibilityRole="button" hitSlop={6} style={styles.tabItem}>
-                <View style={[styles.tabDot, selected && styles.tabDotSelected]} />
-                <Text
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.85}
-                  numberOfLines={1}
-                  style={[styles.tabLabel, selected && styles.tabLabelSelected]}>
-                  {tab.label}
-                </Text>
-              </Pressable>
-            </Link>
+            <RouterPressable href={tab.href} hitSlop={6} key={String(tab.href)} style={styles.tabItem}>
+              <View pointerEvents="none" style={[styles.tabDot, selected && styles.tabDotSelected]} />
+              <Text
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+                numberOfLines={1}
+                pointerEvents="none"
+                style={[styles.tabLabel, selected && styles.tabLabelSelected]}>
+                {tab.label}
+              </Text>
+            </RouterPressable>
           );
         })}
       </View>
