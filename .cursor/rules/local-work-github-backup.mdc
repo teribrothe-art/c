@@ -1,0 +1,38 @@
+---
+description: 로컬 개발 + GitHub 백업 (고정 원칙, 재확인 금지)
+alwaysApply: true
+---
+
+# 로컬 작업 · GitHub 백업
+
+이 프로젝트의 **고정 워크플로**입니다. 사용자에게 이 원칙을 다시 묻거나 확인하지 않습니다.
+
+## 원칙
+
+1. **모든 작업은 로컬에서 진행**한다.
+   - 코드·빌드·테스트·Expo Metro는 사용자 PC의 `c:\c-main`(프로젝트 루트)에서 실행한다.
+   - 원격 VM·클라우드 개발 환경으로 옮기거나, “원격에서 할까요?” 같은 제안을 하지 않는다.
+   - `.env`·시크릿·로컬 로그는 저장소에 넣지 않는다 (`.gitignore` 유지).
+
+2. **백업은 GitHub에만** 한다.
+   - 원격: `https://github.com/teribrothe-art/c.git` (`origin`, 브랜치 `main`)
+   - 수동: `npm run backup` (또는 `node scripts/backup-to-github.mjs`)
+   - Cursor 세션 종료 시: `.cursor/hooks.json` → `sessionEnd`가 동일 스크립트 실행
+   - 백업 로그: `.cursor/backup.log` (로컬 전용)
+
+## 에이전트 행동
+
+- 작업 마무리·저장·백업 요청 시: 변경 사항을 커밋하고 `origin/main`에 push한다 (별도 확인 질문 없음).
+- push 실패 시: `.cursor/backup.log`를 보고 원인을 수정한 뒤 `npm run backup`을 다시 실행한다.
+- GitHub 이슈/PR·다른 원격 저장소로 백업하자고 제안하지 않는다.
+- “로컬 vs 클라우드”, “어디에 백업할까요” 등 **워크플로 선택 질문을 하지 않는다.**
+
+## 로컬 실행 참고 (Windows)
+
+PowerShell 실행 정책으로 `npm.ps1`이 막히면:
+
+```cmd
+cmd /c "cd /d c:\c-main && npm.cmd run web"
+```
+
+`web:clear`의 `CI=1`은 Windows cmd에서 깨질 수 있으므로 `npx expo start --web --port 8081 --clear`를 사용한다.

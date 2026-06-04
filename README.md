@@ -181,6 +181,11 @@ EXPO_PUBLIC_TOSS_CLIENT_KEY=test_ck_발급받은_전체_문자열
 
 홈 화면(`/home`)은 Supabase의 `treatments` 테이블에서 본인 시술 기록을 최신순으로 불러옵니다. Supabase 설정 전에는 로컬 확인용 시술 카드가 표시됩니다.
 
+## 작업 원칙 (고정)
+
+- **개발**: 항상 로컬 PC에서 진행 (이 폴더에서 Metro·빌드·테스트)
+- **백업**: [https://github.com/teribrothe-art/c.git](https://github.com/teribrothe-art/c.git) (`main`) — `.env`는 백업하지 않음
+
 ## GitHub 백업 (작업 종료 시)
 
 원격: [https://github.com/teribrothe-art/c.git](https://github.com/teribrothe-art/c.git)
