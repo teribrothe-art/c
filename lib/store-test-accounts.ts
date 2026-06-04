@@ -1,5 +1,9 @@
 import type { UserRole } from './auth';
 import type { BetaTestAccount } from './beta-test-accounts';
+import {
+  NATIONWIDE_STORE_COUNT,
+  NATIONWIDE_STORE_DEFINITIONS,
+} from './nationwide-org-catalog';
 
 export const STORE_TEST_PASSWORD = 'store1234';
 
@@ -7,27 +11,23 @@ export type StoreTestAccount = BetaTestAccount & {
   linkedOrgStoreId: string;
 };
 
-const HOT_PLACE_STORES = [
-  { id: 'virtual-store-hot-gangnam', slug: 'gangnam', name: '강남 플랜비' },
-  { id: 'virtual-store-hot-hongdae', slug: 'hongdae', name: '홍대·연남 플랜비' },
-  { id: 'virtual-store-hot-seongsu', slug: 'seongsu', name: '성수 플랜비' },
-  { id: 'virtual-store-hot-busan', slug: 'busan', name: '해운대·광안리 플랜비' },
-] as const;
+function buildNationwideStoreAccount(storeIndex: number): StoreTestAccount {
+  const store = NATIONWIDE_STORE_DEFINITIONS[storeIndex - 1];
 
-function buildRegionalStoreAccount(store: (typeof HOT_PLACE_STORES)[number]): StoreTestAccount {
   return {
-    id: `store-test-${store.slug}`,
-    email: `store-${store.slug}@hair.app`,
-    name: store.name,
+    id: `store-test-nw-${String(storeIndex).padStart(4, '0')}`,
+    email: `store-nw-${String(storeIndex).padStart(4, '0')}@hair.app`,
+    name: store?.name ?? `플랜비 ${storeIndex}`,
     password: STORE_TEST_PASSWORD,
     role: 'store' as UserRole,
-    linkedOrgStoreId: store.id,
+    linkedOrgStoreId: store?.id ?? `virtual-store-nw-${String(storeIndex).padStart(4, '0')}`,
   };
 }
 
-/** 지역별 플랜비 매장 로그인 (4곳) */
-export const REGIONAL_STORE_TEST_ACCOUNTS: StoreTestAccount[] = HOT_PLACE_STORES.map(
-  buildRegionalStoreAccount,
+/** 전국 플랜비 매장 로그인 (600곳) */
+export const NATIONWIDE_STORE_TEST_ACCOUNTS: StoreTestAccount[] = Array.from(
+  { length: NATIONWIDE_STORE_COUNT },
+  (_, index) => buildNationwideStoreAccount(index + 1),
 );
 
 /** 레거시 강남 매장 (`store@hair.app`) */
@@ -37,13 +37,13 @@ export const STORE_TEST_ACCOUNT: StoreTestAccount = {
   name: '강남 플랜비',
   password: STORE_TEST_PASSWORD,
   role: 'store' as UserRole,
-  linkedOrgStoreId: 'virtual-store-hot-gangnam',
+  linkedOrgStoreId: 'virtual-store-nw-0001',
 };
 
-/** 시드·로그인에 쓰는 전체 매장 계정 (레거시 + 지역 4) */
+/** 시드·로그인에 쓰는 전체 매장 계정 (레거시 + 전국 600) */
 export const STORE_TEST_ACCOUNTS: StoreTestAccount[] = [
   STORE_TEST_ACCOUNT,
-  ...REGIONAL_STORE_TEST_ACCOUNTS,
+  ...NATIONWIDE_STORE_TEST_ACCOUNTS.filter((account) => account.id !== 'store-test-nw-0001'),
 ];
 
 const storeAccountToOrgStoreId = new Map(
@@ -54,12 +54,24 @@ const storeEmailToOrgStoreId = new Map(
   STORE_TEST_ACCOUNTS.map((account) => [account.email.toLowerCase(), account.linkedOrgStoreId]),
 );
 
+/** 레거시 slug 이메일 → 전국 매장 ID */
+const LEGACY_STORE_EMAIL_ALIASES: Record<string, string> = {
+  'store-gangnam@hair.app': 'virtual-store-nw-0001',
+  'store-hongdae@hair.app': 'virtual-store-nw-0002',
+  'store-seongsu@hair.app': 'virtual-store-nw-0003',
+  'store-busan@hair.app': 'virtual-store-nw-0004',
+};
+
 export function getStoreOrgIdForAccountId(accountId: string) {
   return storeAccountToOrgStoreId.get(accountId);
 }
 
 export function getStoreOrgIdForEmail(email: string) {
-  return storeEmailToOrgStoreId.get(email.trim().toLowerCase());
+  const normalized = email.trim().toLowerCase();
+
+  return (
+    storeEmailToOrgStoreId.get(normalized) ?? LEGACY_STORE_EMAIL_ALIASES[normalized]
+  );
 }
 
 export function resolveStoreOrgIdForUser(user: {
@@ -83,3 +95,6 @@ export const STORE_TEST_PUBLIC = {
   password: STORE_TEST_ACCOUNT.password,
   loginLabel: '강남 플랜비 (store@)',
 } as const;
+
+/** @deprecated NATIONWIDE_STORE_TEST_ACCOUNTS 사용 */
+export const REGIONAL_STORE_TEST_ACCOUNTS = NATIONWIDE_STORE_TEST_ACCOUNTS.slice(0, 4);

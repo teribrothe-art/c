@@ -15,7 +15,8 @@ export type NotificationType =
   | 'customer_payment_due'
   | 'customer_feedback'
   | 'invite_customer_joined'
-  | 'treatment_recorded';
+  | 'treatment_recorded'
+  | 'revenue_split_changed';
 
 export type AppNotification = {
   id: string;

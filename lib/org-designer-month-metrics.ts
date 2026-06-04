@@ -39,11 +39,10 @@ export function resolveDesignerMonthSettlement(
 ): OrgMonthSettlementTotals {
   const fromPayments = aggregateMonthSettlementFromPayments(payments, monthKey, config);
   const fromTreatments = grossSalesFromTreatmentsInMonth(treatments, monthKey);
-  const monthGrossSales = Math.max(fromPayments.monthGrossSales, fromTreatments);
-
-  if (monthGrossSales === fromPayments.monthGrossSales) {
+  // "매출"은 결제(정산) 기준이 우선. 결제가 0인 경우에만 시술 금액 합으로 보정(데모/미연동 대비).
+  if (fromPayments.monthGrossSales > 0) {
     return fromPayments;
   }
 
-  return settlementTotalsFromGross(monthGrossSales, config);
+  return settlementTotalsFromGross(fromTreatments, config);
 }

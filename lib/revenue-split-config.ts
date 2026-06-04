@@ -31,7 +31,7 @@ export const DEFAULT_PG_FEE_PERCENT = 1.25;
 export const DEFAULT_REVENUE_SPLIT_CONFIG: RevenueSplitConfig = {
   cardFeePercent: CARD_COMPANY_AVERAGE_FEE_PERCENT,
   pgFeePercent: DEFAULT_PG_FEE_PERCENT,
-  hqFeePercent: 4,
+  hqFeePercent: 2,
   designerSharePercent: 70,
   storeSharePercent: 30,
 };
@@ -85,7 +85,7 @@ export function normalizeRevenueSplitConfig(
   return {
     cardFeePercent: clampPercent(migrated.cardFeePercent ?? CARD_COMPANY_AVERAGE_FEE_PERCENT),
     pgFeePercent: clampPercent(migrated.pgFeePercent ?? DEFAULT_PG_FEE_PERCENT),
-    hqFeePercent: clampPercent(migrated.hqFeePercent ?? 4),
+    hqFeePercent: clampPercent(migrated.hqFeePercent ?? 2),
     designerSharePercent:
       shareSum === 0 ? 70 : Math.round((designerSharePercent / shareSum) * 1000) / 10,
     storeSharePercent:
@@ -138,4 +138,42 @@ export function configsEqual(a: RevenueSplitConfig, b: RevenueSplitConfig) {
     a.designerSharePercent === b.designerSharePercent &&
     a.storeSharePercent === b.storeSharePercent
   );
+}
+
+export function shareSplitEqual(a: RevenueSplitConfig, b: RevenueSplitConfig) {
+  return (
+    a.designerSharePercent === b.designerSharePercent &&
+    a.storeSharePercent === b.storeSharePercent
+  );
+}
+
+export function adminFeeFieldsEqual(a: RevenueSplitConfig, b: RevenueSplitConfig) {
+  return (
+    a.cardFeePercent === b.cardFeePercent &&
+    a.pgFeePercent === b.pgFeePercent &&
+    a.hqFeePercent === b.hqFeePercent
+  );
+}
+
+/** 본사·매장·디자이너 역할별 편집 가능 필드만 반영 */
+export function configForPartyEdit(
+  party: RevenueSplitParty,
+  draft: Partial<RevenueSplitConfig>,
+  active: RevenueSplitConfig,
+): RevenueSplitConfig {
+  const normalized = normalizeRevenueSplitConfig({
+    ...active,
+    ...draft,
+  });
+
+  if (party === 'admin') {
+    return normalized;
+  }
+
+  return {
+    ...normalized,
+    cardFeePercent: active.cardFeePercent,
+    pgFeePercent: active.pgFeePercent,
+    hqFeePercent: active.hqFeePercent,
+  };
 }

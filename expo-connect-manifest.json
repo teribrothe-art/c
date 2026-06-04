@@ -1,8 +1,9 @@
 {
-  "version": "1.0.5",
-  "buildLabel": "2026-05-30 · 카드·PG·예약·매출검색·본사탭",
+  "version": "1.0.7",
+  "buildLabel": "2026-05-27 · 원 단위 · 주간/월별 매출 · 본사 연동 · v1.0.7",
   "url": "exp://etgwoos-anonymous-8081.exp.direct",
-  "updatedAt": "2026-05-30T18:46:56.510Z",
+  "webUrl": "http://etgwoos-anonymous-8081.exp.direct",
+  "updatedAt": "2026-06-02T02:31:21.907Z",
   "mode": "tunnel",
   "shareable": true,
   "ngrokPublicUrl": "https://etgwoos-anonymous-8081.exp.direct"

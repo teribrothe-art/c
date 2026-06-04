@@ -3,17 +3,27 @@ import { DEMO_LOGIN_HINT } from './auth';
 import { BETA_DESIGNERS, BETA_TEST_PASSWORD } from './beta-test-accounts';
 import {
   ACCUMULATED_TEST_DESIGNERS_PUBLIC,
-  EXPANDED_STORE_DESIGNER_COUNT,
 } from './demo-accumulated-test-accounts';
+import {
+  NATIONWIDE_DESIGNER_COUNT,
+  NATIONWIDE_DESIGNERS_PUBLIC,
+  NATIONWIDE_REGISTERED_CUSTOMER_TOTAL,
+} from './nationwide-org-catalog';
 import {
   DESIGNER_LINKED_CUSTOMER_COUNT,
   getDesignerLinkedCustomerLoginSources,
 } from './demo-designer-linked-customers';
+import { formatDesignerRegionShortLabel } from './designer-region-filter';
+import { getNationwideStoreById } from './nationwide-org-catalog';
 import { formatDesignerStoreLabel, ORG_STORE_DEFINITIONS } from './org-store-affiliation';
 import { DESIGNER_APP_TAB_LABELS } from './designer-app-tabs';
 import { getDemoDesignerCustomerCount, formatDemoDesignerCustomerCount } from './demo-designer-customer-counts';
 import { STORE_TEST_ACCOUNTS } from './store-test-accounts';
 import { colors } from './theme';
+import type { CustomerConsonantTab } from './korean-consonant';
+import { getCustomerNameConsonant } from './korean-consonant';
+import { DEMO_LOGIN_PAGE_SIZE } from './demo-login-list-staging';
+import type { DesignerLinkedCustomerSource } from './demo-designer-linked-customers';
 
 export type DemoLoginAccount = {
   id: string;
@@ -35,9 +45,9 @@ export type DemoLoginGroupKey = (typeof DEMO_LOGIN_GROUP_ORDER)[number];
 
 export const DEMO_LOGIN_GROUP_DESCRIPTIONS: Record<DemoLoginGroupKey, string> = {
   본사: '본사 어드민 · 전체 매장·디자이너·매출 조회',
-  매장: '지역 플랜비 매장 전체 — 펼치면 목록 · 검색 가능',
-  디자이너: `데모 · 베타 · 누적 · 증원 ${EXPANDED_STORE_DESIGNER_COUNT}명 — ${DESIGNER_APP_TAB_LABELS} · 펼치면 목록`,
-  가입고객: '디자이너 연동 고객 전체(데모·베타·누적·증원) — 펼친 뒤 검색',
+  매장: '전국 플랜비 매장 — 검색 후 로그인',
+  디자이너: `데모 · 베타 · 누적 · 전국 ${NATIONWIDE_DESIGNER_COUNT.toLocaleString('ko-KR')}명 — 단계 탭 · 전체보기 · 검색`,
+  가입고객: `디자이너 연동 고객 전체(데모·베타·누적·전국 ${NATIONWIDE_REGISTERED_CUSTOMER_TOTAL.toLocaleString('ko-KR')}명) — 단계 탭·초성·전체보기`,
 };
 
 /** 탭하면 계정 목록을 펼치는 그룹 */
@@ -57,9 +67,14 @@ export function isSearchableDemoLoginGroup(title: DemoLoginGroupKey) {
   return title === '매장' || title === '디자이너' || title === '가입고객';
 }
 
-/** 펼치면 검색 없이 전체 목록 표시 */
+/** 펼치면 검색 없이 전체 목록 표시 (소규모 그룹만) */
 export function demoLoginGroupListsAllWhenExpanded(title: DemoLoginGroupKey) {
-  return title === '본사' || title === '매장' || title === '디자이너';
+  return title === '본사';
+}
+
+/** 대규모 그룹은 검색 필수 */
+export function demoLoginGroupRequiresSearch(title: DemoLoginGroupKey) {
+  return title === '매장' || title === '디자이너';
 }
 
 export function getDemoLoginSearchPlaceholder(title: DemoLoginGroupKey) {
@@ -110,6 +125,10 @@ function accumulatedDesignerYearLabel(profileKey: string) {
 
   if (profileKey === '5y') {
     return '5년';
+  }
+
+  if (profileKey.startsWith('nw-')) {
+    return '전국';
   }
 
   if (profileKey.startsWith('exp-')) {
@@ -207,11 +226,57 @@ const ACCUMULATED_DESIGNER_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_DESIG
   },
 );
 
-/** 테스트 로그인 · 디자이너 탭 전체 (데모 1 + 베타 5 + 누적 4 + 증원 15) */
+function nationwideDesignerAccent(historyYears: number) {
+  if (historyYears === 1) {
+    return '#00C2A8';
+  }
+
+  if (historyYears === 3) {
+    return '#F59E0B';
+  }
+
+  if (historyYears === 4) {
+    return '#E85D4C';
+  }
+
+  return '#7B5EE6';
+}
+
+const NATIONWIDE_DESIGNER_ACCOUNTS: DemoLoginAccount[] = NATIONWIDE_DESIGNERS_PUBLIC.map(
+  (designer) => {
+    const regionLabel = formatDesignerRegionShortLabel(
+      getNationwideStoreById(designer.storeId)?.region ?? '전국',
+    );
+
+    return withDesignerCustomerCount({
+      id: designer.id,
+      group: '디자이너',
+      roleLabel: regionLabel,
+      loginLabel: designer.loginLabel,
+      email: designer.email,
+      password: designer.password,
+      meta: `${formatDesignerStoreLabel(designer.id)} · ${designer.historyYears}년차`,
+      accent: nationwideDesignerAccent(designer.historyYears),
+      searchHaystack: designerSearchHaystack([
+        regionLabel,
+        '디자이너',
+        designer.loginLabel,
+        designer.email,
+        designer.profileKey,
+        designer.id,
+        `${designer.historyYears}년차`,
+        formatDesignerStoreLabel(designer.id),
+      ]),
+    });
+  },
+);
+
+/** 테스트 로그인 · 디자이너 탭 전체 (데모 + 베타 + 누적 + 전국 1000) */
 export const ALL_DESIGNER_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
   DEMO_DESIGNER_ACCOUNT,
   ...BETA_DESIGNER_ACCOUNTS,
   ...ACCUMULATED_DESIGNER_ACCOUNTS,
+  ...NATIONWIDE_DESIGNER_ACCOUNTS,
 ];
 
 export const DESIGNER_LOGIN_COUNT = ALL_DESIGNER_LOGIN_ACCOUNTS.length;
@@ -269,39 +334,163 @@ const ADMIN_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
 
 export const ADMIN_LOGIN_COUNT = ADMIN_LOGIN_ACCOUNTS.length;
 
-function buildRegisteredCustomerLoginAccounts(): DemoLoginAccount[] {
-  return getDesignerLinkedCustomerLoginSources().flatMap(
-    ({ profileLabel, designerName, designerId, customers, password }) =>
-      customers.map((customer, index) => {
-        const haystack = [
-          customer.name,
-          customer.email,
-          customer.id,
-          profileLabel,
-          designerName,
-          designerId,
-          '가입고객',
-          '데모',
-          '베타',
-          '누적',
-          '증원',
-        ]
-          .join(' ')
-          .toLowerCase();
+function mapRegisteredCustomerLoginAccount(
+  source: DesignerLinkedCustomerSource,
+  customer: DesignerLinkedCustomerSource['customers'][number],
+  index: number,
+): DemoLoginAccount {
+  const { profileLabel, designerName, designerId, password } = source;
+  const haystack = [
+    customer.name,
+    customer.email,
+    customer.id,
+    profileLabel,
+    designerName,
+    designerId,
+    '가입고객',
+    '데모',
+    '베타',
+    '누적',
+    '증원',
+  ]
+    .join(' ')
+    .toLowerCase();
 
-        return {
-          id: customer.id,
-          group: '가입고객',
-          roleLabel: '고객',
-          loginLabel: customer.name ?? customer.email,
-          email: customer.email,
-          password,
-          meta: `${designerName} · ${profileLabel} · ${index + 1}/${customers.length}`,
-          accent: colors.coral,
-          searchHaystack: haystack,
-        };
-      }),
+  return {
+    id: customer.id,
+    group: '가입고객',
+    roleLabel: '고객',
+    loginLabel: customer.name ?? customer.email,
+    email: customer.email,
+    password,
+    meta: `${designerName} · ${profileLabel} · ${index + 1}/${source.customers.length}`,
+    accent: colors.coral,
+    searchHaystack: haystack,
+  };
+}
+
+function matchesRegisteredCustomerQuery(account: DemoLoginAccount, normalized: string) {
+  if (!normalized) {
+    return true;
+  }
+
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+  const haystack =
+    account.searchHaystack ??
+    [account.loginLabel, account.email, account.meta ?? '', account.id]
+      .join(' ')
+      .toLowerCase();
+
+  return tokens.every((token) => haystack.includes(token));
+}
+
+function buildRegisteredCustomerLoginAccounts(): DemoLoginAccount[] {
+  return getDesignerLinkedCustomerLoginSources().flatMap((source) =>
+    source.customers.map((customer, index) =>
+      mapRegisteredCustomerLoginAccount(source, customer, index),
+    ),
   );
+}
+
+let registeredCustomerConsonantCountsCache: Record<CustomerConsonantTab, number> | null = null;
+
+/** 가입고객 초성별 인원 (전체 계정 객체 생성 없이 집계) */
+export function countRegisteredCustomersByConsonant(): Record<CustomerConsonantTab, number> {
+  if (registeredCustomerConsonantCountsCache) {
+    return registeredCustomerConsonantCountsCache;
+  }
+
+  const counts = {
+    'ㄱ': 0,
+    'ㄴ': 0,
+    'ㄷ': 0,
+    'ㄹ': 0,
+    'ㅁ': 0,
+    'ㅂ': 0,
+    'ㅅ': 0,
+    'ㅇ': 0,
+    'ㅈ': 0,
+    'ㅊ': 0,
+    'ㅋ': 0,
+    'ㅌ': 0,
+    'ㅍ': 0,
+    'ㅎ': 0,
+  } as Record<CustomerConsonantTab, number>;
+
+  for (const source of getDesignerLinkedCustomerLoginSources()) {
+    for (const customer of source.customers) {
+      const tab = getCustomerNameConsonant(customer.name ?? customer.email);
+      counts[tab] += 1;
+    }
+  }
+
+  registeredCustomerConsonantCountsCache = counts;
+
+  return counts;
+}
+
+export type RegisteredCustomerLoginPageOptions = {
+  offset?: number;
+  limit?: number;
+  consonant?: CustomerConsonantTab | null;
+  query?: string;
+  /** true면 초성 필터 없이 전체 범위 (전체보기 탭) */
+  viewAll?: boolean;
+};
+
+export type RegisteredCustomerLoginPage = {
+  accounts: DemoLoginAccount[];
+  totalMatches: number;
+  hasMore: boolean;
+};
+
+/** 가입고객 목록 — 필요한 구간만 생성 (전체 1만명 일괄 생성 방지) */
+export function getRegisteredCustomerLoginPage(
+  options: RegisteredCustomerLoginPageOptions = {},
+): RegisteredCustomerLoginPage {
+  const offset = Math.max(0, options.offset ?? 0);
+  const limit = Math.max(1, options.limit ?? DEMO_LOGIN_PAGE_SIZE);
+  const normalized = (options.query ?? '').trim().toLowerCase();
+  const consonant = options.viewAll ? null : options.consonant ?? null;
+
+  if (!options.viewAll && !consonant && !normalized) {
+    return { accounts: [], totalMatches: DESIGNER_LINKED_CUSTOMER_COUNT, hasMore: false };
+  }
+
+  const accounts: DemoLoginAccount[] = [];
+  let totalMatches = 0;
+  let skipped = 0;
+
+  for (const source of getDesignerLinkedCustomerLoginSources()) {
+    for (let index = 0; index < source.customers.length; index += 1) {
+      const customer = source.customers[index];
+      const label = customer.name ?? customer.email;
+
+      if (consonant && getCustomerNameConsonant(label) !== consonant) {
+        continue;
+      }
+
+      const account = mapRegisteredCustomerLoginAccount(source, customer, index);
+
+      if (!matchesRegisteredCustomerQuery(account, normalized)) {
+        continue;
+      }
+
+      if (skipped < offset) {
+        skipped += 1;
+      } else if (accounts.length < limit) {
+        accounts.push(account);
+      }
+
+      totalMatches += 1;
+    }
+  }
+
+  return {
+    accounts,
+    totalMatches,
+    hasMore: offset + accounts.length < totalMatches,
+  };
 }
 
 let registeredCustomerAccountsCache: DemoLoginAccount[] | null = null;
@@ -345,17 +534,13 @@ export function getDemoLoginGroupCountLabel(title: DemoLoginGroupKey | string) {
   return `${count.toLocaleString('ko-KR')} ${unit}`;
 }
 
-export function getDemoLoginGroups(options?: { includeRegisteredCustomers?: boolean }) {
-  const includeRegisteredCustomers = options?.includeRegisteredCustomers ?? false;
-
+export function getDemoLoginGroups() {
   return DEMO_LOGIN_GROUP_ORDER.map((title) => ({
     title,
     description: DEMO_LOGIN_GROUP_DESCRIPTIONS[title],
     accounts:
       title === '가입고객'
-        ? includeRegisteredCustomers
-          ? getRegisteredCustomerLoginAccounts()
-          : []
+        ? []
         : STATIC_DEMO_LOGIN_ACCOUNTS.filter((account) => account.group === title),
   }));
 }

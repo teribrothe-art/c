@@ -9,7 +9,7 @@ export const APP_VERSION = appConfig.expo.version;
 export const APP_BUILD_LABEL =
   (Constants.expoConfig?.extra?.buildLabel as string | undefined)?.trim() ||
   process.env.EXPO_PUBLIC_APP_BUILD_LABEL?.trim() ||
-  '2026-05-30 · 카드·PG·예약·매출검색·본사탭';
+  '2026-05-27 · 원 단위 · 주간/월별 매출 · 본사 연동';
 
 export function formatAppVersionLine() {
   return `v${APP_VERSION} · ${APP_BUILD_LABEL}`;

@@ -18,14 +18,6 @@ type YearGroup = {
   items: MonthlySettlementTotal[];
 };
 
-function formatTileAmount(amount: number) {
-  if (amount >= 10000) {
-    return `${Math.round(amount / 10000).toLocaleString('ko-KR')}만`;
-  }
-
-  return amount.toLocaleString('ko-KR');
-}
-
 function formatTileMonthLabel(monthKey: string) {
   const month = monthKey.split('-')[1];
 
@@ -164,7 +156,7 @@ export function MonthlySettlementGrid({ items, onPressItem, onPressAll }: Monthl
                 {formatTileMonthLabel(item.monthKey)}
               </Text>
               <Text style={styles.amount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                {formatTileAmount(item.amount)}
+                {formatAmount(item.amount)}
               </Text>
               <Text style={styles.meta}>{item.settlementCount}건</Text>
             </Pressable>

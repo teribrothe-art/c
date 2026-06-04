@@ -1,4 +1,5 @@
 import type { DesignerClientListItem } from './customer-invitations';
+import { formatWonAmount } from './currency-input';
 import { normalizePaymentStatus } from './payment-status';
 import type { CustomerGridItem } from '../src/components/customer-grid';
 import type { SettlementListItem } from './designer-payment-stats';
@@ -62,11 +63,7 @@ export function groupDesignerClientsByDate(
 }
 
 export function formatSettlementBadgeAmount(payout: number) {
-  if (payout >= 10000) {
-    return `${Math.round(payout / 10000).toLocaleString('ko-KR')}만`;
-  }
-
-  return payout.toLocaleString('ko-KR');
+  return formatWonAmount(payout);
 }
 
 export function getDesignerClientStatusBadge(item: DesignerClientListItem) {

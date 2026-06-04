@@ -1,6 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { formatAmount } from '../../lib/currency-input';
+import { formatPlainAmount, formatSalesAmount } from '../../lib/currency-input';
 import { formatDesignerNamePreview } from '../../lib/designer-name-preview';
 import type { OrgDesignerStoreGroup } from '../../lib/org-aggregates';
 import { colors } from '../../lib/theme';
@@ -54,12 +54,12 @@ export function getStoreMetricDetail(snapshot: StoreMetricSnapshot, tab: StoreMe
       };
     case 'sales':
       return {
-        value: formatAmount(snapshot.monthGrossSales),
+        value: formatSalesAmount(snapshot.monthGrossSales),
         meta: '이번 달 매출',
       };
     case 'hq':
       return {
-        value: formatAmount(snapshot.monthHqRevenue),
+        value: formatPlainAmount(snapshot.monthHqRevenue),
         meta: '이번 달 본사 수익',
       };
   }

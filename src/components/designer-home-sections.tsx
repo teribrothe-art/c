@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { SettlementListItem } from '../../lib/designer-payment-stats';
 import type { DesignerHomeActionItem, DesignerHomeRecentItem } from '../../lib/designer-home-feed';
+import { formatAmount } from '../../lib/currency-input';
 import { colors } from '../../lib/theme';
 
 type DesignerHomeSectionsProps = {
@@ -131,7 +132,7 @@ export function DesignerHomeSections({
                     </Text>
                   </View>
                   <Text style={styles.payoutText}>
-                    +{item.payout.toLocaleString('ko-KR')}원
+                    +{formatAmount(item.payout)}
                   </Text>
                 </Pressable>
               ))}
