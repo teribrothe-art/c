@@ -7,8 +7,9 @@ import {
 } from './demo-accumulated-test-accounts';
 import {
   DESIGNER_LINKED_CUSTOMER_COUNT,
-  getDesignerLinkedCustomerLoginSources,
-} from './demo-designer-linked-customers';
+  DESIGNER_LOGIN_COUNT_STATIC,
+} from './demo-account-counts';
+import { getDesignerLinkedCustomerLoginSources } from './demo-designer-linked-customers';
 import { formatDesignerStoreLabel, ORG_STORE_DEFINITIONS } from './org-store-affiliation';
 import { DESIGNER_APP_TAB_LABELS } from './designer-app-tabs';
 import { getDemoDesignerCustomerCount, formatDemoDesignerCustomerCount } from './demo-designer-customer-counts';
@@ -79,7 +80,7 @@ export function getDemoLoginSearchPlaceholder(title: DemoLoginGroupKey) {
 }
 
 /** @deprecated DESIGNER_LINKED_CUSTOMER_COUNT 사용 */
-export const ACCUMULATED_LOGIN_CUSTOMER_COUNT = DESIGNER_LINKED_CUSTOMER_COUNT;
+export { DESIGNER_LINKED_CUSTOMER_COUNT as ACCUMULATED_LOGIN_CUSTOMER_COUNT };
 
 function designerSearchHaystack(parts: string[]) {
   return parts.join(' ').toLowerCase();
@@ -178,8 +179,8 @@ function accumulatedDesignerRoleLabel(profileKey: string) {
   return profileKey.startsWith('exp-') ? '증원' : '누적';
 }
 
-const ACCUMULATED_DESIGNER_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_DESIGNERS_PUBLIC.map(
-  (designer) => {
+function buildAccumulatedDesignerLoginAccounts(): DemoLoginAccount[] {
+  return ACCUMULATED_TEST_DESIGNERS_PUBLIC.map((designer) => {
     const roleLabel = accumulatedDesignerRoleLabel(designer.profileKey);
     const yearLabel = accumulatedDesignerYearLabel(designer.profileKey);
 
@@ -204,17 +205,34 @@ const ACCUMULATED_DESIGNER_ACCOUNTS: DemoLoginAccount[] = ACCUMULATED_TEST_DESIG
         formatDesignerStoreLabel(designer.id),
       ]),
     });
+  });
+}
+
+let allDesignerLoginAccountsCache: DemoLoginAccount[] | null = null;
+
+/** 테스트 로그인 · 디자이너 탭 전체 (첫 펼침 시 생성) */
+export function getAllDesignerLoginAccounts(): DemoLoginAccount[] {
+  if (!allDesignerLoginAccountsCache) {
+    allDesignerLoginAccountsCache = [
+      DEMO_DESIGNER_ACCOUNT,
+      ...BETA_DESIGNER_ACCOUNTS,
+      ...buildAccumulatedDesignerLoginAccounts(),
+    ];
+  }
+
+  return allDesignerLoginAccountsCache;
+}
+
+/** @deprecated getAllDesignerLoginAccounts() */
+export const ALL_DESIGNER_LOGIN_ACCOUNTS = new Proxy([] as DemoLoginAccount[], {
+  get(_target, prop) {
+    const accounts = getAllDesignerLoginAccounts();
+    const value = Reflect.get(accounts, prop);
+    return typeof value === 'function' ? value.bind(accounts) : value;
   },
-);
+});
 
-/** 테스트 로그인 · 디자이너 탭 전체 (데모 1 + 베타 5 + 누적 4 + 증원 15) */
-export const ALL_DESIGNER_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
-  DEMO_DESIGNER_ACCOUNT,
-  ...BETA_DESIGNER_ACCOUNTS,
-  ...ACCUMULATED_DESIGNER_ACCOUNTS,
-];
-
-export const DESIGNER_LOGIN_COUNT = ALL_DESIGNER_LOGIN_ACCOUNTS.length;
+export const DESIGNER_LOGIN_COUNT = DESIGNER_LOGIN_COUNT_STATIC;
 
 function storeSearchHaystack(parts: string[]) {
   return parts.join(' ').toLowerCase();
@@ -314,11 +332,9 @@ export function getRegisteredCustomerLoginAccounts(): DemoLoginAccount[] {
   return registeredCustomerAccountsCache;
 }
 
-const STATIC_DEMO_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
-  ...ADMIN_LOGIN_ACCOUNTS,
-  ...STORE_LOGIN_ACCOUNTS,
-  ...ALL_DESIGNER_LOGIN_ACCOUNTS,
-];
+function getStaticDemoLoginAccounts(): DemoLoginAccount[] {
+  return [...ADMIN_LOGIN_ACCOUNTS, ...STORE_LOGIN_ACCOUNTS, ...getAllDesignerLoginAccounts()];
+}
 
 export function getDemoLoginGroupCountLabel(title: DemoLoginGroupKey | string) {
   const unit = title === '매장' ? '곳' : title === '본사' ? '계정' : '명';
@@ -356,18 +372,28 @@ export function getDemoLoginGroups(options?: { includeRegisteredCustomers?: bool
         ? includeRegisteredCustomers
           ? getRegisteredCustomerLoginAccounts()
           : []
-        : STATIC_DEMO_LOGIN_ACCOUNTS.filter((account) => account.group === title),
+        : getStaticDemoLoginAccounts().filter((account) => account.group === title),
   }));
 }
 
-/** @deprecated getDemoLoginGroups() 사용 — 가입고객 행은 첫 접근 시 생성 */
-export const DEMO_LOGIN_ACCOUNTS: DemoLoginAccount[] = [
-  ...STATIC_DEMO_LOGIN_ACCOUNTS,
-];
+/** @deprecated getDemoLoginGroups() */
+export const DEMO_LOGIN_ACCOUNTS = new Proxy([] as DemoLoginAccount[], {
+  get(_target, prop) {
+    const accounts = getStaticDemoLoginAccounts();
+    const value = Reflect.get(accounts, prop);
+    return typeof value === 'function' ? value.bind(accounts) : value;
+  },
+});
 
-/** @deprecated getDemoLoginGroups() 사용 */
-export const DEMO_LOGIN_GROUPS = DEMO_LOGIN_GROUP_ORDER.map((title) => ({
-  title,
-  description: DEMO_LOGIN_GROUP_DESCRIPTIONS[title],
-  accounts: STATIC_DEMO_LOGIN_ACCOUNTS.filter((account) => account.group === title),
-}));
+/** @deprecated getDemoLoginGroups() */
+export const DEMO_LOGIN_GROUPS = new Proxy([] as ReturnType<typeof getDemoLoginGroups>, {
+  get(_target, prop) {
+    const groups = DEMO_LOGIN_GROUP_ORDER.map((title) => ({
+      title,
+      description: DEMO_LOGIN_GROUP_DESCRIPTIONS[title],
+      accounts: getStaticDemoLoginAccounts().filter((account) => account.group === title),
+    }));
+    const value = Reflect.get(groups, prop);
+    return typeof value === 'function' ? value.bind(groups) : value;
+  },
+});

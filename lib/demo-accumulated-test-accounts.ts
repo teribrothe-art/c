@@ -1,9 +1,9 @@
 import type { BetaTestAccount } from './beta-test-accounts';
 import type { AccumulatedSeedProfileConfig } from './demo-accumulated-seed-builder';
 import {
-  EXPANDED_STORE_DESIGNER_ACCOUNTS,
-  EXPANDED_STORE_DESIGNER_PROFILE_CONFIGS,
   EXPANDED_STORE_DESIGNERS_PUBLIC,
+  getExpandedStoreDesignerAccounts,
+  getExpandedStoreDesignerProfileConfigs,
 } from './demo-expanded-store-designers';
 
 export const ACCUMULATED_TEST_PASSWORD = 'test1234';
@@ -134,93 +134,196 @@ export const ACCUMULATED_TEST_DESIGNER_ACCUM_5Y: BetaTestAccount = {
   role: 'designer',
 };
 
-export const ACCUMULATED_TEST_CUSTOMERS = buildAccumulatedCustomerPool({
-  idPrefix: 'test-customer-',
-  emailPrefix: 'test-customer-',
-  count: 120,
-  idPad: 2,
+let customers2yCache: BetaTestAccount[] | null = null;
+let customers1yCache: BetaTestAccount[] | null = null;
+let customers3yCache: BetaTestAccount[] | null = null;
+let customers5yCache: BetaTestAccount[] | null = null;
+
+export function getAccumulatedTestCustomers() {
+  if (!customers2yCache) {
+    customers2yCache = buildAccumulatedCustomerPool({
+      idPrefix: 'test-customer-',
+      emailPrefix: 'test-customer-',
+      count: 120,
+      idPad: 2,
+    });
+  }
+
+  return customers2yCache;
+}
+
+export function getAccumulatedTestCustomers1y() {
+  if (!customers1yCache) {
+    customers1yCache = buildAccumulatedCustomerPool({
+      idPrefix: 'test-1y-customer-',
+      emailPrefix: 'test-1y-customer-',
+      count: 80,
+      idPad: 2,
+    });
+  }
+
+  return customers1yCache;
+}
+
+export function getAccumulatedTestCustomers3y() {
+  if (!customers3yCache) {
+    customers3yCache = buildAccumulatedCustomerPool({
+      idPrefix: 'test-3y-customer-',
+      emailPrefix: 'test-3y-customer-',
+      count: 150,
+      idPad: 3,
+    });
+  }
+
+  return customers3yCache;
+}
+
+export function getAccumulatedTestCustomers5y() {
+  if (!customers5yCache) {
+    customers5yCache = buildAccumulatedCustomerPool({
+      idPrefix: 'test-5y-customer-',
+      emailPrefix: 'test-5y-customer-',
+      count: 200,
+      idPad: 3,
+    });
+  }
+
+  return customers5yCache;
+}
+
+let profileConfigsCache: AccumulatedSeedProfileConfig[] | null = null;
+
+export function getAccumulatedTestProfileConfigs(): AccumulatedSeedProfileConfig[] {
+  if (profileConfigsCache) {
+    return profileConfigsCache;
+  }
+
+  profileConfigsCache = [
+    {
+      key: '1y',
+      designer: ACCUMULATED_TEST_DESIGNER_1Y,
+      customers: getAccumulatedTestCustomers1y(),
+      historyYears: 1,
+      dailyMin: 3,
+      dailyMax: 5,
+      treatmentIdPrefix: 'accum1y-treatment-',
+      paymentIdPrefix: 'accum1y-payment-',
+      visitCycleMode: true,
+    },
+    {
+      key: '2y',
+      designer: ACCUMULATED_TEST_DESIGNER,
+      customers: getAccumulatedTestCustomers(),
+      historyYears: 2,
+      dailyMin: 4,
+      dailyMax: 6,
+      treatmentIdPrefix: 'accum-treatment-',
+      paymentIdPrefix: 'accum-payment-',
+      visitCycleMode: true,
+    },
+    {
+      key: '3y',
+      designer: ACCUMULATED_TEST_DESIGNER_ACCUM_3Y,
+      customers: getAccumulatedTestCustomers3y(),
+      historyYears: 3,
+      dailyMin: 4,
+      dailyMax: 8,
+      treatmentIdPrefix: 'accum3y-treatment-',
+      paymentIdPrefix: 'accum3y-payment-',
+      visitCycleMode: true,
+    },
+    {
+      key: '5y',
+      designer: ACCUMULATED_TEST_DESIGNER_ACCUM_5Y,
+      customers: getAccumulatedTestCustomers5y(),
+      historyYears: 5,
+      dailyMin: 4,
+      dailyMax: 8,
+      treatmentIdPrefix: 'accum5y-treatment-',
+      paymentIdPrefix: 'accum5y-payment-',
+      visitCycleMode: true,
+    },
+    ...getExpandedStoreDesignerProfileConfigs(),
+  ];
+
+  return profileConfigsCache;
+}
+
+/** @deprecated getAccumulatedTestProfileConfigs() */
+export const ACCUMULATED_TEST_PROFILE_CONFIGS = new Proxy([] as AccumulatedSeedProfileConfig[], {
+  get(_target, prop) {
+    const configs = getAccumulatedTestProfileConfigs();
+    const value = Reflect.get(configs, prop);
+    return typeof value === 'function' ? value.bind(configs) : value;
+  },
 });
 
-export const ACCUMULATED_TEST_CUSTOMERS_1Y = buildAccumulatedCustomerPool({
-  idPrefix: 'test-1y-customer-',
-  emailPrefix: 'test-1y-customer-',
-  count: 80,
-  idPad: 2,
+let accumulatedAccountsCache: BetaTestAccount[] | null = null;
+
+export function getAccumulatedTestAccounts(): BetaTestAccount[] {
+  if (accumulatedAccountsCache) {
+    return accumulatedAccountsCache;
+  }
+
+  accumulatedAccountsCache = [
+    ACCUMULATED_TEST_DESIGNER,
+    ACCUMULATED_TEST_DESIGNER_1Y,
+    ACCUMULATED_TEST_DESIGNER_ACCUM_3Y,
+    ACCUMULATED_TEST_DESIGNER_ACCUM_5Y,
+    ...getExpandedStoreDesignerAccounts(),
+    ...getAccumulatedTestCustomers(),
+    ...getAccumulatedTestCustomers1y(),
+    ...getAccumulatedTestCustomers3y(),
+    ...getAccumulatedTestCustomers5y(),
+  ];
+
+  return accumulatedAccountsCache;
+}
+
+/** @deprecated getAccumulatedTestAccounts() — 앱 시작 시 전체 배열 생성 방지 */
+export const ACCUMULATED_TEST_ACCOUNTS = new Proxy([] as BetaTestAccount[], {
+  get(_target, prop) {
+    const accounts = getAccumulatedTestAccounts();
+    const value = Reflect.get(accounts, prop);
+    return typeof value === 'function' ? value.bind(accounts) : value;
+  },
 });
 
-export const ACCUMULATED_TEST_CUSTOMERS_3Y = buildAccumulatedCustomerPool({
-  idPrefix: 'test-3y-customer-',
-  emailPrefix: 'test-3y-customer-',
-  count: 150,
-  idPad: 3,
+/** @deprecated getAccumulatedTestCustomers() */
+export const ACCUMULATED_TEST_CUSTOMERS = new Proxy([] as BetaTestAccount[], {
+  get(_target, prop) {
+    const customers = getAccumulatedTestCustomers();
+    const value = Reflect.get(customers, prop);
+    return typeof value === 'function' ? value.bind(customers) : value;
+  },
 });
 
-export const ACCUMULATED_TEST_CUSTOMERS_5Y = buildAccumulatedCustomerPool({
-  idPrefix: 'test-5y-customer-',
-  emailPrefix: 'test-5y-customer-',
-  count: 200,
-  idPad: 3,
+/** @deprecated getAccumulatedTestCustomers1y() */
+export const ACCUMULATED_TEST_CUSTOMERS_1Y = new Proxy([] as BetaTestAccount[], {
+  get(_target, prop) {
+    const customers = getAccumulatedTestCustomers1y();
+    const value = Reflect.get(customers, prop);
+    return typeof value === 'function' ? value.bind(customers) : value;
+  },
 });
 
-export const ACCUMULATED_TEST_PROFILE_CONFIGS: AccumulatedSeedProfileConfig[] = [
-  {
-    key: '1y',
-    designer: ACCUMULATED_TEST_DESIGNER_1Y,
-    customers: ACCUMULATED_TEST_CUSTOMERS_1Y,
-    historyYears: 1,
-    dailyMin: 3,
-    dailyMax: 5,
-    treatmentIdPrefix: 'accum1y-treatment-',
-    paymentIdPrefix: 'accum1y-payment-',
-    visitCycleMode: true,
+/** @deprecated getAccumulatedTestCustomers3y() */
+export const ACCUMULATED_TEST_CUSTOMERS_3Y = new Proxy([] as BetaTestAccount[], {
+  get(_target, prop) {
+    const customers = getAccumulatedTestCustomers3y();
+    const value = Reflect.get(customers, prop);
+    return typeof value === 'function' ? value.bind(customers) : value;
   },
-  {
-    key: '2y',
-    designer: ACCUMULATED_TEST_DESIGNER,
-    customers: ACCUMULATED_TEST_CUSTOMERS,
-    historyYears: 2,
-    dailyMin: 4,
-    dailyMax: 6,
-    treatmentIdPrefix: 'accum-treatment-',
-    paymentIdPrefix: 'accum-payment-',
-    visitCycleMode: true,
-  },
-  {
-    key: '3y',
-    designer: ACCUMULATED_TEST_DESIGNER_ACCUM_3Y,
-    customers: ACCUMULATED_TEST_CUSTOMERS_3Y,
-    historyYears: 3,
-    dailyMin: 4,
-    dailyMax: 8,
-    treatmentIdPrefix: 'accum3y-treatment-',
-    paymentIdPrefix: 'accum3y-payment-',
-    visitCycleMode: true,
-  },
-  {
-    key: '5y',
-    designer: ACCUMULATED_TEST_DESIGNER_ACCUM_5Y,
-    customers: ACCUMULATED_TEST_CUSTOMERS_5Y,
-    historyYears: 5,
-    dailyMin: 4,
-    dailyMax: 8,
-    treatmentIdPrefix: 'accum5y-treatment-',
-    paymentIdPrefix: 'accum5y-payment-',
-    visitCycleMode: true,
-  },
-  ...EXPANDED_STORE_DESIGNER_PROFILE_CONFIGS,
-];
+});
 
-export const ACCUMULATED_TEST_ACCOUNTS: BetaTestAccount[] = [
-  ACCUMULATED_TEST_DESIGNER,
-  ACCUMULATED_TEST_DESIGNER_1Y,
-  ACCUMULATED_TEST_DESIGNER_ACCUM_3Y,
-  ACCUMULATED_TEST_DESIGNER_ACCUM_5Y,
-  ...EXPANDED_STORE_DESIGNER_ACCOUNTS,
-  ...ACCUMULATED_TEST_CUSTOMERS,
-  ...ACCUMULATED_TEST_CUSTOMERS_1Y,
-  ...ACCUMULATED_TEST_CUSTOMERS_3Y,
-  ...ACCUMULATED_TEST_CUSTOMERS_5Y,
-];
+/** @deprecated getAccumulatedTestCustomers5y() */
+export const ACCUMULATED_TEST_CUSTOMERS_5Y = new Proxy([] as BetaTestAccount[], {
+  get(_target, prop) {
+    const customers = getAccumulatedTestCustomers5y();
+    const value = Reflect.get(customers, prop);
+    return typeof value === 'function' ? value.bind(customers) : value;
+  },
+});
 
 export const ACCUMULATED_TEST_DESIGNER_PUBLIC = {
   id: ACCUMULATED_TEST_DESIGNER.id,
@@ -268,26 +371,53 @@ export const ACCUMULATED_TEST_DESIGNERS_PUBLIC = [
 
 export const EXPANDED_STORE_DESIGNER_COUNT = EXPANDED_STORE_DESIGNERS_PUBLIC.length;
 
-export const ACCUMULATED_TEST_LOGIN_SUMMARY = {
-  designers: ACCUMULATED_TEST_DESIGNERS_PUBLIC,
-  customers: ACCUMULATED_TEST_CUSTOMERS.map((customer) => ({
-    email: customer.email,
-    password: ACCUMULATED_TEST_PASSWORD,
-    name: customer.name,
-  })),
-  customers1y: ACCUMULATED_TEST_CUSTOMERS_1Y.map((customer) => ({
-    email: customer.email,
-    password: ACCUMULATED_TEST_PASSWORD,
-    name: customer.name,
-  })),
-  customers3y: ACCUMULATED_TEST_CUSTOMERS_3Y.slice(0, 10).map((customer) => ({
-    email: customer.email,
-    password: ACCUMULATED_TEST_PASSWORD,
-    name: customer.name,
-  })),
-  customers5y: ACCUMULATED_TEST_CUSTOMERS_5Y.slice(0, 10).map((customer) => ({
-    email: customer.email,
-    password: ACCUMULATED_TEST_PASSWORD,
-    name: customer.name,
-  })),
-} as const;
+let loginSummaryCache: {
+  designers: typeof ACCUMULATED_TEST_DESIGNERS_PUBLIC;
+  customers: { email: string; password: string; name: string | null }[];
+  customers1y: { email: string; password: string; name: string | null }[];
+  customers3y: { email: string; password: string; name: string | null }[];
+  customers5y: { email: string; password: string; name: string | null }[];
+} | null = null;
+
+export function getAccumulatedTestLoginSummary() {
+  if (loginSummaryCache) {
+    return loginSummaryCache;
+  }
+
+  loginSummaryCache = {
+    designers: ACCUMULATED_TEST_DESIGNERS_PUBLIC,
+    customers: getAccumulatedTestCustomers().map((customer) => ({
+      email: customer.email,
+      password: ACCUMULATED_TEST_PASSWORD,
+      name: customer.name,
+    })),
+    customers1y: getAccumulatedTestCustomers1y().map((customer) => ({
+      email: customer.email,
+      password: ACCUMULATED_TEST_PASSWORD,
+      name: customer.name,
+    })),
+    customers3y: getAccumulatedTestCustomers3y().slice(0, 10).map((customer) => ({
+      email: customer.email,
+      password: ACCUMULATED_TEST_PASSWORD,
+      name: customer.name,
+    })),
+    customers5y: getAccumulatedTestCustomers5y().slice(0, 10).map((customer) => ({
+      email: customer.email,
+      password: ACCUMULATED_TEST_PASSWORD,
+      name: customer.name,
+    })),
+  };
+
+  return loginSummaryCache;
+}
+
+/** @deprecated getAccumulatedTestLoginSummary() */
+export const ACCUMULATED_TEST_LOGIN_SUMMARY = new Proxy(
+  {} as ReturnType<typeof getAccumulatedTestLoginSummary>,
+  {
+    get(_target, prop) {
+      const summary = getAccumulatedTestLoginSummary();
+      return Reflect.get(summary, prop);
+    },
+  },
+);

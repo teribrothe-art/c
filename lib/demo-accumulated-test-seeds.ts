@@ -3,7 +3,7 @@ import {
   type AccumulatedSeedProfileStats,
   type BuiltAccumulatedSeedProfile,
 } from './demo-accumulated-seed-builder';
-import { ACCUMULATED_TEST_PROFILE_CONFIGS } from './demo-accumulated-test-accounts';
+import { getAccumulatedTestProfileConfigs } from './demo-accumulated-test-accounts';
 
 export type { AccumulatedDemoTreatment } from './demo-accumulated-seed-builder';
 export type { AccumulatedSeedProfileStats, BuiltAccumulatedSeedProfile };
@@ -13,7 +13,7 @@ let builtProfilesCache: BuiltAccumulatedSeedProfile[] | null = null;
 /** 누적 테스트 시드 — 첫 접근 시에만 생성 (앱 cold start 부담 감소) */
 export function getAccumulatedTestProfiles(): BuiltAccumulatedSeedProfile[] {
   if (!builtProfilesCache) {
-    builtProfilesCache = ACCUMULATED_TEST_PROFILE_CONFIGS.map((config) =>
+    builtProfilesCache = getAccumulatedTestProfileConfigs().map((config) =>
       buildAccumulatedSeedProfile(config),
     );
   }

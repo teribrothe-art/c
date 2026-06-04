@@ -1,8 +1,9 @@
 import { useLocalSearchParams } from 'expo-router';
 import type { Href } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  InteractionManager,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -347,13 +348,31 @@ export default function TestLoginScreen() {
     () => ({ ...routeExpandedGroups, ...expandedGroups }),
     [expandedGroups, routeExpandedGroups],
   );
-  const demoLoginGroups = useMemo(
-    () =>
-      getDemoLoginGroups({
+  const [demoLoginGroups, setDemoLoginGroups] = useState<
+    ReturnType<typeof getDemoLoginGroups>
+  >([]);
+  const [groupsLoading, setGroupsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setGroupsLoading(true);
+
+    const task = InteractionManager.runAfterInteractions(() => {
+      const groups = getDemoLoginGroups({
         includeRegisteredCustomers: Boolean(activeExpandedGroups['가입고객']),
-      }),
-    [activeExpandedGroups],
-  );
+      });
+
+      if (!cancelled) {
+        setDemoLoginGroups(groups);
+        setGroupsLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      task.cancel();
+    };
+  }, [activeExpandedGroups]);
 
   const handleAccountLogin = useCallback(
     async (id: string, email: string, password: string, redirectTo?: Href) => {
@@ -426,7 +445,15 @@ export default function TestLoginScreen() {
           </RouterPressable>
         </View>
 
-        {demoLoginGroups.map((group) => (
+        {groupsLoading ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator color={colors.coral} size="small" />
+            <Text style={styles.loadingText}>테스트 계정 목록 불러오는 중…</Text>
+          </View>
+        ) : null}
+
+        {!groupsLoading
+          ? demoLoginGroups.map((group) => (
           <DemoLoginGroupSection
             key={group.title}
             accounts={group.accounts}
@@ -451,7 +478,8 @@ export default function TestLoginScreen() {
             onToggle={() => toggleGroup(group.title)}
             title={group.title}
           />
-        ))}
+        ))
+          : null}
 
         <Pressable
           disabled={Boolean(loadingId)}
@@ -500,6 +528,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     textDecorationLine: 'underline',
+  },
+  loadingBox: {
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 28,
+  },
+  loadingText: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '600',
   },
   group: {
     marginBottom: 18,

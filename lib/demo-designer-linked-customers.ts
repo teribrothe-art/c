@@ -6,8 +6,13 @@ import {
   BETA_TEST_PASSWORD,
   type BetaTestAccount,
 } from './beta-test-accounts';
-import { ACCUMULATED_TEST_PASSWORD, ACCUMULATED_TEST_PROFILE_CONFIGS } from './demo-accumulated-test-accounts';
-import { getAccumulatedTestProfiles } from './demo-accumulated-test-seeds';
+import { DESIGNER_LINKED_CUSTOMER_COUNT } from './demo-account-counts';
+import {
+  ACCUMULATED_TEST_PASSWORD,
+  getAccumulatedTestProfileConfigs,
+} from './demo-accumulated-test-accounts';
+
+export { DESIGNER_LINKED_CUSTOMER_COUNT };
 
 export type DesignerLinkedCustomerSource = {
   profileLabel: string;
@@ -17,9 +22,29 @@ export type DesignerLinkedCustomerSource = {
   password: string;
 };
 
+function accumulatedProfileLabelFromKey(key: string) {
+  if (key === '1y') {
+    return '1년';
+  }
+
+  if (key === '3y') {
+    return '3년';
+  }
+
+  if (key === '5y') {
+    return '5년';
+  }
+
+  if (key.startsWith('exp-')) {
+    return '증원';
+  }
+
+  return '2년';
+}
+
 function getAccumulatedProfileCustomerSources(): DesignerLinkedCustomerSource[] {
-  return getAccumulatedTestProfiles().map((profile) => ({
-    profileLabel: profile.stats.yearSpanLabel,
+  return getAccumulatedTestProfileConfigs().map((profile) => ({
+    profileLabel: accumulatedProfileLabelFromKey(profile.key),
     designerName: profile.designer.name ?? profile.designer.email,
     designerId: profile.designer.id,
     customers: profile.customers,
@@ -93,7 +118,7 @@ export function getDesignerLinkedCustomerLoginSources(): DesignerLinkedCustomerS
   return designerLinkedCustomerSourcesCache;
 }
 
-/** @deprecated getDesignerLinkedCustomerLoginSources() 사용 */
+/** @deprecated getDesignerLinkedCustomerLoginSources() */
 export const DESIGNER_LINKED_CUSTOMER_LOGIN_SOURCES = new Proxy(
   [] as DesignerLinkedCustomerSource[],
   {
@@ -105,14 +130,3 @@ export const DESIGNER_LINKED_CUSTOMER_LOGIN_SOURCES = new Proxy(
     },
   },
 );
-
-const STATIC_LINKED_CUSTOMER_COUNT =
-  DEMO_DESIGNER_LINKED_CUSTOMERS.length + BETA_CUSTOMERS.length;
-
-const ACCUMULATED_LINKED_CUSTOMER_COUNT = ACCUMULATED_TEST_PROFILE_CONFIGS.reduce(
-  (sum, config) => sum + config.customers.length,
-  0,
-);
-
-export const DESIGNER_LINKED_CUSTOMER_COUNT =
-  STATIC_LINKED_CUSTOMER_COUNT + ACCUMULATED_LINKED_CUSTOMER_COUNT;
