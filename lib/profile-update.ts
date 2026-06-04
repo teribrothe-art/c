@@ -1,10 +1,9 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DEMO_USERS_KEY, demoPersistedStorage } from './demo-persisted-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
 import { supabase } from './supabase';
 
-const DEMO_USERS_KEY = 'hair-diary-demo-users';
 const AVATAR_KEY_PREFIX = 'hair-diary-profile-avatar';
 
 function avatarStorageKey(userId: string) {
@@ -12,16 +11,16 @@ function avatarStorageKey(userId: string) {
 }
 
 export async function getProfileAvatarUri(userId: string) {
-  return AsyncStorage.getItem(avatarStorageKey(userId));
+  return demoPersistedStorage.getItem(avatarStorageKey(userId));
 }
 
 export async function saveProfileAvatarUri(userId: string, uri: string | null) {
   if (!uri) {
-    await AsyncStorage.removeItem(avatarStorageKey(userId));
+    await demoPersistedStorage.removeItem(avatarStorageKey(userId));
     return;
   }
 
-  await AsyncStorage.setItem(avatarStorageKey(userId), uri);
+  await demoPersistedStorage.setItem(avatarStorageKey(userId), uri);
 }
 
 export async function updateProfileName(name: string) {
@@ -38,13 +37,13 @@ export async function updateProfileName(name: string) {
   }
 
   if (isDemoAuthMode || !supabase) {
-    const raw = await AsyncStorage.getItem(DEMO_USERS_KEY);
+    const raw = await demoPersistedStorage.getItem(DEMO_USERS_KEY);
     const users = raw ? (JSON.parse(raw) as { id: string; email: string; name: string | null; role: string; password?: string }[]) : [];
     const index = users.findIndex((item) => item.id === user.id);
 
     if (index >= 0) {
       users[index] = { ...users[index], name: trimmed };
-      await AsyncStorage.setItem(DEMO_USERS_KEY, JSON.stringify(users));
+      await demoPersistedStorage.setItem(DEMO_USERS_KEY, JSON.stringify(users));
     }
 
     return { id: user.id, name: trimmed };

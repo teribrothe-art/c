@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DEMO_USERS_KEY, demoPersistedStorage } from './demo-persisted-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
@@ -274,7 +274,7 @@ function resolveInvitationStatus(invitation: CustomerInvitation): InvitationStat
 }
 
 async function readDemoInvitations() {
-  const raw = await AsyncStorage.getItem(DEMO_INVITATIONS_KEY);
+  const raw = await demoPersistedStorage.getItem(DEMO_INVITATIONS_KEY);
   const parsed = raw ? (JSON.parse(raw) as CustomerInvitation[]) : [...demoInvitations];
   const normalized = parsed.map((item) => normalizeInvitationRow(item));
   demoInvitations.length = 0;
@@ -285,11 +285,11 @@ async function readDemoInvitations() {
 async function writeDemoInvitations(items: CustomerInvitation[]) {
   demoInvitations.length = 0;
   demoInvitations.push(...items);
-  await AsyncStorage.setItem(DEMO_INVITATIONS_KEY, JSON.stringify(items));
+  await demoPersistedStorage.setItem(DEMO_INVITATIONS_KEY, JSON.stringify(items));
 }
 
 async function readDemoRelationships() {
-  const raw = await AsyncStorage.getItem(DEMO_RELATIONSHIPS_KEY);
+  const raw = await demoPersistedStorage.getItem(DEMO_RELATIONSHIPS_KEY);
   const parsed = raw ? (JSON.parse(raw) as DesignerCustomerRelationship[]) : [...demoRelationships];
   demoRelationships.length = 0;
   demoRelationships.push(...parsed);
@@ -299,7 +299,7 @@ async function readDemoRelationships() {
 async function writeDemoRelationships(items: DesignerCustomerRelationship[]) {
   demoRelationships.length = 0;
   demoRelationships.push(...items);
-  await AsyncStorage.setItem(DEMO_RELATIONSHIPS_KEY, JSON.stringify(items));
+  await demoPersistedStorage.setItem(DEMO_RELATIONSHIPS_KEY, JSON.stringify(items));
 }
 
 async function applyInvitationUsedSideEffects(invitation: CustomerInvitation, customerId: string) {
@@ -326,7 +326,7 @@ async function applyInvitationUsedSideEffects(invitation: CustomerInvitation, cu
 
 async function fetchDesignerName(designerId: string) {
   if (isDemoAuthMode || !supabase) {
-    const usersRaw = await AsyncStorage.getItem('hair-diary-demo-users');
+    const usersRaw = await demoPersistedStorage.getItem(DEMO_USERS_KEY);
     const users = usersRaw ? (JSON.parse(usersRaw) as { id: string; name: string | null }[]) : [];
     return users.find((user) => user.id === designerId)?.name ?? '디자이너';
   }

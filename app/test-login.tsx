@@ -370,7 +370,10 @@ export default function TestLoginScreen() {
     return (
       <View style={styles.unavailable}>
         <Text style={styles.unavailableTitle}>테스트 계정 로그인</Text>
-        <Text style={styles.unavailableText}>데모 모드에서만 사용할 수 있습니다.</Text>
+        <Text style={styles.unavailableText}>
+          Supabase가 연결된 상태입니다. 웹·폰 데모를 쓰려면 .env에 EXPO_PUBLIC_FORCE_DEMO_MODE=true 를
+          넣고 Expo를 다시 시작하세요.
+        </Text>
         <Link href="/" asChild>
           <Pressable style={styles.backLink}>
             <Text style={styles.backLinkText}>로그인으로 돌아가기</Text>

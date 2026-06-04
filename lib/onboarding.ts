@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { demoPersistedStorage } from './demo-persisted-storage';
 
 import { UserRole } from './auth';
 
@@ -27,12 +27,12 @@ export const DESIGNER_ONBOARDING_SLIDES: OnboardingSlide[] = [
 ];
 
 export async function hasSeenOnboarding(role: UserRole) {
-  const value = await AsyncStorage.getItem(storageKey(role));
+  const value = await demoPersistedStorage.getItem(storageKey(role));
   return value === 'true';
 }
 
 export async function markOnboardingSeen(role: UserRole) {
-  await AsyncStorage.setItem(storageKey(role), 'true');
+  await demoPersistedStorage.setItem(storageKey(role), 'true');
 }
 
 export async function shouldShowOnboarding(role: UserRole | null | undefined) {

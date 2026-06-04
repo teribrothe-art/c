@@ -19,6 +19,7 @@ import { colors, disabledButtonStyle, loginLayout } from '../lib/theme';
 import { validateEmail } from '../lib/validation';
 import { AppVersionBadge } from '../src/components/app-version-badge';
 import { ConnectQrPanel } from '../src/components/connect-qr-panel';
+import { DemoQuickLoginBar } from '../src/components/demo-quick-login-bar';
 import { InlineFieldError } from '../src/components/inline-field-error';
 import { LoginHeadlines } from '../src/components/login-headlines';
 import { LoginHeroAnimation } from '../src/components/login-hero-animation';
@@ -89,6 +90,7 @@ export default function LoginScreen() {
           ) : (
             <>
               <LoginHeroAnimation />
+              <DemoQuickLoginBar disabled={isLoading} />
               <View style={styles.form}>
                 <View>
                   <TextInput

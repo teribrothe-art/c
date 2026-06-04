@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DEMO_USERS_KEY, demoPersistedStorage } from './demo-persisted-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { BETA_CUSTOMERS } from './beta-test-accounts';
@@ -24,12 +24,12 @@ type DemoRelationship = {
 };
 
 async function readDemoRelationships(): Promise<DemoRelationship[]> {
-  const raw = await AsyncStorage.getItem(DEMO_RELATIONSHIPS_KEY);
+  const raw = await demoPersistedStorage.getItem(DEMO_RELATIONSHIPS_KEY);
   return raw ? (JSON.parse(raw) as DemoRelationship[]) : [];
 }
 
 async function writeDemoRelationships(items: DemoRelationship[]) {
-  await AsyncStorage.setItem(DEMO_RELATIONSHIPS_KEY, JSON.stringify(items));
+  await demoPersistedStorage.setItem(DEMO_RELATIONSHIPS_KEY, JSON.stringify(items));
 }
 
 export async function ensureDesignerCustomerRelationship(designerId: string, customerId: string) {
@@ -62,7 +62,7 @@ async function fetchDemoRegisteredCustomers(
   designerId: string,
   query: string,
 ): Promise<RegisteredCustomerOption[]> {
-  const usersRaw = await AsyncStorage.getItem('hair-diary-demo-users');
+  const usersRaw = await demoPersistedStorage.getItem(DEMO_USERS_KEY);
   const stored = usersRaw
     ? (JSON.parse(usersRaw) as { id: string; email: string; name: string | null; role: string }[])
     : [];

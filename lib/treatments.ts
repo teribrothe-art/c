@@ -1,4 +1,8 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  DEMO_TREATMENTS_KEY,
+  DEMO_USERS_KEY,
+  demoPersistedStorage,
+} from './demo-persisted-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import {
@@ -62,8 +66,6 @@ export type Treatment = {
 
 const treatmentSelectFields =
   'id, customer_id, designer_id, designer_name, customer_name, treatment_date, treatment_type, treatment_title, products, technique, damage_level, notes, duration, designer_diagnosis, home_care, ai_insight, price, payment_status, feedback_completed, payment_requested_at, paid_at, settled_at, toss_order_id, toss_payment_key, platform_fee, designer_payout_amount, before_photo_url, after_photo_url, created_at';
-
-const DEMO_TREATMENTS_KEY = 'hair-diary-demo-treatments';
 
 const INITIAL_DEMO_TREATMENTS: Treatment[] = [
   {
@@ -261,7 +263,7 @@ const accumulatedTreatmentMergeDone = new Set<string>();
 async function hydrateDemoTreatments() {
   if (!demoHydratePromise) {
     demoHydratePromise = (async () => {
-      const raw = await AsyncStorage.getItem(DEMO_TREATMENTS_KEY);
+      const raw = await demoPersistedStorage.getItem(DEMO_TREATMENTS_KEY);
 
       if (raw) {
         const stored = JSON.parse(raw) as Treatment[];
@@ -310,7 +312,7 @@ async function hydrateDemoTreatments() {
 }
 
 async function persistDemoTreatments() {
-  await AsyncStorage.setItem(
+  await demoPersistedStorage.setItem(
     DEMO_TREATMENTS_KEY,
     JSON.stringify(treatmentsForDemoPersistence(demoTreatments)),
   );
@@ -590,7 +592,7 @@ export async function createDesignerTreatment(input: CreateDesignerTreatmentInpu
   if (isDemoAuthMode || !supabase) {
     await hydrateDemoTreatments();
 
-    const usersRaw = await AsyncStorage.getItem('hair-diary-demo-users');
+    const usersRaw = await demoPersistedStorage.getItem(DEMO_USERS_KEY);
     const users = usersRaw ? (JSON.parse(usersRaw) as { id: string; name: string | null }[]) : [];
     const designerName = users.find((item) => item.id === user.id)?.name ?? '디자이너';
 

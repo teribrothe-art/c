@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { demoPersistedStorage } from './demo-persisted-storage';
 
 import type { Treatment } from './treatment-types';
 import { isAccumulatedTestTreatmentId } from './demo-accumulated-ids';
@@ -36,7 +36,7 @@ async function readPatches(): Promise<Record<string, AccumulatedTreatmentPatch>>
   if (!patchesPromise) {
     patchesPromise = (async () => {
       try {
-        const raw = await AsyncStorage.getItem(PATCHES_KEY);
+        const raw = await demoPersistedStorage.getItem(PATCHES_KEY);
 
         if (!raw) {
           patchesCache = {};
@@ -60,7 +60,7 @@ async function readPatches(): Promise<Record<string, AccumulatedTreatmentPatch>>
 
 async function writePatches(next: Record<string, AccumulatedTreatmentPatch>) {
   patchesCache = next;
-  await AsyncStorage.setItem(PATCHES_KEY, JSON.stringify(next));
+  await demoPersistedStorage.setItem(PATCHES_KEY, JSON.stringify(next));
 }
 
 export async function getAccumulatedTreatmentPatch(
@@ -140,9 +140,9 @@ export function reapplyAccumulatedTreatmentPatchesInStore(demoTreatments: Treatm
   }
 }
 
-/** AsyncStorage·메모리의 누적 시술 패치 캐시 삭제 */
+/** demoPersistedStorage·메모리의 누적 시술 패치 캐시 삭제 */
 export async function clearAccumulatedTreatmentPatchesStorage() {
   patchesCache = null;
   patchesPromise = null;
-  await AsyncStorage.removeItem(PATCHES_KEY);
+  await demoPersistedStorage.removeItem(PATCHES_KEY);
 }

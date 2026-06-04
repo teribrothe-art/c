@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DEMO_PAYMENTS_KEY, demoPersistedStorage } from './demo-persisted-storage';
 
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import {
@@ -51,8 +51,6 @@ export type PaymentRecord = {
 const paymentSelectFields =
   'id, treatment_id, customer_id, designer_id, amount, fee_rate, fee_amount, designer_payout, status, toss_payment_key, toss_order_id, paid_at, settled_at, created_at, receipt_url, refund_amount, refund_reason, refunded_at';
 
-const DEMO_PAYMENTS_KEY = 'hair-diary-demo-payments';
-
 const INITIAL_DEMO_PAYMENTS: PaymentRecord[] = [
   {
     id: 'demo-payment-demo-treatment-4',
@@ -88,7 +86,7 @@ async function hydrateDemoPayments() {
 
   if (!demoPaymentsHydratePromise) {
     demoPaymentsHydratePromise = (async () => {
-      const raw = await AsyncStorage.getItem(DEMO_PAYMENTS_KEY);
+      const raw = await demoPersistedStorage.getItem(DEMO_PAYMENTS_KEY);
 
       if (raw) {
         const stored = JSON.parse(raw) as PaymentRecord[];
@@ -99,7 +97,7 @@ async function hydrateDemoPayments() {
 
       demoPayments.length = 0;
       demoPayments.push(...INITIAL_DEMO_PAYMENTS.map((item) => ({ ...item })));
-      await AsyncStorage.setItem(DEMO_PAYMENTS_KEY, JSON.stringify(demoPayments));
+      await demoPersistedStorage.setItem(DEMO_PAYMENTS_KEY, JSON.stringify(demoPayments));
     })();
   }
 
@@ -111,7 +109,7 @@ async function persistDemoPayments() {
     return;
   }
 
-  await AsyncStorage.setItem(
+  await demoPersistedStorage.setItem(
     DEMO_PAYMENTS_KEY,
     JSON.stringify(paymentsForDemoPersistence(demoPayments)),
   );
@@ -597,7 +595,7 @@ export async function recordPaymentRefund(
   return data as PaymentRecord;
 }
 
-/** 메모리·AsyncStorage에서 누적 테스트 결제 제거 후 hydrate 캐시 초기화 */
+/** 메모리·demoPersistedStorage에서 누적 테스트 결제 제거 후 hydrate 캐시 초기화 */
 export async function purgeAccumulatedFromDemoPaymentStore(): Promise<number> {
   if (demoPaymentsHydratePromise) {
     await demoPaymentsHydratePromise;

@@ -1,7 +1,13 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 import { lookupDemoCatalogUser } from './demo-user-catalog';
+import { isDemoAuthMode } from './demo-mode';
+import {
+  DEMO_SESSION_KEY,
+  DEMO_USERS_KEY,
+  demoPersistedStorage,
+} from './demo-persisted-storage';
 import { isSupabaseConfigured, supabase } from './supabase';
+
+export { isDemoAuthMode } from './demo-mode';
 
 export type UserRole = 'customer' | 'designer' | 'store' | 'admin';
 
@@ -30,9 +36,6 @@ type LoginInput = {
   email: string;
   password: string;
 };
-
-const DEMO_USERS_KEY = 'hair-diary-demo-users';
-const DEMO_SESSION_KEY = 'hair-diary-demo-session';
 
 /** 웹·데모에서 바로 로그인 테스트용 (시술 더미 데이터와 ID 일치) */
 const SEEDED_DEMO_USERS: DemoUser[] = [
@@ -80,8 +83,6 @@ export const DEMO_LOGIN_HINT = {
   designerPassword: 'demo1234',
 } as const;
 
-export const isDemoAuthMode = !isSupabaseConfigured || !supabase;
-
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
@@ -95,7 +96,7 @@ function toAuthUser(user: DemoUser): AuthUser {
 }
 
 async function readDemoUsersFromStorage() {
-  const rawUsers = await AsyncStorage.getItem(DEMO_USERS_KEY);
+  const rawUsers = await demoPersistedStorage.getItem(DEMO_USERS_KEY);
   return rawUsers ? (JSON.parse(rawUsers) as DemoUser[]) : [];
 }
 
@@ -179,11 +180,11 @@ async function getDemoUsers() {
 }
 
 async function saveDemoUsers(users: DemoUser[]) {
-  await AsyncStorage.setItem(DEMO_USERS_KEY, JSON.stringify(users));
+  await demoPersistedStorage.setItem(DEMO_USERS_KEY, JSON.stringify(users));
 }
 
 async function getDemoCurrentUser() {
-  const currentUserId = await AsyncStorage.getItem(DEMO_SESSION_KEY);
+  const currentUserId = await demoPersistedStorage.getItem(DEMO_SESSION_KEY);
 
   if (!currentUserId) {
     return null;
@@ -271,7 +272,7 @@ export async function signUpWithEmail({ email, password, name, role }: SignupInp
     nextUsers[existingUserIndex] = updatedUser;
 
     await saveDemoUsers(nextUsers);
-    await AsyncStorage.setItem(DEMO_SESSION_KEY, updatedUser.id);
+    await demoPersistedStorage.setItem(DEMO_SESSION_KEY, updatedUser.id);
 
     return toAuthUser(updatedUser);
   }
@@ -285,7 +286,7 @@ export async function signUpWithEmail({ email, password, name, role }: SignupInp
   };
 
   await saveDemoUsers([...users, newUser]);
-  await AsyncStorage.setItem(DEMO_SESSION_KEY, newUser.id);
+  await demoPersistedStorage.setItem(DEMO_SESSION_KEY, newUser.id);
 
   return toAuthUser(newUser);
 }
@@ -337,7 +338,7 @@ export async function signInWithEmail({ email, password }: LoginInput) {
     throw new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
   }
 
-  await AsyncStorage.setItem(DEMO_SESSION_KEY, user.id);
+  await demoPersistedStorage.setItem(DEMO_SESSION_KEY, user.id);
   return toAuthUser(user);
 }
 
@@ -378,7 +379,7 @@ export async function signOut() {
     return;
   }
 
-  await AsyncStorage.removeItem(DEMO_SESSION_KEY);
+  await demoPersistedStorage.removeItem(DEMO_SESSION_KEY);
 }
 
 export function subscribeToAuthState(listener: AuthStateListener) {
