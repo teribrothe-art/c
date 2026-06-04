@@ -169,6 +169,7 @@ export function LoginHeroAnimation({ docked = false }: LoginHeroAnimationProps) 
 
   return (
     <View
+      pointerEvents="box-none"
       style={[
         styles.wrap,
         docked ? styles.wrapDocked : styles.wrapInline,
@@ -179,6 +180,7 @@ export function LoginHeroAnimation({ docked = false }: LoginHeroAnimationProps) 
         },
       ]}>
       <Animated.View
+        pointerEvents="none"
         style={[
           styles.glow,
           docked ? styles.glowDocked : styles.glowInline,
@@ -193,16 +195,20 @@ export function LoginHeroAnimation({ docked = false }: LoginHeroAnimationProps) 
       </Animated.View>
 
       <Animated.Text
+        pointerEvents="none"
         style={[styles.floatIcon, styles.floatTopLeft, { transform: [{ translateY: floatATranslateY }] }]}>
         {FLOATING_ICONS[0]}
       </Animated.Text>
       <Animated.Text
+        pointerEvents="none"
         style={[styles.floatIcon, styles.floatTopRight, { transform: [{ translateY: floatBTranslateY }] }]}>
         {FLOATING_ICONS[1]}
       </Animated.Text>
-      <Text style={[styles.floatIcon, styles.floatBottomRight]}>{FLOATING_ICONS[2]}</Text>
+      <Text pointerEvents="none" style={[styles.floatIcon, styles.floatBottomRight]}>
+        {FLOATING_ICONS[2]}
+      </Text>
 
-      <View style={styles.messageCenter}>
+      <View pointerEvents="none" style={styles.messageCenter}>
         <Text style={styles.badge}>✨</Text>
         <Animated.Text
           numberOfLines={2}

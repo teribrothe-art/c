@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { DemoLoginAccount } from '../../lib/demo-login-accounts';
 import { formatDemoDesignerCustomerCount } from '../../lib/demo-designer-customer-counts';
@@ -29,6 +29,7 @@ export function TestLoginAccountGrid({ accounts, loadingId, onLogin }: TestLogin
               style={({ pressed }) => [
                 styles.tile,
                 { borderColor: account.accent },
+                Platform.OS === 'web' && styles.tileWeb,
                 pressed && !loadingId && styles.tilePressed,
                 isLoading && styles.tileLoading,
               ]}>
@@ -84,6 +85,9 @@ const styles = StyleSheet.create({
   tilePressed: {
     backgroundColor: '#F5F5F8',
     opacity: 0.92,
+  },
+  tileWeb: {
+    cursor: 'pointer',
   },
   tileLoading: {
     opacity: 0.65,

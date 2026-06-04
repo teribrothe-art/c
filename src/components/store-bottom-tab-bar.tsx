@@ -1,5 +1,7 @@
-import { Href, Link, usePathname } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Href, usePathname } from 'expo-router';
+import { StyleSheet, Text, View } from 'react-native';
+
+import { RouterPressable } from './router-pressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const tabs: { href: Href; label: string }[] = [
@@ -18,21 +20,19 @@ export function StoreBottomTabBar() {
     <View
       pointerEvents="box-none"
       style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-      <View style={styles.tabBar}>
+      <View pointerEvents="auto" style={styles.tabBar}>
         {tabs.map((tab) => {
           const href = String(tab.href);
           const selected =
             pathname === href || (href !== '/store' && pathname.startsWith(`${href}/`));
 
           return (
-            <Link href={tab.href} key={href} asChild>
-              <Pressable accessibilityRole="button" hitSlop={6} style={styles.tabItem}>
-                <View style={[styles.tabDot, selected && styles.tabDotSelected]} />
-                <Text style={[styles.tabLabel, selected && styles.tabLabelSelected]}>
-                  {tab.label}
-                </Text>
-              </Pressable>
-            </Link>
+            <RouterPressable href={tab.href} hitSlop={6} key={href} style={styles.tabItem}>
+              <View pointerEvents="none" style={[styles.tabDot, selected && styles.tabDotSelected]} />
+              <Text pointerEvents="none" style={[styles.tabLabel, selected && styles.tabLabelSelected]}>
+                {tab.label}
+              </Text>
+            </RouterPressable>
           );
         })}
       </View>

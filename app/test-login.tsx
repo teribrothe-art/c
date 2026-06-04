@@ -173,7 +173,7 @@ function DemoLoginGroupSection({
           <TextInput
             autoCapitalize="none"
             autoCorrect={false}
-            clearButtonMode="while-editing"
+            clearButtonMode={Platform.OS === 'ios' ? 'while-editing' : 'never'}
             onChangeText={onGroupSearchChange}
             placeholder={getDemoLoginSearchPlaceholder(title)}
             placeholderTextColor="#9CA3AF"
@@ -272,11 +272,13 @@ function AccountRow({
 
   return (
     <Pressable
+      accessibilityRole="button"
       disabled={Boolean(loadingId)}
       onPress={() => onLogin(account.id, account.email, account.password)}
       style={({ pressed }) => [
         styles.row,
         !isLast && styles.rowBorder,
+        Platform.OS === 'web' && styles.rowWeb,
         pressed && !loadingId && styles.rowPressed,
       ]}>
       <View style={[styles.roleBadge, { backgroundColor: account.accent }]}>
@@ -605,6 +607,9 @@ const styles = StyleSheet.create({
   },
   rowPressed: {
     backgroundColor: '#F0F0F8',
+  },
+  rowWeb: {
+    cursor: 'pointer',
   },
   roleBadge: {
     borderRadius: 8,

@@ -1,5 +1,12 @@
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { DEMO_LOGIN_HINT } from '../../lib/auth';
 import { isDemoAuthMode } from '../../lib/demo-mode';
@@ -14,10 +21,11 @@ type DemoQuickLoginBarProps = {
 
 export function DemoQuickLoginBar({ disabled = false }: DemoQuickLoginBarProps) {
   const [loadingRole, setLoadingRole] = useState<'customer' | 'designer' | null>(null);
+  const busyRef = useRef(false);
 
   const handleQuickLogin = useCallback(
     async (role: 'customer' | 'designer') => {
-      if (disabled || loadingRole) {
+      if (disabled || busyRef.current) {
         return;
       }
 
@@ -28,16 +36,19 @@ export function DemoQuickLoginBar({ disabled = false }: DemoQuickLoginBarProps) 
           ? DEMO_LOGIN_HINT.customerPassword
           : DEMO_LOGIN_HINT.designerPassword;
 
+      busyRef.current = true;
+      setLoadingRole(role);
+
       try {
-        setLoadingRole(role);
         await signInAndNavigate(email, password);
       } catch (error) {
         showLoginFailureAlert(getErrorMessage(error, '데모 로그인에 실패했습니다.'));
       } finally {
+        busyRef.current = false;
         setLoadingRole(null);
       }
     },
-    [disabled, loadingRole],
+    [disabled],
   );
 
   if (!isDemoAuthMode) {
@@ -57,31 +68,39 @@ export function DemoQuickLoginBar({ disabled = false }: DemoQuickLoginBarProps) 
       <Text style={styles.hint}>{platformHint} · 탭하면 즉시 로그인</Text>
       <View style={styles.row}>
         <Pressable
+          accessibilityRole="button"
           disabled={disabled || Boolean(loadingRole)}
           onPress={() => void handleQuickLogin('customer')}
           style={({ pressed }) => [
             styles.chip,
             styles.chipCustomer,
+            webPressable,
             pressed && !loadingRole && styles.chipPressed,
           ]}>
           {loadingRole === 'customer' ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
-            <Text style={styles.chipText}>고객 데모</Text>
+            <Text pointerEvents="none" style={styles.chipText}>
+              고객 데모
+            </Text>
           )}
         </Pressable>
         <Pressable
+          accessibilityRole="button"
           disabled={disabled || Boolean(loadingRole)}
           onPress={() => void handleQuickLogin('designer')}
           style={({ pressed }) => [
             styles.chip,
             styles.chipDesigner,
+            webPressable,
             pressed && !loadingRole && styles.chipPressed,
           ]}>
           {loadingRole === 'designer' ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
-            <Text style={styles.chipText}>디자이너 데모</Text>
+            <Text pointerEvents="none" style={styles.chipText}>
+              디자이너 데모
+            </Text>
           )}
         </Pressable>
       </View>
@@ -91,6 +110,8 @@ export function DemoQuickLoginBar({ disabled = false }: DemoQuickLoginBarProps) 
     </View>
   );
 }
+
+const webPressable = Platform.OS === 'web' ? ({ cursor: 'pointer' } as const) : null;
 
 const styles = StyleSheet.create({
   wrap: {
@@ -102,7 +123,9 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
+    position: 'relative',
     width: '100%',
+    zIndex: 2,
   },
   badge: {
     alignSelf: 'flex-start',

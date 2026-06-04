@@ -1,4 +1,3 @@
-import { Link } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -20,6 +19,7 @@ import { validateEmail } from '../lib/validation';
 import { AppVersionBadge } from '../src/components/app-version-badge';
 import { ConnectQrPanel } from '../src/components/connect-qr-panel';
 import { DemoQuickLoginBar } from '../src/components/demo-quick-login-bar';
+import { RouterPressable } from '../src/components/router-pressable';
 import { InlineFieldError } from '../src/components/inline-field-error';
 import { LoginHeadlines } from '../src/components/login-headlines';
 import { LoginHeroAnimation } from '../src/components/login-hero-animation';
@@ -80,7 +80,7 @@ export default function LoginScreen() {
       style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
         showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           <LoginHeadlines />
@@ -153,34 +153,41 @@ export default function LoginScreen() {
           )}
 
           <View style={styles.footerLinks}>
-            <Link href="/signup" asChild>
-              <Pressable
-                disabled={isLoading}
-                onPress={() => setActiveView('login')}
-                style={styles.footerLink}>
-                <Text style={styles.footerLinkText}>회원가입</Text>
-              </Pressable>
-            </Link>
+            <RouterPressable
+              disabled={isLoading}
+              href="/signup"
+              onPress={() => setActiveView('login')}
+              style={styles.footerLink}>
+              <Text pointerEvents="none" style={styles.footerLinkText}>
+                회원가입
+              </Text>
+            </RouterPressable>
 
             {showQrEntry ? (
               <>
                 <Text style={styles.footerDivider}>·</Text>
-                <Link href="/test-login" asChild>
-                  <Pressable
-                    disabled={isLoading}
-                    onPress={() => setActiveView('login')}
-                    style={styles.footerLink}>
-                    <Text style={styles.footerLinkText}>테스트 계정</Text>
-                  </Pressable>
-                </Link>
+                <RouterPressable
+                  disabled={isLoading}
+                  href="/test-login"
+                  onPress={() => setActiveView('login')}
+                  style={styles.footerLink}>
+                  <Text pointerEvents="none" style={styles.footerLinkText}>
+                    테스트 계정
+                  </Text>
+                </RouterPressable>
                 <Text style={styles.footerDivider}>·</Text>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityState={{ selected: activeView === 'qr' }}
                   disabled={isLoading}
                   onPress={() => setActiveView((current) => (current === 'qr' ? 'login' : 'qr'))}
-                  style={styles.footerLink}>
+                  style={({ pressed }) => [
+                    styles.footerLink,
+                    Platform.OS === 'web' && styles.footerLinkWeb,
+                    pressed && styles.footerLinkPressed,
+                  ]}>
                   <Text
+                    pointerEvents="none"
                     style={[styles.footerLinkText, activeView === 'qr' && styles.footerLinkTextActive]}>
                     QR
                   </Text>
@@ -262,6 +269,12 @@ const styles = StyleSheet.create({
   footerLink: {
     paddingHorizontal: 4,
     paddingVertical: 6,
+  },
+  footerLinkWeb: {
+    cursor: 'pointer',
+  },
+  footerLinkPressed: {
+    opacity: 0.85,
   },
   footerLinkText: {
     color: colors.coral,
