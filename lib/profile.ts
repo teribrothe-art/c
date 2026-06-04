@@ -1,6 +1,7 @@
 import { getErrorMessage, toAppError } from './errors';
 
-import { getCurrentUser, isDemoAuthMode, UserRole } from './auth';
+import { getCurrentUser, UserRole } from './auth';
+import { shouldUseLocalDemoStore } from './demo-mode';
 import { DEMO_USERS_KEY, demoPersistedStorage } from './demo-persisted-storage';
 import {
   fetchDesignerProfilePaymentStats,
@@ -82,7 +83,7 @@ function computeDesignerStatsFromTreatments(treatments: Treatment[]): Omit<Desig
 }
 
 async function fetchProfileDetails(userId: string, email: string, role: UserRole): Promise<ProfileData> {
-  if (isDemoAuthMode || !supabase) {
+  if (await shouldUseLocalDemoStore()) {
     const rawUsers = await demoPersistedStorage.getItem(DEMO_USERS_KEY);
     const users = rawUsers ? (JSON.parse(rawUsers) as { id: string; email: string; name: string | null; role: UserRole }[]) : [];
     const demoUser = users.find((item) => item.id === userId);
@@ -93,6 +94,10 @@ async function fetchProfileDetails(userId: string, email: string, role: UserRole
       name: demoUser?.name ?? null,
       role: demoUser?.role ?? role,
     };
+  }
+
+  if (!supabase) {
+    throw new Error('Supabase가 설정되지 않았습니다.');
   }
 
   const { data, error } = await supabase

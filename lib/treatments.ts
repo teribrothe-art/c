@@ -4,7 +4,8 @@ import {
   demoPersistedStorage,
 } from './demo-persisted-storage';
 
-import { getCurrentUser, isDemoAuthMode } from './auth';
+import { getCurrentUser } from './auth';
+import { shouldUseLocalDemoStore } from './demo-mode';
 import {
   mergeAccumulatedTreatmentsForDesignerId,
   mergeAccumulatedTreatmentsIntoStore,
@@ -364,10 +365,12 @@ export async function getTreatments() {
 
   let treatments: Treatment[];
 
-  if (isDemoAuthMode || !supabase) {
+  if (await shouldUseLocalDemoStore()) {
     await hydrateDemoTreatments();
     await ensureAccumulatedDemoTreatmentsMerged({ user });
     treatments = [...demoTreatments];
+  } else if (!supabase) {
+    throw new Error('Supabase가 설정되지 않았습니다.');
   } else {
     const { data, error } = await supabase
       .from('treatments')
@@ -401,7 +404,7 @@ export async function getTreatmentById(id: string) {
 
   let treatment: Treatment | null;
 
-  if (isDemoAuthMode || !supabase) {
+  if (await shouldUseLocalDemoStore()) {
     await hydrateDemoTreatments();
     await ensureAccumulatedDemoTreatmentsMerged({ user });
     treatment = demoTreatments.find((item) => item.id === id) ?? null;
@@ -416,6 +419,8 @@ export async function getTreatmentById(id: string) {
         treatment = demoTreatments.find((item) => item.id === id) ?? null;
       }
     }
+  } else if (!supabase) {
+    throw new Error('Supabase가 설정되지 않았습니다.');
   } else {
     const { data, error } = await supabase
       .from('treatments')
@@ -447,13 +452,15 @@ export async function listTreatmentsForDesignerId(designerId: string): Promise<T
 
   let treatments: Treatment[];
 
-  if (isDemoAuthMode || !supabase) {
+  if (await shouldUseLocalDemoStore()) {
     await hydrateDemoTreatments();
     await ensureAccumulatedDemoTreatmentsMerged({ designerId });
 
     treatments = demoTreatments
       .filter((treatment) => treatment.designer_id === designerId)
       .sort((a, b) => b.treatment_date.localeCompare(a.treatment_date));
+  } else if (!supabase) {
+    throw new Error('Supabase가 설정되지 않았습니다.');
   } else {
     const { data, error } = await supabase
       .from('treatments')
@@ -589,7 +596,7 @@ export async function createDesignerTreatment(input: CreateDesignerTreatmentInpu
     feedback_completed: false,
   };
 
-  if (isDemoAuthMode || !supabase) {
+  if (await shouldUseLocalDemoStore()) {
     await hydrateDemoTreatments();
 
     const usersRaw = await demoPersistedStorage.getItem(DEMO_USERS_KEY);
@@ -613,6 +620,10 @@ export async function createDesignerTreatment(input: CreateDesignerTreatmentInpu
     invalidateDesignerWorkspaceCache();
 
     return treatment;
+  }
+
+  if (!supabase) {
+    throw new Error('Supabase가 설정되지 않았습니다.');
   }
 
   const { data: profile } = await supabase
@@ -652,7 +663,7 @@ export async function updateTreatment(id: string, updates: TreatmentUpdateInput)
     throw new Error('로그인이 필요합니다.');
   }
 
-  if (isDemoAuthMode || !supabase) {
+  if (await shouldUseLocalDemoStore()) {
     const index = demoTreatments.findIndex((treatment) => treatment.id === id);
 
     if (index < 0) {
@@ -669,6 +680,10 @@ export async function updateTreatment(id: string, updates: TreatmentUpdateInput)
     invalidateDesignerWorkspaceCache();
 
     return demoTreatments[index];
+  }
+
+  if (!supabase) {
+    throw new Error('Supabase가 설정되지 않았습니다.');
   }
 
   let query = supabase.from('treatments').update(updates).eq('id', id);

@@ -97,7 +97,17 @@ function toAuthUser(user: DemoUser): AuthUser {
 
 async function readDemoUsersFromStorage() {
   const rawUsers = await demoPersistedStorage.getItem(DEMO_USERS_KEY);
-  return rawUsers ? (JSON.parse(rawUsers) as DemoUser[]) : [];
+
+  if (!rawUsers) {
+    return [];
+  }
+
+  try {
+    return JSON.parse(rawUsers) as DemoUser[];
+  } catch {
+    await demoPersistedStorage.removeItem(DEMO_USERS_KEY);
+    return [];
+  }
 }
 
 async function ensureDemoUsersSeeded() {
@@ -108,11 +118,11 @@ async function ensureDemoUsersSeeded() {
     return SEEDED_DEMO_USERS;
   }
 
-  const byEmail = new Map(existing.map((user) => [user.email, user]));
+  const byEmail = new Map(existing.map((user) => [normalizeEmail(user.email), user]));
   let changed = false;
 
   for (const seeded of SEEDED_DEMO_USERS) {
-    const stored = byEmail.get(seeded.email);
+    const stored = byEmail.get(normalizeEmail(seeded.email));
 
     if (!stored) {
       existing.push(seeded);
@@ -192,7 +202,40 @@ async function getDemoCurrentUser() {
 
   const users = await getDemoUsers();
   const user = users.find((item) => item.id === currentUserId);
-  return user ? toAuthUser(user) : null;
+
+  if (!user) {
+    await demoPersistedStorage.removeItem(DEMO_SESSION_KEY);
+    return null;
+  }
+
+  return toAuthUser(user);
+}
+
+async function resolveDemoUserForLogin(normalizedEmail: string, password: string) {
+  const users = await getDemoUsers();
+  let user =
+    users.find(
+      (item) => normalizeEmail(item.email) === normalizedEmail && item.password === password,
+    ) ?? null;
+
+  if (!user) {
+    const catalogUser = lookupDemoCatalogUser(normalizedEmail, password);
+
+    if (catalogUser) {
+      user = await registerDemoCatalogUser(catalogUser);
+    }
+  }
+
+  return user;
+}
+
+function isPrimaryDemoCredential(normalizedEmail: string, password: string) {
+  return (
+    (normalizedEmail === normalizeEmail(DEMO_LOGIN_HINT.customerEmail) &&
+      password === DEMO_LOGIN_HINT.customerPassword) ||
+    (normalizedEmail === normalizeEmail(DEMO_LOGIN_HINT.designerEmail) &&
+      password === DEMO_LOGIN_HINT.designerPassword)
+  );
 }
 
 export async function signUpWithEmail({ email, password, name, role }: SignupInput) {
@@ -259,7 +302,9 @@ export async function signUpWithEmail({ email, password, name, role }: SignupInp
   }
 
   const users = await getDemoUsers();
-  const existingUserIndex = users.findIndex((item) => item.email === normalizedEmail);
+  const existingUserIndex = users.findIndex(
+    (item) => normalizeEmail(item.email) === normalizedEmail,
+  );
 
   if (existingUserIndex >= 0) {
     const updatedUser: DemoUser = {
@@ -294,6 +339,24 @@ export async function signUpWithEmail({ email, password, name, role }: SignupInp
 export async function signInWithEmail({ email, password }: LoginInput) {
   const normalizedEmail = normalizeEmail(email);
 
+  const shouldTryDemoFirst =
+    isDemoAuthMode || isPrimaryDemoCredential(normalizedEmail, password) || Boolean(
+      lookupDemoCatalogUser(normalizedEmail, password),
+    );
+
+  if (shouldTryDemoFirst) {
+    const demoUser = await resolveDemoUserForLogin(normalizedEmail, password);
+
+    if (demoUser) {
+      await demoPersistedStorage.setItem(DEMO_SESSION_KEY, demoUser.id);
+      return toAuthUser(demoUser);
+    }
+
+    if (isDemoAuthMode) {
+      throw new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
+    }
+  }
+
   if (!isDemoAuthMode && supabase) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
@@ -323,26 +386,16 @@ export async function signInWithEmail({ email, password }: LoginInput) {
     };
   }
 
-  const users = await getDemoUsers();
-  let user = users.find((item) => item.email === normalizedEmail && item.password === password);
-
-  if (!user) {
-    const catalogUser = lookupDemoCatalogUser(normalizedEmail, password);
-
-    if (catalogUser) {
-      user = await registerDemoCatalogUser(catalogUser);
-    }
-  }
-
-  if (!user) {
-    throw new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
-  }
-
-  await demoPersistedStorage.setItem(DEMO_SESSION_KEY, user.id);
-  return toAuthUser(user);
+  throw new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
 }
 
 export async function getCurrentUser() {
+  const demoUser = await getDemoCurrentUser();
+
+  if (demoUser) {
+    return demoUser;
+  }
+
   if (!isDemoAuthMode && supabase) {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
@@ -365,21 +418,19 @@ export async function getCurrentUser() {
     };
   }
 
-  return getDemoCurrentUser();
+  return null;
 }
 
 export async function signOut() {
-  if (!isDemoAuthMode && supabase) {
+  await demoPersistedStorage.removeItem(DEMO_SESSION_KEY);
+
+  if (supabase) {
     const { error } = await supabase.auth.signOut();
 
     if (error) {
       throw error;
     }
-
-    return;
   }
-
-  await demoPersistedStorage.removeItem(DEMO_SESSION_KEY);
 }
 
 export function subscribeToAuthState(listener: AuthStateListener) {

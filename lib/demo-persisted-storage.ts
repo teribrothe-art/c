@@ -1,26 +1,52 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-/** 데모·로컬 데이터 — 웹은 localStorage, iOS/Android는 AsyncStorage */
+function webLocalStorage() {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    return null;
+  }
+
+  return window.localStorage;
+}
+
+/** 데모·로컬 데이터 — 웹은 localStorage만 사용 (AsyncStorage와 혼용 시 세션 유실) */
 export const demoPersistedStorage = {
   getItem: (key: string) => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      return Promise.resolve(window.localStorage.getItem(key));
+    const webStore = webLocalStorage();
+
+    if (webStore) {
+      return Promise.resolve(webStore.getItem(key));
+    }
+
+    if (Platform.OS === 'web') {
+      return Promise.resolve(null);
     }
 
     return AsyncStorage.getItem(key);
   },
   setItem: (key: string, value: string) => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.localStorage.setItem(key, value);
+    const webStore = webLocalStorage();
+
+    if (webStore) {
+      webStore.setItem(key, value);
+      return Promise.resolve();
+    }
+
+    if (Platform.OS === 'web') {
       return Promise.resolve();
     }
 
     return AsyncStorage.setItem(key, value);
   },
   removeItem: (key: string) => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.localStorage.removeItem(key);
+    const webStore = webLocalStorage();
+
+    if (webStore) {
+      webStore.removeItem(key);
+      return Promise.resolve();
+    }
+
+    if (Platform.OS === 'web') {
       return Promise.resolve();
     }
 
