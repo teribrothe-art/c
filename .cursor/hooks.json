@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionEnd": [
+      {
+        "command": "node scripts/backup-to-github.mjs --quiet"
+      }
+    ]
+  }
+}

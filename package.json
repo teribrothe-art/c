@@ -70,6 +70,7 @@
     "qr": "node scripts/generate-expo-qr.mjs",
     "qr:html": "node scripts/generate-expo-qr.mjs --html",
     "lint": "expo lint",
+    "backup": "node scripts/backup-to-github.mjs",
     "beta:smoke": "node scripts/beta-smoke-demo.mjs",
     "designer:link-mock": "node scripts/designer-customer-link-mock.mjs",
     "verify:login": "node scripts/verify-login-screen.mjs",
