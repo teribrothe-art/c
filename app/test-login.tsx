@@ -1,4 +1,4 @@
-import { Link, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import type { Href } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -41,6 +41,7 @@ import { signInAndNavigate } from '../lib/quick-login-flow';
 import { formatDemoDesignerCustomerCount } from '../lib/demo-designer-customer-counts';
 import { colors } from '../lib/theme';
 import { AppVersionBadge } from '../src/components/app-version-badge';
+import { RouterPressable } from '../src/components/router-pressable';
 import { TestLoginAccountGrid } from '../src/components/test-login-account-grid';
 
 type DemoLoginGroupSectionProps = {
@@ -150,13 +151,23 @@ function DemoLoginGroupSection({
     <View style={styles.group}>
       {collapsible ? (
         <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded }}
+          accessibilityLabel={`${title} ${expanded ? '접기' : '펼치기'}`}
           onPress={onToggle}
-          style={({ pressed }) => [styles.collapseHeader, pressed && styles.collapseHeaderPressed]}>
-          <View style={styles.collapseHeaderBody}>
+          style={({ pressed }) => [
+            styles.collapseHeader,
+            Platform.OS === 'web' && styles.collapseHeaderWeb,
+            pressed && styles.collapseHeaderPressed,
+          ]}>
+          <View pointerEvents="none" style={styles.collapseHeaderBody}>
             <Text style={styles.groupTitle}>{title}</Text>
             {description ? <Text style={styles.groupDescription}>{description}</Text> : null}
+            {!expanded ? (
+              <Text style={styles.expandHint}>탭하여 목록 펼치기</Text>
+            ) : null}
           </View>
-          <View style={styles.collapseTrailing}>
+          <View pointerEvents="none" style={styles.collapseTrailing}>
             <Text style={styles.collapseCount}>{countLabel}</Text>
             <Text style={styles.collapseChevron}>{expanded ? '▲' : '▼'}</Text>
           </View>
@@ -193,9 +204,11 @@ function DemoLoginGroupSection({
                 return (
                   <Pressable
                     key={tab}
+                    accessibilityRole="button"
                     onPress={() => setSelectedConsonant(selected ? null : tab)}
                     style={({ pressed }) => [
                       styles.consonantTab,
+                      Platform.OS === 'web' && styles.consonantTabWeb,
                       selected && styles.consonantTabSelected,
                       count === 0 && styles.consonantTabEmpty,
                       pressed && styles.consonantTabPressed,
@@ -361,12 +374,18 @@ export default function TestLoginScreen() {
     [loadingId],
   );
 
-  const toggleGroup = useCallback((title: DemoLoginGroupKey) => {
-    setExpandedGroups((prev) => ({
-      ...prev,
-      [title]: !prev[title],
-    }));
-  }, []);
+  const toggleGroup = useCallback(
+    (title: DemoLoginGroupKey) => {
+      setExpandedGroups((prev) => {
+        const merged = { ...routeExpandedGroups, ...prev };
+        return {
+          ...prev,
+          [title]: !merged[title],
+        };
+      });
+    },
+    [routeExpandedGroups],
+  );
 
   if (!isDemoAuthMode) {
     return (
@@ -376,11 +395,11 @@ export default function TestLoginScreen() {
           Supabase가 연결된 상태입니다. 웹·폰 데모를 쓰려면 .env에 EXPO_PUBLIC_FORCE_DEMO_MODE=true 를
           넣고 Expo를 다시 시작하세요.
         </Text>
-        <Link href="/" asChild>
-          <Pressable style={styles.backLink}>
-            <Text style={styles.backLinkText}>로그인으로 돌아가기</Text>
-          </Pressable>
-        </Link>
+        <RouterPressable href="/" style={styles.backLink}>
+          <Text pointerEvents="none" style={styles.backLinkText}>
+            로그인으로 돌아가기
+          </Text>
+        </RouterPressable>
         <AppVersionBadge pinned />
       </View>
     );
@@ -392,16 +411,19 @@ export default function TestLoginScreen() {
       style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
+        nestedScrollEnabled
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>테스트 계정</Text>
           <Text style={styles.subtitle}>탭하면 바로 로그인됩니다.</Text>
-          <Link href="/connect-share" asChild>
-            <Pressable style={({ pressed }) => [styles.connectShareLink, pressed && { opacity: 0.85 }]}>
-              <Text style={styles.connectShareLinkText}>QR</Text>
-            </Pressable>
-          </Link>
+          <RouterPressable
+            href="/connect-share"
+            style={({ pressed }) => [styles.connectShareLink, pressed && { opacity: 0.85 }]}>
+            <Text pointerEvents="none" style={styles.connectShareLinkText}>
+              QR
+            </Text>
+          </RouterPressable>
         </View>
 
         {demoLoginGroups.map((group) => (
@@ -503,11 +525,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginBottom: 8,
+    minHeight: 56,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
+  collapseHeaderWeb: {
+    cursor: 'pointer',
+  },
   collapseHeaderPressed: {
+    backgroundColor: '#FFE8EA',
     opacity: 0.92,
+  },
+  expandHint: {
+    color: colors.coral,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 4,
   },
   collapseHeaderBody: {
     flex: 1,
@@ -582,6 +615,9 @@ const styles = StyleSheet.create({
   },
   consonantTabPressed: {
     opacity: 0.88,
+  },
+  consonantTabWeb: {
+    cursor: 'pointer',
   },
   consonantTabText: {
     color: '#6B6B7B',
