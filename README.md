@@ -181,8 +181,22 @@ EXPO_PUBLIC_TOSS_CLIENT_KEY=test_ck_발급받은_전체_문자열
 
 홈 화면(`/home`)은 Supabase의 `treatments` 테이블에서 본인 시술 기록을 최신순으로 불러옵니다. Supabase 설정 전에는 로컬 확인용 시술 카드가 표시됩니다.
 
+## GitHub 백업 (작업 종료 시)
+
+원격: [https://github.com/teribrothe-art/c.git](https://github.com/teribrothe-art/c.git)
+
+| 방법 | 설명 |
+|------|------|
+| **자동** | Cursor 세션을 종료할 때 `.cursor/hooks.json` → `sessionEnd`가 `npm run backup`과 동일한 스크립트 실행 |
+| **수동** | `npm run backup` — 변경 사항 커밋 후 `main`에 push |
+
+로그: `.cursor/backup.log` (로컬만, git 제외). `.env`는 커밋되지 않습니다.
+
+최초 1회는 GitHub 로그인(또는 SSH/토큰)이 필요합니다. push 실패 시 로그를 확인하세요.
+
 ## 사용 가능한 스크립트
 
+- `npm run backup`: GitHub(`teribrothe-art/c`)로 커밋·push
 - `npm start`: Expo 개발 서버 실행
 - `npm run android`: Android 에뮬레이터/기기에서 실행
 - `npm run ios`: iOS 시뮬레이터/기기에서 실행
