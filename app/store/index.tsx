@@ -1,16 +1,29 @@
 import { Link, router, useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { formatAmount } from '../../lib/currency-input';
+import { formatThisMonthScopedLabel } from '../../lib/designer-revenue-analytics';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
 import { getOrgStoreForAccountUser } from '../../lib/org-store-affiliation';
 import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
 import {
   getVirtualStoreForScope,
-  type VirtualSimulationScenario,
 } from '../../lib/org-virtual-simulation';
+import {
+  fetchOrgMonthlySalesCatalog,
+  fetchOrgMonthlySalesSummary,
+  filterMonthlyCatalogByQuery,
+  type OrgMonthlySalesCatalogItem,
+  type OrgMonthlySalesSummary,
+} from '../../lib/org-monthly-sales';
+import {
+  fetchOrgWeeklySalesSummary,
+  type OrgWeeklySalesSummary,
+  type WeeklySalesSegment,
+} from '../../lib/org-weekly-sales';
+import { getWeekStartMonday, toLocalDateString } from '../../lib/designer-revenue-weekly';
 import { getCurrentUser } from '../../lib/auth';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
@@ -18,15 +31,28 @@ import { colors } from '../../lib/theme';
 import { OrgDashboardStatGrid } from '../../src/components/org-dashboard-stat-grid';
 import { LoadingState } from '../../src/components/loading-state';
 import { StoreBottomTabBar } from '../../src/components/store-bottom-tab-bar';
-import { VirtualSimulationBanner } from '../../src/components/virtual-simulation-banner';
+import { RevenueSplitStructureCard } from '../../src/components/revenue-split-structure-card';
+import {
+  WeeklySalesTabBar,
+  type SalesPeriodMode,
+} from '../../src/components/weekly-sales-tab-bar';
 
 export default function StoreHomeScreen() {
   useOrgRoleGuard('store');
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
-  const [scenario, setScenario] = useState<VirtualSimulationScenario>('weekday');
+  const [weeklySales, setWeeklySales] = useState<OrgWeeklySalesSummary | null>(null);
+  const [weeklySegment, setWeeklySegment] = useState<WeeklySalesSegment>('weekday');
+  const maxWeekStart = useMemo(() => getWeekStartMonday(toLocalDateString(new Date())), []);
+  const [selectedWeekStart, setSelectedWeekStart] = useState(maxWeekStart);
+  const [periodMode, setPeriodMode] = useState<SalesPeriodMode>('weekly');
+  const [monthlyCatalog, setMonthlyCatalog] = useState<OrgMonthlySalesCatalogItem[]>([]);
+  const [monthlySummary, setMonthlySummary] = useState<OrgMonthlySalesSummary | null>(null);
+  const [selectedMonthKey, setSelectedMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
+  const [monthSearchQuery, setMonthSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [storeOrgId, setStoreOrgId] = useState<string | undefined>();
   const [linkedStoreName, setLinkedStoreName] = useState<string | null>(null);
   const [linkedStoreRegion, setLinkedStoreRegion] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
@@ -37,18 +63,20 @@ export default function StoreHomeScreen() {
 
     Promise.all([getCurrentUser(), resolveCurrentStoreOrgId()])
       .then(([user, storeOrgId]) =>
-        fetchOrgDashboardSummary('store', {
-          storeOrgId,
-          scenario,
-          withVirtualSimulation: true,
-        }).then((data) => ({
+        Promise.all([
+          fetchOrgDashboardSummary('store', { storeOrgId }),
+          fetchOrgWeeklySalesSummary('store', { storeOrgId, referenceDate: selectedWeekStart }),
+        ]).then(([data, weekData]) => ({
           user,
           data,
+          weekData,
           storeOrgId,
         })),
       )
-      .then(({ user, data, storeOrgId }) => {
+      .then(({ user, data, weekData, storeOrgId }) => {
         setSummary(data);
+        setWeeklySales(weekData);
+        setStoreOrgId(storeOrgId);
         const linkedStore =
           (user ? getOrgStoreForAccountUser(user) : null) ??
           getVirtualStoreForScope('store', storeOrgId);
@@ -60,12 +88,55 @@ export default function StoreHomeScreen() {
         setErrorMessage(getErrorMessage(error, '매장 현황을 불러오지 못했습니다.'));
       })
       .finally(() => setIsLoading(false));
-  }, [scenario]);
+  }, [selectedWeekStart]);
+
+  useEffect(() => {
+    if (periodMode !== 'monthly') {
+      return;
+    }
+
+    void resolveCurrentStoreOrgId().then((storeOrgId) => {
+      if (monthlyCatalog.length === 0) {
+        void fetchOrgMonthlySalesCatalog('store', { storeOrgId }).then(setMonthlyCatalog);
+      }
+
+      void fetchOrgMonthlySalesSummary('store', selectedMonthKey, { storeOrgId }).then(setMonthlySummary);
+    });
+  }, [monthlyCatalog.length, periodMode, selectedMonthKey]);
 
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load]),
+  );
+
+  const filteredMonthlyCatalog = useMemo(
+    () => filterMonthlyCatalogByQuery(monthlyCatalog, monthSearchQuery),
+    [monthlyCatalog, monthSearchQuery],
+  );
+
+  const handleSelectMonthKey = useCallback(
+    (monthKey: string) => {
+      setSelectedMonthKey(monthKey);
+
+      void resolveCurrentStoreOrgId().then((storeOrgId) => {
+        void fetchOrgMonthlySalesSummary('store', monthKey, { storeOrgId }).then(setMonthlySummary);
+      });
+    },
+    [],
+  );
+
+  const handleSelectWeekStart = useCallback(
+    (weekStart: string) => {
+      setSelectedWeekStart(weekStart);
+      void resolveCurrentStoreOrgId().then((resolvedStoreOrgId) => {
+        void fetchOrgWeeklySalesSummary('store', {
+          storeOrgId: resolvedStoreOrgId,
+          referenceDate: weekStart,
+        }).then(setWeeklySales);
+      });
+    },
+    [],
   );
 
   return (
@@ -81,7 +152,26 @@ export default function StoreHomeScreen() {
         <Text style={styles.title}>매장</Text>
         <Text style={styles.subtitle}>지역 플랜비 매장과 연동된 디자이너·매출을 확인합니다.</Text>
 
-        <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
+        {weeklySales ? (
+          <WeeklySalesTabBar
+            monthSearchQuery={monthSearchQuery}
+            monthlyCatalog={filteredMonthlyCatalog}
+            monthlySummary={monthlySummary}
+            onMonthSearchQueryChange={setMonthSearchQuery}
+            onPeriodModeChange={setPeriodMode}
+            onSelectMonthKey={handleSelectMonthKey}
+            onSelectWeekStart={handleSelectWeekStart}
+            onWeeklySegmentChange={setWeeklySegment}
+            periodMode={periodMode}
+            scope="store"
+            selectedMonthKey={selectedMonthKey}
+            selectedWeekStart={selectedWeekStart}
+            maxWeekStart={maxWeekStart}
+            storeOrgId={storeOrgId}
+            weeklySegment={weeklySegment}
+            weeklySummary={weeklySales}
+          />
+        ) : null}
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -89,6 +179,11 @@ export default function StoreHomeScreen() {
           <Text style={styles.errorText}>{errorMessage}</Text>
         ) : summary ? (
           <>
+            <RevenueSplitStructureCard
+              editHref="/store/revenue-split"
+              sampleGrossAmount={summary.monthRevenue || 100_000}
+            />
+
             <OrgDashboardStatGrid
               items={[
                 {
@@ -104,13 +199,13 @@ export default function StoreHomeScreen() {
                 },
                 {
                   key: 'treatments',
-                  label: '이번 달 시술',
+                  label: `${formatThisMonthScopedLabel()} 시술`,
                   value: String(summary.monthTreatmentCount),
                   onPress: () => router.push('/store/customers'),
                 },
                 {
                   key: 'revenue',
-                  label: '이번 달 매출',
+                  label: `${formatThisMonthScopedLabel()} 매출`,
                   value: formatAmount(summary.monthRevenue),
                   onPress: () => router.push('/store/revenue'),
                 },

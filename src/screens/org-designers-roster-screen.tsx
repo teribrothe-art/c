@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -23,21 +23,51 @@ import {
   type StoreMetricTab,
 } from '../components/store-metric-tabs';
 
+function metricValueForStoreGroup(group: OrgDesignerStoreGroup, tab: StoreMetricTab) {
+  switch (tab) {
+    case 'customers':
+      return group.customerCount;
+    case 'treatments':
+      return group.monthTreatmentCount;
+    case 'sales':
+      return group.monthGrossSales;
+    case 'hq':
+      return group.monthHqRevenue;
+    case 'designers':
+    default:
+      return group.designers.length;
+  }
+}
+
+function sortStoreGroups(groups: OrgDesignerStoreGroup[], tab: StoreMetricTab) {
+  return [...groups].sort((a, b) => {
+    const diff = metricValueForStoreGroup(b, tab) - metricValueForStoreGroup(a, tab);
+    if (diff !== 0) return diff;
+    return a.storeName.localeCompare(b.storeName, 'ko');
+  });
+}
+
 function StoreGroupCard({
   group,
   tab,
   onPress,
+  tone,
 }: {
   group: OrgDesignerStoreGroup;
   tab: StoreMetricTab;
   onPress: () => void;
+  tone: 'even' | 'odd';
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${group.storeName} 디자이너 보기`}
       onPress={onPress}
-      style={({ pressed }) => [styles.storeCard, pressed && styles.storeCardPressed]}>
+      style={({ pressed }) => [
+        styles.storeCard,
+        tone === 'even' ? styles.storeCardEven : styles.storeCardOdd,
+        pressed && styles.storeCardPressed,
+      ]}>
       <Text style={styles.storeLabel}>소속 매장</Text>
       <Text style={styles.storeName}>{group.storeName}</Text>
       <Text style={styles.storeRegion}>{group.storeRegion}</Text>
@@ -85,6 +115,7 @@ export function OrgDesignersRosterScreen() {
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [globalMetricTab, setGlobalMetricTab] = useState<StoreMetricTab>('designers');
+  const [storeSearch, setStoreSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -118,6 +149,21 @@ export function OrgDesignersRosterScreen() {
     [selectedStoreId, storeGroups],
   );
 
+  const filteredStoreGroups = useMemo(() => {
+    const query = storeSearch.trim().toLowerCase();
+
+    const base = query
+      ? storeGroups.filter(
+      (group) =>
+        group.storeName.toLowerCase().includes(query) ||
+        group.storeRegion.toLowerCase().includes(query) ||
+        group.storeId.toLowerCase().includes(query),
+      )
+      : storeGroups;
+
+    return sortStoreGroups(base, globalMetricTab);
+  }, [globalMetricTab, storeGroups, storeSearch]);
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -148,8 +194,20 @@ export function OrgDesignersRosterScreen() {
           <Text style={styles.subtitle}>
             {selectedGroup
               ? '소속 디자이너의 매출·고객·시술을 조회하세요.'
-              : '상단 탭으로 전체 매장 지표를 함께 전환합니다.'}
+              : `전국 ${storeGroups.length.toLocaleString('ko-KR')}개 매장 · 검색으로 찾기`}
           </Text>
+          {!selectedGroup ? (
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+              onChangeText={setStoreSearch}
+              placeholder="매장명 · 지역 · ID 검색"
+              placeholderTextColor="#9CA3AF"
+              style={styles.storeSearchInput}
+              value={storeSearch}
+            />
+          ) : null}
         </View>
 
         {isLoading ? (
@@ -171,16 +229,23 @@ export function OrgDesignersRosterScreen() {
             </View>
           </View>
         ) : summary ? (
-          <View style={styles.storeList}>
-            {storeGroups.map((group) => (
+          <FlatList
+            data={filteredStoreGroups}
+            keyExtractor={(item) => item.storeId}
+            scrollEnabled={false}
+            contentContainerStyle={styles.storeList}
+            ListEmptyComponent={
+              <EmptyState title="검색 결과 없음" subtitle="다른 키워드로 검색해 보세요." />
+            }
+            renderItem={({ item, index }) => (
               <StoreGroupCard
-                key={group.storeId}
-                group={group}
+                group={item}
                 tab={globalMetricTab}
-                onPress={() => setSelectedStoreId(group.storeId)}
+                onPress={() => setSelectedStoreId(item.storeId)}
+                tone={index % 2 === 0 ? 'even' : 'odd'}
               />
-            ))}
-          </View>
+            )}
+          />
         ) : null}
       </ScrollView>
       <AdminBottomTabBar />
@@ -240,27 +305,46 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 4,
   },
+  storeSearchInput: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 12,
+    borderWidth: 1,
+    color: '#1A1A2E',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
   storeList: {
-    gap: 12,
+    gap: 10,
   },
   storeCard: {
-    backgroundColor: '#E8F5E9',
-    borderColor: '#C8E6C9',
     borderRadius: 14,
     borderWidth: 1,
     gap: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    width: '100%',
+  },
+  storeCardEven: {
+    backgroundColor: '#E8F5E9',
+    borderColor: '#C8E6C9',
+  },
+  storeCardOdd: {
+    backgroundColor: '#E0F2FE',
+    borderColor: '#BAE6FD',
   },
   storeCardPressed: {
-    backgroundColor: '#DFF2E0',
+    backgroundColor: '#F5F5F8',
     opacity: 0.95,
   },
   storeTapHint: {
     color: '#2E7D32',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '800',
-    marginTop: 6,
+    marginTop: 4,
   },
   storeSection: {
     gap: 10,
@@ -281,12 +365,12 @@ const styles = StyleSheet.create({
   },
   storeName: {
     color: '#1B5E20',
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '900',
   },
   storeRegion: {
     color: '#388E3C',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
   designerList: {

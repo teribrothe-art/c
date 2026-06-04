@@ -277,7 +277,15 @@ export default function ProfileScreen() {
                 <Text style={styles.paymentsLinkLabel}>시술별 결제·영수증</Text>
                 <Text style={styles.paymentsLinkArrow}>›</Text>
               </Pressable>
-            ) : null}
+            ) : (
+              <Pressable
+                style={({ pressed }) => [styles.paymentsLink, pressed && styles.paymentsLinkPressed]}
+                onPress={() => router.push('/designer/revenue-split')}>
+                <Text style={styles.paymentsLinkIcon}>💰</Text>
+                <Text style={styles.paymentsLinkLabel}>수수료 구조</Text>
+                <Text style={styles.paymentsLinkArrow}>›</Text>
+              </Pressable>
+            )}
 
             <View style={styles.card}>
               {settingItems.map((item, index) => (

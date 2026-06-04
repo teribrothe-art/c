@@ -1,14 +1,31 @@
-import { Link, router, useFocusEffect, type Href } from 'expo-router';
-import { useCallback, useState } from 'react';
-import type { VirtualSimulationScenario } from '../../lib/org-virtual-simulation';
+import { router, useFocusEffect, type Href } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { formatAmount } from '../../lib/currency-input';
-import { formatDesignerNamePreview } from '../../lib/designer-name-preview';
+import { formatSalesAmount } from '../../lib/currency-input';
+import { formatMonthKeyLabel, formatThisMonthScopedLabel } from '../../lib/designer-revenue-analytics';
 import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
+import {
+  fetchOrgMonthlySalesCatalog,
+  fetchOrgMonthlySalesSummary,
+  filterMonthlyCatalogByQuery,
+  type OrgMonthlySalesCatalogItem,
+  type OrgMonthlySalesSummary,
+} from '../../lib/org-monthly-sales';
+import {
+  fetchOrgWeeklySalesSummary,
+  type OrgWeeklySalesSummary,
+  type WeeklySalesSegment,
+} from '../../lib/org-weekly-sales';
+import { getWeekStartMonday, toLocalDateString } from '../../lib/designer-revenue-weekly';
 import { buildVirtualStoreSummaries } from '../../lib/org-virtual-simulation';
 import { getErrorMessage } from '../../lib/errors';
+import {
+  settlementTotalsForSalesContext,
+  sumMonthlyGrossSales,
+  sumWeeklyGrossSales,
+} from '../../lib/org-sales-display';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { OrgDashboardStatGrid } from '../../src/components/org-dashboard-stat-grid';
@@ -16,23 +33,69 @@ import { LoadingState } from '../../src/components/loading-state';
 import { AdminBottomTabBar } from '../../src/components/admin-bottom-tab-bar';
 import { HqRevenueSummaryCard } from '../../src/components/hq-revenue-summary-card';
 import { RevenueSplitStructureCard } from '../../src/components/revenue-split-structure-card';
-import { VirtualSimulationBanner } from '../../src/components/virtual-simulation-banner';
+import { TopStoresSection } from '../../src/components/top-stores-section';
+import {
+  WeeklySalesTabBar,
+  type SalesFilterContext,
+  type SalesPeriodMode,
+} from '../../src/components/weekly-sales-tab-bar';
 
 export default function AdminHomeScreen() {
   useOrgRoleGuard('admin');
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
+  const [weeklySales, setWeeklySales] = useState<OrgWeeklySalesSummary | null>(null);
+  const [weeklySegment, setWeeklySegment] = useState<WeeklySalesSegment>('weekday');
+  const maxWeekStart = useMemo(() => getWeekStartMonday(toLocalDateString(new Date())), []);
+  const [selectedWeekStart, setSelectedWeekStart] = useState(maxWeekStart);
+  const [periodMode, setPeriodMode] = useState<SalesPeriodMode>('weekly');
+  const [monthlyCatalog, setMonthlyCatalog] = useState<OrgMonthlySalesCatalogItem[]>([]);
+  const [monthlySummary, setMonthlySummary] = useState<OrgMonthlySalesSummary | null>(null);
+  const [selectedMonthKey, setSelectedMonthKey] = useState(() => new Date().toISOString().slice(0, 7));
+  const [monthSearchQuery, setMonthSearchQuery] = useState('');
   const [virtualStores, setVirtualStores] = useState<ReturnType<typeof buildVirtualStoreSummaries>>([]);
-  const [scenario, setScenario] = useState<VirtualSimulationScenario>('weekday');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [salesFilterContext, setSalesFilterContext] = useState<SalesFilterContext | null>(null);
+
+  const hqCardTotals = useMemo(() => {
+    if (!summary) {
+      return null;
+    }
+
+    return (
+      settlementTotalsForSalesContext(salesFilterContext, summary.configuredHqRate) ?? summary
+    );
+  }, [salesFilterContext, summary]);
+
+  const weeklyGrossSales = useMemo(
+    () => (weeklySales ? sumWeeklyGrossSales(weeklySales) : 0),
+    [weeklySales],
+  );
+
+  const monthGrossSales = useMemo(
+    () => sumMonthlyGrossSales(monthlySummary, summary?.monthGrossSales ?? 0),
+    [monthlySummary, summary?.monthGrossSales],
+  );
+
+  const monthScopeLabel = useMemo(() => {
+    if (monthlySummary?.monthLabel) {
+      return monthlySummary.monthLabel;
+    }
+
+    return formatMonthKeyLabel(selectedMonthKey);
+  }, [monthlySummary?.monthLabel, selectedMonthKey]);
 
   const load = useCallback(() => {
     setIsLoading(true);
 
-    fetchOrgDashboardSummary('admin', { scenario, withVirtualSimulation: true })
-      .then((data) => {
+    Promise.all([
+      fetchOrgDashboardSummary('admin'),
+      fetchOrgWeeklySalesSummary('admin', { referenceDate: selectedWeekStart }),
+    ])
+      .then(([data, weekData]) => {
         setSummary(data);
+        setWeeklySales(weekData);
         setVirtualStores(buildVirtualStoreSummaries(data));
         setErrorMessage('');
       })
@@ -40,12 +103,45 @@ export default function AdminHomeScreen() {
         setErrorMessage(getErrorMessage(error, '본사 현황을 불러오지 못했습니다.'));
       })
       .finally(() => setIsLoading(false));
-  }, [scenario]);
+  }, [selectedWeekStart]);
+
+  useEffect(() => {
+    void fetchOrgMonthlySalesSummary('admin', selectedMonthKey).then(setMonthlySummary);
+  }, [selectedMonthKey]);
+
+  useEffect(() => {
+    if (periodMode !== 'monthly') {
+      return;
+    }
+
+    if (monthlyCatalog.length === 0) {
+      void fetchOrgMonthlySalesCatalog('admin').then(setMonthlyCatalog);
+    }
+  }, [monthlyCatalog.length, periodMode]);
 
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load]),
+  );
+
+  const filteredMonthlyCatalog = useMemo(
+    () => filterMonthlyCatalogByQuery(monthlyCatalog, monthSearchQuery),
+    [monthlyCatalog, monthSearchQuery],
+  );
+
+  const handleSelectMonthKey = useCallback((monthKey: string) => {
+    setSelectedMonthKey(monthKey);
+
+    void fetchOrgMonthlySalesSummary('admin', monthKey).then(setMonthlySummary);
+  }, []);
+
+  const handleSelectWeekStart = useCallback(
+    (weekStart: string) => {
+      setSelectedWeekStart(weekStart);
+      void fetchOrgWeeklySalesSummary('admin', { referenceDate: weekStart }).then(setWeeklySales);
+    },
+    [],
   );
 
   return (
@@ -59,11 +155,29 @@ export default function AdminHomeScreen() {
         <Text style={styles.badge}>ADMIN</Text>
         <Text style={styles.title}>본사</Text>
         <Text style={styles.subtitle}>
-          등록된 디자이너·시술·시술 금액을 불러오고, 가상 시나리오(평일·주말)로 운영 지표를 조정해
-          봅니다.
+          등록된 디자이너·시술·매출을 불러오고, 이번 주 평일·주말 매출을 함께 확인합니다.
         </Text>
 
-        <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
+        {weeklySales ? (
+          <WeeklySalesTabBar
+            monthSearchQuery={monthSearchQuery}
+            monthlyCatalog={filteredMonthlyCatalog}
+            monthlySummary={monthlySummary}
+            onMonthSearchQueryChange={setMonthSearchQuery}
+            onPeriodModeChange={setPeriodMode}
+            onSalesFilterContextChange={setSalesFilterContext}
+            onSelectMonthKey={handleSelectMonthKey}
+            onSelectWeekStart={handleSelectWeekStart}
+            onWeeklySegmentChange={setWeeklySegment}
+            periodMode={periodMode}
+            scope="admin"
+            selectedMonthKey={selectedMonthKey}
+            selectedWeekStart={selectedWeekStart}
+            maxWeekStart={maxWeekStart}
+            weeklySegment={weeklySegment}
+            weeklySummary={weeklySales}
+          />
+        ) : null}
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -72,85 +186,44 @@ export default function AdminHomeScreen() {
         ) : summary ? (
           <>
             <RevenueSplitStructureCard sampleGrossAmount={summary.monthGrossSales || 100_000} />
-            <HqRevenueSummaryCard totals={summary} />
+            <HqRevenueSummaryCard
+              hideMonthChips
+              periodLabel={salesFilterContext?.titleLabel}
+              totals={hqCardTotals ?? summary}
+            />
 
             <OrgDashboardStatGrid
               items={[
                 {
-                  key: 'gross',
-                  label: '이번 달 매출',
-                  value: formatAmount(summary.monthGrossSales),
-                  meta: '시술 결제 총액',
+                  key: 'week-gross',
+                  label: '이번 주 매출',
+                  value: formatSalesAmount(weeklyGrossSales),
+                  meta: weeklySales?.weekLabel ?? '주간 합계',
                   onPress: () => router.push('/admin/revenue' as Href),
                 },
                 {
-                  key: 'hq-revenue',
-                  label: '본사 수익',
-                  value: formatAmount(summary.monthHqRevenue),
-                  meta: `수익률 ${summary.hqYieldRate}%`,
-                  onPress: () => router.push('/admin/revenue-split'),
+                  key: 'gross',
+                  label: `${monthScopeLabel} 매출`,
+                  value: formatSalesAmount(monthGrossSales),
+                  meta: '월간 시술 결제 총액',
+                  onPress: () => router.push('/admin/revenue' as Href),
                 },
                 {
                   key: 'treatments',
-                  label: '이번 달 시술',
-                  value: String(summary.monthTreatmentCount),
+                  label: `${monthScopeLabel} 시술`,
+                  value: summary.monthTreatmentCount.toLocaleString('ko-KR'),
                   onPress: () => router.push('/admin/customers'),
                 },
                 {
                   key: 'designers',
                   label: '연결 디자이너',
-                  value: String(summary.designerCount),
+                  value: summary.designerCount.toLocaleString('ko-KR'),
                   onPress: () => router.push('/admin/designers'),
                 },
               ]}
             />
 
-            <Text style={styles.sectionTitle}>지역별 플랜비</Text>
-            {virtualStores.map((store) => {
-              const storeDesigners = summary.designers.filter((designer) => designer.storeId === store.id);
-
-              return (
-                <View key={store.id} style={styles.virtualStoreRow}>
-                  <Text style={styles.virtualStoreName}>{store.name}</Text>
-                  <Text style={styles.virtualStoreMeta}>
-                    {store.region} · 디자이너 {store.designerCount}명 · 매출{' '}
-                    {formatAmount(store.monthGrossSales)} · 본사{' '}
-                    {formatAmount(store.monthHqRevenue)}
-                  </Text>
-                  <Text style={styles.virtualStoreHotPlace}>{store.hotPlace}</Text>
-                  <Text style={styles.virtualStoreDesigners} numberOfLines={1}>
-                    {formatDesignerNamePreview(storeDesigners.map((designer) => designer.name))}
-                  </Text>
-                </View>
-              );
-            })}
-
-            <View style={styles.quickRow}>
-              <Link href={'/admin/reservations' as Href} asChild>
-                <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
-                  <Text style={styles.quickTitle}>예약</Text>
-                  <Text style={styles.quickMeta}>가입 고객 시술·예약 현황</Text>
-                </Pressable>
-              </Link>
-              <Link href="/admin/designers" asChild>
-                <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
-                  <Text style={styles.quickTitle}>매장</Text>
-                  <Text style={styles.quickMeta}>소속·누적 테스트 포함</Text>
-                </Pressable>
-              </Link>
-              <Link href={'/admin/revenue' as Href} asChild>
-                <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
-                  <Text style={styles.quickTitle}>매출</Text>
-                  <Text style={styles.quickMeta}>전체 매출·정산</Text>
-                </Pressable>
-              </Link>
-              <Link href="/admin/revenue-split" asChild>
-                <Pressable style={({ pressed }) => [styles.quickCard, pressed && styles.quickPressed]}>
-                  <Text style={styles.quickTitle}>수수료</Text>
-                  <Text style={styles.quickMeta}>구조·상호 승인</Text>
-                </Pressable>
-              </Link>
-            </View>
+            <TopStoresSection designers={summary.designers} virtualStores={virtualStores} />
 
             <Text style={styles.sectionTitle}>매출 상위 디자이너</Text>
             {[...summary.designers]
@@ -168,7 +241,7 @@ export default function AdminHomeScreen() {
                     </Text>
                   </View>
                   <Text style={styles.menuAmount}>
-                    {formatAmount(designer.monthGrossSales)}
+                    {formatSalesAmount(designer.monthGrossSales)}
                   </Text>
                 </Pressable>
               ))}
@@ -217,67 +290,6 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#EF4444',
     fontSize: 14,
-    fontWeight: '600',
-  },
-  virtualStoreRow: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E8E8F0',
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 4,
-    marginBottom: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  virtualStoreName: {
-    color: '#1A1A2E',
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  virtualStoreMeta: {
-    color: '#6B6B7B',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  virtualStoreHotPlace: {
-    color: '#0F766E',
-    fontSize: 11,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  virtualStoreDesigners: {
-    color: '#374151',
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 16,
-    marginTop: 4,
-  },
-  quickRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 20,
-  },
-  quickCard: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E8E8F0',
-    borderRadius: 14,
-    borderWidth: 1,
-    flex: 1,
-    gap: 4,
-    padding: 14,
-  },
-  quickPressed: {
-    opacity: 0.9,
-  },
-  quickTitle: {
-    color: '#1A1A2E',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  quickMeta: {
-    color: '#6B6B7B',
-    fontSize: 11,
     fontWeight: '600',
   },
   sectionTitle: {

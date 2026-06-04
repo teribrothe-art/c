@@ -1,4 +1,3 @@
-import { isDemoAuthMode } from './auth';
 import { settlementTotalsFromGross, type OrgMonthSettlementTotals } from './org-month-settlement';
 import { resolveDesignerMonthSettlement } from './org-designer-month-metrics';
 import { getActiveRevenueSplitConfig } from './revenue-split-approval';
@@ -14,6 +13,8 @@ import {
 } from './org-virtual-simulation';
 import type { Treatment } from './treatments';
 import { ORG_STORE_DEFINITIONS } from './org-store-affiliation';
+import { isNationwideDesignerId } from './nationwide-org-catalog';
+import { computeNationwideDesignerMetrics } from './nationwide-designer-metrics';
 
 export type OrgDesignerMetrics = OrgDesignerRosterEntry & {
   treatmentCount: number;
@@ -82,6 +83,12 @@ async function metricsForDesigner(
   monthKey: string,
   config: Awaited<ReturnType<typeof getActiveRevenueSplitConfig>>,
 ): Promise<OrgDesignerMetrics> {
+  if (isNationwideDesignerId(entry.id)) {
+    const referenceDate =
+      monthKey === currentMonthKey() ? new Date() : new Date(`${monthKey}-28T12:00:00`);
+    return computeNationwideDesignerMetrics(entry, config, referenceDate);
+  }
+
   const treatments = await listTreatmentsForDesignerId(entry.id);
   const payments = await listPaymentsForDesignerId(entry.id);
   const monthTreatments = treatments.filter(
@@ -109,9 +116,10 @@ export async function fetchOrgDashboardSummary(
     scenario?: VirtualSimulationScenario;
     withVirtualSimulation?: boolean;
     storeOrgId?: string;
+    monthKey?: string;
   },
 ): Promise<OrgDashboardSummary> {
-  const monthKey = currentMonthKey();
+  const monthKey = options?.monthKey ?? currentMonthKey();
   const storeOrgId = await resolveStoreOrgIdForOrgScope(scope, options?.storeOrgId);
   const roster = getOrgDesignerRoster(scope, storeOrgId);
   const config = await getActiveRevenueSplitConfig();
@@ -132,13 +140,15 @@ export async function fetchOrgDashboardSummary(
     ...settlement,
   };
 
-  const useSimulation = options?.withVirtualSimulation ?? isDemoAuthMode;
+  const useSimulation = options?.withVirtualSimulation === true;
 
   if (useSimulation) {
     summary = applyVirtualSimulationToSummary(
       filterSummaryForStoreScope(summary, scope, storeOrgId),
       options?.scenario ?? 'weekday',
     );
+  } else if (scope === 'store') {
+    summary = filterSummaryForStoreScope(summary, scope, storeOrgId);
   }
 
   return summary;

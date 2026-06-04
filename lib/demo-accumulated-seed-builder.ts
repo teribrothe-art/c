@@ -3,6 +3,10 @@ import { calculatePaymentFees, PLATFORM_FEE_RATE } from './payment-record';
 import type { PaymentRecord } from './payment-types';
 import type { BetaTestAccount } from './beta-test-accounts';
 import { buildVisitCycleAccumulatedSeedProfile } from './demo-accumulated-visit-seed-builder';
+import {
+  getTreatmentTemplatesForRegion,
+  priceForRegionalTreatment,
+} from './regional-treatment-pricing';
 
 /** treatments.ts Treatment 과 동일한 시드 형태 (순환 import 방지) */
 export type AccumulatedDemoTreatment = {
@@ -43,6 +47,8 @@ export type AccumulatedSeedProfileConfig = {
   paymentIdPrefix: string;
   /** 단골 재방문 주기 기반 일정 (dailyMin/Max = 일일 방문 고객 수) */
   visitCycleMode?: boolean;
+  /** 지역별 시술 평균가 (매장 region 문자열) */
+  priceRegion?: string;
 };
 
 export type AccumulatedSeedProfileStats = {
@@ -69,15 +75,9 @@ export type BuiltAccumulatedSeedProfile = AccumulatedSeedProfileConfig & {
   stats: AccumulatedSeedProfileStats;
 };
 
-const TREATMENT_TEMPLATES = [
-  { type: '컷', title: '레이어드 컷', price: 120000, duration: '1시간 20분' },
-  { type: '컬러', title: '애쉬브라운 컬러', price: 180000, duration: '2시간 30분' },
-  { type: '펌', title: '볼륨 디지털 펌', price: 220000, duration: '3시간' },
-  { type: '매직', title: '매직스트레이트', price: 280000, duration: '4시간' },
-  { type: '트리트먼트', title: '단백질 딥 케어', price: 90000, duration: '1시간' },
-  { type: '스파', title: '헤드 스파', price: 110000, duration: '1시간' },
-  { type: '탈색', title: '탈색 + 톤다운', price: 260000, duration: '3시간 40분' },
-] as const;
+function templatesForConfig(config: AccumulatedSeedProfileConfig) {
+  return getTreatmentTemplatesForRegion(config.priceRegion ?? '전국');
+}
 
 function formatDate(date: Date) {
   const year = date.getFullYear();
@@ -190,10 +190,15 @@ export function buildAccumulatedSeedProfile(
   dateSlots.forEach((treatmentDate, treatmentSeq) => {
     const customerIndex = treatmentSeq % config.customers.length;
     const customer = config.customers[customerIndex];
-    const template = TREATMENT_TEMPLATES[treatmentSeq % TREATMENT_TEMPLATES.length];
+    const templates = templatesForConfig(config);
+    const template = templates[treatmentSeq % templates.length] ?? templates[0];
     const paymentStatus = resolvePaymentStatus(treatmentDate, treatmentSeq, customerIndex);
     const treatmentId = `${config.treatmentIdPrefix}${String(treatmentSeq + 1).padStart(4, '0')}`;
-    const price = template.price + (treatmentSeq % 3) * 10000;
+    const price = priceForRegionalTreatment(config.priceRegion ?? '전국', [
+      config.key,
+      treatmentSeq,
+      customer.id,
+    ]);
     const fees = calculatePaymentFees(price);
     const paidAt = isoAt(treatmentDate, 10 + (treatmentSeq % 8));
     const settledAt = isoAt(treatmentDate, 9);

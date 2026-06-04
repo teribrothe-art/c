@@ -1,16 +1,24 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { OrgScope } from '../../lib/org-access';
+import { mapDesignerClientsToGridItems } from '../../lib/designer-customer-grid';
 import { getOrgClientListItems, type OrgClientListItem } from '../../lib/org-client-list';
+import {
+  defaultClientPeriodSelection,
+  filterClientsByPeriod,
+  formatClientPeriodScopeLabel,
+  type ClientPeriodSelection,
+} from '../../lib/org-client-period-tabs';
 import { getErrorMessage } from '../../lib/errors';
 import { navigateBackOrOrgHome } from '../../lib/navigation';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { CustomerGrid } from '../components/customer-grid';
+import { OrgClientPeriodTabBar } from '../components/org-client-period-tab-bar';
 import { StoreBottomTabBar } from '../components/store-bottom-tab-bar';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
 import { TAB_BAR_BOTTOM_INSET } from '../components/role-bottom-tab-bar';
@@ -19,9 +27,11 @@ type Props = {
   scope: OrgScope;
 };
 
-function formatDate(date: string) {
-  return date.replaceAll('-', '.');
-}
+const EMPTY_PERIOD_SELECTION: ClientPeriodSelection = {
+  monthKey: null,
+  weekKey: null,
+  date: null,
+};
 
 export function OrgCustomersScreen({ scope }: Props) {
   useOrgRoleGuard(scope);
@@ -32,6 +42,8 @@ export function OrgCustomersScreen({ scope }: Props) {
   const [errorMessage, setErrorMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [designerFilter, setDesignerFilter] = useState<string | null>(designerIdParam ?? null);
+  const [periodSelection, setPeriodSelection] = useState<ClientPeriodSelection>(EMPTY_PERIOD_SELECTION);
+
   const load = useCallback(() => {
     setIsLoading(true);
 
@@ -66,7 +78,7 @@ export function OrgCustomersScreen({ scope }: Props) {
     return [...map.entries()].map(([id, name]) => ({ id, name }));
   }, [items]);
 
-  const visibleItems = useMemo(() => {
+  const searchFilteredItems = useMemo(() => {
     let rows = items;
 
     if (designerFilter) {
@@ -87,19 +99,45 @@ export function OrgCustomersScreen({ scope }: Props) {
     );
   }, [designerFilter, items, searchQuery]);
 
+  useEffect(() => {
+    if (searchFilteredItems.length === 0) {
+      setPeriodSelection(EMPTY_PERIOD_SELECTION);
+      return;
+    }
+
+    const periodFiltered = filterClientsByPeriod(searchFilteredItems, periodSelection);
+
+    if (!periodSelection.monthKey || periodFiltered.length === 0) {
+      setPeriodSelection(defaultClientPeriodSelection(searchFilteredItems));
+    }
+  }, [periodSelection.monthKey, searchFilteredItems]);
+
+  const visibleItems = useMemo(
+    () => filterClientsByPeriod(searchFilteredItems, periodSelection),
+    [periodSelection, searchFilteredItems],
+  );
+
+  const periodScopeLabel = useMemo(
+    () => formatClientPeriodScopeLabel(periodSelection, searchFilteredItems),
+    [periodSelection, searchFilteredItems],
+  );
+
   const treatmentPath = scope === 'store' ? '/store/treatment' : '/admin/treatment';
   const TabBar = scope === 'store' ? StoreBottomTabBar : AdminBottomTabBar;
 
   const gridItems = useMemo(
     () =>
-      visibleItems.map((item) => ({
-        key: item.key,
-        name: item.customerName,
-        subtitle: item.treatmentTitle,
-        meta: `${formatDate(item.treatmentDate)} · ${item.treatment?.treatment_type ?? '시술'}`,
-        badge: item.designerName,
-      })),
-    [visibleItems],
+      mapDesignerClientsToGridItems(visibleItems, {
+        hideDateInMeta: Boolean(periodSelection.date || periodSelection.weekKey),
+      }).map((item) => {
+        const source = visibleItems.find((row) => row.key === item.key);
+
+        return {
+          ...item,
+          badge: source?.designerName ?? item.badge,
+        };
+      }),
+    [periodSelection.date, periodSelection.weekKey, visibleItems],
   );
 
   const handleGridPress = useCallback(
@@ -141,6 +179,14 @@ export function OrgCustomersScreen({ scope }: Props) {
           value={searchQuery}
         />
 
+        {searchFilteredItems.length > 0 ? (
+          <OrgClientPeriodTabBar
+            items={searchFilteredItems}
+            onSelectionChange={setPeriodSelection}
+            selection={periodSelection}
+          />
+        ) : null}
+
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
           <Pressable
             onPress={() => setDesignerFilter(null)}
@@ -161,6 +207,10 @@ export function OrgCustomersScreen({ scope }: Props) {
           })}
         </ScrollView>
 
+        {periodSelection.monthKey ? (
+          <Text style={styles.periodScope}>{periodScopeLabel}</Text>
+        ) : null}
+
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
         ) : errorMessage ? (
@@ -168,7 +218,7 @@ export function OrgCustomersScreen({ scope }: Props) {
         ) : visibleItems.length === 0 ? (
           <EmptyState
             title="표시할 시술이 없어요"
-            subtitle="디자이너 시술 기록이 연결되면 여기에 표시됩니다."
+            subtitle="선택한 기간·디자이너에 해당하는 시술이 없습니다."
           />
         ) : (
           <CustomerGrid items={gridItems} onPressItem={handleGridPress} />
@@ -218,6 +268,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  periodScope: {
+    color: '#0284C7',
+    fontSize: 12,
+    fontWeight: '800',
   },
   chipScroll: {
     flexGrow: 0,
