@@ -48,7 +48,7 @@ export async function resolveRegisteredCustomerForDesigner(
     return null;
   }
 
-  const results = await searchRegisteredCustomers(query);
+  const results = await searchRegisteredCustomers(query, { designerId });
   const exact = results.find(
     (item) => normalizeCustomerSearchText(item.name) === normalizeCustomerSearchText(query),
   );

@@ -415,23 +415,30 @@ export async function getCurrentUser() {
   if (!isDemoAuthMode && supabase) {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
-    if (sessionError || !sessionData.session?.user) {
-      return null;
+    if (!sessionError && sessionData.session?.user) {
+      const data = { user: sessionData.session.user };
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .maybeSingle();
+
+      return {
+        id: data.user.id,
+        email: data.user.email ?? '이메일 정보 없음',
+        role: profile?.role as UserRole | null | undefined,
+      };
     }
 
-    const data = { user: sessionData.session.user };
+    const demoUser = await getDemoCurrentUser();
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', data.user.id)
-      .maybeSingle();
+    if (demoUser) {
+      demoSessionCache = demoUser;
+      return demoUser;
+    }
 
-    return {
-      id: data.user.id,
-      email: data.user.email ?? '이메일 정보 없음',
-      role: profile?.role as UserRole | null | undefined,
-    };
+    return null;
   }
 
   const demoUser = await getDemoCurrentUser();

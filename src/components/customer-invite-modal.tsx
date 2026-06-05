@@ -36,6 +36,7 @@ type InviteMode = 'existing' | 'new';
 type CustomerInviteModalProps = {
   visible: boolean;
   treatmentId: string;
+  designerId?: string;
   defaultCustomerName?: string;
   onClose: () => void;
   onInvitationCreated?: (invitation: CustomerInvitation) => void;
@@ -45,6 +46,7 @@ type CustomerInviteModalProps = {
 export function CustomerInviteModal({
   visible,
   treatmentId,
+  designerId,
   defaultCustomerName = '',
   onClose,
   onInvitationCreated,
@@ -119,7 +121,7 @@ export function CustomerInviteModal({
     const timer = setTimeout(() => {
       setIsSearching(true);
 
-      searchRegisteredCustomers(searchQuery)
+      searchRegisteredCustomers(searchQuery, { designerId })
         .then((items) => {
           if (!isMounted) {
             return;
@@ -160,7 +162,7 @@ export function CustomerInviteModal({
       isMounted = false;
       clearTimeout(timer);
     };
-  }, [visible, mode, searchQuery, showInvitationCode, defaultCustomerName]);
+  }, [visible, mode, searchQuery, showInvitationCode, defaultCustomerName, designerId]);
 
   const handleClose = () => {
     setInvitation(null);
@@ -453,11 +455,20 @@ export function CustomerInviteModal({
                     {isSearching ? (
                       <ActivityIndicator color={colors.coral} style={styles.listLoader} />
                     ) : customers.length === 0 ? (
-                      <Text style={styles.emptyList}>
-                        {searchQuery.trim()
-                          ? '검색 결과가 없어요. 검색어를 지우면 가입 고객 목록이 표시됩니다.'
-                          : '연결 가능한 가입 고객이 없어요. 신규 초대 탭을 이용해주세요.'}
-                      </Text>
+                      <View style={styles.emptyListWrap}>
+                        <Text style={styles.emptyList}>
+                          {searchQuery.trim()
+                            ? '검색 결과가 없어요. 전체 목록에서 고객을 선택해주세요.'
+                            : '연결 가능한 가입 고객이 없어요. 신규 초대 탭을 이용해주세요.'}
+                        </Text>
+                        {searchQuery.trim() ? (
+                          <Pressable
+                            onPress={() => setSearchQuery('')}
+                            style={({ pressed }) => [styles.clearSearchButton, pressed && styles.buttonPressed]}>
+                            <Text style={styles.clearSearchText}>전체 가입 고객 보기</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
                     ) : (
                       <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
                         {customers.map((item) => {
@@ -630,9 +641,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     lineHeight: 20,
+    textAlign: 'center',
+  },
+  emptyListWrap: {
+    alignItems: 'center',
+    gap: 10,
     paddingHorizontal: 14,
     paddingVertical: 20,
-    textAlign: 'center',
+  },
+  clearSearchButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  clearSearchText: {
+    color: colors.mint,
+    fontSize: 13,
+    fontWeight: '800',
   },
   customerRow: {
     alignItems: 'center',

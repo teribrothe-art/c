@@ -1,6 +1,6 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { demoGetItem, demoSetItem } from './demo-async-storage';
-import { BETA_CUSTOMERS } from './beta-test-accounts';
+import { BETA_CUSTOMERS, BETA_DESIGNERS } from './beta-test-accounts';
 import { getLinkedCustomersForDesigner } from './demo-designer-linked-customers';
 import { expireInvitation, getPendingInvitationForTreatment } from './customer-invitations';
 import { toAppError } from './errors';
@@ -13,6 +13,27 @@ export type RegisteredCustomerOption = {
   name: string;
   email: string;
   linked: boolean;
+};
+
+export type SearchRegisteredCustomersOptions = {
+  designerId?: string;
+};
+
+/** 테스트·데모 디자이너 ID — Supabase RPC 대신 로컬 시드 검색 */
+export function isDemoCatalogDesignerId(designerId: string) {
+  return (
+    designerId === 'demo-designer-local' ||
+    /^beta-designer-\d+$/.test(designerId) ||
+    /^test-designer-/.test(designerId) ||
+    /^test-fleet-\d+$/.test(designerId)
+  );
+}
+
+type StoredDemoUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
 };
 
 const DEMO_RELATIONSHIPS_KEY = 'hair-diary-designer-customer-relationships';
@@ -98,52 +119,19 @@ async function appendTreatmentLinkedCustomers(
   }
 }
 
+async function readStoredDemoCustomers(): Promise<StoredDemoUser[]> {
+  const usersRaw = await demoGetItem('hair-diary-demo-users');
+  const stored = usersRaw ? (JSON.parse(usersRaw) as StoredDemoUser[]) : [];
+
+  return stored.filter((account) => account.role === 'customer');
+}
+
 async function fetchDemoRegisteredCustomers(
   designerId: string,
   query: string,
 ): Promise<RegisteredCustomerOption[]> {
-  const usersRaw = await demoGetItem('hair-diary-demo-users');
-  const stored = usersRaw
-    ? (JSON.parse(usersRaw) as { id: string; email: string; name: string | null; role: string }[])
-    : [];
-
   const merged = new Map<string, RegisteredCustomerOption>();
-
-  for (const account of BETA_CUSTOMERS) {
-    merged.set(account.id, {
-      id: account.id,
-      name: account.name,
-      email: account.email,
-      linked: false,
-    });
-  }
-
-  for (const account of stored) {
-    if (account.role !== 'customer') {
-      continue;
-    }
-
-    merged.set(account.id, {
-      id: account.id,
-      name: account.name?.trim() || '고객',
-      email: account.email,
-      linked: false,
-    });
-  }
-
-  merged.set('demo-customer-kim-jiwon', {
-    id: 'demo-customer-kim-jiwon',
-    name: '김지원',
-    email: 'demo@hair.app',
-    linked: false,
-  });
-
-  merged.set('demo-customer-park-minji', {
-    id: 'demo-customer-park-minji',
-    name: '박민지',
-    email: 'demo2@hair.app',
-    linked: false,
-  });
+  const storedCustomers = await readStoredDemoCustomers();
 
   for (const customer of getLinkedCustomersForDesigner(designerId)) {
     merged.set(customer.id, {
@@ -154,12 +142,57 @@ async function fetchDemoRegisteredCustomers(
     });
   }
 
-  await appendTreatmentLinkedCustomers(designerId, merged);
+  for (const account of storedCustomers) {
+    merged.set(account.id, {
+      id: account.id,
+      name: account.name?.trim() || '고객',
+      email: account.email,
+      linked: false,
+    });
+  }
+
+  const betaDesignerIndex = BETA_DESIGNERS.findIndex((designer) => designer.id === designerId);
+
+  if (betaDesignerIndex >= 0) {
+    const betaCustomer = BETA_CUSTOMERS[betaDesignerIndex];
+
+    if (betaCustomer) {
+      merged.set(betaCustomer.id, {
+        id: betaCustomer.id,
+        name: betaCustomer.name,
+        email: betaCustomer.email,
+        linked: false,
+      });
+    }
+  }
+
+  try {
+    await appendTreatmentLinkedCustomers(designerId, merged);
+  } catch (error) {
+    console.warn('[registered-customers] appendTreatmentLinkedCustomers failed', error);
+  }
 
   const relationships = await readDemoRelationships();
   const linkedIds = new Set(
     relationships.filter((item) => item.designer_id === designerId).map((item) => item.customer_id),
   );
+
+  for (const customerId of linkedIds) {
+    if (merged.has(customerId)) {
+      continue;
+    }
+
+    const storedCustomer = storedCustomers.find((item) => item.id === customerId);
+
+    if (storedCustomer) {
+      merged.set(customerId, {
+        id: customerId,
+        name: storedCustomer.name?.trim() || '고객',
+        email: storedCustomer.email,
+        linked: false,
+      });
+    }
+  }
 
   return [...merged.values()]
     .map((item) => ({
@@ -171,16 +204,35 @@ async function fetchDemoRegisteredCustomers(
     .slice(0, 40);
 }
 
-/** 디자이너: 가입 고객 검색 (이름·이메일) */
-export async function searchRegisteredCustomers(query = ''): Promise<RegisteredCustomerOption[]> {
-  const user = await getCurrentUser();
+function canDesignerSearchCustomers(
+  user: Awaited<ReturnType<typeof getCurrentUser>>,
+  designerId: string,
+) {
+  if (!user || user.id !== designerId) {
+    return false;
+  }
 
-  if (!user || user.role !== 'designer') {
+  if (user.role === 'designer') {
+    return true;
+  }
+
+  return !user.role && isDemoCatalogDesignerId(designerId);
+}
+
+/** 디자이너: 가입 고객 검색 (이름·이메일) */
+export async function searchRegisteredCustomers(
+  query = '',
+  options: SearchRegisteredCustomersOptions = {},
+): Promise<RegisteredCustomerOption[]> {
+  const user = await getCurrentUser();
+  const designerId = options.designerId?.trim() || user?.id;
+
+  if (!designerId || !canDesignerSearchCustomers(user, designerId)) {
     return [];
   }
 
-  if (isDemoAuthMode || !supabase) {
-    return fetchDemoRegisteredCustomers(user.id, query);
+  if (isDemoAuthMode || !supabase || isDemoCatalogDesignerId(designerId)) {
+    return fetchDemoRegisteredCustomers(designerId, query);
   }
 
   const { data, error } = await supabase.rpc('search_registered_customers', {
@@ -190,13 +242,19 @@ export async function searchRegisteredCustomers(query = ''): Promise<RegisteredC
 
   if (error) {
     if (error.message.includes('Could not find the function')) {
-      return fetchDemoRegisteredCustomers(user.id, query);
+      return fetchDemoRegisteredCustomers(designerId, query);
     }
 
     throw toAppError(error);
   }
 
-  return (data ?? []).map((row: { id: string; name: string; email: string; linked: boolean }) => ({
+  const rows = (data ?? []) as { id: string; name: string; email: string; linked: boolean }[];
+
+  if (rows.length === 0) {
+    return fetchDemoRegisteredCustomers(designerId, query);
+  }
+
+  return rows.map((row) => ({
     id: row.id,
     name: row.name?.trim() || '고객',
     email: row.email?.trim() || '',
@@ -204,10 +262,10 @@ export async function searchRegisteredCustomers(query = ''): Promise<RegisteredC
   }));
 }
 
-async function fetchCustomerProfile(customerId: string) {
+async function fetchCustomerProfile(customerId: string, designerId?: string) {
   if (isDemoAuthMode || !supabase) {
     const user = await getCurrentUser();
-    const customers = await fetchDemoRegisteredCustomers(user?.id ?? '', '');
+    const customers = await fetchDemoRegisteredCustomers(designerId ?? user?.id ?? '', '');
     const match = customers.find((item) => item.id === customerId);
 
     if (!match) {
@@ -253,7 +311,7 @@ export async function linkRegisteredCustomerToTreatment(treatmentId: string, cus
     throw new Error('이미 연결된 고객이 있습니다.');
   }
 
-  const profile = await fetchCustomerProfile(customerId);
+  const profile = await fetchCustomerProfile(customerId, user.id);
 
   if (isDemoAuthMode || !supabase) {
     const updated = await updateTreatment(treatmentId, {
