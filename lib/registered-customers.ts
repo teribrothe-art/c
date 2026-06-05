@@ -1,8 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 import { getCurrentUser, isDemoAuthMode } from './auth';
+import { demoGetItem, demoSetItem } from './demo-async-storage';
 import { BETA_CUSTOMERS } from './beta-test-accounts';
-import { getDesignerLinkedCustomerLoginSources } from './demo-designer-linked-customers';
+import { getLinkedCustomersForDesigner } from './demo-designer-linked-customers';
 import { expireInvitation, getPendingInvitationForTreatment } from './customer-invitations';
 import { toAppError } from './errors';
 import { addNotification } from './notifications';
@@ -24,12 +23,12 @@ type DemoRelationship = {
 };
 
 async function readDemoRelationships(): Promise<DemoRelationship[]> {
-  const raw = await AsyncStorage.getItem(DEMO_RELATIONSHIPS_KEY);
+  const raw = await demoGetItem(DEMO_RELATIONSHIPS_KEY);
   return raw ? (JSON.parse(raw) as DemoRelationship[]) : [];
 }
 
 async function writeDemoRelationships(items: DemoRelationship[]) {
-  await AsyncStorage.setItem(DEMO_RELATIONSHIPS_KEY, JSON.stringify(items));
+  await demoSetItem(DEMO_RELATIONSHIPS_KEY, JSON.stringify(items));
 }
 
 export async function ensureDesignerCustomerRelationship(designerId: string, customerId: string) {
@@ -58,11 +57,52 @@ export async function ensureDesignerCustomerRelationship(designerId: string, cus
   }
 }
 
+function normalizeCustomerSearchText(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, '');
+}
+
+function matchesCustomerSearch(item: RegisteredCustomerOption, query: string) {
+  const normalizedQuery = normalizeCustomerSearchText(query);
+
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  const name = normalizeCustomerSearchText(item.name);
+  const email = item.email.trim().toLowerCase();
+
+  return name.includes(normalizedQuery) || email.includes(normalizedQuery);
+}
+
+async function appendTreatmentLinkedCustomers(
+  designerId: string,
+  merged: Map<string, RegisteredCustomerOption>,
+) {
+  const { listTreatmentsForDesignerId } = await import('./treatments');
+  const treatments = await listTreatmentsForDesignerId(designerId);
+
+  for (const treatment of treatments) {
+    if (!treatment.customer_id) {
+      continue;
+    }
+
+    const existing = merged.get(treatment.customer_id);
+    const name = treatment.customer_name?.trim() || existing?.name || '고객';
+
+    merged.set(treatment.customer_id, {
+      id: treatment.customer_id,
+      name,
+      email: existing?.email ?? '',
+      linked: existing?.linked ?? false,
+    });
+  }
+}
+
 async function fetchDemoRegisteredCustomers(
   designerId: string,
   query: string,
 ): Promise<RegisteredCustomerOption[]> {
-  const usersRaw = await AsyncStorage.getItem('hair-diary-demo-users');
+  const usersRaw = await demoGetItem('hair-diary-demo-users');
   const stored = usersRaw
     ? (JSON.parse(usersRaw) as { id: string; email: string; name: string | null; role: string }[])
     : [];
@@ -105,43 +145,28 @@ async function fetchDemoRegisteredCustomers(
     linked: false,
   });
 
-  for (const source of getDesignerLinkedCustomerLoginSources()) {
-    if (source.designerId !== designerId) {
-      continue;
-    }
-
-    for (const customer of source.customers) {
-      merged.set(customer.id, {
-        id: customer.id,
-        name: customer.name?.trim() || '고객',
-        email: customer.email,
-        linked: false,
-      });
-    }
+  for (const customer of getLinkedCustomersForDesigner(designerId)) {
+    merged.set(customer.id, {
+      id: customer.id,
+      name: customer.name?.trim() || '고객',
+      email: customer.email,
+      linked: false,
+    });
   }
+
+  await appendTreatmentLinkedCustomers(designerId, merged);
 
   const relationships = await readDemoRelationships();
   const linkedIds = new Set(
     relationships.filter((item) => item.designer_id === designerId).map((item) => item.customer_id),
   );
 
-  const normalizedQuery = query.trim().toLowerCase();
-
   return [...merged.values()]
     .map((item) => ({
       ...item,
       linked: linkedIds.has(item.id),
     }))
-    .filter((item) => {
-      if (!normalizedQuery) {
-        return true;
-      }
-
-      return (
-        item.name.toLowerCase().includes(normalizedQuery) ||
-        item.email.toLowerCase().includes(normalizedQuery)
-      );
-    })
+    .filter((item) => matchesCustomerSearch(item, query))
     .sort((a, b) => Number(b.linked) - Number(a.linked) || a.name.localeCompare(b.name, 'ko'))
     .slice(0, 40);
 }

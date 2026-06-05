@@ -1,8 +1,9 @@
 import type { DesignerClientListItem } from './customer-invitations';
 import type { DesignerPaymentDashboard } from './designer-payment-stats';
+import { isDemoAuthMode } from './demo-auth-mode';
 import type { Treatment } from './treatments';
 
-const CACHE_TTL_MS = 45_000;
+const CACHE_TTL_MS = isDemoAuthMode ? 300_000 : 45_000;
 
 type CacheEntry<T> = {
   at: number;

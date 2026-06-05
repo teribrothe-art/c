@@ -2,8 +2,9 @@ import { router } from 'expo-router';
 import type { Href } from 'expo-router';
 
 import { redeemInviteForCurrentUser } from './apply-pending-invite';
-import { getPostAuthRoute } from './auth-redirect';
-import { getCurrentUser, signInWithEmail } from './auth';
+import { getPostAuthRouteForRole } from './auth-redirect';
+import { signInWithEmail, type AuthUser } from './auth';
+import { prefetchPostLoginWorkspace } from './post-login-prefetch';
 import { peekPendingInviteCode } from './pending-invite-code';
 
 export async function signInAndNavigate(
@@ -11,19 +12,28 @@ export async function signInAndNavigate(
   password: string,
   options?: { redirectTo?: Href },
 ) {
-  await signInWithEmail({ email, password });
+  const user = await signInWithEmail({ email, password });
+  const nextRoute = options?.redirectTo ?? getPostAuthRouteForRole(user.role);
 
-  const user = await getCurrentUser();
-  const pendingInvite = await peekPendingInviteCode();
+  prefetchPostLoginWorkspace(user);
+  router.replace(nextRoute);
 
-  if (user?.role === 'customer' && pendingInvite.length === 6) {
-    const redeemed = await redeemInviteForCurrentUser(pendingInvite);
+  void runPostLoginInviteFlow(user);
+}
 
-    if (redeemed) {
-      return;
-    }
+async function runPostLoginInviteFlow(user: AuthUser) {
+  if (user.role !== 'customer') {
+    return;
   }
 
-  const nextRoute = options?.redirectTo ?? (await getPostAuthRoute());
-  router.replace(nextRoute);
+  const pendingInvite = await peekPendingInviteCode();
+
+  if (pendingInvite.length !== 6) {
+    return;
+  }
+
+  await redeemInviteForCurrentUser(pendingInvite, {
+    userId: user.id,
+    role: user.role,
+  });
 }

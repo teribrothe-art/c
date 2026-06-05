@@ -1,10 +1,22 @@
 import { Link, router, useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { formatAmount } from '../../lib/currency-input';
-import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
+import {
+  canGoToNextMonth,
+  canGoToPreviousMonth,
+  getCurrentMonthKey,
+  shiftMonthKey,
+} from '../../lib/designer-revenue-month-nav';
+import {
+  fetchOrgDashboardSummary,
+  formatOrgMonthCaption,
+  formatOrgMonthShortLabel,
+  type OrgDashboardSummary,
+} from '../../lib/org-aggregates';
+import { RevenuePeriodNavigator } from '../../src/components/revenue-period-navigator';
 import { getOrgStoreForAccountUser } from '../../lib/org-store-affiliation';
 import { resolveCurrentStoreOrgId } from '../../lib/org-store-scope';
 import {
@@ -25,6 +37,7 @@ export default function StoreHomeScreen() {
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [scenario, setScenario] = useState<VirtualSimulationScenario>('weekday');
+  const [selectedMonthKey, setSelectedMonthKey] = useState(getCurrentMonthKey);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [linkedStoreName, setLinkedStoreName] = useState<string | null>(null);
@@ -39,6 +52,7 @@ export default function StoreHomeScreen() {
       .then(([user, storeOrgId]) =>
         fetchOrgDashboardSummary('store', {
           storeOrgId,
+          monthKey: selectedMonthKey,
           scenario,
           withVirtualSimulation: true,
         }).then((data) => ({
@@ -60,7 +74,29 @@ export default function StoreHomeScreen() {
         setErrorMessage(getErrorMessage(error, '매장 현황을 불러오지 못했습니다.'));
       })
       .finally(() => setIsLoading(false));
-  }, [scenario]);
+  }, [scenario, selectedMonthKey]);
+
+  const monthCaption = useMemo(() => formatOrgMonthCaption(selectedMonthKey), [selectedMonthKey]);
+  const monthShortLabel = useMemo(
+    () => formatOrgMonthShortLabel(selectedMonthKey),
+    [selectedMonthKey],
+  );
+
+  const handlePreviousMonth = useCallback(() => {
+    if (!canGoToPreviousMonth(selectedMonthKey)) {
+      return;
+    }
+
+    setSelectedMonthKey(shiftMonthKey(selectedMonthKey, -1));
+  }, [selectedMonthKey]);
+
+  const handleNextMonth = useCallback(() => {
+    if (!canGoToNextMonth(selectedMonthKey)) {
+      return;
+    }
+
+    setSelectedMonthKey(shiftMonthKey(selectedMonthKey, 1));
+  }, [selectedMonthKey]);
 
   useFocusEffect(
     useCallback(() => {
@@ -89,6 +125,16 @@ export default function StoreHomeScreen() {
           <Text style={styles.errorText}>{errorMessage}</Text>
         ) : summary ? (
           <>
+            <View style={styles.monthNavCard}>
+              <RevenuePeriodNavigator
+                canNext={canGoToNextMonth(selectedMonthKey)}
+                canPrevious={canGoToPreviousMonth(selectedMonthKey)}
+                label={monthCaption}
+                onNext={handleNextMonth}
+                onPrevious={handlePreviousMonth}
+              />
+            </View>
+
             <OrgDashboardStatGrid
               items={[
                 {
@@ -104,13 +150,13 @@ export default function StoreHomeScreen() {
                 },
                 {
                   key: 'treatments',
-                  label: '이번 달 시술',
+                  label: `${monthShortLabel} 시술`,
                   value: String(summary.monthTreatmentCount),
                   onPress: () => router.push('/store/customers'),
                 },
                 {
                   key: 'revenue',
-                  label: '이번 달 매출',
+                  label: `${monthShortLabel} 매출`,
                   value: formatAmount(summary.monthRevenue),
                   onPress: () => router.push('/store/revenue'),
                 },
@@ -192,6 +238,15 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 22,
+  },
+  monthNavCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
   },
   badge: {
     alignSelf: 'flex-start',

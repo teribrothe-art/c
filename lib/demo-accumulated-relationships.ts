@@ -8,7 +8,7 @@ import {
 const DEMO_RELATIONSHIPS_KEY = 'hair-diary-designer-customer-relationships';
 
 export async function mergeAccumulatedDesignerRelationships() {
-  const { getAccumulatedTestProfiles } = await import('./demo-accumulated-test-seeds');
+  const { ACCUMULATED_TEST_PROFILE_CONFIGS } = await import('./demo-accumulated-test-accounts');
   const raw = await AsyncStorage.getItem(DEMO_RELATIONSHIPS_KEY);
   const items: { designer_id: string; customer_id: string }[] = raw ? JSON.parse(raw) : [];
   let changed = false;
@@ -17,7 +17,7 @@ export async function mergeAccumulatedDesignerRelationships() {
     items.map((item) => `${item.designer_id}:${item.customer_id}`),
   );
 
-  for (const profile of getAccumulatedTestProfiles()) {
+  for (const profile of ACCUMULATED_TEST_PROFILE_CONFIGS) {
     for (const customer of profile.customers) {
       const pairKey = `${profile.designer.id}:${customer.id}`;
 

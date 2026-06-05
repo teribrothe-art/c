@@ -27,7 +27,15 @@ export function isAccumulatedTestCustomerId(id: string) {
     return true;
   }
 
-  return /^test-exp-\d+-customer-/.test(id);
+  if (/^test-exp-\d+-customer-/.test(id)) {
+    return true;
+  }
+
+  if (/^beta\d{2}-customer-/.test(id)) {
+    return true;
+  }
+
+  return /^test-fleet-\d{3}-customer-/.test(id);
 }
 
 /** 누적 테스트 디자이너 ID (관계·저장소 정리용) */

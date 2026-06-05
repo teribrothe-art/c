@@ -109,3 +109,15 @@ export async function aggregateMonthSettlementForPayments(
 export function formatHqYieldRateLabel(totals: OrgMonthSettlementTotals) {
   return `${totals.hqYieldRate.toLocaleString('ko-KR')}%`;
 }
+
+export function computeHqYieldRate(monthGrossSales: number, monthHqRevenue: number) {
+  if (monthGrossSales <= 0) {
+    return 0;
+  }
+
+  return Math.round((monthHqRevenue / monthGrossSales) * 1000) / 10;
+}
+
+export function formatHqYieldRatePercent(monthGrossSales: number, monthHqRevenue: number) {
+  return `${computeHqYieldRate(monthGrossSales, monthHqRevenue).toLocaleString('ko-KR')}%`;
+}

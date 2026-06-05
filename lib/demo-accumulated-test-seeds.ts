@@ -8,22 +8,52 @@ import { ACCUMULATED_TEST_PROFILE_CONFIGS } from './demo-accumulated-test-accoun
 export type { AccumulatedDemoTreatment } from './demo-accumulated-seed-builder';
 export type { AccumulatedSeedProfileStats, BuiltAccumulatedSeedProfile };
 
-let builtProfilesCache: BuiltAccumulatedSeedProfile[] | null = null;
+const builtProfilesCache = new Map<string, BuiltAccumulatedSeedProfile>();
 
-/** 누적 테스트 시드 — 첫 접근 시에만 생성 (앱 cold start 부담 감소) */
-export function getAccumulatedTestProfiles(): BuiltAccumulatedSeedProfile[] {
-  if (!builtProfilesCache) {
-    builtProfilesCache = ACCUMULATED_TEST_PROFILE_CONFIGS.map((config) =>
-      buildAccumulatedSeedProfile(config),
-    );
+/** 단일 프로필 시드 생성 (로그인 시 1명만 빌드 — 100명 증원 성능) */
+export function ensureAccumulatedProfileBuilt(
+  profileKey: string,
+): BuiltAccumulatedSeedProfile | undefined {
+  const cached = builtProfilesCache.get(profileKey);
+
+  if (cached) {
+    return cached;
   }
 
-  return builtProfilesCache;
+  const config = ACCUMULATED_TEST_PROFILE_CONFIGS.find((item) => item.key === profileKey);
+
+  if (!config) {
+    return undefined;
+  }
+
+  const built = buildAccumulatedSeedProfile(config);
+  builtProfilesCache.set(profileKey, built);
+
+  return built;
+}
+
+export function ensureAccumulatedProfileBuiltByDesignerId(
+  designerId: string,
+): BuiltAccumulatedSeedProfile | undefined {
+  const config = ACCUMULATED_TEST_PROFILE_CONFIGS.find((item) => item.designer.id === designerId);
+
+  if (!config) {
+    return undefined;
+  }
+
+  return ensureAccumulatedProfileBuilt(config.key);
+}
+
+/** 누적 테스트 시드 — 요청된 프로필만 생성 */
+export function getAccumulatedTestProfiles(): BuiltAccumulatedSeedProfile[] {
+  return ACCUMULATED_TEST_PROFILE_CONFIGS.map(
+    (config) => ensureAccumulatedProfileBuilt(config.key)!,
+  );
 }
 
 /** 메모리에 빌드된 누적 프로필 캐시 초기화 */
 export function clearAccumulatedTestProfilesCache() {
-  builtProfilesCache = null;
+  builtProfilesCache.clear();
 }
 
 export function getAccumulatedDemoTreatments() {
@@ -92,11 +122,11 @@ export const ACCUMULATED_DEMO_SEED_STATS_BY_PROFILE = new Proxy(
     getOwnPropertyDescriptor(_target, prop) {
       const stats = getAccumulatedDemoSeedStatsByProfile();
 
-      if (prop in stats) {
+      if (typeof prop === 'string' && prop in stats) {
         return {
           configurable: true,
           enumerable: true,
-          value: stats[prop as string],
+          value: stats[prop],
         };
       }
 

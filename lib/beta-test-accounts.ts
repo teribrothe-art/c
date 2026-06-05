@@ -1,4 +1,4 @@
-import type { UserRole } from './auth';
+import type { UserRole } from './user-role';
 
 export const BETA_TEST_PASSWORD = 'beta1234';
 

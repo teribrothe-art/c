@@ -1,102 +1,21 @@
 import type { BetaTestAccount } from './beta-test-accounts';
 import type { AccumulatedSeedProfileConfig } from './demo-accumulated-seed-builder';
 import {
-  EXPANDED_STORE_DESIGNER_ACCOUNTS,
-  EXPANDED_STORE_DESIGNER_PROFILE_CONFIGS,
-  EXPANDED_STORE_DESIGNERS_PUBLIC,
-} from './demo-expanded-store-designers';
+  FLEET_100_DESIGNER_ACCOUNTS,
+  FLEET_100_COUNT,
+  FLEET_100_DESIGNERS_PUBLIC,
+  FLEET_100_PROFILE_CONFIGS,
+} from './demo-fleet-100-designers';
+import { BETA_DESIGNER_PROFILE_CONFIGS } from './demo-beta-designer-profiles';
+import {
+  getLegacyAccumulatedCustomers,
+  LEGACY_ACCUMULATED_CUSTOMER_COUNTS,
+  LEGACY_ACCUMULATED_TEST_PASSWORD,
+} from './demo-legacy-accumulated-customers';
 
-export const ACCUMULATED_TEST_PASSWORD = 'test1234';
+export const ACCUMULATED_TEST_PASSWORD = LEGACY_ACCUMULATED_TEST_PASSWORD;
 
-const CUSTOMER_NAME_POOL = [
-  '김나래',
-  '이준호',
-  '박서윤',
-  '최민서',
-  '정다은',
-  '한승우',
-  '오지민',
-  '윤하린',
-  '강태오',
-  '임소연',
-  '송현우',
-  '류채원',
-  '문지후',
-  '배수아',
-  '남건우',
-  '조예린',
-  '홍도윤',
-  '권시우',
-  '서유진',
-  '안지원',
-  '김태리',
-  '이하늘',
-  '박도현',
-  '최서아',
-  '정민재',
-  '한유나',
-  '오세준',
-  '윤채은',
-  '강지안',
-  '임현서',
-  '송다인',
-  '류민호',
-  '문서연',
-  '배준영',
-  '남소희',
-  '조은우',
-  '홍가영',
-  '권도훈',
-  '서예준',
-  '안시온',
-  '김라온',
-  '이수빈',
-  '박건희',
-  '최유림',
-  '정하람',
-  '한지훈',
-  '오서진',
-  '윤나윤',
-  '강민지',
-  '임채우',
-  '이서연',
-  '박민준',
-  '최유나',
-  '정하은',
-  '김도윤',
-  '한지우',
-  '오수아',
-  '윤태희',
-  '강예린',
-  '임준서',
-  '송지아',
-  '류현우',
-  '문채원',
-  '배서준',
-  '남하린',
-  '조민재',
-  '홍수빈',
-  '권도현',
-  '서예원',
-  '안시우',
-] as const;
-
-function buildAccumulatedCustomerPool(options: {
-  idPrefix: string;
-  emailPrefix: string;
-  count: number;
-  idPad: number;
-}): BetaTestAccount[] {
-  const { idPrefix, emailPrefix, count, idPad } = options;
-
-  return Array.from({ length: count }, (_, index) => ({
-    id: `${idPrefix}${String(index + 1).padStart(idPad, '0')}`,
-    email: `${emailPrefix}${index + 1}@hair.app`,
-    name: CUSTOMER_NAME_POOL[index % CUSTOMER_NAME_POOL.length],
-    password: ACCUMULATED_TEST_PASSWORD,
-    role: 'customer' as const,
-  }));
-}
+export { CUSTOMER_NAME_POOL } from './demo-customer-name-pool';
 
 /** 2년 누적 테스트 디자이너 (ID는 기존 호환용 test-designer-3y 유지) */
 export const ACCUMULATED_TEST_DESIGNER: BetaTestAccount = {
@@ -116,7 +35,7 @@ export const ACCUMULATED_TEST_DESIGNER_1Y: BetaTestAccount = {
   role: 'designer',
 };
 
-/** 3년 누적 · 일 4~8명 · 단골 재방문 주기 */
+/** 3년 누적 · 경량 시드 */
 export const ACCUMULATED_TEST_DESIGNER_ACCUM_3Y: BetaTestAccount = {
   id: 'test-designer-accum-3y',
   email: 'test-designer-accum-3y@hair.app',
@@ -125,7 +44,7 @@ export const ACCUMULATED_TEST_DESIGNER_ACCUM_3Y: BetaTestAccount = {
   role: 'designer',
 };
 
-/** 5년 누적 · 일 4~8명 · 단골 재방문 주기 */
+/** 5년 누적 · 경량 시드 */
 export const ACCUMULATED_TEST_DESIGNER_ACCUM_5Y: BetaTestAccount = {
   id: 'test-designer-accum-5y',
   email: 'test-designer-accum-5y@hair.app',
@@ -134,42 +53,25 @@ export const ACCUMULATED_TEST_DESIGNER_ACCUM_5Y: BetaTestAccount = {
   role: 'designer',
 };
 
-export const ACCUMULATED_TEST_CUSTOMERS = buildAccumulatedCustomerPool({
-  idPrefix: 'test-customer-',
-  emailPrefix: 'test-customer-',
-  count: 120,
-  idPad: 2,
-});
+/** @deprecated getLegacyAccumulatedCustomers('2y') — 앱 시작 시 배열 생성 없음 */
+export function getAccumulatedTestCustomers2y() {
+  return getLegacyAccumulatedCustomers('2y');
+}
 
-export const ACCUMULATED_TEST_CUSTOMERS_1Y = buildAccumulatedCustomerPool({
-  idPrefix: 'test-1y-customer-',
-  emailPrefix: 'test-1y-customer-',
-  count: 80,
-  idPad: 2,
-});
-
-export const ACCUMULATED_TEST_CUSTOMERS_3Y = buildAccumulatedCustomerPool({
-  idPrefix: 'test-3y-customer-',
-  emailPrefix: 'test-3y-customer-',
-  count: 150,
-  idPad: 3,
-});
-
-export const ACCUMULATED_TEST_CUSTOMERS_5Y = buildAccumulatedCustomerPool({
-  idPrefix: 'test-5y-customer-',
-  emailPrefix: 'test-5y-customer-',
-  count: 200,
-  idPad: 3,
-});
+/** @deprecated getLegacyAccumulatedCustomers('1y') */
+export function getAccumulatedTestCustomers1y() {
+  return getLegacyAccumulatedCustomers('1y');
+}
 
 export const ACCUMULATED_TEST_PROFILE_CONFIGS: AccumulatedSeedProfileConfig[] = [
   {
     key: '1y',
     designer: ACCUMULATED_TEST_DESIGNER_1Y,
-    customers: ACCUMULATED_TEST_CUSTOMERS_1Y,
+    customers: [],
+    customerCount: LEGACY_ACCUMULATED_CUSTOMER_COUNTS['1y'],
     historyYears: 1,
-    dailyMin: 3,
-    dailyMax: 5,
+    dailyMin: 2,
+    dailyMax: 3,
     treatmentIdPrefix: 'accum1y-treatment-',
     paymentIdPrefix: 'accum1y-payment-',
     visitCycleMode: true,
@@ -177,10 +79,11 @@ export const ACCUMULATED_TEST_PROFILE_CONFIGS: AccumulatedSeedProfileConfig[] = 
   {
     key: '2y',
     designer: ACCUMULATED_TEST_DESIGNER,
-    customers: ACCUMULATED_TEST_CUSTOMERS,
+    customers: [],
+    customerCount: LEGACY_ACCUMULATED_CUSTOMER_COUNTS['2y'],
     historyYears: 2,
-    dailyMin: 4,
-    dailyMax: 6,
+    dailyMin: 2,
+    dailyMax: 4,
     treatmentIdPrefix: 'accum-treatment-',
     paymentIdPrefix: 'accum-payment-',
     visitCycleMode: true,
@@ -188,10 +91,11 @@ export const ACCUMULATED_TEST_PROFILE_CONFIGS: AccumulatedSeedProfileConfig[] = 
   {
     key: '3y',
     designer: ACCUMULATED_TEST_DESIGNER_ACCUM_3Y,
-    customers: ACCUMULATED_TEST_CUSTOMERS_3Y,
+    customers: [],
+    customerCount: LEGACY_ACCUMULATED_CUSTOMER_COUNTS['3y'],
     historyYears: 3,
-    dailyMin: 4,
-    dailyMax: 8,
+    dailyMin: 2,
+    dailyMax: 5,
     treatmentIdPrefix: 'accum3y-treatment-',
     paymentIdPrefix: 'accum3y-payment-',
     visitCycleMode: true,
@@ -199,27 +103,26 @@ export const ACCUMULATED_TEST_PROFILE_CONFIGS: AccumulatedSeedProfileConfig[] = 
   {
     key: '5y',
     designer: ACCUMULATED_TEST_DESIGNER_ACCUM_5Y,
-    customers: ACCUMULATED_TEST_CUSTOMERS_5Y,
+    customers: [],
+    customerCount: LEGACY_ACCUMULATED_CUSTOMER_COUNTS['5y'],
     historyYears: 5,
-    dailyMin: 4,
-    dailyMax: 8,
+    dailyMin: 2,
+    dailyMax: 5,
     treatmentIdPrefix: 'accum5y-treatment-',
     paymentIdPrefix: 'accum5y-payment-',
     visitCycleMode: true,
   },
-  ...EXPANDED_STORE_DESIGNER_PROFILE_CONFIGS,
+  ...BETA_DESIGNER_PROFILE_CONFIGS,
+  ...FLEET_100_PROFILE_CONFIGS,
 ];
 
+/** @deprecated 로그인 카탈로그는 demo-catalog-accounts 사용 — 디자이너만 포함 */
 export const ACCUMULATED_TEST_ACCOUNTS: BetaTestAccount[] = [
   ACCUMULATED_TEST_DESIGNER,
   ACCUMULATED_TEST_DESIGNER_1Y,
   ACCUMULATED_TEST_DESIGNER_ACCUM_3Y,
   ACCUMULATED_TEST_DESIGNER_ACCUM_5Y,
-  ...EXPANDED_STORE_DESIGNER_ACCOUNTS,
-  ...ACCUMULATED_TEST_CUSTOMERS,
-  ...ACCUMULATED_TEST_CUSTOMERS_1Y,
-  ...ACCUMULATED_TEST_CUSTOMERS_3Y,
-  ...ACCUMULATED_TEST_CUSTOMERS_5Y,
+  ...FLEET_100_DESIGNER_ACCOUNTS,
 ];
 
 export const ACCUMULATED_TEST_DESIGNER_PUBLIC = {
@@ -263,31 +166,65 @@ export const ACCUMULATED_TEST_DESIGNERS_PUBLIC = [
   ACCUMULATED_TEST_DESIGNER_PUBLIC,
   ACCUMULATED_TEST_DESIGNER_3Y_PUBLIC,
   ACCUMULATED_TEST_DESIGNER_5Y_PUBLIC,
-  ...EXPANDED_STORE_DESIGNERS_PUBLIC,
+  ...FLEET_100_DESIGNERS_PUBLIC,
 ] as const;
 
-export const EXPANDED_STORE_DESIGNER_COUNT = EXPANDED_STORE_DESIGNERS_PUBLIC.length;
+export const EXPANDED_STORE_DESIGNER_COUNT = FLEET_100_COUNT;
 
-export const ACCUMULATED_TEST_LOGIN_SUMMARY = {
-  designers: ACCUMULATED_TEST_DESIGNERS_PUBLIC,
-  customers: ACCUMULATED_TEST_CUSTOMERS.map((customer) => ({
-    email: customer.email,
-    password: ACCUMULATED_TEST_PASSWORD,
-    name: customer.name,
-  })),
-  customers1y: ACCUMULATED_TEST_CUSTOMERS_1Y.map((customer) => ({
-    email: customer.email,
-    password: ACCUMULATED_TEST_PASSWORD,
-    name: customer.name,
-  })),
-  customers3y: ACCUMULATED_TEST_CUSTOMERS_3Y.slice(0, 10).map((customer) => ({
-    email: customer.email,
-    password: ACCUMULATED_TEST_PASSWORD,
-    name: customer.name,
-  })),
-  customers5y: ACCUMULATED_TEST_CUSTOMERS_5Y.slice(0, 10).map((customer) => ({
-    email: customer.email,
-    password: ACCUMULATED_TEST_PASSWORD,
-    name: customer.name,
-  })),
-} as const;
+export function findAccumulatedProfileConfigByTreatmentId(treatmentId: string) {
+  return ACCUMULATED_TEST_PROFILE_CONFIGS.find((config) =>
+    treatmentId.startsWith(config.treatmentIdPrefix),
+  );
+}
+
+let accumulatedTestLoginSummaryCache: {
+  designers: typeof ACCUMULATED_TEST_DESIGNERS_PUBLIC;
+  customers: { email: string; password: string; name: string | null }[];
+  customers1y: { email: string; password: string; name: string | null }[];
+  customers3y: { email: string; password: string; name: string | null }[];
+  customers5y: { email: string; password: string; name: string | null }[];
+} | null = null;
+
+export function getAccumulatedTestLoginSummary() {
+  if (!accumulatedTestLoginSummaryCache) {
+    accumulatedTestLoginSummaryCache = {
+      designers: ACCUMULATED_TEST_DESIGNERS_PUBLIC,
+      customers: getLegacyAccumulatedCustomers('2y').map((customer) => ({
+        email: customer.email,
+        password: ACCUMULATED_TEST_PASSWORD,
+        name: customer.name,
+      })),
+      customers1y: getLegacyAccumulatedCustomers('1y').map((customer) => ({
+        email: customer.email,
+        password: ACCUMULATED_TEST_PASSWORD,
+        name: customer.name,
+      })),
+      customers3y: getLegacyAccumulatedCustomers('3y')
+        .slice(0, 10)
+        .map((customer) => ({
+          email: customer.email,
+          password: ACCUMULATED_TEST_PASSWORD,
+          name: customer.name,
+        })),
+      customers5y: getLegacyAccumulatedCustomers('5y')
+        .slice(0, 10)
+        .map((customer) => ({
+          email: customer.email,
+          password: ACCUMULATED_TEST_PASSWORD,
+          name: customer.name,
+        })),
+    };
+  }
+
+  return accumulatedTestLoginSummaryCache;
+}
+
+/** @deprecated getAccumulatedTestLoginSummary() */
+export const ACCUMULATED_TEST_LOGIN_SUMMARY = new Proxy({} as ReturnType<typeof getAccumulatedTestLoginSummary>, {
+  get(_target, prop) {
+    const summary = getAccumulatedTestLoginSummary();
+    const value = Reflect.get(summary, prop);
+
+    return typeof value === 'function' ? value.bind(summary) : value;
+  },
+});

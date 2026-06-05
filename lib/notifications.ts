@@ -1,6 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 import { getCurrentUser, isDemoAuthMode, type UserRole } from './auth';
+import { demoGetItem, demoSetItem } from './demo-async-storage';
 import { toAppError } from './errors';
 import { PaymentRecord } from './payment-record';
 import { supabase } from './supabase';
@@ -52,7 +51,7 @@ async function readLocalStore(): Promise<AppNotification[]> {
     return [...memoryStore];
   }
 
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
+  const raw = await demoGetItem(STORAGE_KEY);
   const items = raw ? (JSON.parse(raw) as AppNotification[]) : [];
 
   if (isDemoAuthMode) {
@@ -66,7 +65,7 @@ async function readLocalStore(): Promise<AppNotification[]> {
 async function writeLocalStore(items: AppNotification[]) {
   memoryStore.length = 0;
   memoryStore.push(...items);
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  await demoSetItem(STORAGE_KEY, JSON.stringify(items));
 }
 
 export async function addNotification(input: Omit<AppNotification, 'id' | 'created_at' | 'read'>) {

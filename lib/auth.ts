@@ -1,9 +1,10 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { demoGetItem, demoMultiRemove, demoMultiSet, demoSetItem } from './demo-async-storage';
 import { lookupDemoCatalogUser } from './demo-user-catalog';
 import { isSupabaseConfigured, supabase } from './supabase';
+import type { UserRole } from './user-role';
 
-export type UserRole = 'customer' | 'designer' | 'store' | 'admin';
+export type { UserRole } from './user-role';
+export { DEMO_LOGIN_HINT } from './demo-login-hint';
 
 export type AuthUser = {
   id: string;
@@ -33,6 +34,10 @@ type LoginInput = {
 
 const DEMO_USERS_KEY = 'hair-diary-demo-users';
 const DEMO_SESSION_KEY = 'hair-diary-demo-session';
+const DEMO_SESSION_USER_KEY = 'hair-diary-demo-session-user';
+
+let demoSessionCache: AuthUser | null = null;
+let demoUsersCache: DemoUser[] | null = null;
 
 /** 웹·데모에서 바로 로그인 테스트용 (시술 더미 데이터와 ID 일치) */
 const SEEDED_DEMO_USERS: DemoUser[] = [
@@ -73,13 +78,6 @@ const SEEDED_DEMO_USERS: DemoUser[] = [
   },
 ];
 
-export const DEMO_LOGIN_HINT = {
-  customerEmail: 'demo@hair.app',
-  customerPassword: 'demo1234',
-  designerEmail: 'designer@hair.app',
-  designerPassword: 'demo1234',
-} as const;
-
 export const isDemoAuthMode = !isSupabaseConfigured || !supabase;
 
 function normalizeEmail(email: string) {
@@ -95,7 +93,7 @@ function toAuthUser(user: DemoUser): AuthUser {
 }
 
 async function readDemoUsersFromStorage() {
-  const rawUsers = await AsyncStorage.getItem(DEMO_USERS_KEY);
+  const rawUsers = await demoGetItem(DEMO_USERS_KEY);
   return rawUsers ? (JSON.parse(rawUsers) as DemoUser[]) : [];
 }
 
@@ -175,15 +173,66 @@ async function registerDemoCatalogUser(catalogUser: {
 }
 
 async function getDemoUsers() {
-  return ensureDemoUsersSeeded();
+  if (demoUsersCache) {
+    return demoUsersCache;
+  }
+
+  demoUsersCache = await ensureDemoUsersSeeded();
+  return demoUsersCache;
 }
 
 async function saveDemoUsers(users: DemoUser[]) {
-  await AsyncStorage.setItem(DEMO_USERS_KEY, JSON.stringify(users));
+  demoUsersCache = users;
+  await demoSetItem(DEMO_USERS_KEY, JSON.stringify(users));
+}
+
+function findSeededDemoUser(normalizedEmail: string, password: string) {
+  return SEEDED_DEMO_USERS.find(
+    (item) => item.email === normalizedEmail && item.password === password,
+  );
+}
+
+function schedulePersistCatalogUser(catalogUser: {
+  id: string;
+  email: string;
+  name: string | null;
+  password: string;
+  role: UserRole;
+}) {
+  void registerDemoCatalogUser(catalogUser).catch(() => {
+    demoUsersCache = null;
+  });
+}
+
+async function persistDemoSession(user: AuthUser) {
+  demoSessionCache = user;
+  await demoMultiSet([
+    [DEMO_SESSION_KEY, user.id],
+    [DEMO_SESSION_USER_KEY, JSON.stringify(user)],
+  ]);
 }
 
 async function getDemoCurrentUser() {
-  const currentUserId = await AsyncStorage.getItem(DEMO_SESSION_KEY);
+  if (demoSessionCache) {
+    return demoSessionCache;
+  }
+
+  const rawSessionUser = await demoGetItem(DEMO_SESSION_USER_KEY);
+
+  if (rawSessionUser) {
+    try {
+      const parsed = JSON.parse(rawSessionUser) as AuthUser;
+
+      if (parsed?.id && parsed.email) {
+        demoSessionCache = parsed;
+        return parsed;
+      }
+    } catch {
+      // ignore corrupt session payload
+    }
+  }
+
+  const currentUserId = await demoGetItem(DEMO_SESSION_KEY);
 
   if (!currentUserId) {
     return null;
@@ -191,7 +240,14 @@ async function getDemoCurrentUser() {
 
   const users = await getDemoUsers();
   const user = users.find((item) => item.id === currentUserId);
-  return user ? toAuthUser(user) : null;
+  const authUser = user ? toAuthUser(user) : null;
+  demoSessionCache = authUser;
+
+  if (authUser) {
+    await demoSetItem(DEMO_SESSION_USER_KEY, JSON.stringify(authUser));
+  }
+
+  return authUser;
 }
 
 export async function signUpWithEmail({ email, password, name, role }: SignupInput) {
@@ -271,7 +327,7 @@ export async function signUpWithEmail({ email, password, name, role }: SignupInp
     nextUsers[existingUserIndex] = updatedUser;
 
     await saveDemoUsers(nextUsers);
-    await AsyncStorage.setItem(DEMO_SESSION_KEY, updatedUser.id);
+    await demoSetItem(DEMO_SESSION_KEY, updatedUser.id);
 
     return toAuthUser(updatedUser);
   }
@@ -285,7 +341,7 @@ export async function signUpWithEmail({ email, password, name, role }: SignupInp
   };
 
   await saveDemoUsers([...users, newUser]);
-  await AsyncStorage.setItem(DEMO_SESSION_KEY, newUser.id);
+  await demoSetItem(DEMO_SESSION_KEY, newUser.id);
 
   return toAuthUser(newUser);
 }
@@ -322,23 +378,37 @@ export async function signInWithEmail({ email, password }: LoginInput) {
     };
   }
 
-  const users = await getDemoUsers();
-  let user = users.find((item) => item.email === normalizedEmail && item.password === password);
+  const seeded = findSeededDemoUser(normalizedEmail, password);
 
-  if (!user) {
-    const catalogUser = lookupDemoCatalogUser(normalizedEmail, password);
-
-    if (catalogUser) {
-      user = await registerDemoCatalogUser(catalogUser);
-    }
+  if (seeded) {
+    const authUser = toAuthUser(seeded);
+    await persistDemoSession(authUser);
+    return authUser;
   }
+
+  const catalogUser = lookupDemoCatalogUser(normalizedEmail, password);
+
+  if (catalogUser) {
+    const authUser: AuthUser = {
+      id: catalogUser.id,
+      email: catalogUser.email,
+      role: catalogUser.role,
+    };
+    await persistDemoSession(authUser);
+    schedulePersistCatalogUser(catalogUser);
+    return authUser;
+  }
+
+  const users = await getDemoUsers();
+  const user = users.find((item) => item.email === normalizedEmail && item.password === password);
 
   if (!user) {
     throw new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
   }
 
-  await AsyncStorage.setItem(DEMO_SESSION_KEY, user.id);
-  return toAuthUser(user);
+  const authUser = toAuthUser(user);
+  await persistDemoSession(authUser);
+  return authUser;
 }
 
 export async function getCurrentUser() {
@@ -364,7 +434,12 @@ export async function getCurrentUser() {
     };
   }
 
-  return getDemoCurrentUser();
+  const demoUser = await getDemoCurrentUser();
+  if (demoUser) {
+    demoSessionCache = demoUser;
+  }
+
+  return demoUser;
 }
 
 export async function signOut() {
@@ -378,7 +453,9 @@ export async function signOut() {
     return;
   }
 
-  await AsyncStorage.removeItem(DEMO_SESSION_KEY);
+  demoSessionCache = null;
+  demoUsersCache = null;
+  await demoMultiRemove([DEMO_SESSION_KEY, DEMO_SESSION_USER_KEY]);
 }
 
 export function subscribeToAuthState(listener: AuthStateListener) {

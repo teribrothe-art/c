@@ -136,19 +136,16 @@ export default function DiaryHomeScreen() {
             <Text style={styles.recordCount}>
               {isLoading ? '기록 불러오는 중…' : `시술 ${treatments.length}건`}
             </Text>
+          </View>
+          <View style={styles.headerActions}>
             <Pressable
+              accessibilityLabel="연도별 보기"
               accessibilityRole="button"
               hitSlop={8}
               onPress={openDiaryYears}
-              style={styles.yearBrowseLink}>
-              <Text style={styles.yearBrowseText}>
-                {yearSummaries.length > 0
-                  ? `연도별 보기 · ${yearSummaries.length}개 연도 ›`
-                  : '연도별 보기 ›'}
-              </Text>
+              style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}>
+              <Text style={styles.headerIcon}>📅</Text>
             </Pressable>
-          </View>
-          <View style={styles.headerActions}>
             <Pressable
               onPress={() => setSearchOpen((open) => !open)}
               style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}>
@@ -173,6 +170,17 @@ export default function DiaryHomeScreen() {
           />
         ) : null}
 
+        <Pressable
+          accessibilityRole="button"
+          hitSlop={4}
+          onPress={openDiaryYears}
+          style={({ pressed }) => [styles.yearBrowseBar, pressed && styles.yearBrowseBarPressed]}>
+          <Text style={styles.yearBrowseBarLabel}>📅 연도별 보기</Text>
+          <Text style={styles.yearBrowseBarMeta}>
+            {yearSummaries.length > 0 ? `${yearSummaries.length}개 연도 ›` : '›'}
+          </Text>
+        </Pressable>
+
         <View style={styles.filterWrap}>
           {DIARY_FILTER_OPTIONS.map((filter) => {
             const selected = selectedFilter === filter.key;
@@ -190,13 +198,6 @@ export default function DiaryHomeScreen() {
               </Pressable>
             );
           })}
-          <Pressable
-            accessibilityRole="button"
-            hitSlop={4}
-            onPress={openDiaryYears}
-            style={({ pressed }) => [styles.filterTab, styles.yearChip, pressed && styles.yearChipPressed]}>
-            <Text style={styles.yearChipText}>📅 연도</Text>
-          </Pressable>
         </View>
 
         {isLoading ? (
@@ -274,12 +275,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 4,
   },
-  yearBrowseLink: {
-    marginTop: 6,
-    paddingVertical: 2,
+  yearBrowseBar: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFD4D5',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  yearBrowseText: {
+  yearBrowseBarPressed: {
+    opacity: 0.88,
+  },
+  yearBrowseBarLabel: {
     color: '#FF5A5F',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  yearBrowseBarMeta: {
+    color: '#9CA3AF',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -307,18 +324,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
     marginBottom: 20,
-  },
-  yearChip: {
-    borderColor: '#FFD4D5',
-    borderWidth: 1,
-  },
-  yearChipPressed: {
-    opacity: 0.85,
-  },
-  yearChipText: {
-    color: '#FF5A5F',
-    fontSize: 14,
-    fontWeight: '800',
   },
   filterTab: {
     borderRadius: 999,

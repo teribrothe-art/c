@@ -43,6 +43,10 @@ export type AccumulatedSeedProfileConfig = {
   paymentIdPrefix: string;
   /** 단골 재방문 주기 기반 일정 (dailyMin/Max = 일일 방문 고객 수) */
   visitCycleMode?: boolean;
+  /** 주당 신규 가입 고객 수 (증원 디자이너: 1) */
+  weeklyNewCustomers?: number;
+  /** 고객 배열 없이 인원만 표시할 때 (증원 디자이너) */
+  customerCount?: number;
 };
 
 export type AccumulatedSeedProfileStats = {

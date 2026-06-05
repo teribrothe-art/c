@@ -1,36 +1,54 @@
 import { Link, router, useFocusEffect, type Href } from 'expo-router';
-import { useCallback, useState } from 'react';
-import type { VirtualSimulationScenario } from '../../lib/org-virtual-simulation';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { formatAmount } from '../../lib/currency-input';
 import { formatDesignerNamePreview } from '../../lib/designer-name-preview';
-import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
+import {
+  canGoToNextMonth,
+  canGoToPreviousMonth,
+  getCurrentMonthKey,
+  shiftMonthKey,
+} from '../../lib/designer-revenue-month-nav';
+import {
+  fetchOrgDashboardSummary,
+  formatOrgMonthCaption,
+  formatOrgMonthShortLabel,
+  type OrgDashboardSummary,
+} from '../../lib/org-aggregates';
 import { buildVirtualStoreSummaries } from '../../lib/org-virtual-simulation';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { OrgDashboardStatGrid } from '../../src/components/org-dashboard-stat-grid';
+import { OrgWeeklySalesPanel } from '../../src/components/org-weekly-sales-panel';
 import { LoadingState } from '../../src/components/loading-state';
 import { AdminBottomTabBar } from '../../src/components/admin-bottom-tab-bar';
 import { HqRevenueSummaryCard } from '../../src/components/hq-revenue-summary-card';
 import { RevenueSplitStructureCard } from '../../src/components/revenue-split-structure-card';
-import { VirtualSimulationBanner } from '../../src/components/virtual-simulation-banner';
 
 export default function AdminHomeScreen() {
   useOrgRoleGuard('admin');
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [virtualStores, setVirtualStores] = useState<ReturnType<typeof buildVirtualStoreSummaries>>([]);
-  const [scenario, setScenario] = useState<VirtualSimulationScenario>('weekday');
+  const [selectedMonthKey, setSelectedMonthKey] = useState(getCurrentMonthKey);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const monthCaption = useMemo(() => formatOrgMonthCaption(selectedMonthKey), [selectedMonthKey]);
+  const monthShortLabel = useMemo(
+    () => formatOrgMonthShortLabel(selectedMonthKey),
+    [selectedMonthKey],
+  );
 
   const load = useCallback(() => {
     setIsLoading(true);
 
-    fetchOrgDashboardSummary('admin', { scenario, withVirtualSimulation: true })
+    fetchOrgDashboardSummary('admin', {
+      monthKey: selectedMonthKey,
+      withVirtualSimulation: false,
+    })
       .then((data) => {
         setSummary(data);
         setVirtualStores(buildVirtualStoreSummaries(data));
@@ -40,7 +58,23 @@ export default function AdminHomeScreen() {
         setErrorMessage(getErrorMessage(error, '본사 현황을 불러오지 못했습니다.'));
       })
       .finally(() => setIsLoading(false));
-  }, [scenario]);
+  }, [selectedMonthKey]);
+
+  const handlePreviousMonth = useCallback(() => {
+    if (!canGoToPreviousMonth(selectedMonthKey)) {
+      return;
+    }
+
+    setSelectedMonthKey(shiftMonthKey(selectedMonthKey, -1));
+  }, [selectedMonthKey]);
+
+  const handleNextMonth = useCallback(() => {
+    if (!canGoToNextMonth(selectedMonthKey)) {
+      return;
+    }
+
+    setSelectedMonthKey(shiftMonthKey(selectedMonthKey, 1));
+  }, [selectedMonthKey]);
 
   useFocusEffect(
     useCallback(() => {
@@ -59,11 +93,9 @@ export default function AdminHomeScreen() {
         <Text style={styles.badge}>ADMIN</Text>
         <Text style={styles.title}>본사</Text>
         <Text style={styles.subtitle}>
-          등록된 디자이너·시술·시술 금액을 불러오고, 가상 시나리오(평일·주말)로 운영 지표를 조정해
-          봅니다.
+          {monthShortLabel} 총매출은 해당 월 결제 합계이며, 평일·주말 탭에서 주간 날짜별 매출을 확인할 수
+          있습니다.
         </Text>
-
-        <VirtualSimulationBanner scenario={scenario} onScenarioChange={setScenario} />
 
         {isLoading ? (
           <LoadingState message="불러오는 중..." />
@@ -71,14 +103,24 @@ export default function AdminHomeScreen() {
           <Text style={styles.errorText}>{errorMessage}</Text>
         ) : summary ? (
           <>
-            <RevenueSplitStructureCard sampleGrossAmount={summary.monthGrossSales || 100_000} />
-            <HqRevenueSummaryCard totals={summary} />
+            <HqRevenueSummaryCard
+              canNextMonth={canGoToNextMonth(selectedMonthKey)}
+              canPreviousMonth={canGoToPreviousMonth(selectedMonthKey)}
+              editable
+              monthCaption={monthCaption}
+              onHqRateApplied={load}
+              onNextMonth={handleNextMonth}
+              onPreviousMonth={handlePreviousMonth}
+              totals={summary}
+            />
+
+            <OrgWeeklySalesPanel monthKey={selectedMonthKey} scope="admin" />
 
             <OrgDashboardStatGrid
               items={[
                 {
                   key: 'gross',
-                  label: '이번 달 매출',
+                  label: `${monthShortLabel} 매출`,
                   value: formatAmount(summary.monthGrossSales),
                   meta: '시술 결제 총액',
                   onPress: () => router.push('/admin/revenue' as Href),
@@ -92,7 +134,7 @@ export default function AdminHomeScreen() {
                 },
                 {
                   key: 'treatments',
-                  label: '이번 달 시술',
+                  label: `${monthShortLabel} 시술`,
                   value: String(summary.monthTreatmentCount),
                   onPress: () => router.push('/admin/customers'),
                 },
@@ -103,6 +145,11 @@ export default function AdminHomeScreen() {
                   onPress: () => router.push('/admin/designers'),
                 },
               ]}
+            />
+
+            <RevenueSplitStructureCard
+              sampleCaption={`${monthCaption} 총매출 기준`}
+              sampleGrossAmount={summary.monthGrossSales || 100_000}
             />
 
             <Text style={styles.sectionTitle}>지역별 플랜비</Text>

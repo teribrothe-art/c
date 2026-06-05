@@ -1,4 +1,4 @@
-import type { UserRole } from './auth';
+import type { UserRole } from './user-role';
 import type { BetaTestAccount } from './beta-test-accounts';
 
 export const STORE_TEST_PASSWORD = 'store1234';

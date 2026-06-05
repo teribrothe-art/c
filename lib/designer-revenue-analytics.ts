@@ -2,6 +2,7 @@ import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
 import { calculatePaymentFees, getPaymentByTreatmentId, listPaymentsForDesignerId, PaymentRecord } from './payment-record';
 import { canViewOrgDesignerData } from './org-access';
+import { getCurrentMonthKey, isValidMonthKey } from './designer-revenue-month-nav';
 import {
   buildMonthWeekdayTotals,
   buildWeeklyRevenueWeeks,
@@ -13,6 +14,14 @@ import {
   type WeeklyRevenueWeek,
   type WeekdayRevenueCell,
 } from './designer-revenue-weekly';
+
+export {
+  getCurrentMonthKey,
+  isValidMonthKey,
+  shiftMonthKey,
+  canGoToNextMonth,
+  canGoToPreviousMonth,
+} from './designer-revenue-month-nav';
 import { supabase } from './supabase';
 import { getDesignerTreatments, listTreatmentsForDesignerId, type Treatment } from './treatments';
 
@@ -76,7 +85,7 @@ export type DesignerRevenueAnalytics = {
 };
 
 function currentMonthKey() {
-  return toLocalDateString().slice(0, 7);
+  return getCurrentMonthKey();
 }
 
 export function formatMonthKeyLabel(monthKey: string) {
@@ -259,10 +268,9 @@ export async function fetchDesignerRevenueAnalytics(
 
   months.sort((a, b) => b.monthKey.localeCompare(a.monthKey));
 
-  const resolvedMonthKey =
-    selectedMonthKey && months.some((month) => month.monthKey === selectedMonthKey)
-      ? selectedMonthKey
-      : months[0]?.monthKey ?? fallbackMonth;
+  const resolvedMonthKey = isValidMonthKey(selectedMonthKey)
+    ? selectedMonthKey
+    : months[0]?.monthKey ?? fallbackMonth;
 
   const selectedMonth = months.find((month) => month.monthKey === resolvedMonthKey) ?? emptyMonth(resolvedMonthKey);
   const weeklyWeeks = buildWeeklyRevenueWeeks(completed, resolvedMonthKey);

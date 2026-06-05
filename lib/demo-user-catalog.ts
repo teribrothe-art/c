@@ -1,9 +1,8 @@
-import { ADMIN_TEST_ACCOUNT } from './admin-test-accounts';
-import { BETA_CUSTOMERS, BETA_DESIGNERS } from './beta-test-accounts';
-import { ACCUMULATED_TEST_ACCOUNTS } from './demo-accumulated-test-accounts';
-import { SEO_JUNGHYUN_TEST_ACCOUNT } from './demo-customer-seo-junghyun';
-import { STORE_TEST_ACCOUNTS } from './store-test-accounts';
-import type { UserRole } from './auth';
+import {
+  getDemoCatalogLightweightAccounts,
+  resolveDemoCatalogUserByEmail,
+} from './demo-catalog-accounts';
+import type { UserRole } from './user-role';
 
 export type DemoCatalogUser = {
   id: string;
@@ -26,14 +25,7 @@ function ensureDemoUserCatalog() {
 
   catalogByEmail = new Map<string, DemoCatalogUser>();
 
-  for (const account of [
-    ADMIN_TEST_ACCOUNT,
-    ...STORE_TEST_ACCOUNTS,
-    ...BETA_DESIGNERS,
-    ...BETA_CUSTOMERS,
-    ...ACCUMULATED_TEST_ACCOUNTS,
-    SEO_JUNGHYUN_TEST_ACCOUNT,
-  ]) {
+  for (const account of getDemoCatalogLightweightAccounts()) {
     catalogByEmail.set(normalizeEmail(account.email), {
       id: account.id,
       email: account.email,
@@ -48,11 +40,25 @@ function ensureDemoUserCatalog() {
 
 /** 테스트 계정 카탈로그에서 이메일·비밀번호로 조회 (시드 생성 없음) */
 export function lookupDemoCatalogUser(email: string, password: string): DemoCatalogUser | null {
-  const user = ensureDemoUserCatalog().get(normalizeEmail(email));
+  const normalized = normalizeEmail(email);
 
-  if (!user || user.password !== password) {
-    return null;
+  const resolved = resolveDemoCatalogUserByEmail(normalized, password);
+
+  if (resolved) {
+    return {
+      id: resolved.id,
+      email: resolved.email,
+      name: resolved.name,
+      password: resolved.password,
+      role: resolved.role,
+    };
   }
 
-  return user;
+  const user = ensureDemoUserCatalog().get(normalized);
+
+  if (user && user.password === password) {
+    return user;
+  }
+
+  return null;
 }

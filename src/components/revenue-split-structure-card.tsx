@@ -14,9 +14,23 @@ import { colors } from '../../lib/theme';
 
 type RevenueSplitStructureCardProps = {
   sampleGrossAmount?: number;
+  /** 예: 2026년 6월 · 총매출 기준 */
+  sampleCaption?: string;
 };
 
-export function RevenueSplitStructureCard({ sampleGrossAmount = 100_000 }: RevenueSplitStructureCardProps) {
+function SplitAmountRow({ label, amount }: { label: string; amount: number }) {
+  return (
+    <View style={styles.row}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Text style={styles.rowValue}>{formatAmount(amount)}</Text>
+    </View>
+  );
+}
+
+export function RevenueSplitStructureCard({
+  sampleGrossAmount = 100_000,
+  sampleCaption,
+}: RevenueSplitStructureCardProps) {
   const [config, setConfig] = useState<RevenueSplitConfig | null>(null);
   const [hasPending, setHasPending] = useState(false);
 
@@ -51,27 +65,14 @@ export function RevenueSplitStructureCard({ sampleGrossAmount = 100_000 }: Reven
         {hasPending ? <Text style={styles.pendingBadge}>승인 대기</Text> : null}
       </View>
       <Text style={styles.summary}>{formatRevenueSplitSummary(config)}</Text>
-      <View style={styles.row}>
-        <Text style={styles.rowLabel}>카드 수수료(카드사)</Text>
-        <Text style={styles.rowValue}>{config.cardFeePercent}%</Text>
-      </View>
-      <View style={styles.row}>
-        <Text style={styles.rowLabel}>PG 수수료</Text>
-        <Text style={styles.rowValue}>{config.pgFeePercent}%</Text>
-      </View>
-      <View style={styles.row}>
-        <Text style={styles.rowLabel}>본사(매출)</Text>
-        <Text style={styles.rowValue}>{config.hqFeePercent}%</Text>
-      </View>
-      <View style={styles.row}>
-        <Text style={styles.rowLabel}>디자이너 · 매장</Text>
-        <Text style={styles.rowValue}>
-          {config.designerSharePercent}:{config.storeSharePercent}
-        </Text>
-      </View>
+      {sampleCaption ? <Text style={styles.sampleCaption}>{sampleCaption}</Text> : null}
+      <SplitAmountRow amount={sample.cardFeeAmount} label="카드 수수료(카드사)" />
+      <SplitAmountRow amount={sample.pgFeeAmount} label="PG 수수료" />
+      <SplitAmountRow amount={sample.hqFeeAmount} label="본사(매출)" />
+      <SplitAmountRow amount={sample.designerPayout} label="디자이너" />
+      <SplitAmountRow amount={sample.storePayout} label="매장" />
       <Text style={styles.example}>
-        예: 시술 {formatAmount(sampleGrossAmount)} → 디자이너 {formatAmount(sample.designerPayout)} · 매장{' '}
-        {formatAmount(sample.storePayout)} (본사 {formatAmount(sample.hqFeeAmount)})
+        잔여 풀 {formatAmount(sample.poolAfterDeductions)} · 총매출 {formatAmount(sampleGrossAmount)} 기준
       </Text>
       <Text style={styles.link}>비율 조정 · 상호 승인 ›</Text>
     </Pressable>
@@ -118,18 +119,28 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   row: {
+    alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   rowLabel: {
     color: '#6B6B7B',
+    flex: 1,
     fontSize: 13,
     fontWeight: '600',
+    paddingRight: 8,
   },
   rowValue: {
     color: '#1A1A2E',
+    flexShrink: 1,
     fontSize: 13,
     fontWeight: '800',
+    textAlign: 'right',
+  },
+  sampleCaption: {
+    color: '#0F766E',
+    fontSize: 11,
+    fontWeight: '700',
   },
   example: {
     color: '#9CA3AF',

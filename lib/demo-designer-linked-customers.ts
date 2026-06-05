@@ -1,46 +1,35 @@
 import { DEMO_LOGIN_HINT } from './auth';
 import { SEO_JUNGHYUN_TEST_ACCOUNT } from './demo-customer-seo-junghyun';
-import {
-  BETA_CUSTOMERS,
-  BETA_DESIGNERS,
-  BETA_TEST_PASSWORD,
-  type BetaTestAccount,
-} from './beta-test-accounts';
+import { type BetaTestAccount } from './beta-test-accounts';
+import { getAccumulatedProfileCustomerCount, resolveAccumulatedProfileCustomers } from './demo-accumulated-profile-customers';
 import { ACCUMULATED_TEST_PASSWORD, ACCUMULATED_TEST_PROFILE_CONFIGS } from './demo-accumulated-test-accounts';
-import { getAccumulatedTestProfiles } from './demo-accumulated-test-seeds';
+import { isBetaProfileKey } from './demo-beta-designer-profiles';
+import { isDemoDesignerIncludedInTestAccounts } from './demo-designer-customer-counts';
 
 export type DesignerLinkedCustomerSource = {
   profileLabel: string;
   designerName: string;
   designerId: string;
-  customers: BetaTestAccount[];
+  customerCount: number;
   password: string;
 };
 
 function getAccumulatedProfileCustomerSources(): DesignerLinkedCustomerSource[] {
-  return getAccumulatedTestProfiles().map((profile) => ({
-    profileLabel: profile.stats.yearSpanLabel,
-    designerName: profile.designer.name ?? profile.designer.email,
-    designerId: profile.designer.id,
-    customers: profile.customers,
+  return ACCUMULATED_TEST_PROFILE_CONFIGS.filter((config) =>
+    isDemoDesignerIncludedInTestAccounts(config.designer.id),
+  ).map((config) => ({
+    profileLabel: isBetaProfileKey(config.key)
+      ? '3년차 · 베타'
+      : `${config.historyYears}년차 · 주 1명 신규`,
+    designerName: config.designer.name ?? config.designer.email,
+    designerId: config.designer.id,
+    customerCount: getAccumulatedProfileCustomerCount(config),
     password: ACCUMULATED_TEST_PASSWORD,
   }));
 }
 
-/** 베타 디자이너 1:1 연동 고객 */
-const BETA_CUSTOMER_SOURCES: DesignerLinkedCustomerSource[] = BETA_CUSTOMERS.map(
-  (customer, index) => {
-    const designer = BETA_DESIGNERS[index];
-
-    return {
-      profileLabel: '베타',
-      designerName: designer?.name ?? '베타 디자이너',
-      designerId: designer?.id ?? '',
-      customers: [customer],
-      password: BETA_TEST_PASSWORD,
-    };
-  },
-);
+/** 베타 1:1 계정은 별도 — 누적 프로필 소스에 포함됨 */
+const BETA_CUSTOMER_SOURCES: DesignerLinkedCustomerSource[] = [];
 
 const DEMO_DESIGNER_LINKED_CUSTOMERS: BetaTestAccount[] = [
   {
@@ -73,7 +62,7 @@ const DEMO_DESIGNER_CUSTOMER_SOURCES: DesignerLinkedCustomerSource[] = [
     profileLabel: '데모',
     designerName: '김미용 디자이너',
     designerId: 'demo-designer-local',
-    customers: DEMO_DESIGNER_LINKED_CUSTOMERS,
+    customerCount: DEMO_DESIGNER_LINKED_CUSTOMERS.length,
     password: DEMO_LOGIN_HINT.customerPassword,
   },
 ];
@@ -81,6 +70,23 @@ const DEMO_DESIGNER_CUSTOMER_SOURCES: DesignerLinkedCustomerSource[] = [
 let designerLinkedCustomerSourcesCache: DesignerLinkedCustomerSource[] | null = null;
 
 /** 테스트 로그인 · 가입고객 탭 — 디자이너와 연동된 전체 고객 (첫 접근 시 생성) */
+export { DEMO_DESIGNER_LINKED_CUSTOMERS };
+
+/** 디자이너에 연동된 고객 목록 (증원은 해당 프로필만 지연 생성) */
+export function getLinkedCustomersForDesigner(designerId: string): BetaTestAccount[] {
+  if (designerId === 'demo-designer-local') {
+    return DEMO_DESIGNER_LINKED_CUSTOMERS;
+  }
+
+  const config = ACCUMULATED_TEST_PROFILE_CONFIGS.find((item) => item.designer.id === designerId);
+
+  if (config && isDemoDesignerIncludedInTestAccounts(config.designer.id)) {
+    return resolveAccumulatedProfileCustomers(config);
+  }
+
+  return [];
+}
+
 export function getDesignerLinkedCustomerLoginSources(): DesignerLinkedCustomerSource[] {
   if (!designerLinkedCustomerSourcesCache) {
     designerLinkedCustomerSourcesCache = [
@@ -106,13 +112,11 @@ export const DESIGNER_LINKED_CUSTOMER_LOGIN_SOURCES = new Proxy(
   },
 );
 
-const STATIC_LINKED_CUSTOMER_COUNT =
-  DEMO_DESIGNER_LINKED_CUSTOMERS.length + BETA_CUSTOMERS.length;
+const STATIC_LINKED_CUSTOMER_COUNT = DEMO_DESIGNER_LINKED_CUSTOMERS.length;
 
-const ACCUMULATED_LINKED_CUSTOMER_COUNT = ACCUMULATED_TEST_PROFILE_CONFIGS.reduce(
-  (sum, config) => sum + config.customers.length,
-  0,
-);
+const ACCUMULATED_LINKED_CUSTOMER_COUNT = ACCUMULATED_TEST_PROFILE_CONFIGS.filter((config) =>
+  isDemoDesignerIncludedInTestAccounts(config.designer.id),
+).reduce((sum, config) => sum + getAccumulatedProfileCustomerCount(config), 0);
 
 export const DESIGNER_LINKED_CUSTOMER_COUNT =
   STATIC_LINKED_CUSTOMER_COUNT + ACCUMULATED_LINKED_CUSTOMER_COUNT;

@@ -1,7 +1,7 @@
 {
   "name": "hair-diary-app",
   "main": "expo-router/entry",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "dependencies": {
     "@expo/ui": "~56.0.13",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -62,8 +62,12 @@
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web --port 8081",
-    "web:clear": "CI=1 expo start --web --port 8081 --clear",
+    "web": "node scripts/start-web.mjs",
+    "web:clear": "node scripts/start-web.mjs --clear",
+    "dev:auto": "node scripts/dev-auto-start.mjs --boot --open-browser",
+    "dev:auto:install": "node scripts/install-windows-auto-start.mjs",
+    "dev:auto:uninstall": "node scripts/uninstall-windows-auto-start.mjs",
+    "refresh:browser": "node scripts/refresh-dev-browser.mjs",
     "check:dev": "node scripts/check-dev-server.mjs",
     "check:phone": "node scripts/check-phone-bundle.mjs",
     "check:app": "node scripts/check-app-connection.mjs",
@@ -77,6 +81,8 @@
     "verify:designer-home": "node scripts/verify-designer-home-feed.mjs",
     "verify:diary": "node scripts/verify-diary-home.mjs",
     "verify:org-simulation": "node scripts/verify-org-virtual-simulation.mjs",
+    "verify:fleet-100": "node scripts/verify-fleet-100.mjs",
+    "verify:demo-health": "node scripts/verify-demo-health.mjs",
     "beta:e2e": "node scripts/beta-e2e-ten-users.mjs",
     "update:preview": "eas update --branch preview --message \"베타 v1.0.5\""
   },

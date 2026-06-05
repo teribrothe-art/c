@@ -1,6 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 import { getCurrentUser, isDemoAuthMode } from './auth';
+import { demoGetItem, demoSetItem } from './demo-async-storage';
 import { toAppError } from './errors';
 import { addNotification } from './notifications';
 import { supabase } from './supabase';
@@ -93,6 +92,48 @@ const invitationSelect =
 
 const demoInvitations: CustomerInvitation[] = [];
 const demoRelationships: DesignerCustomerRelationship[] = [];
+
+let demoInvitationsHydrated = false;
+let demoRelationshipsHydrated = false;
+let demoInvitationsHydratePromise: Promise<void> | null = null;
+let demoRelationshipsHydratePromise: Promise<void> | null = null;
+
+async function ensureDemoInvitationsHydrated() {
+  if (demoInvitationsHydrated) {
+    return;
+  }
+
+  if (!demoInvitationsHydratePromise) {
+    demoInvitationsHydratePromise = (async () => {
+      const raw = await demoGetItem(DEMO_INVITATIONS_KEY);
+      const parsed = raw ? (JSON.parse(raw) as CustomerInvitation[]) : [];
+      const normalized = parsed.map((item) => normalizeInvitationRow(item));
+      demoInvitations.length = 0;
+      demoInvitations.push(...normalized);
+      demoInvitationsHydrated = true;
+    })();
+  }
+
+  await demoInvitationsHydratePromise;
+}
+
+async function ensureDemoRelationshipsHydrated() {
+  if (demoRelationshipsHydrated) {
+    return;
+  }
+
+  if (!demoRelationshipsHydratePromise) {
+    demoRelationshipsHydratePromise = (async () => {
+      const raw = await demoGetItem(DEMO_RELATIONSHIPS_KEY);
+      const parsed = raw ? (JSON.parse(raw) as DesignerCustomerRelationship[]) : [];
+      demoRelationships.length = 0;
+      demoRelationships.push(...parsed);
+      demoRelationshipsHydrated = true;
+    })();
+  }
+
+  await demoRelationshipsHydratePromise;
+}
 
 /** 입력란용 — 허용 문자만 남기고 6자리까지 (미완성 입력 가능) */
 export function formatInviteCodeInput(raw: string) {
@@ -274,32 +315,25 @@ function resolveInvitationStatus(invitation: CustomerInvitation): InvitationStat
 }
 
 async function readDemoInvitations() {
-  const raw = await AsyncStorage.getItem(DEMO_INVITATIONS_KEY);
-  const parsed = raw ? (JSON.parse(raw) as CustomerInvitation[]) : [...demoInvitations];
-  const normalized = parsed.map((item) => normalizeInvitationRow(item));
-  demoInvitations.length = 0;
-  demoInvitations.push(...normalized);
+  await ensureDemoInvitationsHydrated();
   return demoInvitations;
 }
 
 async function writeDemoInvitations(items: CustomerInvitation[]) {
   demoInvitations.length = 0;
   demoInvitations.push(...items);
-  await AsyncStorage.setItem(DEMO_INVITATIONS_KEY, JSON.stringify(items));
+  await demoSetItem(DEMO_INVITATIONS_KEY, JSON.stringify(items));
 }
 
 async function readDemoRelationships() {
-  const raw = await AsyncStorage.getItem(DEMO_RELATIONSHIPS_KEY);
-  const parsed = raw ? (JSON.parse(raw) as DesignerCustomerRelationship[]) : [...demoRelationships];
-  demoRelationships.length = 0;
-  demoRelationships.push(...parsed);
+  await ensureDemoRelationshipsHydrated();
   return demoRelationships;
 }
 
 async function writeDemoRelationships(items: DesignerCustomerRelationship[]) {
   demoRelationships.length = 0;
   demoRelationships.push(...items);
-  await AsyncStorage.setItem(DEMO_RELATIONSHIPS_KEY, JSON.stringify(items));
+  await demoSetItem(DEMO_RELATIONSHIPS_KEY, JSON.stringify(items));
 }
 
 async function applyInvitationUsedSideEffects(invitation: CustomerInvitation, customerId: string) {
@@ -326,7 +360,7 @@ async function applyInvitationUsedSideEffects(invitation: CustomerInvitation, cu
 
 async function fetchDesignerName(designerId: string) {
   if (isDemoAuthMode || !supabase) {
-    const usersRaw = await AsyncStorage.getItem('hair-diary-demo-users');
+    const usersRaw = await demoGetItem('hair-diary-demo-users');
     const users = usersRaw ? (JSON.parse(usersRaw) as { id: string; name: string | null }[]) : [];
     return users.find((user) => user.id === designerId)?.name ?? '디자이너';
   }

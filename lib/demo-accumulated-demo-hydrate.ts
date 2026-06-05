@@ -1,28 +1,43 @@
-import { isAccumulatedTestPaymentId, isAccumulatedTestTreatmentId } from './demo-accumulated-ids';
-import { getAccumulatedTestProfiles } from './demo-accumulated-test-seeds';
+import { ACCUMULATED_TEST_PROFILE_CONFIGS } from './demo-accumulated-test-accounts';
+import {
+  isAccumulatedTestCustomerId,
+  isAccumulatedTestPaymentId,
+  isAccumulatedTestTreatmentId,
+} from './demo-accumulated-ids';
+import { isFleetProfileKey } from './demo-fleet-100-designers';
+import { resolveAccumulatedProfileCustomers } from './demo-accumulated-profile-customers';
+import type { AccumulatedSeedProfileConfig } from './demo-accumulated-seed-builder';
+import {
+  ensureAccumulatedProfileBuilt,
+  ensureAccumulatedProfileBuiltByDesignerId,
+} from './demo-accumulated-test-seeds';
 import { applyAccumulatedTreatmentPatch } from './demo-accumulated-treatment-patches';
+import type { BuiltAccumulatedSeedProfile } from './demo-accumulated-seed-builder';
 import type { PaymentRecord } from './payment-types';
 import type { Treatment } from './treatment-types';
-import type { BuiltAccumulatedSeedProfile } from './demo-accumulated-seed-builder';
 
 export { isAccumulatedTestPaymentId, isAccumulatedTestTreatmentId } from './demo-accumulated-ids';
 
-let customerIdToProfileCache: Map<string, BuiltAccumulatedSeedProfile> | null = null;
+let customerIdToConfigCache: Map<string, AccumulatedSeedProfileConfig> | null = null;
 
-function ensureCustomerProfileIndex() {
-  if (customerIdToProfileCache) {
-    return customerIdToProfileCache;
+function ensureCustomerConfigIndex() {
+  if (customerIdToConfigCache) {
+    return customerIdToConfigCache;
   }
 
-  customerIdToProfileCache = new Map();
+  customerIdToConfigCache = new Map();
 
-  for (const profile of getAccumulatedTestProfiles()) {
-    for (const customer of profile.customers) {
-      customerIdToProfileCache.set(customer.id, profile);
+  for (const config of ACCUMULATED_TEST_PROFILE_CONFIGS) {
+    if (isFleetProfileKey(config.key)) {
+      continue;
+    }
+
+    for (const customer of resolveAccumulatedProfileCustomers(config)) {
+      customerIdToConfigCache.set(customer.id, config);
     }
   }
 
-  return customerIdToProfileCache;
+  return customerIdToConfigCache;
 }
 
 function findProfileForUser(user: { id: string; role?: string | null } | null) {
@@ -31,11 +46,23 @@ function findProfileForUser(user: { id: string; role?: string | null } | null) {
   }
 
   if (user.role === 'designer') {
-    return getAccumulatedTestProfiles().find((profile) => profile.designer.id === user.id) ?? null;
+    return ensureAccumulatedProfileBuiltByDesignerId(user.id) ?? null;
   }
 
   if (user.role === 'customer') {
-    return ensureCustomerProfileIndex().get(user.id) ?? null;
+    const fleetMatch = /^test-fleet-(\d{3})-customer-/.exec(user.id);
+
+    if (fleetMatch) {
+      return ensureAccumulatedProfileBuilt(`fleet-${fleetMatch[1]}`) ?? null;
+    }
+
+    const config = ensureCustomerConfigIndex().get(user.id);
+
+    if (!config) {
+      return null;
+    }
+
+    return ensureAccumulatedProfileBuilt(config.key) ?? null;
   }
 
   return null;
@@ -45,7 +72,19 @@ export function shouldHydrateAccumulatedDemoDataForUser(user: {
   id: string;
   role?: string | null;
 } | null) {
-  return findProfileForUser(user) !== null;
+  if (!user) {
+    return false;
+  }
+
+  if (user.role === 'designer') {
+    return ACCUMULATED_TEST_PROFILE_CONFIGS.some((config) => config.designer.id === user.id);
+  }
+
+  if (user.role === 'customer') {
+    return isAccumulatedTestCustomerId(user.id);
+  }
+
+  return false;
 }
 
 function mergeAccumulatedProfileTreatmentsIntoStore(
@@ -95,8 +134,12 @@ export function mergeAccumulatedTreatmentsForDesignerId(
 export function mergeAllAccumulatedTreatmentsIntoStore(demoTreatments: Treatment[]): boolean {
   let merged = false;
 
-  for (const profile of getAccumulatedTestProfiles()) {
-    merged = mergeAccumulatedProfileTreatmentsIntoStore(demoTreatments, profile) || merged;
+  for (const config of ACCUMULATED_TEST_PROFILE_CONFIGS) {
+    const profile = ensureAccumulatedProfileBuilt(config.key);
+
+    if (profile) {
+      merged = mergeAccumulatedProfileTreatmentsIntoStore(demoTreatments, profile) || merged;
+    }
   }
 
   return merged;
@@ -105,8 +148,12 @@ export function mergeAllAccumulatedTreatmentsIntoStore(demoTreatments: Treatment
 export function mergeAllAccumulatedPaymentsIntoStore(demoPayments: PaymentRecord[]): boolean {
   let merged = false;
 
-  for (const profile of getAccumulatedTestProfiles()) {
-    merged = mergeAccumulatedProfilePaymentsIntoStore(demoPayments, profile) || merged;
+  for (const config of ACCUMULATED_TEST_PROFILE_CONFIGS) {
+    const profile = ensureAccumulatedProfileBuilt(config.key);
+
+    if (profile) {
+      merged = mergeAccumulatedProfilePaymentsIntoStore(demoPayments, profile) || merged;
+    }
   }
 
   return merged;
@@ -126,7 +173,7 @@ export function mergeAccumulatedPaymentsIntoStore(
 }
 
 export function findAccumulatedProfileByDesignerId(designerId: string) {
-  return getAccumulatedTestProfiles().find((profile) => profile.designer.id === designerId) ?? null;
+  return ensureAccumulatedProfileBuiltByDesignerId(designerId) ?? null;
 }
 
 export function mergeAccumulatedPaymentsForDesignerId(
@@ -181,5 +228,5 @@ export function paymentsForDemoPersistence(demoPayments: PaymentRecord[]) {
 
 /** 고객 ID → 프로필 인덱스 캐시 초기화 */
 export function clearAccumulatedDemoHydrateCache() {
-  customerIdToProfileCache = null;
+  customerIdToConfigCache = null;
 }

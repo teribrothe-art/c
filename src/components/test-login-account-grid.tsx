@@ -1,7 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import type { DemoLoginAccount } from '../../lib/demo-login-accounts';
+import type { DemoLoginAccount } from '../../lib/demo-login-account-types';
 import { formatDemoDesignerCustomerCount } from '../../lib/demo-designer-customer-counts';
+import { WebPressable, webPressableStyle } from './web-pressable';
 
 type TestLoginAccountGridProps = {
   accounts: DemoLoginAccount[];
@@ -21,17 +22,19 @@ export function TestLoginAccountGrid({ accounts, loadingId, onLogin }: TestLogin
 
         return (
           <View key={account.id} style={styles.tileWrap}>
-            <Pressable
+            <WebPressable
               accessibilityRole="button"
               accessibilityLabel={`${account.loginLabel} ${account.roleLabel} 로그인`}
               disabled={Boolean(loadingId)}
               onPress={() => onLogin(account)}
-              style={({ pressed }) => [
-                styles.tile,
-                { borderColor: account.accent },
-                pressed && !loadingId && styles.tilePressed,
-                isLoading && styles.tileLoading,
-              ]}>
+              style={webPressableStyle(
+                [
+                  styles.tile,
+                  { borderColor: account.accent },
+                  isLoading && styles.tileLoading,
+                ],
+                !loadingId ? styles.tilePressed : undefined,
+              )}>
               <View style={[styles.avatar, { backgroundColor: account.accent }]}>
                 <Text style={styles.avatarText}>{getInitial(account.loginLabel)}</Text>
               </View>
@@ -50,7 +53,7 @@ export function TestLoginAccountGrid({ accounts, loadingId, onLogin }: TestLogin
                 </Text>
               ) : null}
               <Text style={styles.action}>{isLoading ? '…' : '로그인'}</Text>
-            </Pressable>
+            </WebPressable>
           </View>
         );
       })}

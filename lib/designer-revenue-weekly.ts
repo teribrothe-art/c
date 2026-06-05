@@ -113,26 +113,100 @@ function formatWeekRange(weekStart: string) {
   return `${startLabel} ~ ${endLabel}`;
 }
 
-function payoutOf(payment: PaymentRecord) {
-  return payment.designer_payout ?? calculatePaymentFees(payment.amount).designerPayout;
-}
-
 function settlementDateOf(payment: PaymentRecord) {
   return (payment.settled_at ?? payment.paid_at ?? payment.created_at).slice(0, 10);
 }
 
-function buildDayTotals(completed: PaymentRecord[]) {
+function payoutOf(payment: PaymentRecord) {
+  return payment.designer_payout ?? calculatePaymentFees(payment.amount).designerPayout;
+}
+
+function grossOf(payment: PaymentRecord) {
+  return payment.amount;
+}
+
+function buildDayTotals(
+  completed: PaymentRecord[],
+  amountOf: (payment: PaymentRecord) => number = payoutOf,
+) {
   const map = new Map<string, { totalAmount: number; settlementCount: number }>();
 
   for (const payment of completed) {
     const date = settlementDateOf(payment);
     const current = map.get(date) ?? { totalAmount: 0, settlementCount: 0 };
-    current.totalAmount += payoutOf(payment);
+    current.totalAmount += amountOf(payment);
     current.settlementCount += 1;
     map.set(date, current);
   }
 
   return map;
+}
+
+function sumDaysInSelectedMonth(
+  days: WeekdayRevenueCell[],
+  pick: (day: WeekdayRevenueCell) => number,
+) {
+  return days.reduce((sum, day) => sum + (day.inSelectedMonth ? pick(day) : 0), 0);
+}
+
+/** 주간 셀 중 선택 월에 속하는 날짜 매출 합계 */
+export function sumWeekdayRevenueInMonth(days: WeekdayRevenueCell[]) {
+  return sumDaysInSelectedMonth(days, (day) => day.totalAmount);
+}
+
+/** 주간 셀 중 선택 월에 속하는 날짜 정산 건수 합계 */
+export function sumWeekdaySettlementCountInMonth(days: WeekdayRevenueCell[]) {
+  return sumDaysInSelectedMonth(days, (day) => day.settlementCount);
+}
+
+function buildWeeklyAmountWeeks(
+  completed: PaymentRecord[],
+  monthKey: string,
+  amountOf: (payment: PaymentRecord) => number,
+): WeeklyRevenueWeek[] {
+  const dayTotals = buildDayTotals(completed, amountOf);
+  const monthStart = `${monthKey}-01`;
+  const monthEnd = lastDateOfMonth(monthKey);
+  let cursor = getWeekStartMonday(monthStart);
+  const weeks: WeeklyRevenueWeek[] = [];
+  const guard = new Set<string>();
+
+  while (cursor <= addDays(monthEnd, 6)) {
+    if (guard.has(cursor)) {
+      break;
+    }
+
+    guard.add(cursor);
+
+    const days = buildWeekCells(cursor, dayTotals, monthKey);
+    const overlapsMonth = days.some((day) => day.inSelectedMonth);
+
+    if (overlapsMonth) {
+      weeks.push({
+        weekKey: cursor,
+        label: formatWeekRange(cursor),
+        days,
+        weekTotal: sumWeekdayRevenueInMonth(days),
+        settlementCount: sumWeekdaySettlementCountInMonth(days),
+      });
+    }
+
+    cursor = addDays(cursor, 7);
+  }
+
+  if (weeks.length === 0) {
+    const days = buildWeekCells(getWeekStartMonday(monthStart), dayTotals, monthKey);
+
+    weeks.push({
+      weekKey: getWeekStartMonday(monthStart),
+      label: formatWeekRange(getWeekStartMonday(monthStart)),
+      days,
+      weekTotal: 0,
+      settlementCount: 0,
+    });
+  }
+
+  return weeks;
 }
 
 function buildWeekCells(
@@ -171,49 +245,15 @@ export function buildWeeklyRevenueWeeks(
   completed: PaymentRecord[],
   monthKey: string,
 ): WeeklyRevenueWeek[] {
-  const dayTotals = buildDayTotals(completed);
-  const monthStart = `${monthKey}-01`;
-  const monthEnd = lastDateOfMonth(monthKey);
-  let cursor = getWeekStartMonday(monthStart);
-  const weeks: WeeklyRevenueWeek[] = [];
-  const guard = new Set<string>();
+  return buildWeeklyAmountWeeks(completed, monthKey, payoutOf);
+}
 
-  while (cursor <= addDays(monthEnd, 6)) {
-    if (guard.has(cursor)) {
-      break;
-    }
-
-    guard.add(cursor);
-
-    const days = buildWeekCells(cursor, dayTotals, monthKey);
-    const overlapsMonth = days.some((day) => day.inSelectedMonth);
-
-    if (overlapsMonth) {
-      weeks.push({
-        weekKey: cursor,
-        label: formatWeekRange(cursor),
-        days,
-        weekTotal: days.reduce((sum, day) => sum + day.totalAmount, 0),
-        settlementCount: days.reduce((sum, day) => sum + day.settlementCount, 0),
-      });
-    }
-
-    cursor = addDays(cursor, 7);
-  }
-
-  if (weeks.length === 0) {
-    const days = buildWeekCells(getWeekStartMonday(monthStart), dayTotals, monthKey);
-
-    weeks.push({
-      weekKey: getWeekStartMonday(monthStart),
-      label: formatWeekRange(getWeekStartMonday(monthStart)),
-      days,
-      weekTotal: 0,
-      settlementCount: 0,
-    });
-  }
-
-  return weeks;
+/** 선택한 달의 주간(월~일 7일) 시술 결제 총액(매출) 묶음 */
+export function buildWeeklyGrossSalesWeeks(
+  completed: PaymentRecord[],
+  monthKey: string,
+): WeeklyRevenueWeek[] {
+  return buildWeeklyAmountWeeks(completed, monthKey, grossOf);
 }
 
 export function resolveDefaultWeekKey(weeks: WeeklyRevenueWeek[], monthKey: string) {

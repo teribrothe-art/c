@@ -1,5 +1,5 @@
 import * as Clipboard from 'expo-clipboard';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -61,6 +61,8 @@ export function CustomerInviteModal({
   const [isSearching, setIsSearching] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [showInvitationCode, setShowInvitationCode] = useState(false);
+  const autoSelectedRef = useRef(false);
 
   useEffect(() => {
     if (!visible) {
@@ -69,8 +71,11 @@ export function CustomerInviteModal({
 
     setCustomerName((current) => current || defaultCustomerName);
     setMode('existing');
-    setSearchQuery(defaultCustomerName);
+    setSearchQuery('');
     setSelectedCustomerId(null);
+    setCustomers([]);
+    setShowInvitationCode(false);
+    autoSelectedRef.current = false;
 
     let isMounted = true;
 
@@ -85,10 +90,12 @@ export function CustomerInviteModal({
         if (pending) {
           setInvitation(pending);
           setMode('new');
+          setShowInvitationCode(true);
           setCustomerName(pending.customer_name ?? defaultCustomerName);
           setCustomerPhone(pending.customer_phone ?? '');
         } else {
           setInvitation(null);
+          setShowInvitationCode(false);
         }
       })
       .catch(() => undefined)
@@ -104,7 +111,7 @@ export function CustomerInviteModal({
   }, [visible, treatmentId, defaultCustomerName]);
 
   useEffect(() => {
-    if (!visible || mode !== 'existing' || invitation) {
+    if (!visible || mode !== 'existing' || showInvitationCode) {
       return;
     }
 
@@ -114,13 +121,32 @@ export function CustomerInviteModal({
 
       searchRegisteredCustomers(searchQuery)
         .then((items) => {
-          if (isMounted) {
-            setCustomers(items);
+          if (!isMounted) {
+            return;
+          }
+
+          setCustomers(items);
+
+          if (
+            !autoSelectedRef.current &&
+            defaultCustomerName.trim() &&
+            searchQuery.trim() === ''
+          ) {
+            const normalizedTarget = defaultCustomerName.trim().toLowerCase().replace(/\s+/g, '');
+            const exact = items.find(
+              (item) => item.name.trim().toLowerCase().replace(/\s+/g, '') === normalizedTarget,
+            );
+
+            if (exact) {
+              setSelectedCustomerId(exact.id);
+              autoSelectedRef.current = true;
+            }
           }
         })
-        .catch(() => {
+        .catch((error) => {
           if (isMounted) {
             setCustomers([]);
+            console.warn('[CustomerInviteModal] searchRegisteredCustomers failed', error);
           }
         })
         .finally(() => {
@@ -134,7 +160,7 @@ export function CustomerInviteModal({
       isMounted = false;
       clearTimeout(timer);
     };
-  }, [visible, mode, searchQuery, invitation]);
+  }, [visible, mode, searchQuery, showInvitationCode, defaultCustomerName]);
 
   const handleClose = () => {
     setInvitation(null);
@@ -143,8 +169,14 @@ export function CustomerInviteModal({
     setSearchQuery('');
     setCustomers([]);
     setSelectedCustomerId(null);
+    setShowInvitationCode(false);
     setMode('existing');
     onClose();
+  };
+
+  const handleBackFromInvitation = () => {
+    setShowInvitationCode(false);
+    setMode('new');
   };
 
   const handleCreate = async () => {
@@ -157,6 +189,7 @@ export function CustomerInviteModal({
       });
       setInvitation(created);
       setMode('new');
+      setShowInvitationCode(true);
       onInvitationCreated?.(created);
       showSuccessAlert('초대 코드가 생성됐어요. 고객에게 QR 또는 코드를 공유해주세요.');
     } catch (error) {
@@ -236,49 +269,129 @@ export function CustomerInviteModal({
     </View>
   );
 
+  const showInvitationDetail = Boolean(invitation && showInvitationCode);
+  const showModeTabs = !showInvitationDetail;
+
+  const renderModalHeader = () => (
+    <View style={styles.header}>
+      {showInvitationDetail ? (
+        <Pressable
+          accessibilityLabel="뒤로가기"
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={handleBackFromInvitation}
+          style={({ pressed }) => [styles.backButton, pressed && styles.buttonPressed]}>
+          <Text style={styles.backChevron}>‹</Text>
+          <Text style={styles.backLabel}>뒤로</Text>
+        </Pressable>
+      ) : (
+        <View style={styles.headerSideSpacer} />
+      )}
+
+      <Text style={styles.title}>고객 연결</Text>
+      <View style={styles.headerSideSpacer} />
+    </View>
+  );
+
+  const handleModalBack = () => {
+    if (showInvitationDetail) {
+      handleBackFromInvitation();
+      return;
+    }
+
+    handleClose();
+  };
+
   return (
-    <Modal animationType="slide" transparent visible={visible} onRequestClose={handleClose}>
+    <Modal animationType="slide" transparent visible={visible} onRequestClose={handleModalBack}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
           {isLoadingInvite ? (
             <Text style={styles.loadingText}>불러오는 중...</Text>
           ) : (
             <>
-              <Text style={styles.title}>고객 연결</Text>
-              {!invitation ? renderModeTabs() : null}
+              {renderModalHeader()}
+              {showModeTabs ? renderModeTabs() : null}
 
-              {invitation || mode === 'new' ? (
+              {showInvitationDetail ? (
+                <>
+                  <Text style={styles.subtitle}>신규 고객용 초대 코드</Text>
+                  <Text style={styles.code}>{invitation!.invite_code}</Text>
+
+                  <View style={styles.qrWrap}>
+                    <InviteQrCode
+                      size={200}
+                      value={buildInviteQrPayload(invitation!.invite_code)}
+                    />
+                  </View>
+
+                  <Text style={styles.expiry}>7일 후 만료 · 가입 시 코드 입력 또는 QR 스캔</Text>
+
+                  <View style={styles.actionRow}>
+                    <Pressable
+                      onPress={() => void handleShare()}
+                      style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
+                      <Text style={styles.secondaryButtonText}>공유</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => void handleCopy()}
+                      style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
+                      <Text style={styles.secondaryButtonText}>코드 복사</Text>
+                    </Pressable>
+                  </View>
+
+                  <Pressable
+                    onPress={() => void handleCopyLink()}
+                    style={({ pressed }) => [styles.linkCopyButton, pressed && styles.buttonPressed]}>
+                    <Text style={styles.linkCopyText}>앱 링크 복사</Text>
+                  </Pressable>
+                </>
+              ) : mode === 'new' ? (
                 invitation ? (
                   <>
-                    <Text style={styles.subtitle}>신규 고객용 초대 코드</Text>
-                    <Text style={styles.code}>{invitation.invite_code}</Text>
-
-                    <View style={styles.qrWrap}>
-                      <InviteQrCode
-                        size={200}
-                        value={buildInviteQrPayload(invitation.invite_code)}
-                      />
-                    </View>
-
-                    <Text style={styles.expiry}>7일 후 만료 · 가입 시 코드 입력 또는 QR 스캔</Text>
-
-                    <View style={styles.actionRow}>
-                      <Pressable
-                        onPress={() => void handleShare()}
-                        style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
-                        <Text style={styles.secondaryButtonText}>공유</Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => void handleCopy()}
-                        style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
-                        <Text style={styles.secondaryButtonText}>코드 복사</Text>
-                      </Pressable>
-                    </View>
+                    <Text style={styles.subtitle}>
+                      이미 생성된 초대 코드가 있어요.{'\n'}QR·코드를 다시 확인하거나 새로 만들 수 있어요
+                    </Text>
 
                     <Pressable
-                      onPress={() => void handleCopyLink()}
-                      style={({ pressed }) => [styles.linkCopyButton, pressed && styles.buttonPressed]}>
-                      <Text style={styles.linkCopyText}>앱 링크 복사</Text>
+                      onPress={() => setShowInvitationCode(true)}
+                      style={({ pressed }) => [styles.invitePreviewCard, pressed && styles.buttonPressed]}>
+                      <Text style={styles.invitePreviewLabel}>초대 코드</Text>
+                      <Text style={styles.invitePreviewCode}>{invitation.invite_code}</Text>
+                      <Text style={styles.invitePreviewAction}>QR · 코드 보기 →</Text>
+                    </Pressable>
+
+                    <Text style={styles.label}>고객 이름 *</Text>
+                    <TextInput
+                      placeholder="예: 김지원"
+                      placeholderTextColor="#9CA3AF"
+                      style={styles.input}
+                      value={customerName}
+                      onChangeText={setCustomerName}
+                    />
+
+                    <Text style={styles.label}>전화번호 (선택)</Text>
+                    <TextInput
+                      keyboardType="phone-pad"
+                      placeholder="010-0000-0000"
+                      placeholderTextColor="#9CA3AF"
+                      style={styles.input}
+                      value={customerPhone}
+                      onChangeText={(text) => setCustomerPhone(formatPhoneInput(text))}
+                      maxLength={13}
+                    />
+
+                    <Pressable
+                      disabled={isCreating}
+                      onPress={() => void handleCreate()}
+                      style={({ pressed }) => [
+                        styles.primaryButton,
+                        pressed && styles.buttonPressed,
+                        isCreating && styles.buttonDisabled,
+                      ]}>
+                      <Text style={styles.primaryButtonText}>
+                        {isCreating ? '생성 중...' : '새 초대 코드 생성'}
+                      </Text>
                     </Pressable>
                   </>
                 ) : (
@@ -342,8 +455,8 @@ export function CustomerInviteModal({
                     ) : customers.length === 0 ? (
                       <Text style={styles.emptyList}>
                         {searchQuery.trim()
-                          ? '검색 결과가 없어요. 신규 초대 탭을 이용해주세요.'
-                          : '검색어를 입력하거나 아래 목록에서 고객을 선택하세요.'}
+                          ? '검색 결과가 없어요. 검색어를 지우면 가입 고객 목록이 표시됩니다.'
+                          : '연결 가능한 가입 고객이 없어요. 신규 초대 탭을 이용해주세요.'}
                       </Text>
                     ) : (
                       <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
@@ -425,8 +538,36 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
+  header: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  headerSideSpacer: {
+    minWidth: 64,
+  },
+  backButton: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 2,
+    minWidth: 64,
+    paddingVertical: 4,
+  },
+  backChevron: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: '700',
+    lineHeight: 24,
+    marginTop: -2,
+  },
+  backLabel: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '800',
+  },
   title: {
     color: colors.text,
+    flex: 1,
     fontSize: 20,
     fontWeight: '800',
     textAlign: 'center',
@@ -588,6 +729,33 @@ const styles = StyleSheet.create({
     color: colors.mint,
     fontSize: 14,
     fontWeight: '700',
+  },
+  invitePreviewCard: {
+    alignItems: 'center',
+    backgroundColor: colors.lightCoral,
+    borderColor: 'rgba(255, 90, 95, 0.18)',
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  invitePreviewLabel: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  invitePreviewCode: {
+    color: colors.coral,
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: 3,
+  },
+  invitePreviewAction: {
+    color: colors.coral,
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: 2,
   },
   closeLink: {
     alignItems: 'center',

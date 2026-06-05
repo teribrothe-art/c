@@ -3,19 +3,30 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { formatAmount } from '../../lib/currency-input';
 import {
   fetchOrgDashboardSummary,
+  formatOrgMonthCaption,
+  formatOrgMonthShortLabel,
   groupOrgDesignersByStore,
   type OrgDashboardSummary,
   type OrgDesignerMetrics,
   type OrgDesignerStoreGroup,
 } from '../../lib/org-aggregates';
+import {
+  canGoToNextMonth,
+  canGoToPreviousMonth,
+  getCurrentMonthKey,
+  shiftMonthKey,
+} from '../../lib/designer-revenue-month-nav';
+import { formatHqYieldRatePercent } from '../../lib/org-month-settlement';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
 import { colors } from '../../lib/theme';
 import { EmptyState } from '../components/empty-state';
 import { LoadingState } from '../components/loading-state';
 import { AdminBottomTabBar } from '../components/admin-bottom-tab-bar';
+import { RevenuePeriodNavigator } from '../components/revenue-period-navigator';
 import {
   GlobalStoreMetricTabs,
   metricsFromStoreGroup,
@@ -26,10 +37,14 @@ import {
 function StoreGroupCard({
   group,
   tab,
+  monthShortLabel,
+  configuredHqRate,
   onPress,
 }: {
   group: OrgDesignerStoreGroup;
   tab: StoreMetricTab;
+  monthShortLabel: string;
+  configuredHqRate?: number;
   onPress: () => void;
 }) {
   return (
@@ -41,13 +56,24 @@ function StoreGroupCard({
       <Text style={styles.storeLabel}>소속 매장</Text>
       <Text style={styles.storeName}>{group.storeName}</Text>
       <Text style={styles.storeRegion}>{group.storeRegion}</Text>
-      <StoreMetricDetail snapshot={metricsFromStoreGroup(group)} tab={tab} />
+      <StoreMetricDetail
+        configuredHqRate={configuredHqRate}
+        monthShortLabel={monthShortLabel}
+        snapshot={metricsFromStoreGroup(group)}
+        tab={tab}
+      />
       <Text style={styles.storeTapHint}>탭하여 소속 디자이너 보기 →</Text>
     </Pressable>
   );
 }
 
-function DesignerRosterCard({ designer }: { designer: OrgDesignerMetrics }) {
+function DesignerRosterCard({
+  designer,
+  monthShortLabel,
+}: {
+  designer: OrgDesignerMetrics;
+  monthShortLabel: string;
+}) {
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
@@ -55,9 +81,22 @@ function DesignerRosterCard({ designer }: { designer: OrgDesignerMetrics }) {
         {designer.subtitle ? <Text style={styles.cardMeta}>{designer.subtitle}</Text> : null}
       </View>
       <Text style={styles.cardStats}>
-        고객 {designer.customerCount}명 · 시술 {designer.treatmentCount}건 · 이번 달{' '}
+        고객 {designer.customerCount}명 · 시술 {designer.treatmentCount}건 · {monthShortLabel}{' '}
         {designer.monthTreatmentCount}건
       </Text>
+      <View style={styles.cardRevenueRow}>
+        <View style={styles.cardRevenueCell}>
+          <Text style={styles.cardRevenueLabel}>{monthShortLabel} 매출</Text>
+          <Text style={styles.cardRevenueValue}>{formatAmount(designer.monthGrossSales)}</Text>
+        </View>
+        <View style={styles.cardRevenueCell}>
+          <Text style={styles.cardRevenueLabel}>본사 수익률</Text>
+          <Text style={styles.cardRevenuePercent}>
+            {formatHqYieldRatePercent(designer.monthGrossSales, designer.monthHqRevenue)}
+          </Text>
+          <Text style={styles.cardRevenueSub}>{formatAmount(designer.monthHqRevenue)}</Text>
+        </View>
+      </View>
       <View style={styles.actions}>
         <Pressable
           onPress={() => router.push(`/admin/designer/${designer.id}/revenue`)}
@@ -85,13 +124,22 @@ export function OrgDesignersRosterScreen() {
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [globalMetricTab, setGlobalMetricTab] = useState<StoreMetricTab>('designers');
+  const [selectedMonthKey, setSelectedMonthKey] = useState(getCurrentMonthKey);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const monthCaption = useMemo(() => formatOrgMonthCaption(selectedMonthKey), [selectedMonthKey]);
+  const monthShortLabel = useMemo(
+    () => formatOrgMonthShortLabel(selectedMonthKey),
+    [selectedMonthKey],
+  );
 
   const load = useCallback(() => {
     setIsLoading(true);
 
-    fetchOrgDashboardSummary('admin')
+    fetchOrgDashboardSummary('admin', {
+      monthKey: selectedMonthKey,
+      withVirtualSimulation: false,
+    })
       .then((data) => {
         setSummary(data);
         setErrorMessage('');
@@ -100,7 +148,23 @@ export function OrgDesignersRosterScreen() {
         setErrorMessage(getErrorMessage(error, '디자이너 목록을 불러오지 못했습니다.'));
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [selectedMonthKey]);
+
+  const handlePreviousMonth = useCallback(() => {
+    if (!canGoToPreviousMonth(selectedMonthKey)) {
+      return;
+    }
+
+    setSelectedMonthKey(shiftMonthKey(selectedMonthKey, -1));
+  }, [selectedMonthKey]);
+
+  const handleNextMonth = useCallback(() => {
+    if (!canGoToNextMonth(selectedMonthKey)) {
+      return;
+    }
+
+    setSelectedMonthKey(shiftMonthKey(selectedMonthKey, 1));
+  }, [selectedMonthKey]);
 
   useFocusEffect(
     useCallback(() => {
@@ -150,6 +214,16 @@ export function OrgDesignersRosterScreen() {
               ? '소속 디자이너의 매출·고객·시술을 조회하세요.'
               : '상단 탭으로 전체 매장 지표를 함께 전환합니다.'}
           </Text>
+
+          <View style={styles.monthNavCard}>
+            <RevenuePeriodNavigator
+              canNext={canGoToNextMonth(selectedMonthKey)}
+              canPrevious={canGoToPreviousMonth(selectedMonthKey)}
+              label={monthCaption}
+              onNext={handleNextMonth}
+              onPrevious={handlePreviousMonth}
+            />
+          </View>
         </View>
 
         {isLoading ? (
@@ -162,11 +236,20 @@ export function OrgDesignersRosterScreen() {
               <Text style={styles.storeLabel}>소속 매장</Text>
               <Text style={styles.storeName}>{selectedGroup.storeName}</Text>
               <Text style={styles.storeRegion}>{selectedGroup.storeRegion}</Text>
-              <StoreMetricDetail snapshot={metricsFromStoreGroup(selectedGroup)} tab={globalMetricTab} />
+              <StoreMetricDetail
+                configuredHqRate={summary.configuredHqRate}
+                monthShortLabel={monthShortLabel}
+                snapshot={metricsFromStoreGroup(selectedGroup)}
+                tab={globalMetricTab}
+              />
             </View>
             <View style={styles.designerList}>
               {selectedGroup.designers.map((designer) => (
-                <DesignerRosterCard key={designer.id} designer={designer} />
+                <DesignerRosterCard
+                  key={designer.id}
+                  designer={designer}
+                  monthShortLabel={monthShortLabel}
+                />
               ))}
             </View>
           </View>
@@ -175,7 +258,9 @@ export function OrgDesignersRosterScreen() {
             {storeGroups.map((group) => (
               <StoreGroupCard
                 key={group.storeId}
+                configuredHqRate={summary.configuredHqRate}
                 group={group}
+                monthShortLabel={monthShortLabel}
                 tab={globalMetricTab}
                 onPress={() => setSelectedStoreId(group.storeId)}
               />
@@ -239,6 +324,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 4,
+  },
+  monthNavCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   storeList: {
     gap: 12,
@@ -317,6 +411,40 @@ const styles = StyleSheet.create({
     color: '#6B6B7B',
     fontSize: 12,
     fontWeight: '600',
+  },
+  cardRevenueRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  cardRevenueCell: {
+    backgroundColor: '#F9FAFB',
+    borderColor: '#E8E8F0',
+    borderRadius: 10,
+    borderWidth: 1,
+    flex: 1,
+    gap: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  cardRevenueLabel: {
+    color: '#6B7280',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  cardRevenueValue: {
+    color: '#1A1A2E',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  cardRevenuePercent: {
+    color: '#0F766E',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  cardRevenueSub: {
+    color: '#374151',
+    fontSize: 12,
+    fontWeight: '700',
   },
   actions: {
     flexDirection: 'row',

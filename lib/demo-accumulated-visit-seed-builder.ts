@@ -2,6 +2,7 @@ import type { PaymentStatus } from './payment-status';
 import { calculatePaymentFees, PLATFORM_FEE_RATE } from './payment-record';
 import type { PaymentRecord } from './payment-types';
 import type { BetaTestAccount } from './beta-test-accounts';
+import { resolveAccumulatedProfileCustomers } from './demo-accumulated-profile-customers';
 import {
   type AccumulatedDemoTreatment,
   type AccumulatedSeedProfileConfig,
@@ -139,7 +140,15 @@ function dailyVisitCount(dayIndex: number, dailyMin: number, dailyMax: number) {
   return dailyMin + (dayIndex % span);
 }
 
-function newCustomersQuota(dayIndex: number, monthsElapsed: number) {
+function newCustomersQuota(
+  dayIndex: number,
+  monthsElapsed: number,
+  weeklyNewCustomers?: number,
+) {
+  if (weeklyNewCustomers === 1) {
+    return dayIndex % 7 === 0 ? 1 : 0;
+  }
+
   if (monthsElapsed < 6) {
     return dayIndex % 2 === 0 ? 2 : 1;
   }
@@ -295,12 +304,14 @@ function appendVisit(
 export function buildVisitCycleAccumulatedSeedProfile(
   config: AccumulatedSeedProfileConfig,
 ): BuiltAccumulatedSeedProfile {
-  const seedStartDate = getSeedStartDate(config.historyYears);
+  const customers = resolveAccumulatedProfileCustomers(config);
+  const resolvedConfig = { ...config, customers };
+  const seedStartDate = getSeedStartDate(resolvedConfig.historyYears);
   const endDate = new Date();
   const treatments: AccumulatedDemoTreatment[] = [];
   const payments: PaymentRecord[] = [];
 
-  const states: CustomerVisitState[] = config.customers.map((customer, customerIndex) => ({
+  const states: CustomerVisitState[] = customers.map((customer, customerIndex) => ({
     customer,
     customerIndex,
     firstVisitDate: null,
@@ -317,7 +328,7 @@ export function buildVisitCycleAccumulatedSeedProfile(
 
   for (let day = new Date(seedStartDate); day.getTime() <= endDate.getTime(); day = addDays(day, 1)) {
     const today = formatDate(day);
-    const targetCount = dailyVisitCount(dayIndex, config.dailyMin, config.dailyMax);
+    const targetCount = dailyVisitCount(dayIndex, resolvedConfig.dailyMin, resolvedConfig.dailyMax);
     const monthsElapsed = monthsBetween(seedStartDate, day);
     const scheduled: CustomerVisitState[] = [];
     const usedToday = new Set<string>();
@@ -343,7 +354,7 @@ export function buildVisitCycleAccumulatedSeedProfile(
       scheduleCustomer(state);
     }
 
-    let newQuota = newCustomersQuota(dayIndex, monthsElapsed);
+    let newQuota = newCustomersQuota(dayIndex, monthsElapsed, resolvedConfig.weeklyNewCustomers);
 
     while (newQuota > 0 && scheduled.length < targetCount && inactiveQueue.length > 0) {
       const state = inactiveQueue.shift();
@@ -370,7 +381,7 @@ export function buildVisitCycleAccumulatedSeedProfile(
     }
 
     scheduled.forEach((state, slotInDay) => {
-      appendVisit(config, today, state, treatmentSeq, slotInDay, treatments, payments);
+      appendVisit(resolvedConfig, today, state, treatmentSeq, slotInDay, treatments, payments);
       treatmentSeq += 1;
     });
 
@@ -380,18 +391,20 @@ export function buildVisitCycleAccumulatedSeedProfile(
   treatments.sort((a, b) => b.treatment_date.localeCompare(a.treatment_date));
 
   const regularCount = states.filter((state) => state.isRegular).length;
-  const dailyLabel = `일 ${config.dailyMin}~${config.dailyMax}명 · 단골 ${regularCount}명 · 재방문 주기 반영`;
+  const weeklyLabel =
+    resolvedConfig.weeklyNewCustomers === 1 ? ' · 주 1명 신규' : '';
+  const dailyLabel = `일 ${resolvedConfig.dailyMin}~${resolvedConfig.dailyMax}명 · 단골 ${regularCount}명 · 전 시술 재방문 주기${weeklyLabel}`;
   const workloadStats = computeSeedWorkloadStats(treatments, dailyLabel);
 
   return {
-    ...config,
+    ...resolvedConfig,
     treatments,
     payments,
     stats: {
-      profileKey: config.key,
-      designerId: config.designer.id,
-      designerName: config.designer.name ?? '디자이너',
-      customerCount: config.customers.length,
+      profileKey: resolvedConfig.key,
+      designerId: resolvedConfig.designer.id,
+      designerName: resolvedConfig.designer.name ?? '디자이너',
+      customerCount: customers.length,
       treatmentCount: treatments.length,
       paymentCount: payments.length,
       seedStartDate: formatDate(seedStartDate),

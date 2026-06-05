@@ -28,6 +28,8 @@ expo-env.d.ts
 
 # backup log (local only)
 .cursor/backup.log
+.cursor/dev-server.log
+.cursor/dev-server.pid
 
 # debug
 npm-debug.*

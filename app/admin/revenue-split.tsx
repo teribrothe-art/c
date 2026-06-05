@@ -16,19 +16,21 @@ import { showErrorAlert, showSuccessAlert } from '../../lib/alerts';
 import { getErrorMessage } from '../../lib/errors';
 import {
   calculateRevenueSplit,
-  CARD_COMPANY_AVERAGE_FEE_PERCENT,
+  configsEqual,
   formatRevenueSplitSummary,
   normalizeRevenueSplitConfig,
   REVENUE_SPLIT_PARTY_LABELS,
   type RevenueSplitParty,
 } from '../../lib/revenue-split-config';
 import {
+  applyActiveRevenueSplitConfig,
   approveRevenueSplitChange,
   cancelRevenueSplitProposal,
   getActiveRevenueSplitConfig,
   getPendingRevenueSplitProposal,
   getRequiredApprovalParties,
   isProposalFullyApproved,
+  proposeRevenueSplitChange,
   type RevenueSplitChangeProposal,
 } from '../../lib/revenue-split-approval';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
@@ -110,6 +112,35 @@ export default function AdminRevenueSplitScreen() {
   });
 
   const sample = calculateRevenueSplit(SAMPLE_AMOUNT, draftConfig);
+  const hasChanges = active ? !configsEqual(active, draftConfig) : true;
+
+  const handleSave = async () => {
+    setIsSaving(true);
+
+    try {
+      await applyActiveRevenueSplitConfig(draftConfig);
+      showSuccessAlert('수수료 구조가 저장·적용되었습니다.');
+      await load();
+    } catch (error) {
+      showErrorAlert(getErrorMessage(error, '수수료 구조 저장에 실패했습니다.'));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePropose = async () => {
+    setIsSaving(true);
+
+    try {
+      await proposeRevenueSplitChange(draftConfig, 'admin');
+      showSuccessAlert('변경안을 저장했습니다. 본사·매장·디자이너 승인 후 반영됩니다.');
+      await load();
+    } catch (error) {
+      showErrorAlert(getErrorMessage(error, '변경안 저장에 실패했습니다.'));
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleApprove = async (party: RevenueSplitParty) => {
     setIsSaving(true);
@@ -152,9 +183,9 @@ export default function AdminRevenueSplitScreen() {
 
         <Text style={styles.title}>수수료 구조</Text>
         <Text style={styles.subtitle}>
-          카드사·PG 수수료를 각각 제외한 뒤 본사·디자이너·매장으로 나눕니다. 카드사 수수료는 국내
-          평균({CARD_COMPANY_AVERAGE_FEE_PERCENT}%)을 기본값으로 적용합니다. 비율 변경은 본사·매장·
-          디자이너 상호 승인 후 반영됩니다.
+          카드사·PG 수수료를 각각 제외한 뒤 본사·디자이너·매장으로 나눕니다. 변경 후 하단{' '}
+          <Text style={styles.subtitleEmphasis}>저장 · 즉시 적용</Text>
+          으로 본사 매출·정산에 바로 반영됩니다. 상호 승인이 필요하면 제안하기를 사용하세요.
         </Text>
 
         {active ? (
@@ -208,6 +239,28 @@ export default function AdminRevenueSplitScreen() {
             value={formatAmount(sample.storePayout)}
           />
         </View>
+
+        <Pressable
+          accessibilityRole="button"
+          disabled={isSaving || !hasChanges}
+          onPress={() => void handleSave()}
+          style={({ pressed }) => [
+            styles.saveButton,
+            (isSaving || !hasChanges) && styles.saveButtonDisabled,
+            pressed && !isSaving && hasChanges && styles.pressed,
+          ]}>
+          <Text style={styles.saveButtonText}>{isSaving ? '저장 중…' : '저장 · 즉시 적용'}</Text>
+        </Pressable>
+
+        {!pending && hasChanges ? (
+          <Pressable
+            accessibilityRole="button"
+            disabled={isSaving}
+            onPress={() => void handlePropose()}
+            style={({ pressed }) => [styles.proposeLink, pressed && styles.pressed]}>
+            <Text style={styles.proposeLinkText}>상호 승인으로 제안하기</Text>
+          </Pressable>
+        ) : null}
 
         {pending ? (
           <View style={styles.pendingCard}>
@@ -289,6 +342,10 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     marginTop: 6,
   },
+  subtitleEmphasis: {
+    color: colors.purple,
+    fontWeight: '800',
+  },
   activeCard: {
     backgroundColor: '#F0EBFF',
     borderColor: '#D8CCFF',
@@ -369,6 +426,32 @@ const styles = StyleSheet.create({
     color: '#1A1A2E',
     fontSize: 13,
     fontWeight: '800',
+  },
+  saveButton: {
+    alignItems: 'center',
+    backgroundColor: colors.purple,
+    borderRadius: 14,
+    marginBottom: 10,
+    paddingVertical: 16,
+  },
+  saveButtonDisabled: {
+    opacity: 0.45,
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  proposeLink: {
+    alignItems: 'center',
+    marginBottom: 14,
+    paddingVertical: 6,
+  },
+  proposeLinkText: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   pressed: {
     opacity: 0.9,

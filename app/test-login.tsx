@@ -1,6 +1,6 @@
 import { Link, useLocalSearchParams } from 'expo-router';
 import type { Href } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -13,81 +13,137 @@ import {
   View,
 } from 'react-native';
 
-import {
-  ACCUMULATED_LOGIN_CUSTOMER_COUNT,
-  DESIGNER_LOGIN_COUNT,
-  STORE_LOGIN_COUNT,
-  getDemoLoginGroupCountLabel,
-  DEMO_LOGIN_GROUP_ORDER,
-  getDemoLoginGroups,
-  type DemoLoginAccount,
-  type DemoLoginGroupKey,
-  demoLoginGroupListsAllWhenExpanded,
-  getDemoLoginSearchPlaceholder,
-  isCollapsibleDemoLoginGroup,
-  isSearchableDemoLoginGroup,
-} from '../lib/demo-login-accounts';
+import type { DemoLoginAccount } from '../lib/demo-login-account-types';
 import { filterDemoLoginAccounts } from '../lib/demo-login-account-search';
 import {
-  countAccountsByCustomerConsonant,
-  CUSTOMER_CONSONANT_TABS,
-  type CustomerConsonantTab,
-} from '../lib/korean-consonant';
+  ACCUMULATED_LOGIN_CUSTOMER_COUNT,
+  DEMO_LOGIN_GROUP_ORDER,
+  DESIGNER_LOGIN_COUNT,
+  STORE_LOGIN_COUNT,
+  demoLoginGroupListsAllWhenExpanded,
+  getDemoLoginGroupCountLabel,
+  getDemoLoginSearchPlaceholder,
+  isSearchableDemoLoginGroup,
+  type DemoLoginGroupKey,
+} from '../lib/demo-login-groups-meta';
+import { getBootstrapDemoLoginGroups } from '../lib/demo-login-static-groups';
+import { CUSTOMER_CONSONANT_TABS, type CustomerConsonantTab } from '../lib/korean-consonant';
 import { showLoginFailureAlert } from '../lib/alerts';
-import { isDemoAuthMode } from '../lib/auth';
+import { isDemoAuthMode } from '../lib/demo-auth-mode';
 import { getErrorMessage } from '../lib/errors';
 import { navigateBackOrReplace } from '../lib/navigation';
 import { signInAndNavigate } from '../lib/quick-login-flow';
-import { formatDemoDesignerCustomerCount } from '../lib/demo-designer-customer-counts';
 import { colors } from '../lib/theme';
 import { AppVersionBadge } from '../src/components/app-version-badge';
 import { TestLoginAccountGrid } from '../src/components/test-login-account-grid';
+import { WebPressable, webPressableStyle } from '../src/components/web-pressable';
 
-type DemoLoginGroupSectionProps = {
+function formatCustomerCountLabel(count: number) {
+  return `고객 ${count.toLocaleString('ko-KR')}명`;
+}
+
+type DemoLoginGroupHeaderProps = {
   title: DemoLoginGroupKey;
   description?: string;
-  accounts: DemoLoginAccount[];
   expanded: boolean;
+  onToggle: () => void;
+};
+
+function DemoLoginGroupHeader({ title, description, expanded, onToggle }: DemoLoginGroupHeaderProps) {
+  const countLabel = getDemoLoginGroupCountLabel(title);
+
+  return (
+    <WebPressable
+      onPress={onToggle}
+      style={webPressableStyle(
+        [styles.collapseHeader, Platform.OS === 'web' && styles.collapseHeaderWeb],
+        styles.collapseHeaderPressed,
+      )}>
+      <View style={styles.collapseHeaderBody} pointerEvents="none">
+        <Text style={styles.groupTitle}>{title}</Text>
+        {description ? <Text style={styles.groupDescription}>{description}</Text> : null}
+      </View>
+      <View style={styles.collapseTrailing} pointerEvents="none">
+        <Text style={styles.collapseCount}>{countLabel}</Text>
+        <Text style={styles.collapseChevron}>{expanded ? '▲' : '▼'}</Text>
+      </View>
+    </WebPressable>
+  );
+}
+
+type DemoLoginGroupPanelProps = {
+  title: DemoLoginGroupKey;
+  accounts: DemoLoginAccount[];
+  designerListReady?: boolean;
   loadingId: string | null;
   groupSearch: string;
-  onToggle: () => void;
   onGroupSearchChange: (value: string) => void;
   onLogin: (id: string, email: string, password: string) => void;
 };
 
-function DemoLoginGroupSection({
+type LinkedCustomerSearchResult = {
+  accounts: DemoLoginAccount[];
+  totalMatches: number;
+  truncated: boolean;
+};
+
+function DemoLoginGroupPanel({
   title,
-  description,
   accounts,
-  expanded,
+  designerListReady = true,
   loadingId,
   groupSearch,
-  onToggle,
   onGroupSearchChange,
   onLogin,
-}: DemoLoginGroupSectionProps) {
+}: DemoLoginGroupPanelProps) {
   const [selectedConsonant, setSelectedConsonant] = useState<CustomerConsonantTab | null>(null);
+  const [linkedCustomerSearch, setLinkedCustomerSearch] = useState<
+    ((query: string, consonant?: CustomerConsonantTab | null) => LinkedCustomerSearchResult) | null
+  >(null);
   const isRegisteredCustomerGroup = title === '가입고객';
-  const collapsible = isCollapsibleDemoLoginGroup(title);
   const searchable = isSearchableDemoLoginGroup(title);
   const listAllWhenExpanded = demoLoginGroupListsAllWhenExpanded(title);
-  const countLabel = getDemoLoginGroupCountLabel(title);
-  const consonantCounts = useMemo(
-    () => (isRegisteredCustomerGroup ? countAccountsByCustomerConsonant(accounts) : null),
-    [accounts, isRegisteredCustomerGroup],
-  );
+
+  useEffect(() => {
+    if (!isRegisteredCustomerGroup) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void import('../lib/demo-login-linked-customer-search').then((module) => {
+      if (!cancelled) {
+        setLinkedCustomerSearch(() => module.searchLinkedCustomerLoginAccounts);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isRegisteredCustomerGroup]);
 
   const searchResult = useMemo(() => {
     if (!searchable) {
       return null;
     }
 
-    return filterDemoLoginAccounts(
-      accounts,
-      groupSearch,
-      isRegisteredCustomerGroup ? selectedConsonant : null,
-    );
-  }, [accounts, groupSearch, isRegisteredCustomerGroup, searchable, selectedConsonant]);
+    if (isRegisteredCustomerGroup) {
+      if (!linkedCustomerSearch) {
+        return null;
+      }
+
+      return linkedCustomerSearch(groupSearch, selectedConsonant);
+    }
+
+    return filterDemoLoginAccounts(accounts, groupSearch, null);
+  }, [
+    accounts,
+    groupSearch,
+    isRegisteredCustomerGroup,
+    linkedCustomerSearch,
+    searchable,
+    selectedConsonant,
+  ]);
 
   const searchQuery = groupSearch.trim();
   const hasConsonantFilter = isRegisteredCustomerGroup && selectedConsonant;
@@ -119,10 +175,10 @@ function DemoLoginGroupSection({
     searchable,
   ]);
 
-  const showSearchPanel = searchable && expanded;
+  const showSearchPanel = searchable;
   const canShowList =
+    designerListReady &&
     visibleAccounts.length > 0 &&
-    (!collapsible || expanded) &&
     (!searchable ||
       listAllWhenExpanded ||
       searchQuery.length > 0 ||
@@ -130,7 +186,7 @@ function DemoLoginGroupSection({
 
   const registeredCustomerHint = () => {
     if (selectedConsonant) {
-      const total = searchResult?.totalMatches ?? consonantCounts?.[selectedConsonant] ?? 0;
+      const total = searchResult?.totalMatches ?? 0;
 
       if (total === 0) {
         return `${selectedConsonant} · 해당 초성 고객이 없습니다`;
@@ -143,31 +199,11 @@ function DemoLoginGroupSection({
       return `${selectedConsonant} · ${total.toLocaleString('ko-KR')} 명 · 탭하면 로그인`;
     }
 
-    return `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT.toLocaleString('ko-KR')} 명(디자이너 연동 전체) — 초성 탭을 선택하거나 검색어를 입력하세요`;
+    return `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT.toLocaleString('ko-KR')} 명 — 이름 검색(2자 이상) · 초성은 데모·베타만 즉시`;
   };
 
   return (
-    <View style={styles.group}>
-      {collapsible ? (
-        <Pressable
-          onPress={onToggle}
-          style={({ pressed }) => [styles.collapseHeader, pressed && styles.collapseHeaderPressed]}>
-          <View style={styles.collapseHeaderBody}>
-            <Text style={styles.groupTitle}>{title}</Text>
-            {description ? <Text style={styles.groupDescription}>{description}</Text> : null}
-          </View>
-          <View style={styles.collapseTrailing}>
-            <Text style={styles.collapseCount}>{countLabel}</Text>
-            <Text style={styles.collapseChevron}>{expanded ? '▲' : '▼'}</Text>
-          </View>
-        </Pressable>
-      ) : (
-        <>
-          <Text style={styles.groupTitle}>{title}</Text>
-          {description ? <Text style={styles.groupDescription}>{description}</Text> : null}
-        </>
-      )}
-
+    <View style={styles.groupPanel}>
       {showSearchPanel ? (
         <View style={styles.searchPanel}>
           <TextInput
@@ -188,34 +224,34 @@ function DemoLoginGroupSection({
               showsHorizontalScrollIndicator={false}>
               {CUSTOMER_CONSONANT_TABS.map((tab) => {
                 const selected = selectedConsonant === tab;
-                const count = consonantCounts?.[tab] ?? 0;
 
                 return (
-                  <Pressable
+                  <WebPressable
                     key={tab}
                     onPress={() => setSelectedConsonant(selected ? null : tab)}
-                    style={({ pressed }) => [
-                      styles.consonantTab,
-                      selected && styles.consonantTabSelected,
-                      count === 0 && styles.consonantTabEmpty,
-                      pressed && styles.consonantTabPressed,
-                    ]}>
+                    style={webPressableStyle(
+                      [styles.consonantTab, selected && styles.consonantTabSelected],
+                      styles.consonantTabPressed,
+                    )}>
                     <Text
                       style={[
                         styles.consonantTabText,
                         selected && styles.consonantTabTextSelected,
-                        count === 0 && styles.consonantTabTextEmpty,
                       ]}>
                       {tab}
                     </Text>
-                  </Pressable>
+                  </WebPressable>
                 );
               })}
             </ScrollView>
           ) : null}
 
           <Text style={styles.searchHint}>
-            {searchQuery
+            {!linkedCustomerSearch && isRegisteredCustomerGroup
+              ? '가입고객 검색 모듈 불러오는 중…'
+              : !designerListReady && title === '디자이너'
+              ? '목록 준비 중… 잠시 후 검색해 주세요'
+              : searchQuery
               ? searchResult?.totalMatches === 0
                 ? '검색 결과가 없습니다.'
                 : searchResult?.truncated
@@ -224,7 +260,9 @@ function DemoLoginGroupSection({
               : listAllWhenExpanded
                 ? title === '매장'
                   ? `총 ${STORE_LOGIN_COUNT.toLocaleString('ko-KR')} 곳 · 아래에서 탭하면 로그인`
-                  : `총 ${DESIGNER_LOGIN_COUNT.toLocaleString('ko-KR')} 명 · 홈·고객·시술·매출·계정 · 탭하면 로그인`
+                  : `총 ${DESIGNER_LOGIN_COUNT.toLocaleString('ko-KR')} 명 · 탭하면 로그인`
+                : title === '디자이너'
+                  ? `총 ${DESIGNER_LOGIN_COUNT.toLocaleString('ko-KR')} 명 · 검색(예: fleet, 증원, test-fleet-001) 후 타일 탭`
                 : isRegisteredCustomerGroup
                   ? registeredCustomerHint()
                   : `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT.toLocaleString('ko-KR')} 명(디자이너 연동 전체) — 검색어를 입력하면 목록이 표시됩니다`}
@@ -240,7 +278,7 @@ function DemoLoginGroupSection({
             onLogin={(account) => onLogin(account.id, account.email, account.password)}
           />
         ) : (
-          <View style={[styles.card, collapsible && styles.cardIndented]}>
+          <View style={styles.card}>
             {visibleAccounts.map((account, index) => (
               <AccountRow
                 key={account.id}
@@ -271,14 +309,13 @@ function AccountRow({
   const isLoading = loadingId === account.id;
 
   return (
-    <Pressable
+    <WebPressable
       disabled={Boolean(loadingId)}
       onPress={() => onLogin(account.id, account.email, account.password)}
-      style={({ pressed }) => [
-        styles.row,
-        !isLast && styles.rowBorder,
-        pressed && !loadingId && styles.rowPressed,
-      ]}>
+      style={webPressableStyle(
+        [styles.row, !isLast && styles.rowBorder],
+        !loadingId ? styles.rowPressed : undefined,
+      )}>
       <View style={[styles.roleBadge, { backgroundColor: account.accent }]}>
         <Text style={styles.roleBadgeText}>{account.roleLabel}</Text>
       </View>
@@ -289,7 +326,7 @@ function AccountRow({
         </Text>
         {typeof account.customerCount === 'number' ? (
           <Text style={styles.rowCustomerCount}>
-            {formatDemoDesignerCustomerCount(account.customerCount)}
+            {formatCustomerCountLabel(account.customerCount)}
           </Text>
         ) : null}
         {account.meta ? <Text style={styles.rowMeta}>{account.meta}</Text> : null}
@@ -299,46 +336,77 @@ function AccountRow({
       ) : (
         <Text style={styles.rowAction}>로그인</Text>
       )}
-    </Pressable>
+    </WebPressable>
   );
 }
 
-function initialExpandedGroups(
+function resolveInitialOpenGroup(
   groupParam: string | string[] | undefined,
-): Partial<Record<DemoLoginGroupKey, boolean>> {
+): DemoLoginGroupKey | null {
   const raw = Array.isArray(groupParam) ? groupParam[0] : groupParam;
 
   if (!raw || raw === '기본' || !(DEMO_LOGIN_GROUP_ORDER as readonly string[]).includes(raw)) {
-    return {};
+    return null;
   }
 
-  return { [raw as DemoLoginGroupKey]: true };
+  return raw as DemoLoginGroupKey;
 }
 
 export default function TestLoginScreen() {
   const { group: groupParam } = useLocalSearchParams<{ group?: string | string[] }>();
   const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [expandedGroups, setExpandedGroups] = useState<
-    Partial<Record<DemoLoginGroupKey, boolean>>
-  >(() => initialExpandedGroups(groupParam));
+  const [openGroup, setOpenGroup] = useState<DemoLoginGroupKey | null>(() =>
+    resolveInitialOpenGroup(groupParam),
+  );
   const [storeSearch, setStoreSearch] = useState('');
   const [designerSearch, setDesignerSearch] = useState('');
   const [signupCustomerSearch, setSignupCustomerSearch] = useState('');
-  const routeExpandedGroups = useMemo(
-    () => initialExpandedGroups(groupParam),
-    [groupParam],
+  const [demoLoginGroups, setDemoLoginGroups] = useState<
+    ReturnType<typeof getBootstrapDemoLoginGroups>
+  >([]);
+  const [designerAccounts, setDesignerAccounts] = useState<DemoLoginAccount[]>([]);
+  const [mountedGroups, setMountedGroups] = useState<Set<DemoLoginGroupKey>>(
+    () => new Set(openGroup ? [openGroup] : []),
   );
-  const activeExpandedGroups = useMemo(
-    () => ({ ...routeExpandedGroups, ...expandedGroups }),
-    [expandedGroups, routeExpandedGroups],
-  );
-  const demoLoginGroups = useMemo(
-    () =>
-      getDemoLoginGroups({
-        includeRegisteredCustomers: Boolean(activeExpandedGroups['가입고객']),
-      }),
-    [activeExpandedGroups],
-  );
+  const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    setDemoLoginGroups(getBootstrapDemoLoginGroups());
+  }, []);
+
+  useEffect(() => {
+    if (openGroup !== '디자이너' || designerAccounts.length > 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void import('../lib/demo-login-designer-accounts').then((module) => {
+      if (!cancelled) {
+        setDesignerAccounts(module.getDesignerLoginAccounts());
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [designerAccounts.length, openGroup]);
+
+  useEffect(() => {
+    if (!openGroup) {
+      return;
+    }
+
+    setMountedGroups((current) => {
+      if (current.has(openGroup)) {
+        return current;
+      }
+
+      const next = new Set(current);
+      next.add(openGroup);
+      return next;
+    });
+  }, [openGroup]);
 
   const handleAccountLogin = useCallback(
     async (id: string, email: string, password: string, redirectTo?: Href) => {
@@ -346,8 +414,9 @@ export default function TestLoginScreen() {
         return;
       }
 
+      setLoadingId(id);
+
       try {
-        setLoadingId(id);
         await signInAndNavigate(email, password, redirectTo ? { redirectTo } : undefined);
       } catch (error) {
         const message = getErrorMessage(error, '로그인에 실패했습니다.');
@@ -360,10 +429,9 @@ export default function TestLoginScreen() {
   );
 
   const toggleGroup = useCallback((title: DemoLoginGroupKey) => {
-    setExpandedGroups((prev) => ({
-      ...prev,
-      [title]: !prev[title],
-    }));
+    startTransition(() => {
+      setOpenGroup((current) => (current === title ? null : title));
+    });
   }, []);
 
   if (!isDemoAuthMode) {
@@ -387,11 +455,12 @@ export default function TestLoginScreen() {
       style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
+        nestedScrollEnabled
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>테스트 계정</Text>
-          <Text style={styles.subtitle}>탭하면 바로 로그인됩니다.</Text>
+          <Text style={styles.subtitle}>아래 그룹에서 검색 후 로그인</Text>
           <Link href="/connect-share" asChild>
             <Pressable style={({ pressed }) => [styles.connectShareLink, pressed && { opacity: 0.85 }]}>
               <Text style={styles.connectShareLinkText}>QR</Text>
@@ -399,39 +468,61 @@ export default function TestLoginScreen() {
           </Link>
         </View>
 
-        {demoLoginGroups.map((group) => (
-          <DemoLoginGroupSection
-            key={group.title}
-            accounts={group.accounts}
-            description={group.description}
-            expanded={Boolean(activeExpandedGroups[group.title])}
-            groupSearch={
-              group.title === '매장'
-                ? storeSearch
-                : group.title === '디자이너'
-                  ? designerSearch
-                  : signupCustomerSearch
-            }
-            loadingId={loadingId}
-            onGroupSearchChange={
-              group.title === '매장'
-                ? setStoreSearch
-                : group.title === '디자이너'
-                  ? setDesignerSearch
-                  : setSignupCustomerSearch
-            }
-            onLogin={(id, email, password) => void handleAccountLogin(id, email, password)}
-            onToggle={() => toggleGroup(group.title)}
-            title={group.title}
-          />
-        ))}
+        {demoLoginGroups.length === 0 ? (
+          <View style={styles.bootLoading}>
+            <ActivityIndicator color={colors.coral} size="small" />
+            <Text style={styles.bootLoadingText}>목록 불러오는 중…</Text>
+          </View>
+        ) : null}
 
-        <Pressable
+        {demoLoginGroups.map((group) => {
+          const expanded = openGroup === group.title;
+
+          return (
+            <View key={group.title} style={styles.group}>
+              <DemoLoginGroupHeader
+                description={group.description}
+                expanded={expanded}
+                onToggle={() => toggleGroup(group.title)}
+                title={group.title}
+              />
+              {mountedGroups.has(group.title) ? (
+                <View
+                  style={[styles.groupPanelMount, !expanded && styles.groupPanelMountHidden]}
+                  pointerEvents={expanded ? 'auto' : 'none'}>
+                  <DemoLoginGroupPanel
+                    accounts={group.title === '디자이너' ? designerAccounts : group.accounts}
+                    designerListReady={group.title !== '디자이너' || designerAccounts.length > 0}
+                    groupSearch={
+                      group.title === '매장'
+                        ? storeSearch
+                        : group.title === '디자이너'
+                          ? designerSearch
+                          : signupCustomerSearch
+                    }
+                    loadingId={loadingId}
+                    onGroupSearchChange={
+                      group.title === '매장'
+                        ? setStoreSearch
+                        : group.title === '디자이너'
+                          ? setDesignerSearch
+                          : setSignupCustomerSearch
+                    }
+                    onLogin={(id, email, password) => void handleAccountLogin(id, email, password)}
+                    title={group.title}
+                  />
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+
+        <WebPressable
           disabled={Boolean(loadingId)}
           onPress={() => navigateBackOrReplace('/')}
           style={styles.backButton}>
           <Text style={styles.backButtonText}>일반 로그인으로 돌아가기</Text>
-        </Pressable>
+        </WebPressable>
 
         <AppVersionBadge pinned />
       </ScrollView>
@@ -474,8 +565,44 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textDecorationLine: 'underline',
   },
+  bootLoading: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'center',
+    marginBottom: 16,
+    paddingVertical: 12,
+  },
+  bootLoadingText: {
+    color: '#6B6B7B',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   group: {
     marginBottom: 18,
+  },
+  groupPanel: {
+    gap: 0,
+  },
+  groupPanelMount: {
+    width: '100%',
+  },
+  groupPanelMountHidden: {
+    display: 'none',
+    height: 0,
+    overflow: 'hidden',
+  },
+  groupLoading: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  groupLoadingText: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '600',
   },
   groupTitle: {
     color: '#1A1A2E',
@@ -504,6 +631,9 @@ const styles = StyleSheet.create({
   collapseHeaderPressed: {
     opacity: 0.92,
   },
+  collapseHeaderWeb: {
+    cursor: 'pointer',
+  } as const,
   collapseHeaderBody: {
     flex: 1,
     gap: 2,

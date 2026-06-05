@@ -13,7 +13,20 @@ import {
   type VirtualSimulationScenario,
 } from './org-virtual-simulation';
 import type { Treatment } from './treatments';
+import { getCurrentMonthKey } from './designer-revenue-month-nav';
 import { ORG_STORE_DEFINITIONS } from './org-store-affiliation';
+
+export { formatMonthKeyLabel } from './designer-revenue-analytics';
+
+export function formatOrgMonthShortLabel(monthKey: string) {
+  const [, month] = monthKey.split('-');
+  return `${Number(month)}월`;
+}
+
+export function formatOrgMonthCaption(monthKey: string) {
+  const [year, month] = monthKey.split('-');
+  return `${year}년 ${Number(month)}월`;
+}
 
 export type OrgDesignerMetrics = OrgDesignerRosterEntry & {
   treatmentCount: number;
@@ -39,8 +52,8 @@ export type OrgDashboardSummary = OrgMonthSettlementTotals & {
   designers: OrgDesignerMetrics[];
 };
 
-function currentMonthKey() {
-  return new Date().toISOString().slice(0, 7);
+function resolveMonthKey(monthKey?: string) {
+  return monthKey ?? getCurrentMonthKey();
 }
 
 function uniqueCustomerCount(treatments: Treatment[]) {
@@ -106,12 +119,13 @@ async function metricsForDesigner(
 export async function fetchOrgDashboardSummary(
   scope: OrgScope,
   options?: {
+    monthKey?: string;
     scenario?: VirtualSimulationScenario;
     withVirtualSimulation?: boolean;
     storeOrgId?: string;
   },
 ): Promise<OrgDashboardSummary> {
-  const monthKey = currentMonthKey();
+  const monthKey = resolveMonthKey(options?.monthKey);
   const storeOrgId = await resolveStoreOrgIdForOrgScope(scope, options?.storeOrgId);
   const roster = getOrgDesignerRoster(scope, storeOrgId);
   const config = await getActiveRevenueSplitConfig();
@@ -155,6 +169,7 @@ export type OrgDesignerStoreGroup = {
   monthGrossSales: number;
   monthHqRevenue: number;
   monthRevenue: number;
+  monthStoreShare: number;
 };
 
 export function groupOrgDesignersByStore(designers: OrgDesignerMetrics[]): OrgDesignerStoreGroup[] {
@@ -171,6 +186,7 @@ export function groupOrgDesignersByStore(designers: OrgDesignerMetrics[]): OrgDe
       current.monthGrossSales += designer.monthGrossSales;
       current.monthHqRevenue += designer.monthHqRevenue;
       current.monthRevenue += designer.monthDesignerPayout;
+      current.monthStoreShare += designer.monthStoreShare;
       continue;
     }
 
@@ -185,6 +201,7 @@ export function groupOrgDesignersByStore(designers: OrgDesignerMetrics[]): OrgDe
       monthGrossSales: designer.monthGrossSales,
       monthHqRevenue: designer.monthHqRevenue,
       monthRevenue: designer.monthDesignerPayout,
+      monthStoreShare: designer.monthStoreShare,
     });
   }
 

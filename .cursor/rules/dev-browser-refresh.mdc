@@ -1,0 +1,29 @@
+---
+description: 코드 변경 후 로컬 Expo 웹 브라우저 새로고침
+alwaysApply: true
+---
+
+# 개발 브라우저 새로고침
+
+`app/`, `lib/`, `src/` 등 **웹·Expo 화면에 영향 있는 파일**을 수정한 뒤 작업을 마치기 전에 반드시:
+
+1. 개발 서버가 떠 있는지 확인 (`http://127.0.0.1:8081` — 없으면 `npm run web` 또는 `scripts\start-web.cmd`)
+2. 아래 명령 실행 (PowerShell에서 `npm`이 막히면 `node scripts/refresh-dev-browser.mjs`):
+
+```bash
+node scripts/refresh-dev-browser.mjs
+```
+
+기본 URL: `http://127.0.0.1:8081/test-login` (`DEV_BROWSER_PATH`로 변경 가능)
+
+재부팅 후 로그인·테스트가 원활하도록 **Windows 자동 시작** 등록:
+
+```bash
+node scripts/install-windows-auto-start.mjs
+```
+
+등록 후 로그인 30초 뒤 Metro(8081) + 테스트 로그인 탭이 자동 실행된다. 로그: `.cursor/dev-server.log`
+
+서버가 없으면 `node scripts/dev-auto-start.mjs --boot` 또는 `scripts\start-dev-at-logon.cmd`
+
+사용자에게 "Ctrl+Shift+R 하세요"만 안내하지 말고, 가능하면 **에이전트가 직접 refresh 스크립트를 실행**한다.

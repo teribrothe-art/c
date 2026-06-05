@@ -5,7 +5,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { OrgScope } from '../../lib/org-access';
 import { formatAmount } from '../../lib/currency-input';
-import { fetchOrgDashboardSummary, type OrgDashboardSummary } from '../../lib/org-aggregates';
+import {
+  canGoToNextMonth,
+  canGoToPreviousMonth,
+  getCurrentMonthKey,
+  shiftMonthKey,
+} from '../../lib/designer-revenue-month-nav';
+import {
+  fetchOrgDashboardSummary,
+  formatOrgMonthCaption,
+  formatOrgMonthShortLabel,
+  type OrgDashboardSummary,
+} from '../../lib/org-aggregates';
+import { RevenuePeriodNavigator } from '../components/revenue-period-navigator';
 import type { VirtualSimulationScenario } from '../../lib/org-virtual-simulation';
 import { getErrorMessage } from '../../lib/errors';
 import { useOrgRoleGuard } from '../../lib/use-org-role-guard';
@@ -26,14 +38,24 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [scenario, setScenario] = useState<VirtualSimulationScenario>('weekday');
+  const [selectedMonthKey, setSelectedMonthKey] = useState(getCurrentMonthKey);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const monthCaption = useMemo(() => formatOrgMonthCaption(selectedMonthKey), [selectedMonthKey]);
+  const monthShortLabel = useMemo(
+    () => formatOrgMonthShortLabel(selectedMonthKey),
+    [selectedMonthKey],
+  );
 
   const load = useCallback(() => {
     setIsLoading(true);
 
-    fetchOrgDashboardSummary(scope, { scenario, withVirtualSimulation: true })
+    fetchOrgDashboardSummary(scope, {
+      monthKey: selectedMonthKey,
+      scenario,
+      withVirtualSimulation: true,
+    })
       .then((data) => {
         setSummary(data);
         setErrorMessage('');
@@ -42,7 +64,23 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
         setErrorMessage(getErrorMessage(error, '매출을 불러오지 못했습니다.'));
       })
       .finally(() => setIsLoading(false));
-  }, [scenario, scope]);
+  }, [scenario, scope, selectedMonthKey]);
+
+  const handlePreviousMonth = useCallback(() => {
+    if (!canGoToPreviousMonth(selectedMonthKey)) {
+      return;
+    }
+
+    setSelectedMonthKey(shiftMonthKey(selectedMonthKey, -1));
+  }, [selectedMonthKey]);
+
+  const handleNextMonth = useCallback(() => {
+    if (!canGoToNextMonth(selectedMonthKey)) {
+      return;
+    }
+
+    setSelectedMonthKey(shiftMonthKey(selectedMonthKey, 1));
+  }, [selectedMonthKey]);
 
   useFocusEffect(
     useCallback(() => {
@@ -96,18 +134,36 @@ export function OrgRevenueOverviewScreen({ scope }: Props) {
           <EmptyState title="불러오기 실패" subtitle={errorMessage} />
         ) : summary ? (
           <>
-            {scope === 'admin' ? <HqRevenueSummaryCard totals={summary} /> : null}
+            <View style={styles.monthNavCard}>
+              <RevenuePeriodNavigator
+                canNext={canGoToNextMonth(selectedMonthKey)}
+                canPrevious={canGoToPreviousMonth(selectedMonthKey)}
+                label={monthCaption}
+                onNext={handleNextMonth}
+                onPrevious={handlePreviousMonth}
+              />
+            </View>
+
+            {scope === 'admin' ? (
+              <HqRevenueSummaryCard
+                editable
+                monthCaption={monthCaption}
+                onHqRateApplied={load}
+                showMonthNavigator={false}
+                totals={summary}
+              />
+            ) : null}
 
             <View style={styles.grid}>
               <StatCard
-                label={scope === 'admin' ? '이번 달 매출' : '이번 달 정산'}
+                label={scope === 'admin' ? `${monthShortLabel} 매출` : `${monthShortLabel} 정산`}
                 value={formatAmount(scope === 'admin' ? summary.monthGrossSales : summary.monthDesignerPayout)}
               />
               {scope === 'admin' ? (
                 <StatCard label="본사 수익" value={formatAmount(summary.monthHqRevenue)} />
               ) : null}
               <StatCard
-                label="이번 달 시술"
+                label={`${monthShortLabel} 시술`}
                 value={`${summary.monthTreatmentCount.toLocaleString('ko-KR')}건`}
               />
               <StatCard label="정산 대기" value={formatAmount(summary.pendingPayoutAmount)} />
@@ -186,6 +242,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 4,
+  },
+  monthNavCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
   },
   grid: {
     flexDirection: 'row',

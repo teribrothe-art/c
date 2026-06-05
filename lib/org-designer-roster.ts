@@ -1,5 +1,6 @@
 import { BETA_DESIGNERS } from './beta-test-accounts';
 import { ACCUMULATED_TEST_DESIGNERS_PUBLIC } from './demo-accumulated-test-accounts';
+import { filterDemoDesignersWithCustomers, isDemoDesignerIncludedInTestAccounts } from './demo-designer-customer-counts';
 import {
   DEMO_DESIGNER_ROSTER_SEED,
   getDesignerStoreAffiliation,
@@ -38,16 +39,16 @@ function enrichWithStore(entry: {
 
 const DEMO_DESIGNER = enrichWithStore(DEMO_DESIGNER_ROSTER_SEED);
 
-const BETA_ROSTER = BETA_DESIGNERS.map((designer) =>
+const BETA_ROSTER = filterDemoDesignersWithCustomers(BETA_DESIGNERS).map((designer) =>
   enrichWithStore({
     id: designer.id,
     name: designer.name,
     email: designer.email,
-    subtitle: '베타 디자이너',
+    subtitle: '3년차 · 베타',
   }),
 );
 
-const ACCUMULATED_ROSTER = ACCUMULATED_TEST_DESIGNERS_PUBLIC.map((designer) =>
+const ACCUMULATED_ROSTER = filterDemoDesignersWithCustomers(ACCUMULATED_TEST_DESIGNERS_PUBLIC).map((designer) =>
   enrichWithStore({
     id: designer.id,
     name: designer.loginLabel,
@@ -56,7 +57,9 @@ const ACCUMULATED_ROSTER = ACCUMULATED_TEST_DESIGNERS_PUBLIC.map((designer) =>
   }),
 );
 
-const FULL_ROSTER: OrgDesignerRosterEntry[] = [DEMO_DESIGNER, ...BETA_ROSTER, ...ACCUMULATED_ROSTER];
+const FULL_ROSTER: OrgDesignerRosterEntry[] = [DEMO_DESIGNER, ...BETA_ROSTER, ...ACCUMULATED_ROSTER].filter(
+  (entry) => isDemoDesignerIncludedInTestAccounts(entry.id),
+);
 
 /** 본사에서 조회 가능한 전체 디자이너 (모두 매장 연결) */
 export function getAdminDesignerRoster(): OrgDesignerRosterEntry[] {

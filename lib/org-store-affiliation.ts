@@ -1,7 +1,8 @@
 import { DEMO_LOGIN_HINT } from './auth';
 import { BETA_DESIGNERS } from './beta-test-accounts';
 import { ACCUMULATED_TEST_DESIGNERS_PUBLIC } from './demo-accumulated-test-accounts';
-import { EXPANDED_DESIGNER_IDS_BY_STORE } from './demo-expanded-store-designers';
+import { isDemoDesignerIncludedInTestAccounts } from './demo-designer-customer-counts';
+import { FLEET_100_DESIGNER_IDS_BY_STORE } from './demo-fleet-100-designers';
 import { resolveStoreOrgIdForUser } from './store-test-accounts';
 
 export type OrgStore = {
@@ -46,15 +47,19 @@ const ORG_STORE_DEFINITIONS_BASE: OrgStore[] = [
   },
 ];
 
+function filterIncludedStoreDesignerIds(designerIds: string[]) {
+  return designerIds.filter(isDemoDesignerIncludedInTestAccounts);
+}
+
 /**
- * 지역별 플랜비 매장 — 디자이너 2~8명 (증원 15명 포함)
+ * 지역별 플랜비 매장 — 디자이너 2~12명 (증원 20명 포함, 매장당 5명)
  */
 export const ORG_STORE_DEFINITIONS: OrgStore[] = ORG_STORE_DEFINITIONS_BASE.map((store) => ({
   ...store,
-  designerIds: [
+  designerIds: filterIncludedStoreDesignerIds([
     ...store.designerIds,
-    ...(EXPANDED_DESIGNER_IDS_BY_STORE[store.id] ?? []),
-  ],
+    ...(FLEET_100_DESIGNER_IDS_BY_STORE[store.id] ?? []),
+  ]),
 }));
 
 /** 매장 로그인(`store@hair.app`)이 관리하는 플랜비 매장 */
@@ -83,9 +88,9 @@ export const ALL_ORG_DESIGNER_IDS = [
   'demo-designer-local',
   ...BETA_DESIGNERS.map((designer) => designer.id),
   ...ACCUMULATED_TEST_DESIGNERS_PUBLIC.map((designer) => designer.id),
-] as const;
+].filter(isDemoDesignerIncludedInTestAccounts);
 
-const MAX_DESIGNERS_PER_STORE = 8;
+const MAX_DESIGNERS_PER_STORE = 30;
 
 function assertCompleteAffiliations() {
   const missing = ALL_ORG_DESIGNER_IDS.filter((designerId) => !designerToStoreMap.has(designerId));
@@ -105,7 +110,11 @@ function assertCompleteAffiliations() {
   }
 }
 
-assertCompleteAffiliations();
+if (typeof setTimeout === 'function') {
+  setTimeout(assertCompleteAffiliations, 0);
+} else {
+  assertCompleteAffiliations();
+}
 
 export function getOrgStoreById(storeId: string): OrgStore | undefined {
   return ORG_STORE_DEFINITIONS.find((store) => store.id === storeId);

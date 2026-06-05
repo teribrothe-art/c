@@ -1,5 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { demoGetItem, demoRemoveItem, demoSetItem } from './demo-async-storage';
 import {
   configsEqual,
   DEFAULT_REVENUE_SPLIT_CONFIG,
@@ -31,7 +30,7 @@ export function isProposalFullyApproved(proposal: RevenueSplitChangeProposal) {
 }
 
 export async function getActiveRevenueSplitConfig(): Promise<RevenueSplitConfig> {
-  const raw = await AsyncStorage.getItem(ACTIVE_KEY);
+  const raw = await demoGetItem(ACTIVE_KEY);
 
   if (!raw) {
     return { ...DEFAULT_REVENUE_SPLIT_CONFIG };
@@ -45,7 +44,7 @@ export async function getActiveRevenueSplitConfig(): Promise<RevenueSplitConfig>
 }
 
 export async function getPendingRevenueSplitProposal(): Promise<RevenueSplitChangeProposal | null> {
-  const raw = await AsyncStorage.getItem(PENDING_KEY);
+  const raw = await demoGetItem(PENDING_KEY);
 
   if (!raw) {
     return null;
@@ -85,7 +84,7 @@ export async function proposeRevenueSplitChange(
     note,
   };
 
-  await AsyncStorage.setItem(PENDING_KEY, JSON.stringify(proposal));
+  await demoSetItem(PENDING_KEY, JSON.stringify(proposal));
 
   return proposal;
 }
@@ -105,21 +104,53 @@ export async function approveRevenueSplitChange(
   };
 
   if (!isProposalFullyApproved(next)) {
-    await AsyncStorage.setItem(PENDING_KEY, JSON.stringify(next));
+    await demoSetItem(PENDING_KEY, JSON.stringify(next));
     return { applied: false, proposal: next };
   }
 
-  await AsyncStorage.setItem(ACTIVE_KEY, JSON.stringify(next.proposedConfig));
-  await AsyncStorage.removeItem(PENDING_KEY);
+  await demoSetItem(ACTIVE_KEY, JSON.stringify(next.proposedConfig));
+  await demoRemoveItem(PENDING_KEY);
 
   return { applied: true, proposal: next };
 }
 
 export async function cancelRevenueSplitProposal() {
-  await AsyncStorage.removeItem(PENDING_KEY);
+  await demoRemoveItem(PENDING_KEY);
+}
+
+/** 본사 매출 %만 즉시 반영 (본사 단독 조정 — 상호 승인 없음) */
+export async function applyActiveHqFeePercent(hqFeePercent: number): Promise<RevenueSplitConfig> {
+  const active = await getActiveRevenueSplitConfig();
+  const next = normalizeRevenueSplitConfig({ ...active, hqFeePercent });
+
+  if (active.hqFeePercent === next.hqFeePercent) {
+    throw new Error('현재 본사 매출 비율과 동일합니다.');
+  }
+
+  await demoSetItem(ACTIVE_KEY, JSON.stringify(next));
+  await demoRemoveItem(PENDING_KEY);
+
+  return next;
+}
+
+/** 수수료 구조 전체 즉시 저장·적용 (테스트·본사 화면) */
+export async function applyActiveRevenueSplitConfig(
+  proposedConfig: RevenueSplitConfig,
+): Promise<RevenueSplitConfig> {
+  const active = await getActiveRevenueSplitConfig();
+  const next = normalizeRevenueSplitConfig(proposedConfig);
+
+  if (configsEqual(active, next)) {
+    throw new Error('현재 적용 중인 수수료 구조와 동일합니다.');
+  }
+
+  await demoSetItem(ACTIVE_KEY, JSON.stringify(next));
+  await demoRemoveItem(PENDING_KEY);
+
+  return next;
 }
 
 export async function resetRevenueSplitToDefault() {
-  await AsyncStorage.setItem(ACTIVE_KEY, JSON.stringify(DEFAULT_REVENUE_SPLIT_CONFIG));
-  await AsyncStorage.removeItem(PENDING_KEY);
+  await demoSetItem(ACTIVE_KEY, JSON.stringify(DEFAULT_REVENUE_SPLIT_CONFIG));
+  await demoRemoveItem(PENDING_KEY);
 }

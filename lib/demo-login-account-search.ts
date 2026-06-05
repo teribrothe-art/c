@@ -1,4 +1,4 @@
-import type { DemoLoginAccount } from './demo-login-accounts';
+import type { DemoLoginAccount } from './demo-login-account-types';
 import {
   getCustomerNameConsonant,
   type CustomerConsonantTab,

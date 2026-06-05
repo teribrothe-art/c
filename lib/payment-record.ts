@@ -1,6 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 import { getCurrentUser, isDemoAuthMode } from './auth';
+import { demoGetItem, demoSetItem } from './demo-async-storage';
 import {
   mergeAccumulatedPaymentsForDesignerId,
   mergeAccumulatedPaymentsIntoStore,
@@ -8,7 +7,7 @@ import {
   stripAccumulatedPaymentsFromStore,
 } from './demo-accumulated-demo-hydrate';
 import { isAccumulatedTestTreatmentId } from './demo-accumulated-ids';
-import { getAccumulatedTestProfiles } from './demo-accumulated-test-seeds';
+import { findAccumulatedProfileConfigByTreatmentId } from './demo-accumulated-test-accounts';
 import { invalidateDesignerWorkspaceCache } from './designer-workspace-cache';
 import { toAppError } from './errors';
 import { supabase } from './supabase';
@@ -88,7 +87,7 @@ async function hydrateDemoPayments() {
 
   if (!demoPaymentsHydratePromise) {
     demoPaymentsHydratePromise = (async () => {
-      const raw = await AsyncStorage.getItem(DEMO_PAYMENTS_KEY);
+      const raw = await demoGetItem(DEMO_PAYMENTS_KEY);
 
       if (raw) {
         const stored = JSON.parse(raw) as PaymentRecord[];
@@ -99,7 +98,7 @@ async function hydrateDemoPayments() {
 
       demoPayments.length = 0;
       demoPayments.push(...INITIAL_DEMO_PAYMENTS.map((item) => ({ ...item })));
-      await AsyncStorage.setItem(DEMO_PAYMENTS_KEY, JSON.stringify(demoPayments));
+      await demoSetItem(DEMO_PAYMENTS_KEY, JSON.stringify(demoPayments));
     })();
   }
 
@@ -111,7 +110,7 @@ async function persistDemoPayments() {
     return;
   }
 
-  await AsyncStorage.setItem(
+  await demoSetItem(
     DEMO_PAYMENTS_KEY,
     JSON.stringify(paymentsForDemoPersistence(demoPayments)),
   );
@@ -212,12 +211,10 @@ export async function getPaymentByTreatmentId(treatmentId: string) {
     let payment = demoPayments.find((item) => item.treatment_id === treatmentId) ?? null;
 
     if (!payment && isAccumulatedTestTreatmentId(treatmentId)) {
-      const profile = getAccumulatedTestProfiles().find((item) =>
-        item.treatments.some((seed) => seed.id === treatmentId),
-      );
+      const config = findAccumulatedProfileConfigByTreatmentId(treatmentId);
 
-      if (profile) {
-        await ensureAccumulatedDemoPaymentsMerged({ designerId: profile.designer.id });
+      if (config) {
+        await ensureAccumulatedDemoPaymentsMerged({ designerId: config.designer.id });
         payment = demoPayments.find((item) => item.treatment_id === treatmentId) ?? null;
       }
     }

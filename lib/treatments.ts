@@ -1,6 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 import { getCurrentUser, isDemoAuthMode } from './auth';
+import { demoGetItem, demoSetItem } from './demo-async-storage';
 import {
   mergeAccumulatedTreatmentsForDesignerId,
   mergeAccumulatedTreatmentsIntoStore,
@@ -8,7 +7,7 @@ import {
   treatmentsForDemoPersistence,
 } from './demo-accumulated-demo-hydrate';
 import { isAccumulatedTestTreatmentId } from './demo-accumulated-ids';
-import { getAccumulatedTestProfiles } from './demo-accumulated-test-seeds';
+import { findAccumulatedProfileConfigByTreatmentId } from './demo-accumulated-test-accounts';
 import {
   ensureAccumulatedTreatmentPatchesLoaded,
   reapplyAccumulatedTreatmentPatchesInStore,
@@ -261,7 +260,7 @@ const accumulatedTreatmentMergeDone = new Set<string>();
 async function hydrateDemoTreatments() {
   if (!demoHydratePromise) {
     demoHydratePromise = (async () => {
-      const raw = await AsyncStorage.getItem(DEMO_TREATMENTS_KEY);
+      const raw = await demoGetItem(DEMO_TREATMENTS_KEY);
 
       if (raw) {
         const stored = JSON.parse(raw) as Treatment[];
@@ -273,17 +272,19 @@ async function hydrateDemoTreatments() {
       }
 
       let merged = false;
+      const byId = new Map(demoTreatments.map((item) => [item.id, item]));
 
       for (const seed of INITIAL_DEMO_TREATMENTS) {
-        const existingIndex = demoTreatments.findIndex((item) => item.id === seed.id);
+        const existing = byId.get(seed.id);
 
-        if (existingIndex < 0) {
-          demoTreatments.push({ ...seed });
+        if (!existing) {
+          const next = { ...seed };
+          demoTreatments.push(next);
+          byId.set(seed.id, next);
           merged = true;
           continue;
         }
 
-        const existing = demoTreatments[existingIndex];
         const patch: Partial<Treatment> = {};
 
         if (seed.before_photo_url && !existing.before_photo_url) {
@@ -295,7 +296,14 @@ async function hydrateDemoTreatments() {
         }
 
         if (Object.keys(patch).length > 0) {
-          demoTreatments[existingIndex] = { ...existing, ...patch };
+          const next = { ...existing, ...patch };
+          const index = demoTreatments.findIndex((item) => item.id === seed.id);
+
+          if (index >= 0) {
+            demoTreatments[index] = next;
+          }
+
+          byId.set(seed.id, next);
           merged = true;
         }
       }
@@ -310,7 +318,7 @@ async function hydrateDemoTreatments() {
 }
 
 async function persistDemoTreatments() {
-  await AsyncStorage.setItem(
+  await demoSetItem(
     DEMO_TREATMENTS_KEY,
     JSON.stringify(treatmentsForDemoPersistence(demoTreatments)),
   );
@@ -405,12 +413,10 @@ export async function getTreatmentById(id: string) {
     treatment = demoTreatments.find((item) => item.id === id) ?? null;
 
     if (!treatment && isAccumulatedTestTreatmentId(id)) {
-      const profile = getAccumulatedTestProfiles().find((item) =>
-        item.treatments.some((seed) => seed.id === id),
-      );
+      const config = findAccumulatedProfileConfigByTreatmentId(id);
 
-      if (profile) {
-        await ensureAccumulatedDemoTreatmentsMerged({ designerId: profile.designer.id });
+      if (config) {
+        await ensureAccumulatedDemoTreatmentsMerged({ designerId: config.designer.id });
         treatment = demoTreatments.find((item) => item.id === id) ?? null;
       }
     }
@@ -590,7 +596,7 @@ export async function createDesignerTreatment(input: CreateDesignerTreatmentInpu
   if (isDemoAuthMode || !supabase) {
     await hydrateDemoTreatments();
 
-    const usersRaw = await AsyncStorage.getItem('hair-diary-demo-users');
+    const usersRaw = await demoGetItem('hair-diary-demo-users');
     const users = usersRaw ? (JSON.parse(usersRaw) as { id: string; name: string | null }[]) : [];
     const designerName = users.find((item) => item.id === user.id)?.name ?? '디자이너';
 

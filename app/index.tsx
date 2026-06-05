@@ -52,15 +52,15 @@ export default function LoginScreen() {
       return;
     }
 
+    setIsLoading(true);
+    setLoginError(null);
+
     try {
-      setIsLoading(true);
-      setLoginError(null);
       await signInAndNavigate(email.trim(), password);
     } catch (error) {
       const message = getErrorMessage(error, '이메일 또는 비밀번호가 올바르지 않습니다.');
       setLoginError(message);
       showLoginFailureAlert(message);
-    } finally {
       setIsLoading(false);
     }
   };

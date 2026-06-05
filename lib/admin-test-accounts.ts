@@ -1,4 +1,4 @@
-import type { UserRole } from './auth';
+import type { UserRole } from './user-role';
 import type { BetaTestAccount } from './beta-test-accounts';
 
 /** 본사 어드민 · 데모 테스트 계정 */

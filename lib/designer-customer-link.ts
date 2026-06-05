@@ -1,8 +1,8 @@
-import { getDesignerLinkedCustomerLoginSources } from './demo-designer-linked-customers';
+import { getLinkedCustomersForDesigner } from './demo-designer-linked-customers';
 import { searchRegisteredCustomers } from './registered-customers';
 
-function normalizeName(name: string) {
-  return name.trim().toLowerCase().replace(/\s+/g, '');
+function normalizeCustomerSearchText(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, '');
 }
 
 /** 디자이너 소속·데모 시드 고객 중 이름 일치 */
@@ -10,27 +10,21 @@ export function findLinkedCustomerForDesignerByName(
   designerId: string,
   customerName: string,
 ) {
-  const normalized = normalizeName(customerName);
+  const normalized = normalizeCustomerSearchText(customerName);
 
   if (!normalized) {
     return null;
   }
 
-  for (const source of getDesignerLinkedCustomerLoginSources()) {
-    if (source.designerId !== designerId) {
-      continue;
-    }
-
-    for (const customer of source.customers) {
+  for (const customer of getLinkedCustomersForDesigner(designerId)) {
       const candidateName = customer.name?.trim() ?? '';
 
-      if (normalizeName(candidateName) === normalized) {
-        return {
-          id: customer.id,
-          name: candidateName || customerName,
-          email: customer.email,
-        };
-      }
+    if (normalizeCustomerSearchText(candidateName) === normalized) {
+      return {
+        id: customer.id,
+        name: candidateName || customerName,
+        email: customer.email,
+      };
     }
   }
 
@@ -55,7 +49,9 @@ export async function resolveRegisteredCustomerForDesigner(
   }
 
   const results = await searchRegisteredCustomers(query);
-  const exact = results.find((item) => normalizeName(item.name) === normalizeName(query));
+  const exact = results.find(
+    (item) => normalizeCustomerSearchText(item.name) === normalizeCustomerSearchText(query),
+  );
 
   if (exact) {
     return { id: exact.id, name: exact.name, email: exact.email };

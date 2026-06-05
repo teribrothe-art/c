@@ -1,7 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-import type { Treatment } from './treatment-types';
+import { demoGetItem, demoRemoveItem, demoSetItem } from './demo-async-storage';
 import { isAccumulatedTestTreatmentId } from './demo-accumulated-ids';
+import type { Treatment } from './treatment-types';
 
 const PATCHES_KEY = 'hair-diary-accumulated-treatment-patches';
 
@@ -36,7 +35,7 @@ async function readPatches(): Promise<Record<string, AccumulatedTreatmentPatch>>
   if (!patchesPromise) {
     patchesPromise = (async () => {
       try {
-        const raw = await AsyncStorage.getItem(PATCHES_KEY);
+        const raw = await demoGetItem(PATCHES_KEY);
 
         if (!raw) {
           patchesCache = {};
@@ -60,7 +59,7 @@ async function readPatches(): Promise<Record<string, AccumulatedTreatmentPatch>>
 
 async function writePatches(next: Record<string, AccumulatedTreatmentPatch>) {
   patchesCache = next;
-  await AsyncStorage.setItem(PATCHES_KEY, JSON.stringify(next));
+  await demoSetItem(PATCHES_KEY, JSON.stringify(next));
 }
 
 export async function getAccumulatedTreatmentPatch(
@@ -144,5 +143,5 @@ export function reapplyAccumulatedTreatmentPatchesInStore(demoTreatments: Treatm
 export async function clearAccumulatedTreatmentPatchesStorage() {
   patchesCache = null;
   patchesPromise = null;
-  await AsyncStorage.removeItem(PATCHES_KEY);
+  await demoRemoveItem(PATCHES_KEY);
 }

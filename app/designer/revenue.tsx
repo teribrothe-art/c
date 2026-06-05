@@ -4,10 +4,14 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
+  canGoToNextMonth,
+  canGoToPreviousMonth,
   fetchDesignerRevenueAnalytics,
+  shiftMonthKey,
   type DailyRevenuePoint,
   type DesignerRevenueAnalytics,
 } from '../../lib/designer-revenue-analytics';
+import { RevenuePeriodNavigator } from '../../src/components/revenue-period-navigator';
 import { formatDateWithWeekday } from '../../lib/designer-revenue-weekly';
 import { formatAmount } from '../../lib/currency-input';
 import { getErrorMessage } from '../../lib/errors';
@@ -138,6 +142,30 @@ export default function DesignerRevenueScreen() {
     loadRevenue(monthKey);
   };
 
+  const handlePreviousMonth = () => {
+    if (!analytics || !canGoToPreviousMonth(analytics.selectedMonthKey)) {
+      return;
+    }
+
+    const monthKey = shiftMonthKey(analytics.selectedMonthKey, -1);
+    setSettlementListMode('month');
+    setSelectedMonthKey(monthKey);
+    setSelectedDayDate(null);
+    loadRevenue(monthKey);
+  };
+
+  const handleNextMonth = () => {
+    if (!analytics || !canGoToNextMonth(analytics.selectedMonthKey)) {
+      return;
+    }
+
+    const monthKey = shiftMonthKey(analytics.selectedMonthKey, 1);
+    setSettlementListMode('month');
+    setSelectedMonthKey(monthKey);
+    setSelectedDayDate(null);
+    loadRevenue(monthKey);
+  };
+
   const handleSelectDay = (day: DailyRevenuePoint) => {
     setSettlementListMode('month');
     setSelectedDayDate(day.date);
@@ -236,6 +264,13 @@ export default function DesignerRevenueScreen() {
         ) : (
           <>
             <View style={styles.heroCard}>
+              <RevenuePeriodNavigator
+                canNext={canGoToNextMonth(analytics.selectedMonthKey)}
+                canPrevious={canGoToPreviousMonth(analytics.selectedMonthKey)}
+                label={analytics.selectedMonth.label}
+                onNext={handleNextMonth}
+                onPrevious={handlePreviousMonth}
+              />
               <Text style={styles.heroLabel}>{analytics.selectedMonth.label} 매출</Text>
               <Text style={styles.heroValue}>
                 {formatAmount(analytics.selectedMonth.revenue)}
@@ -307,6 +342,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
+    gap: 12,
     paddingHorizontal: 20,
     paddingVertical: 24,
     shadowColor: '#1A1A2E',
