@@ -10,7 +10,14 @@ function matchesQuery(account: DemoLoginAccount, normalized: string) {
   const tokens = normalized.split(/\s+/).filter(Boolean);
   const haystack =
     account.searchHaystack ??
-    [account.loginLabel, account.email, account.meta ?? '', account.id, account.roleLabel]
+    [
+      account.loginLabel,
+      account.displayName ?? '',
+      account.email,
+      account.meta ?? '',
+      account.id,
+      account.roleLabel,
+    ]
       .join(' ')
       .toLowerCase();
 

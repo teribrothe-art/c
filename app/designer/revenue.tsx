@@ -8,7 +8,6 @@ import {
   canGoToPreviousMonth,
   fetchDesignerRevenueAnalytics,
   shiftMonthKey,
-  type DailyRevenuePoint,
   type DesignerRevenueAnalytics,
 } from '../../lib/designer-revenue-analytics';
 import { RevenuePeriodNavigator } from '../../src/components/revenue-period-navigator';
@@ -25,6 +24,7 @@ import {
   DesignerRevenueMetricGrid,
   type DesignerRevenueMetricItem,
 } from '../../src/components/designer-revenue-metric-grid';
+import { DesignerRevenueMonthCalendar } from '../../src/components/designer-revenue-month-calendar';
 import { WeeklyRevenuePanel } from '../../src/components/weekly-revenue-panel';
 
 const PURPLE = '#7B5EE6';
@@ -37,6 +37,7 @@ export default function DesignerRevenueScreen() {
   const [analytics, setAnalytics] = useState<DesignerRevenueAnalytics | null>(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | undefined>(undefined);
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
+  const [showAllMonthSettlements, setShowAllMonthSettlements] = useState(false);
   const [settlementListMode, setSettlementListMode] = useState<SettlementListMode>('month');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -59,6 +60,7 @@ export default function DesignerRevenueScreen() {
         setAnalytics(data);
         setSelectedMonthKey(data.selectedMonthKey);
         setSelectedDayDate(null);
+        setShowAllMonthSettlements(false);
         setErrorMessage('');
       })
       .catch((error) => {
@@ -103,12 +105,16 @@ export default function DesignerRevenueScreen() {
       return analytics.pendingSettlements;
     }
 
-    if (!selectedDayDate) {
+    if (selectedDayDate) {
+      return analytics.selectedMonthSettlements.filter((item) => item.date === selectedDayDate);
+    }
+
+    if (showAllMonthSettlements) {
       return analytics.selectedMonthSettlements;
     }
 
-    return analytics.selectedMonthSettlements.filter((item) => item.date === selectedDayDate);
-  }, [analytics, selectedDayDate, settlementListMode]);
+    return [];
+  }, [analytics, selectedDayDate, settlementListMode, showAllMonthSettlements]);
 
   const settlementSectionTitle = useMemo(() => {
     if (!analytics) {
@@ -123,8 +129,12 @@ export default function DesignerRevenueScreen() {
       return `${formatDateWithWeekday(selectedDayDate)} 정산`;
     }
 
-    return `${analytics.selectedMonth.label} 정산 상세`;
-  }, [analytics, selectedDayDate, settlementListMode]);
+    if (showAllMonthSettlements) {
+      return `${analytics.selectedMonth.label} 정산 상세`;
+    }
+
+    return `${analytics.selectedMonth.label} 정산`;
+  }, [analytics, selectedDayDate, settlementListMode, showAllMonthSettlements]);
 
   const hasAnyRevenue = Boolean(
     analytics &&
@@ -139,6 +149,7 @@ export default function DesignerRevenueScreen() {
     setSettlementListMode('month');
     setSelectedMonthKey(monthKey);
     setSelectedDayDate(null);
+    setShowAllMonthSettlements(false);
     loadRevenue(monthKey);
   };
 
@@ -151,6 +162,7 @@ export default function DesignerRevenueScreen() {
     setSettlementListMode('month');
     setSelectedMonthKey(monthKey);
     setSelectedDayDate(null);
+    setShowAllMonthSettlements(false);
     loadRevenue(monthKey);
   };
 
@@ -163,17 +175,38 @@ export default function DesignerRevenueScreen() {
     setSettlementListMode('month');
     setSelectedMonthKey(monthKey);
     setSelectedDayDate(null);
+    setShowAllMonthSettlements(false);
     loadRevenue(monthKey);
   };
 
-  const handleSelectDay = (day: DailyRevenuePoint) => {
+  const handleSelectDate = useCallback(
+    (date: string | null) => {
+      setSettlementListMode('month');
+      setShowAllMonthSettlements(false);
+      setSelectedDayDate(date);
+
+      if (date) {
+        requestAnimationFrame(() => {
+          scrollToSection(settlementSectionY.current);
+        });
+      }
+    },
+    [scrollToSection],
+  );
+
+  const handleShowAllDates = useCallback(() => {
     setSettlementListMode('month');
-    setSelectedDayDate(day.date);
-  };
+    setSelectedDayDate(null);
+    setShowAllMonthSettlements(true);
+    requestAnimationFrame(() => {
+      scrollToSection(settlementSectionY.current);
+    });
+  }, [scrollToSection]);
 
   const showPendingSettlements = useCallback(() => {
     setSettlementListMode('pending');
     setSelectedDayDate(null);
+    setShowAllMonthSettlements(false);
     scrollToSection(settlementSectionY.current);
   }, [scrollToSection]);
 
@@ -190,6 +223,7 @@ export default function DesignerRevenueScreen() {
         onPress: () => {
           setSettlementListMode('month');
           setSelectedDayDate(null);
+          setShowAllMonthSettlements(false);
           scrollToSection(weekSectionY.current);
         },
       },
@@ -201,6 +235,7 @@ export default function DesignerRevenueScreen() {
         onPress: () => {
           setSettlementListMode('month');
           setSelectedDayDate(null);
+          setShowAllMonthSettlements(false);
           scrollToSection(weekSectionY.current);
         },
       },
@@ -224,6 +259,39 @@ export default function DesignerRevenueScreen() {
   const settlementGridItems = useMemo(
     () => mapRevenueSettlementsToGridItems(visibleSettlements),
     [visibleSettlements],
+  );
+
+  const selectedCalendarMonth = useMemo(() => {
+    if (!analytics) {
+      return { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
+    }
+
+    const [year, month] = analytics.selectedMonthKey.split('-').map(Number);
+
+    return { year, month };
+  }, [analytics]);
+
+  const settlementHint = useMemo(() => {
+    if (settlementListMode === 'pending') {
+      return '정산 대기 중인 시술이 없습니다.';
+    }
+
+    if (selectedDayDate) {
+      return '해당 날짜에 정산 완료 내역이 없습니다.';
+    }
+
+    if (showAllMonthSettlements) {
+      return '해당 월 정산 완료 내역이 없습니다.';
+    }
+
+    return '달력에서 날짜를 선택하면 정산 내역이 표시됩니다.';
+  }, [selectedDayDate, settlementListMode, showAllMonthSettlements]);
+
+  const handleSelectDayFromChart = useCallback(
+    (day: { date: string }) => {
+      handleSelectDate(day.date);
+    },
+    [handleSelectDate],
   );
 
   const handleSettlementPress = useCallback(
@@ -290,14 +358,30 @@ export default function DesignerRevenueScreen() {
             />
 
             <View
+              style={styles.weekSection}
               onLayout={(event) => {
                 weekSectionY.current = event.nativeEvent.layout.y;
               }}>
               <WeeklyRevenuePanel
                 dailyTotals={analytics.dailyTotals}
+                monthKey={analytics.selectedMonthKey}
                 monthLabel={analytics.selectedMonth.label}
-                onSelectDay={handleSelectDay}
                 selectedDate={selectedDayDate}
+                onSelectDay={handleSelectDayFromChart}
+              />
+
+              <DesignerRevenueMonthCalendar
+                canNext={canGoToNextMonth(analytics.selectedMonthKey)}
+                canPrevious={canGoToPreviousMonth(analytics.selectedMonthKey)}
+                dailyTotals={analytics.dailyTotals}
+                month={selectedCalendarMonth.month}
+                selectedDate={selectedDayDate}
+                showAllDates={showAllMonthSettlements}
+                year={selectedCalendarMonth.year}
+                onNextMonth={handleNextMonth}
+                onPreviousMonth={handlePreviousMonth}
+                onSelectDate={handleSelectDate}
+                onShowAllDates={handleShowAllDates}
               />
             </View>
 
@@ -308,13 +392,7 @@ export default function DesignerRevenueScreen() {
               }}>
               <Text style={styles.cardTitle}>{settlementSectionTitle}</Text>
               {visibleSettlements.length === 0 ? (
-                <Text style={styles.emptyText}>
-                  {settlementListMode === 'pending'
-                    ? '정산 대기 중인 시술이 없습니다.'
-                    : selectedDayDate
-                      ? '해당 날짜에 정산 완료 내역이 없습니다.'
-                      : '해당 월 정산 완료 내역이 없습니다.'}
-                </Text>
+                <Text style={styles.emptyText}>{settlementHint}</Text>
               ) : (
                 <CustomerGrid items={settlementGridItems} onPressItem={handleSettlementPress} />
               )}
@@ -337,6 +415,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 4,
     marginTop: -8,
+  },
+  weekSection: {
+    gap: 16,
   },
   heroCard: {
     alignItems: 'center',

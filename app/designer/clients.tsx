@@ -16,6 +16,21 @@ import { getErrorMessage } from '../../lib/errors';
 import { normalizePaymentStatus } from '../../lib/payment-status';
 import { groupDesignerClientsByDate } from '../../lib/designer-customer-grid';
 import {
+  countDesignerClientWorkflowSteps,
+  filterDesignerClientsByWorkflowStep,
+  getDesignerClientWorkflowStepMeta,
+  type DesignerClientWorkflowStep,
+} from '../../lib/designer-client-workflow';
+import {
+  dateFilterToSelectedDate,
+  filterDesignerClientsByDateFilter,
+  getDefaultDesignerClientDateFilter,
+  getTreatmentDateBounds,
+  parseDateKey,
+  type DesignerClientDateFilter,
+} from '../../lib/designer-client-date-filter';
+import { toLocalDateString } from '../../lib/designer-revenue-weekly';
+import {
   DesignerClientListItem,
   getDesignerClientListItems,
 } from '../../lib/customer-invitations';
@@ -26,6 +41,8 @@ import {
   shouldShowOnboarding,
 } from '../../lib/onboarding';
 import { CustomerGridByDate } from '../../src/components/customer-grid-by-date';
+import { DesignerClientDateFilterBar } from '../../src/components/designer-client-date-filter-bar';
+import { DesignerClientWorkflowChips } from '../../src/components/designer-client-workflow-chips';
 import { EmptyState } from '../../src/components/empty-state';
 import { LoadingState } from '../../src/components/loading-state';
 import { OnboardingModal } from '../../src/components/onboarding-modal';
@@ -41,6 +58,15 @@ export default function DesignerClientsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedStep, setSelectedStep] = useState<DesignerClientWorkflowStep | 'all'>('all');
+  const [dateFilter, setDateFilter] = useState<DesignerClientDateFilter>(
+    getDefaultDesignerClientDateFilter,
+  );
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const today = parseDateKey(toLocalDateString());
+
+    return { year: today.year, month: today.month };
+  });
 
   const loadClients = useCallback(() => {
     const cached = peekDesignerClientListCache();
@@ -106,28 +132,85 @@ export default function DesignerClientsScreen() {
     };
   }, [clientItems]);
 
-  const dateGroups = useMemo(() => groupDesignerClientsByDate(visibleItems), [visibleItems]);
+  useEffect(() => {
+    if (dateFilter.mode === 'month' || dateFilter.mode === 'day') {
+      setCalendarMonth({ year: dateFilter.year, month: dateFilter.month });
+    }
+  }, [dateFilter.mode, dateFilter.year, dateFilter.month]);
+
+  const earliestDateKey = useMemo(() => getTreatmentDateBounds(visibleItems).min, [visibleItems]);
+
+  const handleCalendarMonthChange = useCallback((year: number, month: number) => {
+    setCalendarMonth({ year, month });
+    setDateFilter((current) => ({
+      ...current,
+      mode: 'month',
+      year,
+      month,
+      day: 1,
+    }));
+    setSelectedDate(null);
+  }, []);
+
+  const dateFilteredItems = useMemo(
+    () => filterDesignerClientsByDateFilter(visibleItems, dateFilter),
+    [visibleItems, dateFilter],
+  );
+
+  const stepCounts = useMemo(
+    () => countDesignerClientWorkflowSteps(dateFilteredItems),
+    [dateFilteredItems],
+  );
+
+  const stepFilteredItems = useMemo(
+    () => filterDesignerClientsByWorkflowStep(dateFilteredItems, selectedStep),
+    [dateFilteredItems, selectedStep],
+  );
+
+  const dateGroups = useMemo(
+    () => groupDesignerClientsByDate(stepFilteredItems),
+    [stepFilteredItems],
+  );
 
   useEffect(() => {
     setSelectedDate(null);
-  }, [searchQuery]);
+  }, [searchQuery, selectedStep, dateFilter.mode, dateFilter.year, dateFilter.month, dateFilter.day]);
+
+  const effectiveSelectedDate =
+    dateFilter.mode === 'day' ? dateFilterToSelectedDate(dateFilter) : selectedDate;
 
   useEffect(() => {
-    if (selectedDate && !dateGroups.some((group) => group.date === selectedDate)) {
+    if (effectiveSelectedDate && !dateGroups.some((group) => group.date === effectiveSelectedDate)) {
       setSelectedDate(null);
     }
-  }, [dateGroups, selectedDate]);
+  }, [dateGroups, effectiveSelectedDate]);
 
   const handleGridPress = useCallback(
     (key: string) => {
-      const item = visibleItems.find((row) => row.key === key);
+      const item = stepFilteredItems.find((row) => row.key === key);
 
       if (item) {
         detailRouter.push(`/designer/treatment/${item.treatmentId}`);
       }
     },
-    [detailRouter, visibleItems],
+    [detailRouter, stepFilteredItems],
   );
+
+  const handleSelectStep = useCallback((step: DesignerClientWorkflowStep | 'all') => {
+    setSelectedStep(step);
+    setSelectedDate(null);
+  }, []);
+
+  const handleSelectWorkflowOverviewStep = useCallback((step: DesignerClientWorkflowStep) => {
+    setSelectedStep(step);
+    setSelectedDate(null);
+  }, []);
+
+  const stepMeta =
+    selectedStep === 'all' ? null : getDesignerClientWorkflowStepMeta(selectedStep);
+  const showWorkflowOverview =
+    selectedStep === 'all' && effectiveSelectedDate === null && dateFilter.mode === 'all';
+  const showStepSectionTitle = selectedStep !== 'all' && effectiveSelectedDate === null;
 
   return (
     <View style={styles.container}>
@@ -190,12 +273,64 @@ export default function DesignerClientsScreen() {
         ) : visibleItems.length === 0 ? (
           <EmptyState icon="🔍" title="검색 결과가 없어요" subtitle="다른 검색어를 시도해보세요" />
         ) : (
-          <CustomerGridByDate
-            groups={dateGroups}
-            onPressItem={handleGridPress}
-            selectedDate={selectedDate}
-            onSelectDate={setSelectedDate}
-          />
+          <>
+            <DesignerClientDateFilterBar
+              filter={dateFilter}
+              items={visibleItems}
+              matchCount={dateFilteredItems.length}
+              onChange={setDateFilter}
+            />
+
+            {dateFilteredItems.length === 0 ? (
+              <EmptyState
+                icon="📅"
+                subtitle="다른 년·월·일을 선택하거나 전체 기간으로 돌아가보세요"
+                title="선택한 기간에 시술이 없어요"
+              />
+            ) : (
+              <>
+            <DesignerClientWorkflowChips
+              counts={stepCounts}
+              selected={selectedStep}
+              totalCount={dateFilteredItems.length}
+              onSelect={handleSelectStep}
+            />
+
+            {showStepSectionTitle && stepMeta ? (
+              <View style={styles.stepBanner}>
+                <Text style={[styles.stepBannerOrder, { color: stepMeta.accent }]}>
+                  {stepMeta.order}단계
+                </Text>
+                <Text style={styles.stepBannerTitle}>{stepMeta.label}</Text>
+                <Text style={styles.stepBannerDescription}>{stepMeta.description}</Text>
+              </View>
+            ) : null}
+
+            {stepFilteredItems.length === 0 ? (
+              <EmptyState
+                icon="📋"
+                subtitle="다른 단계를 선택하거나 전체에서 확인해보세요"
+                title={`${stepMeta?.label ?? '해당 단계'} 시술이 없어요`}
+              />
+            ) : (
+              <CustomerGridByDate
+                calendarMonth={calendarMonth}
+                earliestDateKey={earliestDateKey}
+                groups={dateGroups}
+                onCalendarMonthChange={handleCalendarMonthChange}
+                onPressItem={handleGridPress}
+                selectedDate={effectiveSelectedDate}
+                showDateOverview={false}
+                showDateChipRow={dateFilter.mode !== 'day'}
+                showWorkflowOverview={showWorkflowOverview}
+                workflowCounts={stepCounts}
+                onSelectDate={setSelectedDate}
+                onSelectWorkflowStep={handleSelectWorkflowOverviewStep}
+              />
+            )}
+              </>
+            )}
+          </>
         )}
       </ScrollView>
 
@@ -310,5 +445,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
+  },
+  stepBanner: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E8F0',
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
+    marginBottom: 12,
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  stepBannerOrder: {
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  stepBannerTitle: {
+    color: '#1A1A2E',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  stepBannerDescription: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

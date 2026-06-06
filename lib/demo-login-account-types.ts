@@ -4,6 +4,8 @@ export type DemoLoginAccount = {
   group: string;
   roleLabel: string;
   loginLabel: string;
+  /** 타일에 크게 표시할 이름 (증원 디자이너 등) */
+  displayName?: string;
   email: string;
   password: string;
   meta?: string;

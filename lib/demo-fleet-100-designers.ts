@@ -206,16 +206,23 @@ export const FLEET_100_PROFILE_CONFIGS: AccumulatedSeedProfileConfig[] =
     weeklyNewCustomers: 1,
   }));
 
-export const FLEET_100_DESIGNERS_PUBLIC = FLEET_100_DESIGNER_DEFINITIONS.map((item) => ({
-  id: item.designer.id,
-  email: item.designer.email,
-  password: FLEET_100_TEST_PASSWORD,
-  name: item.designer.name,
-  profileKey: item.profileKey,
-  loginLabel: item.loginLabel,
-  storeId: item.storeId,
-  historyYears: item.historyYears,
-}));
+export const FLEET_100_DESIGNERS_PUBLIC = FLEET_100_DESIGNER_DEFINITIONS.map((item) => {
+  const displayName =
+    FLEET_DESIGNER_NAME_POOL[(item.slot - 1) % FLEET_DESIGNER_NAME_POOL.length] ??
+    `증원 ${item.slot}`;
+
+  return {
+    id: item.designer.id,
+    email: item.designer.email,
+    password: FLEET_100_TEST_PASSWORD,
+    name: item.designer.name,
+    displayName,
+    profileKey: item.profileKey,
+    loginLabel: item.loginLabel,
+    storeId: item.storeId,
+    historyYears: item.historyYears,
+  };
+});
 
 /** 디자이너 계정만 (고객 2만+ 명은 로그인 목록에 포함하지 않음) */
 export const FLEET_100_DESIGNER_ACCOUNTS: BetaTestAccount[] = FLEET_100_DESIGNER_DEFINITIONS.map(

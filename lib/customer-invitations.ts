@@ -686,6 +686,13 @@ export async function getDesignerClientListItemsForDesigner(
     invitations = (data ?? []).map((row) => normalizeInvitationRow(row as CustomerInvitation));
   }
 
+  return buildDesignerClientListItems(treatments, invitations);
+}
+
+export function buildDesignerClientListItems(
+  treatments: Treatment[],
+  invitations: CustomerInvitation[],
+): DesignerClientListItem[] {
   const treatmentIdsWithInvite = new Set<string>();
   const rows: DesignerClientListItem[] = [];
 
@@ -730,6 +737,26 @@ export async function getDesignerClientListItemsForDesigner(
   }
 
   return rows.sort((a, b) => b.treatmentDate.localeCompare(a.treatmentDate));
+}
+
+export async function readDemoInvitationsByDesignerIds(
+  designerIds: readonly string[],
+): Promise<Map<string, CustomerInvitation[]>> {
+  const idSet = new Set(designerIds);
+  const all = await readDemoInvitations();
+  const grouped = new Map<string, CustomerInvitation[]>();
+
+  for (const invitation of all) {
+    if (!idSet.has(invitation.designer_id)) {
+      continue;
+    }
+
+    const bucket = grouped.get(invitation.designer_id) ?? [];
+    bucket.push(invitation);
+    grouped.set(invitation.designer_id, bucket);
+  }
+
+  return grouped;
 }
 
 export async function getDesignerClientListItems(): Promise<DesignerClientListItem[]> {

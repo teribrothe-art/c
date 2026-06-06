@@ -12,17 +12,23 @@ export type CustomerGridItem = {
 type CustomerGridProps = {
   items: CustomerGridItem[];
   onPressItem: (key: string) => void;
+  /** 한 줄 타일 수 — 폰 화면 기준 4 이하 권장 */
+  columns?: 2 | 3 | 4;
 };
 
-function getInitial(name: string) {
-  return name.trim().slice(0, 1) || '?';
-}
+const TILE_WIDTH_BY_COLUMNS: Record<2 | 3 | 4, `${number}%`> = {
+  2: '50%',
+  3: '33.333%',
+  4: '25%',
+};
 
-export function CustomerGrid({ items, onPressItem }: CustomerGridProps) {
+export function CustomerGrid({ items, onPressItem, columns = 4 }: CustomerGridProps) {
+  const tileWidth = TILE_WIDTH_BY_COLUMNS[columns];
+
   return (
     <View style={styles.grid}>
       {items.map((item) => (
-        <View key={item.key} style={styles.tileWrap}>
+        <View key={item.key} style={[styles.tileWrap, { width: tileWidth }]}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${item.name} ${item.subtitle} ${item.meta}`}
@@ -31,7 +37,7 @@ export function CustomerGrid({ items, onPressItem }: CustomerGridProps) {
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{item.initial ?? getInitial(item.name)}</Text>
             </View>
-            <Text style={styles.name} numberOfLines={1}>
+            <Text style={styles.name} numberOfLines={2}>
               {item.name}
             </Text>
             <Text style={styles.subtitle} numberOfLines={1}>
@@ -41,7 +47,7 @@ export function CustomerGrid({ items, onPressItem }: CustomerGridProps) {
               {item.meta}
             </Text>
             {item.badge ? (
-              <Text style={styles.badge} numberOfLines={1}>
+              <Text style={styles.badge} numberOfLines={2}>
                 {item.badge}
               </Text>
             ) : null}
@@ -52,6 +58,10 @@ export function CustomerGrid({ items, onPressItem }: CustomerGridProps) {
   );
 }
 
+function getInitial(name: string) {
+  return name.trim().slice(0, 1) || '?';
+}
+
 const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
@@ -59,9 +69,7 @@ const styles = StyleSheet.create({
     marginHorizontal: -4,
   },
   tileWrap: {
-    aspectRatio: 1,
     padding: 4,
-    width: '25%',
   },
   tile: {
     alignItems: 'center',
@@ -69,10 +77,12 @@ const styles = StyleSheet.create({
     borderColor: '#E8E8F0',
     borderRadius: 12,
     borderWidth: 1,
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 6,
+    gap: 2,
+    justifyContent: 'flex-start',
+    minHeight: 128,
+    paddingHorizontal: 6,
+    paddingVertical: 10,
+    width: '100%',
   },
   tilePressed: {
     backgroundColor: '#F5F5F8',
@@ -97,6 +107,7 @@ const styles = StyleSheet.create({
     color: '#1A1A2E',
     fontSize: 11,
     fontWeight: '900',
+    lineHeight: 14,
     textAlign: 'center',
     width: '100%',
   },
@@ -104,7 +115,7 @@ const styles = StyleSheet.create({
     color: '#374151',
     fontSize: 10,
     fontWeight: '700',
-    marginTop: 2,
+    lineHeight: 13,
     textAlign: 'center',
     width: '100%',
   },
@@ -112,7 +123,7 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     fontSize: 9,
     fontWeight: '600',
-    marginTop: 2,
+    lineHeight: 12,
     textAlign: 'center',
     width: '100%',
   },
@@ -120,6 +131,7 @@ const styles = StyleSheet.create({
     color: '#6B6B7B',
     fontSize: 8,
     fontWeight: '700',
+    lineHeight: 11,
     marginTop: 2,
     textAlign: 'center',
     width: '100%',

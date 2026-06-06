@@ -14,7 +14,13 @@ alwaysApply: true
 node scripts/refresh-dev-browser.mjs
 ```
 
+- **기본 동작**: 이미 연 `127.0.0.1:8081` 탭만 **새로고침** (새 브라우저 창을 열지 않음)
+- **최초 1회만 열기**: `node scripts/refresh-dev-browser.mjs --open-once`
+- **강제로 새 창**: `node scripts/refresh-dev-browser.mjs --open`
+
 기본 URL: `http://127.0.0.1:8081/test-login` (`DEV_BROWSER_PATH`로 변경 가능)
+
+`npm run web` 실행 시 파일 저장하면 watch-refresh가 같은 방식으로 새로고침만 시도한다.
 
 재부팅 후 로그인·테스트가 원활하도록 **Windows 자동 시작** 등록:
 

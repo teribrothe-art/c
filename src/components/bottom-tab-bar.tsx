@@ -9,6 +9,11 @@ const tabs: { href: Href; label: string; match?: (pathname: string) => boolean }
     match: (pathname) => pathname === '/customer-home',
   },
   {
+    href: '/customer/booking',
+    label: '예약',
+    match: (pathname) => pathname === '/customer/booking' || pathname.startsWith('/customer/booking/'),
+  },
+  {
     href: '/home',
     label: '다이어리',
     match: (pathname) =>

@@ -1,5 +1,5 @@
 import { Link, router, useFocusEffect, type Href } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -26,7 +26,10 @@ import { OrgWeeklySalesPanel } from '../../src/components/org-weekly-sales-panel
 import { LoadingState } from '../../src/components/loading-state';
 import { AdminBottomTabBar } from '../../src/components/admin-bottom-tab-bar';
 import { HqRevenueSummaryCard } from '../../src/components/hq-revenue-summary-card';
+import { RevenuePeriodNavigator } from '../../src/components/revenue-period-navigator';
 import { RevenueSplitStructureCard } from '../../src/components/revenue-split-structure-card';
+
+const TOP_DESIGNER_PAGE_SIZE = 5;
 
 export default function AdminHomeScreen() {
   useOrgRoleGuard('admin');
@@ -34,6 +37,7 @@ export default function AdminHomeScreen() {
   const [summary, setSummary] = useState<OrgDashboardSummary | null>(null);
   const [virtualStores, setVirtualStores] = useState<ReturnType<typeof buildVirtualStoreSummaries>>([]);
   const [selectedMonthKey, setSelectedMonthKey] = useState(getCurrentMonthKey);
+  const [topDesignerPage, setTopDesignerPage] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const monthCaption = useMemo(() => formatOrgMonthCaption(selectedMonthKey), [selectedMonthKey]);
@@ -41,6 +45,32 @@ export default function AdminHomeScreen() {
     () => formatOrgMonthShortLabel(selectedMonthKey),
     [selectedMonthKey],
   );
+
+  const rankedDesigners = useMemo(
+    () => (summary ? [...summary.designers].sort((a, b) => b.monthGrossSales - a.monthGrossSales) : []),
+    [summary],
+  );
+
+  const totalTopDesignerPages = useMemo(
+    () => Math.max(1, Math.ceil(rankedDesigners.length / TOP_DESIGNER_PAGE_SIZE)),
+    [rankedDesigners.length],
+  );
+
+  const visibleTopDesigners = useMemo(() => {
+    const start = topDesignerPage * TOP_DESIGNER_PAGE_SIZE;
+
+    return rankedDesigners.slice(start, start + TOP_DESIGNER_PAGE_SIZE);
+  }, [rankedDesigners, topDesignerPage]);
+
+  useEffect(() => {
+    setTopDesignerPage(0);
+  }, [selectedMonthKey]);
+
+  useEffect(() => {
+    if (topDesignerPage > totalTopDesignerPages - 1) {
+      setTopDesignerPage(Math.max(0, totalTopDesignerPages - 1));
+    }
+  }, [topDesignerPage, totalTopDesignerPages]);
 
   const load = useCallback(() => {
     setIsLoading(true);
@@ -114,6 +144,11 @@ export default function AdminHomeScreen() {
               totals={summary}
             />
 
+            <RevenueSplitStructureCard
+              sampleCaption={`${monthCaption} 총매출 기준`}
+              sampleGrossAmount={summary.monthGrossSales || 100_000}
+            />
+
             <OrgWeeklySalesPanel monthKey={selectedMonthKey} scope="admin" />
 
             <OrgDashboardStatGrid
@@ -145,11 +180,6 @@ export default function AdminHomeScreen() {
                   onPress: () => router.push('/admin/designers'),
                 },
               ]}
-            />
-
-            <RevenueSplitStructureCard
-              sampleCaption={`${monthCaption} 총매출 기준`}
-              sampleGrossAmount={summary.monthGrossSales || 100_000}
             />
 
             <Text style={styles.sectionTitle}>지역별 플랜비</Text>
@@ -199,26 +229,43 @@ export default function AdminHomeScreen() {
               </Link>
             </View>
 
-            <Text style={styles.sectionTitle}>매출 상위 디자이너</Text>
-            {[...summary.designers]
-              .sort((a, b) => b.monthGrossSales - a.monthGrossSales)
-              .slice(0, 5)
-              .map((designer) => (
-                <Pressable
-                  key={designer.id}
-                  onPress={() => router.push(`/admin/designer/${designer.id}/revenue`)}
-                  style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}>
-                  <View>
-                    <Text style={styles.menuTitle}>{designer.name}</Text>
-                    <Text style={styles.menuMeta}>
-                      {designer.storeName} · {designer.storeRegion}
-                    </Text>
+            <View style={styles.topDesignerSection}>
+              <View style={styles.topDesignerHeader}>
+                <Text style={[styles.sectionTitle, styles.topDesignerSectionTitle]}>매출 상위 디자이너</Text>
+                {rankedDesigners.length > TOP_DESIGNER_PAGE_SIZE ? (
+                  <View style={styles.topDesignerNav}>
+                    <RevenuePeriodNavigator
+                      canNext={topDesignerPage < totalTopDesignerPages - 1}
+                      canPrevious={topDesignerPage > 0}
+                      label={`${topDesignerPage + 1} / ${totalTopDesignerPages}`}
+                      onNext={() => setTopDesignerPage((page) => page + 1)}
+                      onPrevious={() => setTopDesignerPage((page) => page - 1)}
+                    />
                   </View>
-                  <Text style={styles.menuAmount}>
-                    {formatAmount(designer.monthGrossSales)}
-                  </Text>
-                </Pressable>
-              ))}
+                ) : null}
+              </View>
+              {visibleTopDesigners.map((designer, index) => {
+                const rank = topDesignerPage * TOP_DESIGNER_PAGE_SIZE + index + 1;
+
+                return (
+                  <Pressable
+                    key={designer.id}
+                    onPress={() => router.push(`/admin/designer/${designer.id}/revenue`)}
+                    style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}>
+                    <View style={styles.menuRowBody}>
+                      <Text style={styles.menuRank}>{rank}위</Text>
+                      <View style={styles.menuTextBlock}>
+                        <Text style={styles.menuTitle}>{designer.name}</Text>
+                        <Text style={styles.menuMeta}>
+                          {designer.storeName} · {designer.storeRegion}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.menuAmount}>{formatAmount(designer.monthGrossSales)}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </>
         ) : null}
       </ScrollView>
@@ -333,6 +380,25 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginBottom: 10,
   },
+  topDesignerSection: {
+    gap: 10,
+    marginBottom: 10,
+  },
+  topDesignerHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+    marginBottom: 0,
+  },
+  topDesignerSectionTitle: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  topDesignerNav: {
+    flexShrink: 0,
+    width: 132,
+  },
   menuRow: {
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
@@ -342,9 +408,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     justifyContent: 'space-between',
-    marginBottom: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
+  },
+  menuRowBody: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: 10,
+    minWidth: 0,
+  },
+  menuRank: {
+    color: '#0284C7',
+    fontSize: 12,
+    fontWeight: '900',
+    minWidth: 28,
+  },
+  menuTextBlock: {
+    flex: 1,
+    minWidth: 0,
   },
   menuRowPressed: {
     opacity: 0.88,

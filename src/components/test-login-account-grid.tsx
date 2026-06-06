@@ -14,11 +14,28 @@ function getInitial(label: string) {
   return label.trim().slice(0, 1) || '?';
 }
 
+function resolveTileTitle(account: DemoLoginAccount) {
+  return account.displayName?.trim() || account.loginLabel;
+}
+
+function resolveTileSubtitle(account: DemoLoginAccount) {
+  if (!account.displayName || account.displayName === account.loginLabel) {
+    return null;
+  }
+
+  const parts = account.loginLabel.split(' · ').filter(Boolean);
+  const yearPart = parts.find((part) => part.includes('년'));
+
+  return yearPart ? `${account.roleLabel} · ${yearPart}` : account.roleLabel;
+}
+
 export function TestLoginAccountGrid({ accounts, loadingId, onLogin }: TestLoginAccountGridProps) {
   return (
     <View style={styles.grid}>
       {accounts.map((account) => {
         const isLoading = loadingId === account.id;
+        const title = resolveTileTitle(account);
+        const subtitle = resolveTileSubtitle(account);
 
         return (
           <View key={account.id} style={styles.tileWrap}>
@@ -36,19 +53,25 @@ export function TestLoginAccountGrid({ accounts, loadingId, onLogin }: TestLogin
                 !loadingId ? styles.tilePressed : undefined,
               )}>
               <View style={[styles.avatar, { backgroundColor: account.accent }]}>
-                <Text style={styles.avatarText}>{getInitial(account.loginLabel)}</Text>
+                <Text style={styles.avatarText}>{getInitial(title)}</Text>
               </View>
-              <Text style={styles.name} numberOfLines={2}>
-                {account.loginLabel}
+              <Text style={styles.name} numberOfLines={1}>
+                {title}
               </Text>
-              <Text style={styles.badge}>{account.roleLabel}</Text>
+              {subtitle ? (
+                <Text style={styles.subtitle} numberOfLines={1}>
+                  {subtitle}
+                </Text>
+              ) : (
+                <Text style={styles.badge}>{account.roleLabel}</Text>
+              )}
               {typeof account.customerCount === 'number' ? (
                 <Text style={styles.customerCount}>
                   {formatDemoDesignerCustomerCount(account.customerCount)}
                 </Text>
               ) : null}
               {account.meta ? (
-                <Text style={styles.meta} numberOfLines={2}>
+                <Text style={styles.meta} numberOfLines={1}>
                   {account.meta}
                 </Text>
               ) : null}
@@ -70,7 +93,6 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   tileWrap: {
-    aspectRatio: 1,
     padding: 4,
     width: '25%',
   },
@@ -79,10 +101,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1.5,
-    flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    minHeight: 128,
+    overflow: 'hidden',
+    paddingBottom: 6,
     paddingHorizontal: 4,
-    paddingVertical: 6,
+    paddingTop: 8,
   },
   tilePressed: {
     backgroundColor: '#F5F5F8',
@@ -106,9 +130,17 @@ const styles = StyleSheet.create({
   },
   name: {
     color: '#1A1A2E',
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '900',
-    lineHeight: 12,
+    lineHeight: 14,
+    textAlign: 'center',
+    width: '100%',
+  },
+  subtitle: {
+    color: '#7B5EE6',
+    fontSize: 8,
+    fontWeight: '800',
+    marginTop: 2,
     textAlign: 'center',
     width: '100%',
   },
@@ -139,6 +171,7 @@ const styles = StyleSheet.create({
     color: '#FF5A5F',
     fontSize: 8,
     fontWeight: '800',
-    marginTop: 3,
+    marginTop: 'auto',
+    paddingTop: 4,
   },
 });

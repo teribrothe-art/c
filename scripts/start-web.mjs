@@ -35,6 +35,7 @@ const child = spawn('npx', args, {
   shell: true,
   env: {
     ...process.env,
+    BROWSER: 'none',
     CI: 'false',
   },
 });

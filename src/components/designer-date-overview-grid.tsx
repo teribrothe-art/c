@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { DesignerClientDateGroup } from '../../lib/designer-customer-grid';
+import { getTreatmentWeekdayColor, getTreatmentWeekdayIndex } from '../../lib/designer-customer-grid';
 
 const PAGE_SIZE = 4;
-const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'] as const;
 
 type DesignerDateOverviewGridProps = {
   groups: DesignerClientDateGroup[];
@@ -13,13 +13,15 @@ type DesignerDateOverviewGridProps = {
 
 function formatDayTile(date: string) {
   const [year, month, day] = date.split('-').map((part) => Number(part));
-  const weekday = WEEKDAY_LABELS[new Date(year, month - 1, day).getDay()];
+  const weekdayIndex = getTreatmentWeekdayIndex(date);
+  const weekday = ['일', '월', '화', '수', '목', '금', '토'][weekdayIndex];
   const now = new Date();
   const showYear = year !== now.getFullYear();
 
   return {
     dayNumber: day,
     weekday,
+    weekdayColor: getTreatmentWeekdayColor(weekdayIndex),
     caption: showYear ? `${year}.${String(month).padStart(2, '0')}` : `${month}월`,
   };
 }
@@ -83,7 +85,7 @@ export function DesignerDateOverviewGrid({ groups, onPressDate }: DesignerDateOv
                 style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}>
                 <Text style={styles.caption}>{tile.caption}</Text>
                 <Text style={styles.dayNumber}>{tile.dayNumber}</Text>
-                <Text style={styles.weekday}>{tile.weekday}</Text>
+                <Text style={[styles.weekday, { color: tile.weekdayColor }]}>{tile.weekday}</Text>
                 <Text style={styles.count}>{group.count}건</Text>
               </Pressable>
             </View>
@@ -183,7 +185,6 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   weekday: {
-    color: '#FF5A5F',
     fontSize: 12,
     fontWeight: '800',
     marginTop: 2,

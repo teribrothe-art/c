@@ -17,6 +17,7 @@ import { DesignerBottomTabBar } from '../../../src/components/designer-bottom-ta
 import { TAB_BAR_BOTTOM_INSET } from '../../../src/components/role-bottom-tab-bar';
 import { TreatmentPhotoEditModal } from '../../../src/components/treatment-photo-edit-modal';
 import { TreatmentPhotoPreviewModal } from '../../../src/components/treatment-photo-preview-modal';
+import { TreatmentPhotoSourceModal } from '../../../src/components/treatment-photo-source-modal';
 import { TreatmentPhotoSlot } from '../../../src/components/treatment-photo-slot';
 import { formatAmount, parseWonAmount, sanitizeWonDigits } from '../../../lib/currency-input';
 import { prepareImageForUpload } from '../../../lib/prepare-upload-image';
@@ -32,7 +33,6 @@ import {
 
 import {
   showConfirmAlert,
-  showTreatmentPhotoSourceAlert,
   showErrorAlert,
   showSettlementCompleteAlert,
   showSuccessAlert,
@@ -222,6 +222,11 @@ export default function DesignerTreatmentInputScreen() {
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [activeInputTab, setActiveInputTab] = useState<TreatmentInputTabKey>('basic');
   const [photoDraft, setPhotoDraft] = useState<{ kind: TreatmentPhotoKind; uri: string } | null>(null);
+  const [photoSourcePrompt, setPhotoSourcePrompt] = useState<{
+    kind: TreatmentPhotoKind;
+    title: string;
+    message: string;
+  } | null>(null);
   const [photoPreview, setPhotoPreview] = useState<{
     kind: TreatmentPhotoKind;
     uri: string;
@@ -837,18 +842,35 @@ export default function DesignerTreatmentInputScreen() {
     const label = photoKindLabel(kind);
     const isChange = hasTreatmentPhoto(kind);
 
-    showTreatmentPhotoSourceAlert({
+    setPhotoSourcePrompt({
+      kind,
       title: isChange ? '사진 변경' : '사진 추가',
-      message: isChange
-        ? `${label} 사진을 바로 촬영하거나 앨범에서 선택하세요.`
-        : `${label} 사진을 바로 촬영하거나 앨범에서 선택하세요.`,
-      onCamera: () => {
-        void runPickPhoto(kind, 'camera');
-      },
-      onLibrary: () => {
-        void runPickPhoto(kind, 'library');
-      },
+      message: `${label} 사진을 촬영하거나 앨범에서 선택하세요.`,
     });
+  };
+
+  const closePhotoSourcePrompt = () => {
+    setPhotoSourcePrompt(null);
+  };
+
+  const handlePhotoSourceCamera = () => {
+    if (!photoSourcePrompt) {
+      return;
+    }
+
+    const { kind } = photoSourcePrompt;
+    closePhotoSourcePrompt();
+    void runPickPhoto(kind, 'camera');
+  };
+
+  const handlePhotoSourceLibrary = () => {
+    if (!photoSourcePrompt) {
+      return;
+    }
+
+    const { kind } = photoSourcePrompt;
+    closePhotoSourcePrompt();
+    void runPickPhoto(kind, 'library');
   };
 
   const handleConfirmPhotoEdit = (editedUri: string) => {
@@ -1301,6 +1323,15 @@ export default function DesignerTreatmentInputScreen() {
               }
             : undefined
         }
+      />
+
+      <TreatmentPhotoSourceModal
+        message={photoSourcePrompt?.message ?? ''}
+        title={photoSourcePrompt?.title ?? ''}
+        visible={photoSourcePrompt !== null}
+        onCamera={handlePhotoSourceCamera}
+        onCancel={closePhotoSourcePrompt}
+        onLibrary={handlePhotoSourceLibrary}
       />
 
       <TreatmentPhotoEditModal

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 
+import { appLayout } from '../../lib/theme';
 import { getTreatmentPhotoSignedUrl } from '../../lib/treatment-photos';
 import { TreatmentPhotoPreviewModal } from './treatment-photo-preview-modal';
 
@@ -31,7 +33,9 @@ export function TreatmentPhotoCarousel({
   afterPhotoPath,
 }: TreatmentPhotoCarouselProps) {
   const { width: windowWidth } = useWindowDimensions();
-  const slideWidth = windowWidth - 44;
+  const layoutWidth =
+    Platform.OS === 'web' ? Math.min(windowWidth, appLayout.maxScreenWidth) : windowWidth;
+  const slideWidth = layoutWidth - 44;
   const scrollRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});

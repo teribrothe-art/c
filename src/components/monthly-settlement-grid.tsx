@@ -98,28 +98,6 @@ export function MonthlySettlementGrid({ items, onPressItem, onPressAll }: Monthl
           style={({ pressed }) => [styles.allChip, pressed && styles.chipPressed]}>
           <Text style={styles.allChipText}>전체</Text>
         </Pressable>
-
-        {pageCount > 1 ? (
-          <View style={styles.pager}>
-            <Pressable
-              accessibilityLabel={`${selectedYear}년 이전 ${PAGE_SIZE}개월`}
-              disabled={!canGoPrev}
-              onPress={() => setPage((current) => Math.max(0, current - 1))}
-              style={[styles.navButton, !canGoPrev && styles.navButtonDisabled]}>
-              <Text style={styles.navButtonText}>‹</Text>
-            </Pressable>
-            <Text style={styles.pageLabel}>
-              {safePage + 1} / {pageCount}
-            </Text>
-            <Pressable
-              accessibilityLabel={`${selectedYear}년 다음 ${PAGE_SIZE}개월`}
-              disabled={!canGoNext}
-              onPress={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
-              style={[styles.navButton, !canGoNext && styles.navButtonDisabled]}>
-              <Text style={styles.navButtonText}>›</Text>
-            </Pressable>
-          </View>
-        ) : null}
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.yearScroll}>
@@ -150,7 +128,31 @@ export function MonthlySettlementGrid({ items, onPressItem, onPressAll }: Monthl
         </View>
       </ScrollView>
 
-      <Text style={styles.yearHeading}>{selectedYear}년</Text>
+      <View style={styles.monthHeaderRow}>
+        <Text style={styles.yearHeading}>{selectedYear}년</Text>
+
+        {pageCount > 1 ? (
+          <View style={styles.pager}>
+            <Pressable
+              accessibilityLabel={`${selectedYear}년 이전 ${PAGE_SIZE}개월`}
+              disabled={!canGoPrev}
+              onPress={() => setPage((current) => Math.max(0, current - 1))}
+              style={[styles.navButton, !canGoPrev && styles.navButtonDisabled]}>
+              <Text style={styles.navButtonText}>‹</Text>
+            </Pressable>
+            <Text style={styles.pageLabel}>
+              {safePage + 1} / {pageCount}
+            </Text>
+            <Pressable
+              accessibilityLabel={`${selectedYear}년 다음 ${PAGE_SIZE}개월`}
+              disabled={!canGoNext}
+              onPress={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
+              style={[styles.navButton, !canGoNext && styles.navButtonDisabled]}>
+              <Text style={styles.navButtonText}>›</Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
 
       <View style={styles.grid}>
         {visibleItems.map((item) => (
@@ -239,6 +241,11 @@ const styles = StyleSheet.create({
   },
   yearChipMetaSelected: {
     color: '#6B6B7B',
+  },
+  monthHeaderRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   yearHeading: {
     color: '#1A1A2E',

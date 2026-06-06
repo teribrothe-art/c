@@ -100,6 +100,7 @@ function DemoLoginGroupPanel({
   const [linkedCustomerSearch, setLinkedCustomerSearch] = useState<
     ((query: string, consonant?: CustomerConsonantTab | null) => LinkedCustomerSearchResult) | null
   >(null);
+  const [generalSignupLoaded, setGeneralSignupLoaded] = useState(false);
   const isRegisteredCustomerGroup = title === '가입고객';
   const searchable = isSearchableDemoLoginGroup(title);
   const listAllWhenExpanded = demoLoginGroupListsAllWhenExpanded(title);
@@ -115,6 +116,12 @@ function DemoLoginGroupPanel({
       if (!cancelled) {
         setLinkedCustomerSearch(() => module.searchLinkedCustomerLoginAccounts);
       }
+
+      void module.prefetchGeneralSignupCustomers().then(() => {
+        if (!cancelled) {
+          setGeneralSignupLoaded(true);
+        }
+      });
     });
 
     return () => {
@@ -138,6 +145,7 @@ function DemoLoginGroupPanel({
     return filterDemoLoginAccounts(accounts, groupSearch, null);
   }, [
     accounts,
+    generalSignupLoaded,
     groupSearch,
     isRegisteredCustomerGroup,
     linkedCustomerSearch,
@@ -199,7 +207,7 @@ function DemoLoginGroupPanel({
       return `${selectedConsonant} · ${total.toLocaleString('ko-KR')} 명 · 탭하면 로그인`;
     }
 
-    return `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT.toLocaleString('ko-KR')} 명 — 이름 검색(2자 이상) · 초성은 데모·베타만 즉시`;
+    return `총 ${ACCUMULATED_LOGIN_CUSTOMER_COUNT.toLocaleString('ko-KR')} 명+ — 이름·이메일 검색(1자+) · 일반가입 포함 · 초성은 데모·베타·일반`;
   };
 
   return (
@@ -320,7 +328,7 @@ function AccountRow({
         <Text style={styles.roleBadgeText}>{account.roleLabel}</Text>
       </View>
       <View style={styles.rowBody}>
-        <Text style={styles.rowTitle}>{account.loginLabel}</Text>
+        <Text style={styles.rowTitle}>{account.displayName ?? account.loginLabel}</Text>
         <Text style={styles.rowMeta}>
           {account.email} · {account.password}
         </Text>

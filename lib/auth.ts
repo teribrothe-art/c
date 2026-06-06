@@ -1,4 +1,5 @@
 import { demoGetItem, demoMultiRemove, demoMultiSet, demoSetItem } from './demo-async-storage';
+import { invalidateGeneralSignupCustomersCache } from './demo-general-signup-customers';
 import { lookupDemoCatalogUser } from './demo-user-catalog';
 import { isSupabaseConfigured, supabase } from './supabase';
 import type { UserRole } from './user-role';
@@ -328,6 +329,7 @@ export async function signUpWithEmail({ email, password, name, role }: SignupInp
 
     await saveDemoUsers(nextUsers);
     await demoSetItem(DEMO_SESSION_KEY, updatedUser.id);
+    invalidateGeneralSignupCustomersCache();
 
     return toAuthUser(updatedUser);
   }
@@ -342,6 +344,7 @@ export async function signUpWithEmail({ email, password, name, role }: SignupInp
 
   await saveDemoUsers([...users, newUser]);
   await demoSetItem(DEMO_SESSION_KEY, newUser.id);
+  invalidateGeneralSignupCustomersCache();
 
   return toAuthUser(newUser);
 }

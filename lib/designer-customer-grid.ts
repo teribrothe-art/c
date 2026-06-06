@@ -9,9 +9,31 @@ export function formatTreatmentDisplayDate(date: string) {
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'] as const;
 
-export function formatTreatmentDateSectionLabel(date: string, count: number) {
+export function getTreatmentWeekdayIndex(date: string) {
   const [year, month, day] = date.split('-').map((part) => Number(part));
-  const weekday = WEEKDAY_LABELS[new Date(year, month - 1, day).getDay()];
+
+  return new Date(year, month - 1, day).getDay();
+}
+
+export function getTreatmentWeekdayLabel(date: string) {
+  return WEEKDAY_LABELS[getTreatmentWeekdayIndex(date)];
+}
+
+/** 일=빨강, 토=파랑 (한국 달력 관례) */
+export function getTreatmentWeekdayColor(weekdayIndex: number) {
+  if (weekdayIndex === 0) {
+    return '#FF5A5F';
+  }
+
+  if (weekdayIndex === 6) {
+    return '#3B82F6';
+  }
+
+  return '#1A1A2E';
+}
+
+export function formatTreatmentDateSectionLabel(date: string, count: number) {
+  const weekday = getTreatmentWeekdayLabel(date);
 
   return `${formatTreatmentDisplayDate(date)} · ${weekday} · ${count.toLocaleString('ko-KR')}건`;
 }

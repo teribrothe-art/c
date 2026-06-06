@@ -12,16 +12,37 @@ type CacheEntry<T> = {
 
 let clientListEntry: CacheEntry<DesignerClientListItem[]> | null = null;
 let dashboardEntry: CacheEntry<DesignerPaymentDashboard> | null = null;
-let treatmentsEntry: CacheEntry<{ designerId: string; treatments: Treatment[] }> | null = null;
+const treatmentsCache = new Map<string, CacheEntry<Treatment[]>>();
+let orgClientListKey: string | null = null;
+let orgClientListEntry: CacheEntry<unknown[]> | null = null;
 
-function isFresh<T>(entry: CacheEntry<T> | null) {
-  return entry !== null && Date.now() - entry.at < CACHE_TTL_MS;
+function isFresh<T>(entry: CacheEntry<T> | null | undefined) {
+  return entry !== null && entry !== undefined && Date.now() - entry.at < CACHE_TTL_MS;
+}
+
+export function buildOrgClientListCacheKey(scope: string, storeOrgId?: string) {
+  return `${scope}:${storeOrgId ?? 'default'}`;
+}
+
+export function peekOrgClientListCache<T>(cacheKey: string): T[] | null {
+  if (orgClientListKey !== cacheKey || !isFresh(orgClientListEntry)) {
+    return null;
+  }
+
+  return orgClientListEntry!.value as T[];
+}
+
+export function storeOrgClientListCache<T>(cacheKey: string, value: T[]) {
+  orgClientListKey = cacheKey;
+  orgClientListEntry = { at: Date.now(), value };
 }
 
 export function invalidateDesignerWorkspaceCache() {
   clientListEntry = null;
   dashboardEntry = null;
-  treatmentsEntry = null;
+  treatmentsCache.clear();
+  orgClientListKey = null;
+  orgClientListEntry = null;
 }
 
 export function peekDesignerClientListCache() {
@@ -33,11 +54,9 @@ export function peekDesignerPaymentDashboardCache() {
 }
 
 export function peekDesignerTreatmentsCache(designerId: string) {
-  if (!isFresh(treatmentsEntry) || treatmentsEntry!.value.designerId !== designerId) {
-    return null;
-  }
+  const entry = treatmentsCache.get(designerId);
 
-  return treatmentsEntry!.value.treatments;
+  return isFresh(entry) ? entry!.value : null;
 }
 
 export function storeDesignerClientList(value: DesignerClientListItem[]) {
@@ -49,5 +68,5 @@ export function storeDesignerPaymentDashboard(value: DesignerPaymentDashboard) {
 }
 
 export function storeDesignerTreatments(designerId: string, treatments: Treatment[]) {
-  treatmentsEntry = { at: Date.now(), value: { designerId, treatments } };
+  treatmentsCache.set(designerId, { at: Date.now(), value: treatments });
 }

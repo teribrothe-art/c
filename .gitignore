@@ -30,6 +30,7 @@ expo-env.d.ts
 .cursor/backup.log
 .cursor/dev-server.log
 .cursor/dev-server.pid
+.cursor/dev-browser-opened
 
 # debug
 npm-debug.*

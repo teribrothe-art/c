@@ -10,7 +10,7 @@ export const DEMO_LOGIN_GROUP_DESCRIPTIONS: Record<DemoLoginGroupKey, string> = 
   본사: '본사 어드민 · 전체 매장·디자이너·매출 조회',
   매장: '지역 플랜비 매장 전체 — 펼치면 목록 · 검색 가능',
   디자이너: `데모 · 베타 · 누적 4명(경량) · 증원 20명(매장당 5) — ${DESIGNER_APP_TAB_LABELS} · 검색 후 목록`,
-  가입고객: '디자이너 연동 고객 전체(데모·베타·누적·증원) — 펼친 뒤 검색',
+  가입고객: '디자이너 연동 고객(데모·베타·누적·증원) + 일반가입 — 펼친 뒤 검색',
 };
 
 export const DEMO_LOGIN_COLLAPSIBLE_GROUPS: DemoLoginGroupKey[] = [
@@ -73,7 +73,7 @@ export function getDemoLoginSearchPlaceholder(title: DemoLoginGroupKey) {
   }
 
   if (title === '가입고객') {
-    return '이름 · 이메일 · 디자이너 · 데모/베타/누적/증원';
+    return '이름 · 이메일 · 디자이너 · 데모/베타/누적/증원/일반가입';
   }
 
   return '검색';

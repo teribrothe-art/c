@@ -137,14 +137,23 @@ function buildAccumulatedDesignerLoginAccounts(): DemoLoginAccount[] {
       storeLabelByDesignerId.set(designer.id, storeLabel);
     }
 
+    const displayName =
+      'displayName' in designer && typeof designer.displayName === 'string'
+        ? designer.displayName
+        : undefined;
+    const isFleetDesigner = designer.profileKey.startsWith('fleet-');
+
     return withDesignerCustomerCount({
       id: designer.id,
       group: '디자이너',
       roleLabel,
       loginLabel: designer.loginLabel,
+      displayName,
       email: designer.email,
       password: designer.password,
-      meta: `${storeLabel} · ${yearLabel} 누적`,
+      meta: isFleetDesigner
+        ? `${storeLabel.split(' · ')[0] ?? storeLabel} · ${yearLabel}`
+        : `${storeLabel} · ${yearLabel} 누적`,
       accent: accumulatedDesignerAccent(designer.profileKey),
       searchHaystack: designerSearchHaystack([
         roleLabel,
@@ -152,6 +161,7 @@ function buildAccumulatedDesignerLoginAccounts(): DemoLoginAccount[] {
         '증원',
         '디자이너',
         designer.loginLabel,
+        displayName ?? '',
         designer.email,
         designer.profileKey,
         designer.id,

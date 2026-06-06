@@ -7,6 +7,10 @@ import {
   DESIGNER_LINKED_CUSTOMER_COUNT,
   DEMO_DESIGNER_LINKED_CUSTOMERS,
 } from './demo-designer-linked-customers';
+import {
+  getGeneralSignupCustomersSnapshot,
+  prefetchGeneralSignupCustomers,
+} from './demo-general-signup-customers';
 import { isFleetProfileKey } from './demo-fleet-100-designers';
 import { DEMO_LOGIN_HINT } from './demo-login-hint';
 import { isDemoDesignerIncludedInTestAccounts } from './demo-designer-customer-counts';
@@ -44,6 +48,8 @@ function toLinkedCustomerLoginAccount(
     '베타',
     '누적',
     '증원',
+    '일반',
+    '일반가입',
   ]
     .join(' ')
     .toLowerCase();
@@ -105,7 +111,9 @@ function nonFleetConfigsForLinkedSearch() {
   );
 }
 
-/** 가입고객 탭 — 검색 2자+ 또는 초성(데모·베타만 즉시) */
+export { prefetchGeneralSignupCustomers } from './demo-general-signup-customers';
+
+/** 가입고객 탭 — 검색 1자+(일반가입) · 2자+(누적) · 초성(데모·베타·일반) */
 export function searchLinkedCustomerLoginAccounts(
   query: string,
   consonant?: CustomerConsonantTab | null,
@@ -172,6 +180,28 @@ export function searchLinkedCustomerLoginAccounts(
     });
   }
 
+  const generalSignupCustomers = getGeneralSignupCustomersSnapshot();
+
+  if (normalized.length >= 1 || consonant) {
+    for (const [index, customer] of generalSignupCustomers.entries()) {
+      consider(customer, {
+        profileLabel: '일반가입',
+        designerName: '디자이너 연동 전',
+        designerId: '',
+        password: customer.password,
+        total: generalSignupCustomers.length,
+        index,
+      });
+
+      if (
+        matches.length >= LINKED_CUSTOMER_SEARCH_LIMIT &&
+        totalMatches > LINKED_CUSTOMER_SEARCH_LIMIT
+      ) {
+        break;
+      }
+    }
+  }
+
   if (normalized.length >= 2) {
     const scanConfigs = [
       ...nonFleetConfigsForLinkedSearch(),
@@ -211,7 +241,13 @@ export function searchLinkedCustomerLoginAccounts(
   }
 
   if (!normalized && !consonant) {
-    return { accounts: [], totalMatches: DESIGNER_LINKED_CUSTOMER_COUNT, truncated: false };
+    const generalCount = getGeneralSignupCustomersSnapshot().length;
+
+    return {
+      accounts: [],
+      totalMatches: DESIGNER_LINKED_CUSTOMER_COUNT + generalCount,
+      truncated: false,
+    };
   }
 
   if (consonant && !normalized) {

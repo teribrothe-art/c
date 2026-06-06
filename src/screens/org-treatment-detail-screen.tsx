@@ -12,9 +12,11 @@ import { getTreatmentById, type Treatment } from '../../lib/treatments';
 import { formatAmount } from '../../lib/currency-input';
 import { getErrorMessage } from '../../lib/errors';
 import { navigateBackOrOrgHome } from '../../lib/navigation';
+import { formatProductsInput } from '../../lib/treatment-options';
 import { colors } from '../../lib/theme';
 import { LoadingState } from '../components/loading-state';
 import { OrgScopeTabBar, TAB_BAR_BOTTOM_INSET } from '../components/role-bottom-tab-bar';
+import { TreatmentPhotoCarousel } from '../components/treatment-photo-carousel';
 
 type Props = {
   scope: OrgScope;
@@ -34,6 +36,10 @@ function paymentLabel(status: ReturnType<typeof normalizePaymentStatus>) {
   }
 
   return '결제 대기';
+}
+
+function formatDate(date?: string | null) {
+  return date ? date.replaceAll('-', '.') : '-';
 }
 
 export function OrgTreatmentDetailScreen({ scope }: Props) {
@@ -116,6 +122,7 @@ export function OrgTreatmentDetailScreen({ scope }: Props) {
   }
 
   const paymentStatus = normalizePaymentStatus(treatment.payment_status);
+  const productsLabel = formatProductsInput(treatment.products);
 
   return (
     <View style={styles.container}>
@@ -124,8 +131,11 @@ export function OrgTreatmentDetailScreen({ scope }: Props) {
           styles.content,
           { paddingTop: insets.top + 16, paddingBottom: Math.max(insets.bottom, 20) + TAB_BAR_BOTTOM_INSET },
         ]}
-        showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => navigateBackOrOrgHome(scope)} style={styles.backLink}>
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+        showsVerticalScrollIndicator={false}
+        style={styles.scroll}>
+        <Pressable onPress={() => router.back()} style={styles.backLink}>
           <Text style={styles.backLinkText}>‹ 목록</Text>
         </Pressable>
 
@@ -135,9 +145,16 @@ export function OrgTreatmentDetailScreen({ scope }: Props) {
           {treatment.customer_name ?? '고객'} · {designerName}
         </Text>
 
+        <TreatmentPhotoCarousel
+          afterPhotoPath={treatment.after_photo_url}
+          beforePhotoPath={treatment.before_photo_url}
+        />
+
         <View style={styles.card}>
-          <Row label="시술일" value={treatment.treatment_date.replaceAll('-', '.')} />
+          <Text style={styles.sectionLabel}>기본 정보</Text>
+          <Row label="시술일" value={formatDate(treatment.treatment_date)} />
           <Row label="시술 종류" value={treatment.treatment_type} />
+          {treatment.duration ? <Row label="소요 시간" value={treatment.duration} /> : null}
           <Row label="결제 상태" value={paymentLabel(paymentStatus)} />
           {typeof treatment.price === 'number' ? (
             <Row label="시술 금액" value={formatAmount(treatment.price)} />
@@ -146,6 +163,21 @@ export function OrgTreatmentDetailScreen({ scope }: Props) {
             <Row label="정산 예정/완료" value={formatAmount(payout)} />
           ) : null}
         </View>
+
+        {treatment.technique || productsLabel ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>시술 상세</Text>
+            {treatment.technique ? <Row label="기법" value={treatment.technique} /> : null}
+            {productsLabel ? <Row label="사용 제품" value={productsLabel} /> : null}
+          </View>
+        ) : null}
+
+        {treatment.notes ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>메모</Text>
+            <Text style={styles.bodyText}>{treatment.notes}</Text>
+          </View>
+        ) : null}
 
         {treatment.designer_diagnosis ? (
           <View style={styles.card}>
@@ -158,6 +190,13 @@ export function OrgTreatmentDetailScreen({ scope }: Props) {
           <View style={styles.card}>
             <Text style={styles.sectionLabel}>홈케어</Text>
             <Text style={styles.bodyText}>{treatment.home_care}</Text>
+          </View>
+        ) : null}
+
+        {treatment.ai_insight ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>AI 인사이트</Text>
+            <Text style={styles.bodyText}>{treatment.ai_insight}</Text>
           </View>
         ) : null}
       </ScrollView>
@@ -178,6 +217,9 @@ function Row({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FAFAFC',
+    flex: 1,
+  },
+  scroll: {
     flex: 1,
   },
   content: {
@@ -208,11 +250,13 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#1A1A2E',
+    flexShrink: 1,
     fontSize: 24,
     fontWeight: '900',
   },
   subtitle: {
     color: '#6B6B7B',
+    flexShrink: 1,
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
@@ -235,8 +279,10 @@ const styles = StyleSheet.create({
   },
   rowValue: {
     color: '#1A1A2E',
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: '800',
+    lineHeight: 22,
   },
   sectionLabel: {
     color: '#6B6B7B',
@@ -245,9 +291,10 @@ const styles = StyleSheet.create({
   },
   bodyText: {
     color: '#1A1A2E',
+    flexShrink: 1,
     fontSize: 14,
     fontWeight: '600',
-    lineHeight: 21,
+    lineHeight: 22,
   },
   errorTitle: {
     color: '#1A1A2E',

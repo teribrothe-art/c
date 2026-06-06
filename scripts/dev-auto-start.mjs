@@ -89,8 +89,14 @@ function startServerDetached() {
   return child.pid;
 }
 
-function openTestLoginPage() {
-  const child = spawn(process.execPath, [path.join(projectRoot, 'scripts', 'refresh-dev-browser.mjs')], {
+function refreshDevBrowser(mode = 'refresh') {
+  const scriptArgs = [path.join(projectRoot, 'scripts', 'refresh-dev-browser.mjs')];
+
+  if (mode === 'open-once') {
+    scriptArgs.push('--open-once');
+  }
+
+  const child = spawn(process.execPath, scriptArgs, {
     cwd: projectRoot,
     detached: true,
     stdio: 'ignore',
@@ -98,7 +104,12 @@ function openTestLoginPage() {
   });
 
   child.unref();
-  appendLog('Opened test-login in browser');
+
+  if (mode === 'open-once') {
+    appendLog('Opened test-login in browser (first time)');
+  } else {
+    appendLog('Refreshed dev browser tab');
+  }
 }
 
 async function main() {
@@ -108,7 +119,7 @@ async function main() {
     appendLog('Dev server already responding on :8081');
 
     if (openBrowser) {
-      openTestLoginPage();
+      refreshDevBrowser('refresh');
     }
 
     return;
@@ -123,7 +134,7 @@ async function main() {
       appendLog('Existing Metro became ready');
 
       if (openBrowser) {
-        openTestLoginPage();
+        refreshDevBrowser('refresh');
       }
 
       return;
@@ -138,7 +149,7 @@ async function main() {
     appendLog('Dev server ready');
 
     if (openBrowser) {
-      openTestLoginPage();
+      refreshDevBrowser('open-once');
     }
 
     return;

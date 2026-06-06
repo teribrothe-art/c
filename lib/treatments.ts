@@ -361,6 +361,63 @@ async function ensureAccumulatedDemoTreatmentsMerged(options?: {
   }
 }
 
+async function ensureAccumulatedDemoTreatmentsMergedForDesignerIds(designerIds: readonly string[]) {
+  await ensureAccumulatedTreatmentPatchesLoaded();
+
+  let merged = false;
+
+  for (const designerId of designerIds) {
+    if (accumulatedTreatmentMergeDone.has(designerId)) {
+      continue;
+    }
+
+    merged =
+      mergeAccumulatedTreatmentsForDesignerId(demoTreatments, designerId) || merged;
+    accumulatedTreatmentMergeDone.add(designerId);
+  }
+
+  if (merged) {
+    reapplyAccumulatedTreatmentPatchesInStore(demoTreatments);
+  }
+}
+
+/** 매장·본사 고객 목록 — 여러 디자이너 시술을 한 번에 적재 */
+export async function preloadTreatmentsForDesignerIds(
+  designerIds: readonly string[],
+): Promise<Map<string, Treatment[]>> {
+  const uniqueIds = [...new Set(designerIds)];
+  const result = new Map<string, Treatment[]>();
+
+  if (uniqueIds.length === 0) {
+    return result;
+  }
+
+  if (isDemoAuthMode || !supabase) {
+    await hydrateDemoTreatments();
+    await ensureAccumulatedDemoTreatmentsMergedForDesignerIds(uniqueIds);
+
+    for (const designerId of uniqueIds) {
+      const treatments = demoTreatments
+        .filter((treatment) => treatment.designer_id === designerId)
+        .sort((a, b) => b.treatment_date.localeCompare(a.treatment_date));
+
+      storeDesignerTreatments(designerId, treatments);
+      result.set(designerId, treatments);
+    }
+
+    return result;
+  }
+
+  await Promise.all(
+    uniqueIds.map(async (designerId) => {
+      const treatments = await listTreatmentsForDesignerId(designerId);
+      result.set(designerId, treatments);
+    }),
+  );
+
+  return result;
+}
+
 export async function getTreatments() {
   const user = await getCurrentUser();
 
@@ -692,6 +749,14 @@ export async function updateTreatment(id: string, updates: TreatmentUpdateInput)
   invalidateDesignerWorkspaceCache();
 
   return data as Treatment;
+}
+
+/** 고객 예약 등 demo treatments 저장 */
+export async function insertDemoTreatment(treatment: Treatment) {
+  await hydrateDemoTreatments();
+  demoTreatments.unshift(treatment);
+  await persistDemoTreatments();
+  invalidateDesignerWorkspaceCache();
 }
 
 /** 메모리·AsyncStorage에서 누적 테스트 시술 제거 후 hydrate 캐시 초기화 */

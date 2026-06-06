@@ -25,6 +25,11 @@ export const loginLayout = {
   horizontalPadding: 36,
 } as const;
 
+/** 웹 미리보기·데스크톱 브라우저에서 앱 화면 폭 (iPhone 기준) */
+export const appLayout = {
+  maxScreenWidth: 430,
+} as const;
+
 export function getLoginContentWidth(windowWidth: number) {
   return Math.min(
     windowWidth - loginLayout.horizontalPadding * 2,
