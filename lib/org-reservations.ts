@@ -11,6 +11,11 @@ export type OrgReservationItem = OrgClientListItem & {
   statusLabel: string;
 };
 
+export type ReservationListItem = {
+  reservationStatus: ReservationStatus;
+  statusLabel: string;
+};
+
 export function todayDateKey(date = new Date()) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -52,7 +57,7 @@ export function classifyReservationStatus(
 }
 
 export function matchesReservationFilter(
-  item: OrgReservationItem,
+  item: ReservationListItem,
   filter: ReservationFilter,
 ): boolean {
   switch (filter) {
@@ -113,7 +118,7 @@ export async function getOrgReservationItems(scope: OrgScope): Promise<OrgReserv
     });
 }
 
-export function countReservationsByFilter(items: OrgReservationItem[]) {
+export function countReservationsByFilter(items: ReservationListItem[]) {
   return {
     today: items.filter((item) => matchesReservationFilter(item, 'today')).length,
     upcoming: items.filter((item) => matchesReservationFilter(item, 'upcoming')).length,

@@ -4,7 +4,12 @@ import {
   storeDesignerPaymentDashboard,
 } from './designer-workspace-cache';
 import { toAppError } from './errors';
-import { calculatePaymentFees, listPaymentsForDesignerId, PaymentRecord } from './payment-record';
+import {
+  calculatePaymentFees,
+  customerPaymentAmountOf,
+  listPaymentsForDesignerId,
+  PaymentRecord,
+} from './payment-record';
 import { supabase } from './supabase';
 import { getDesignerTreatments, Treatment } from './treatments';
 
@@ -84,12 +89,15 @@ export async function fetchDesignerPaymentDashboard(): Promise<DesignerPaymentDa
     (p) => p.status === 'completed' && p.settled_at && isCurrentMonth(p.settled_at),
   );
 
-  const monthRevenue = completedThisMonth.reduce((sum, p) => sum + (p.designer_payout ?? 0), 0);
+  const monthRevenue = completedThisMonth.reduce(
+    (sum, p) => sum + customerPaymentAmountOf(p),
+    0,
+  );
   const monthSettlementCount = completedThisMonth.length;
 
   const paidPending = payments.filter((p) => isAwaitingSettlement(p.status));
   const pendingPayoutAmount = paidPending.reduce(
-    (sum, p) => sum + (p.designer_payout ?? calculatePaymentFees(p.amount).designerPayout),
+    (sum, p) => sum + customerPaymentAmountOf(p),
     0,
   );
 
@@ -112,7 +120,7 @@ export async function fetchDesignerPaymentDashboard(): Promise<DesignerPaymentDa
         customerName: treatment?.customer_name || '고객',
         treatmentTitle: treatment?.treatment_title || '시술',
         date: (p.settled_at ?? treatment?.treatment_date ?? '').slice(0, 10),
-        payout: p.designer_payout ?? 0,
+        payout: customerPaymentAmountOf(p),
         feeAmount: p.fee_amount ?? 0,
         amount: p.amount,
       };
@@ -206,13 +214,13 @@ export async function fetchDesignerProfilePaymentStats(): Promise<DesignerProfil
   const treatmentMap = new Map(treatments.map((t) => [t.id, t]));
   const payments = await loadDesignerPayments(user.id);
   const completed = payments.filter((p) => p.status === 'completed');
-  const payoutOf = (p: PaymentRecord) =>
-    p.designer_payout ?? calculatePaymentFees(p.amount).designerPayout;
-
-  const totalSettlementAmount = completed.reduce((sum, p) => sum + payoutOf(p), 0);
+  const totalSettlementAmount = completed.reduce(
+    (sum, p) => sum + customerPaymentAmountOf(p),
+    0,
+  );
   const monthSettlementAmount = completed
     .filter((p) => p.settled_at && isCurrentMonth(p.settled_at))
-    .reduce((sum, p) => sum + payoutOf(p), 0);
+    .reduce((sum, p) => sum + customerPaymentAmountOf(p), 0);
   const pendingSettlementCount = payments.filter((p) => isAwaitingSettlement(p.status)).length;
 
   const recentSettlements = payments
@@ -227,13 +235,16 @@ export async function fetchDesignerProfilePaymentStats(): Promise<DesignerProfil
         customerName: treatment?.customer_name || '고객',
         treatmentTitle: treatment?.treatment_title || '시술',
         date: (p.settled_at ?? treatment?.treatment_date ?? '').slice(0, 10),
-        payout: payoutOf(p),
+        payout: customerPaymentAmountOf(p),
         feeAmount: p.fee_amount ?? calculatePaymentFees(p.amount).feeAmount,
         amount: p.amount,
       };
     });
 
-  const monthlySettlementTotals = buildMonthlySettlementTotals(completed, payoutOf);
+  const monthlySettlementTotals = buildMonthlySettlementTotals(
+    completed,
+    customerPaymentAmountOf,
+  );
 
   return {
     totalSettlementAmount,

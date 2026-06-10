@@ -48,7 +48,7 @@ export function buildDesignerRevenue(treatments: Treatment[]): RevenueSummary {
 
   const monthRevenue = monthTreatments
     .filter((treatment) => normalizePaymentStatus(treatment.payment_status) === 'completed')
-    .reduce((sum, treatment) => sum + (treatment.designer_payout_amount ?? treatment.price ?? 0), 0);
+    .reduce((sum, treatment) => sum + (treatment.price ?? 0), 0);
 
   const pendingSettlementCount = monthTreatments.filter(
     (treatment) => normalizePaymentStatus(treatment.payment_status) === 'escrow',
@@ -67,7 +67,7 @@ export function buildDesignerRevenue(treatments: Treatment[]): RevenueSummary {
       customerName: treatment.customer_name || '고객',
       treatmentTitle: treatment.treatment_title,
       treatmentDate: treatment.treatment_date,
-      price: treatment.designer_payout_amount ?? treatment.price ?? 0,
+      price: treatment.price ?? 0,
     }));
 
   return {

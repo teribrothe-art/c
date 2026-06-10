@@ -10,6 +10,10 @@ import {
   shiftCalendarMonth,
 } from '../../lib/designer-client-month-calendar';
 import type { DesignerClientDateGroup } from '../../lib/designer-customer-grid';
+import {
+  getCalendarWeekdayHeaderColor,
+  getTreatmentWeekdayColor,
+} from '../../lib/designer-customer-grid';
 import { colors } from '../../lib/theme';
 import { RevenuePeriodNavigator } from './revenue-period-navigator';
 
@@ -89,7 +93,7 @@ export function DesignerClientMonthCalendar({
         {CALENDAR_WEEKDAY_HEADERS.map((label, index) => (
           <Text
             key={label}
-            style={[styles.weekday, (index === 0 || index === 6) && styles.weekdayWeekend]}>
+            style={[styles.weekday, { color: getCalendarWeekdayHeaderColor(index) }]}>
             {label}
           </Text>
         ))}
@@ -102,7 +106,6 @@ export function DesignerClientMonthCalendar({
           }
 
           const weekday = new Date(cell.dateKey + 'T00:00:00').getDay();
-          const isWeekend = weekday === 0 || weekday === 6;
 
           return (
             <Pressable
@@ -129,7 +132,8 @@ export function DesignerClientMonthCalendar({
               <Text
                 style={[
                   styles.dayNumber,
-                  isWeekend && styles.dayNumberWeekend,
+                  !cell.isSelected &&
+                    cell.selectable && { color: getTreatmentWeekdayColor(weekday) },
                   cell.isSelected && styles.dayNumberSelected,
                   !cell.selectable && styles.dayNumberDisabled,
                 ]}>
@@ -204,9 +208,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'center',
   },
-  weekdayWeekend: {
-    color: '#FF5A5F',
-  },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -242,9 +243,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     lineHeight: 18,
-  },
-  dayNumberWeekend: {
-    color: '#FF5A5F',
   },
   dayNumberSelected: {
     color: '#FF5A5F',

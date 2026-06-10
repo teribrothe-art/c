@@ -21,7 +21,7 @@ type HomePromoCarouselProps = {
 };
 
 const AUTO_SCROLL_MS = 3000;
-const FOOTER_HEIGHT = 44;
+const FOOTER_HEIGHT = 36;
 
 function normalizeSlideIndex(index: number, length: number) {
   if (length === 0) {
@@ -48,7 +48,9 @@ export function HomePromoCarousel({ slides, minHeight, onPressSlide }: HomePromo
   const [activeIndex, setActiveIndex] = useState(0);
   const activeIndexRef = useRef(0);
   const slideWidth = Dimensions.get('window').width - 44;
-  const carouselHeight = minHeight ?? Math.max(240, Dimensions.get('window').height * 0.3);
+  const carouselHeight =
+    minHeight ??
+    Math.max(88, Math.round(Math.max(240, Dimensions.get('window').height * 0.3) / 3));
 
   const scrollToOffsetForIndex = useCallback(
     (nextIndex: number, fromIndex: number) => {
@@ -144,11 +146,19 @@ export function HomePromoCarousel({ slides, minHeight, onPressSlide }: HomePromo
                 pressed && styles.slidePressed,
               ]}>
               <LinearGradient colors={item.gradient} style={styles.slideCard}>
-                {item.badge ? <Text style={styles.badge}>{item.badge}</Text> : null}
-                <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.subtitle}>{item.subtitle}</Text>
-                <View style={styles.ctaPill}>
-                  <Text style={styles.ctaText}>{item.ctaLabel} ›</Text>
+                <View style={styles.slideContentRow}>
+                  <View style={styles.slideTextCol}>
+                    {item.badge ? <Text style={styles.badge}>{item.badge}</Text> : null}
+                    <Text numberOfLines={1} style={styles.title}>
+                      {item.title}
+                    </Text>
+                    <Text numberOfLines={1} style={styles.subtitle}>
+                      {item.subtitle}
+                    </Text>
+                  </View>
+                  <View style={styles.ctaPill}>
+                    <Text style={styles.ctaText}>{item.ctaLabel} ›</Text>
+                  </View>
                 </View>
               </LinearGradient>
             </Pressable>
@@ -196,14 +206,14 @@ export function HomePromoCarousel({ slides, minHeight, onPressSlide }: HomePromo
 
 const styles = StyleSheet.create({
   wrap: {
-    marginBottom: 16,
+    marginBottom: 12,
     width: '100%',
   },
   footer: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 8,
+    paddingTop: 6,
   },
   navHit: {
     alignItems: 'center',
@@ -238,46 +248,55 @@ const styles = StyleSheet.create({
     opacity: 0.92,
   },
   slideCard: {
-    borderRadius: 20,
+    borderRadius: 16,
     flex: 1,
-    justifyContent: 'space-between',
-    padding: 22,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  slideContentRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  slideTextCol: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
   },
   badge: {
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(255,255,255,0.72)',
     borderRadius: 999,
     color: '#1A1A2E',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '800',
     overflow: 'hidden',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   title: {
     color: '#1A1A2E',
-    fontSize: 24,
+    fontSize: 14,
     fontWeight: '900',
-    lineHeight: 30,
+    lineHeight: 18,
   },
   subtitle: {
     color: '#4B4B5C',
-    fontSize: 15,
+    fontSize: 11,
     fontWeight: '600',
-    lineHeight: 22,
-    marginTop: 8,
+    lineHeight: 15,
   },
   ctaPill: {
-    alignSelf: 'flex-start',
     backgroundColor: '#1A1A2E',
     borderRadius: 999,
-    marginTop: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    flexShrink: 0,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
   },
   ctaText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '800',
   },
   dots: {

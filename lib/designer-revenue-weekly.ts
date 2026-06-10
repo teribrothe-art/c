@@ -1,9 +1,8 @@
 import type { PaymentRecord } from './payment-record';
-import { calculatePaymentFees } from './payment-record';
+import { customerPaymentAmountOf } from './payment-record';
 
-export const WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'] as const;
-
-const CALENDAR_WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'] as const;
+/** 달력 헤더와 동일 — 일요일 시작 */
+export const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'] as const;
 
 export type WeekdayRevenueCell = {
   date: string;
@@ -41,7 +40,7 @@ export function toLocalDateString(date = new Date()) {
 export function formatDateWithWeekday(date: string) {
   const parsed = new Date(`${date}T12:00:00`);
   const [, month, day] = date.split('-');
-  const weekday = CALENDAR_WEEKDAY_LABELS[parsed.getDay()];
+  const weekday = WEEKDAY_LABELS[parsed.getDay()];
 
   return `${Number(month)}.${Number(day)} (${weekday})`;
 }
@@ -55,12 +54,11 @@ function addDays(date: string, amount: number) {
 
 export function getWeekdayLabelForDate(date: string): (typeof WEEKDAY_LABELS)[number] {
   const parsed = new Date(`${date}T12:00:00`);
-  const calendarLabel = CALENDAR_WEEKDAY_LABELS[parsed.getDay()];
 
-  return calendarLabel as (typeof WEEKDAY_LABELS)[number];
+  return WEEKDAY_LABELS[parsed.getDay()];
 }
 
-/** 선택한 달의 요일(월~일)별 정산 합계 */
+/** 선택한 달의 요일(일~토)별 정산 합계 */
 export function buildMonthWeekdayTotals(
   completed: PaymentRecord[],
   monthKey: string,
@@ -80,7 +78,7 @@ export function buildMonthWeekdayTotals(
 
     const weekdayLabel = getWeekdayLabelForDate(date);
     const current = totals.get(weekdayLabel) ?? { totalAmount: 0, settlementCount: 0 };
-    current.totalAmount += payoutOf(payment);
+    current.totalAmount += customerPaymentAmountOf(payment);
     current.settlementCount += 1;
     totals.set(weekdayLabel, current);
   }
@@ -96,13 +94,17 @@ export function buildMonthWeekdayTotals(
   });
 }
 
-export function getWeekStartMonday(date: string) {
+/** 달력 주(일~토)의 일요일 */
+export function getWeekStartSunday(date: string) {
   const parsed = new Date(`${date}T12:00:00`);
-  const day = parsed.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  parsed.setDate(parsed.getDate() + diff);
+  parsed.setDate(parsed.getDate() - parsed.getDay());
 
   return toLocalDateString(parsed);
+}
+
+/** @deprecated getWeekStartSunday 사용 */
+export function getWeekStartMonday(date: string) {
+  return getWeekStartSunday(date);
 }
 
 function formatWeekRange(weekStart: string) {
@@ -117,17 +119,9 @@ function settlementDateOf(payment: PaymentRecord) {
   return (payment.settled_at ?? payment.paid_at ?? payment.created_at).slice(0, 10);
 }
 
-function payoutOf(payment: PaymentRecord) {
-  return payment.designer_payout ?? calculatePaymentFees(payment.amount).designerPayout;
-}
-
-function grossOf(payment: PaymentRecord) {
-  return payment.amount;
-}
-
 function buildDayTotals(
   completed: PaymentRecord[],
-  amountOf: (payment: PaymentRecord) => number = payoutOf,
+  amountOf: (payment: PaymentRecord) => number = customerPaymentAmountOf,
 ) {
   const map = new Map<string, { totalAmount: number; settlementCount: number }>();
 
@@ -167,7 +161,7 @@ function buildWeeklyAmountWeeks(
   const dayTotals = buildDayTotals(completed, amountOf);
   const monthStart = `${monthKey}-01`;
   const monthEnd = lastDateOfMonth(monthKey);
-  let cursor = getWeekStartMonday(monthStart);
+  let cursor = getWeekStartSunday(monthStart);
   const weeks: WeeklyRevenueWeek[] = [];
   const guard = new Set<string>();
 
@@ -195,11 +189,12 @@ function buildWeeklyAmountWeeks(
   }
 
   if (weeks.length === 0) {
-    const days = buildWeekCells(getWeekStartMonday(monthStart), dayTotals, monthKey);
+    const weekStart = getWeekStartSunday(monthStart);
+    const days = buildWeekCells(weekStart, dayTotals, monthKey);
 
     weeks.push({
-      weekKey: getWeekStartMonday(monthStart),
-      label: formatWeekRange(getWeekStartMonday(monthStart)),
+      weekKey: weekStart,
+      label: formatWeekRange(weekStart),
       days,
       weekTotal: 0,
       settlementCount: 0,
@@ -210,14 +205,14 @@ function buildWeeklyAmountWeeks(
 }
 
 function buildWeekCells(
-  weekStartMonday: string,
+  weekStartSunday: string,
   dayTotals: Map<string, { totalAmount: number; settlementCount: number }>,
   monthKey: string,
 ): WeekdayRevenueCell[] {
   const today = toLocalDateString();
 
   return WEEKDAY_LABELS.map((weekdayLabel, index) => {
-    const date = addDays(weekStartMonday, index);
+    const date = addDays(weekStartSunday, index);
     const stats = dayTotals.get(date) ?? { totalAmount: 0, settlementCount: 0 };
 
     return {
@@ -240,25 +235,25 @@ function lastDateOfMonth(monthKey: string) {
   return toLocalDateString(lastDay);
 }
 
-/** 선택한 달의 주간(월~일 7일) 매출 묶음 */
+/** 선택한 달의 주간(일~토 7일) 매출 묶음 — 달력 행과 동일 */
 export function buildWeeklyRevenueWeeks(
   completed: PaymentRecord[],
   monthKey: string,
 ): WeeklyRevenueWeek[] {
-  return buildWeeklyAmountWeeks(completed, monthKey, payoutOf);
+  return buildWeeklyAmountWeeks(completed, monthKey, customerPaymentAmountOf);
 }
 
-/** 선택한 달의 주간(월~일 7일) 시술 결제 총액(매출) 묶음 */
+/** @deprecated buildWeeklyRevenueWeeks와 동일 (고객 실결제 금액 기준) */
 export function buildWeeklyGrossSalesWeeks(
   completed: PaymentRecord[],
   monthKey: string,
 ): WeeklyRevenueWeek[] {
-  return buildWeeklyAmountWeeks(completed, monthKey, grossOf);
+  return buildWeeklyRevenueWeeks(completed, monthKey);
 }
 
 export function resolveDefaultWeekKey(weeks: WeeklyRevenueWeek[], monthKey: string) {
   const today = toLocalDateString();
-  const todayWeek = getWeekStartMonday(today);
+  const todayWeek = getWeekStartSunday(today);
 
   if (today.slice(0, 7) === monthKey && weeks.some((week) => week.weekKey === todayWeek)) {
     return todayWeek;
@@ -266,5 +261,5 @@ export function resolveDefaultWeekKey(weeks: WeeklyRevenueWeek[], monthKey: stri
 
   const withRevenue = weeks.find((week) => week.weekTotal > 0);
 
-  return withRevenue?.weekKey ?? weeks[0]?.weekKey ?? getWeekStartMonday(`${monthKey}-01`);
+  return withRevenue?.weekKey ?? weeks[0]?.weekKey ?? getWeekStartSunday(`${monthKey}-01`);
 }

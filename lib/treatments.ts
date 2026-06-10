@@ -16,14 +16,23 @@ import { SEO_JUNGHYUN_DEMO_TREATMENTS } from './demo-customer-seo-junghyun';
 import { toAppError } from './errors';
 import type { PaymentStatus } from './payment-status';
 import { filterTreatmentsForCustomerUser, sortTreatmentsForDiaryList } from './diary-list';
-import { sanitizeTreatmentsForCustomer, sanitizeTreatmentForCustomer } from './treatment-privacy';
+import {
+  sanitizeTreatmentForCustomerRelationship,
+  sanitizeTreatmentForDesignerViewer,
+  sanitizeTreatmentsForCustomerRelationship,
+  sanitizeTreatmentsForDesignerViewer,
+} from './treatment-privacy';
 import { resolveRegisteredCustomerForDesigner } from './designer-customer-link';
 import {
   invalidateDesignerWorkspaceCache,
   peekDesignerTreatmentsCache,
   storeDesignerTreatments,
 } from './designer-workspace-cache';
-import { ensureDesignerCustomerRelationship } from './registered-customers';
+import {
+  ensureDesignerCustomerRelationship,
+  getActiveDesignerIdsForCustomer,
+  isDesignerLinkedToCustomer,
+} from './registered-customers';
 import { defaultTreatmentTitle, DEFAULT_TREATMENT_DURATION } from './treatment-options';
 import { supabase } from './supabase';
 
@@ -446,10 +455,17 @@ export async function getTreatments() {
   }
 
   if (user.role === 'customer') {
-    const sanitized = sanitizeTreatmentsForCustomer(treatments);
+    const activeDesignerIds = await getActiveDesignerIdsForCustomer(user.id);
+    const sanitized = sanitizeTreatmentsForCustomerRelationship(treatments, activeDesignerIds);
     const mine = sortTreatmentsForDiaryList(filterTreatmentsForCustomerUser(user.id, sanitized));
 
     return { user, treatments: mine };
+  }
+
+  if (user.role === 'designer') {
+    const mine = treatments.filter((treatment) => treatment.designer_id === user.id);
+
+    return { user, treatments: sortTreatmentsForDiaryList(mine) };
   }
 
   return { user, treatments: sortTreatmentsForDiaryList(treatments) };
@@ -492,10 +508,75 @@ export async function getTreatmentById(id: string) {
   }
 
   if (user.role === 'customer' && treatment) {
-    return { user, treatment: sanitizeTreatmentForCustomer(treatment) };
+    const activeDesignerIds = await getActiveDesignerIdsForCustomer(user.id);
+
+    return {
+      user,
+      treatment: sanitizeTreatmentForCustomerRelationship(treatment, activeDesignerIds),
+    };
+  }
+
+  if (user.role === 'designer' && treatment) {
+    if (treatment.designer_id === user.id) {
+      return {
+        user,
+        treatment: sanitizeTreatmentForDesignerViewer(treatment, user.id),
+      };
+    }
+
+    if (treatment.customer_id && (await isDesignerLinkedToCustomer(user.id, treatment.customer_id))) {
+      return {
+        user,
+        treatment: sanitizeTreatmentForDesignerViewer(treatment, user.id),
+      };
+    }
+
+    return { user, treatment: null };
   }
 
   return { user, treatment };
+}
+
+/** 고객 본인에게 연결된 시술 전체 (디자이너 무관) */
+export async function listTreatmentsForCustomerId(customerId: string): Promise<Treatment[]> {
+  if (isDemoAuthMode || !supabase) {
+    await hydrateDemoTreatments();
+    await ensureAccumulatedDemoTreatmentsMerged({ user: { id: customerId, role: 'customer' } });
+
+    return demoTreatments
+      .filter((item) => item.customer_id === customerId)
+      .sort((a, b) => b.treatment_date.localeCompare(a.treatment_date));
+  }
+
+  const { data, error } = await supabase
+    .from('treatments')
+    .select(treatmentSelectFields)
+    .eq('customer_id', customerId)
+    .order('treatment_date', { ascending: false });
+
+  if (error) {
+    throw toAppError(error);
+  }
+
+  return (data ?? []) as Treatment[];
+}
+
+/** 담당 디자이너 — 연결 고객의 시술 이력 (타 디자이너 기록은 비공개 필드 제거) */
+export async function listCustomerTreatmentsForDesigner(
+  designerId: string,
+  customerId: string,
+): Promise<Treatment[]> {
+  const linked = await isDesignerLinkedToCustomer(designerId, customerId);
+
+  if (!linked) {
+    const ownTreatments = await listTreatmentsForDesignerId(designerId);
+
+    return ownTreatments.filter((item) => item.customer_id === customerId);
+  }
+
+  const treatments = await listTreatmentsForCustomerId(customerId);
+
+  return sanitizeTreatmentsForDesignerViewer(treatments, designerId);
 }
 
 /** 매장·본사 조회 — 특정 디자이너 시술 목록 */
@@ -587,6 +668,7 @@ export type TreatmentUpdateInput = Partial<
     | 'treatment_type'
     | 'treatment_title'
     | 'products'
+    | 'notes'
   >
 >;
 

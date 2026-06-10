@@ -83,6 +83,19 @@ create policy "디자이너는 본인 시술 조회"
   for select
   using (auth.uid() = designer_id);
 
+create policy "담당 디자이너는 연결 고객 시술 조회"
+  on public.treatments
+  for select
+  using (
+    exists (
+      select 1
+      from public.designer_customer_relationships r
+      where r.designer_id = auth.uid()
+        and r.customer_id = treatments.customer_id
+        and r.status = 'active'
+    )
+  );
+
 drop policy if exists "본인 시술 생성" on public.treatments;
 create policy "본인 시술 생성"
   on public.treatments

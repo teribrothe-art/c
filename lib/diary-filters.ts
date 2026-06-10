@@ -1,4 +1,5 @@
 import { TREATMENT_TYPE_OPTIONS } from './treatment-options';
+import { primaryTreatmentType } from './treatment-type-selection';
 
 export type DiaryFilterKey = '전체' | '컷' | '컬러' | '펌' | '탈색' | '케어' | '매직' | '스파';
 
@@ -85,7 +86,7 @@ export function treatmentMatchesDiaryFilter(
 }
 
 export function getTreatmentTypeIcon(treatmentType: string) {
-  const normalized = treatmentType.trim();
+  const normalized = primaryTreatmentType(treatmentType).trim();
   const found = TREATMENT_TYPE_OPTIONS.find((item) => item.label === normalized);
 
   if (found) {

@@ -9,7 +9,11 @@ import { getCurrentUser, isDemoAuthMode } from './auth';
 import { canUseDirectAnthropicClient, getAnthropicApiKey } from './ai-providers';
 import { toAppError } from './errors';
 import { AI_NO_PRODUCT_INSTRUCTION } from './treatment-privacy';
-import { sanitizeTreatmentsForCustomer } from './treatment-privacy';
+import {
+  sanitizeTreatmentsForCustomer,
+  sanitizeTreatmentsForCustomerRelationship,
+} from './treatment-privacy';
+import { getActiveDesignerIdsForCustomer } from './registered-customers';
 import { Treatment } from './treatments';
 import { isSupabaseConfigured, supabase } from './supabase';
 
@@ -82,28 +86,34 @@ async function fetchRecentTreatmentsForUser(userId: string): Promise<Treatment[]
   const treatmentSelect =
     'id, customer_id, designer_id, designer_name, customer_name, treatment_date, treatment_type, treatment_title, technique, damage_level, notes, duration, designer_diagnosis, home_care, ai_insight, price, payment_status, feedback_completed, payment_requested_at, paid_at, settled_at, toss_order_id, toss_payment_key, platform_fee, designer_payout_amount, before_photo_url, after_photo_url, created_at';
 
+  let treatments: Treatment[];
+
   if (isDemoAuthMode || !supabase) {
     const { getTreatments } = await import('./treatments');
-    const { treatments } = await getTreatments();
+    const { treatments: rows } = await getTreatments();
 
-    return treatments
+    treatments = rows
       .filter((item) => item.customer_id === userId)
       .sort((a, b) => b.treatment_date.localeCompare(a.treatment_date))
       .slice(0, 5);
+  } else {
+    const { data, error } = await supabase
+      .from('treatments')
+      .select(treatmentSelect)
+      .eq('customer_id', userId)
+      .order('treatment_date', { ascending: false })
+      .limit(5);
+
+    if (error) {
+      throw toAppError(error);
+    }
+
+    treatments = sanitizeTreatmentsForCustomer((data ?? []) as Treatment[]);
+    const activeDesignerIds = await getActiveDesignerIdsForCustomer(userId);
+    treatments = sanitizeTreatmentsForCustomerRelationship(treatments, activeDesignerIds);
   }
 
-  const { data, error } = await supabase
-    .from('treatments')
-    .select(treatmentSelect)
-    .eq('customer_id', userId)
-    .order('treatment_date', { ascending: false })
-    .limit(5);
-
-  if (error) {
-    throw toAppError(error);
-  }
-
-  return sanitizeTreatmentsForCustomer((data ?? []) as Treatment[]);
+  return treatments;
 }
 
 /** profiles + 최근 시술 5건 JSON (약품·가격 제외) */
@@ -364,7 +374,7 @@ export async function saveAiConversation(input: {
     const items = raw ? (JSON.parse(raw) as SavedAiConversation[]) : [];
     const conversation: SavedAiConversation = {
       ...record,
-      id: `demo-ai-${Date.now()}`,
+      id: `demo-ai-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       created_at: new Date().toISOString(),
     };
 

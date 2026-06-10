@@ -23,6 +23,8 @@ type RevenueBarChartProps = {
   onPressPoint?: (key: string) => void;
   /** 막대 안쪽 하단에 날짜 라벨 표시 (일별 차트) */
   labelPosition?: 'below' | 'insideBar';
+  /** 고정 칸 수 — 데이터가 적을 때도 동일 너비 슬롯 유지 (나머지는 공백) */
+  slotCount?: number;
 };
 
 function formatCompactWon(value: number) {
@@ -44,9 +46,13 @@ export function RevenueBarChart({
   selectedKey = null,
   onPressPoint,
   labelPosition = 'below',
+  slotCount,
 }: RevenueBarChartProps) {
   const maxValue = Math.max(...points.map((point) => point.value), 1);
-  const useHorizontalScroll = points.length > 7;
+  const useHorizontalScroll = !slotCount && points.length > 7;
+  const slots: (RevenueBarChartPoint | null)[] = slotCount
+    ? Array.from({ length: slotCount }, (_, index) => points[index] ?? null)
+    : points.map((point) => point);
 
   if (points.length === 0) {
     const emptyBlock = (
@@ -65,7 +71,29 @@ export function RevenueBarChart({
 
   const chartBody = (
     <View style={[styles.chartRow, useHorizontalScroll && styles.chartRowScrollable]}>
-      {points.map((point) => {
+      {slots.map((point, index) => {
+        const slotKey = point?.key ?? `slot-empty-${index}`;
+
+        if (!point || point.value <= 0) {
+          return (
+            <View
+              key={slotKey}
+              style={[
+                styles.barColumn,
+                slotCount ? styles.barColumnSlotted : null,
+                useHorizontalScroll && styles.barColumnFixed,
+              ]}>
+              <Text style={styles.barValuePlaceholder}> </Text>
+              <View style={[styles.barTrack, { height: maxBarHeight }]} />
+              {point?.subLabel ? (
+                <Text style={styles.barLabelMuted} numberOfLines={1}>
+                  {point.subLabel}
+                </Text>
+              ) : null}
+            </View>
+          );
+        }
+
         const height = Math.max(8, Math.round((point.value / maxValue) * maxBarHeight));
         const selected = selectedKey === point.key;
         const labelInsideBar = labelPosition === 'insideBar';
@@ -103,6 +131,10 @@ export function RevenueBarChart({
                   </Text>
                 ) : null}
               </>
+            ) : point.subLabel ? (
+              <Text style={[styles.barLabel, selected && styles.barLabelSelected]} numberOfLines={1}>
+                {point.subLabel}
+              </Text>
             ) : null}
           </>
         );
@@ -110,12 +142,13 @@ export function RevenueBarChart({
         if (onPressPoint) {
           return (
             <Pressable
-              key={point.key}
+              key={slotKey}
               accessibilityRole="button"
               accessibilityState={{ selected }}
               onPress={() => onPressPoint(point.key)}
               style={({ pressed }) => [
                 styles.barColumn,
+                slotCount ? styles.barColumnSlotted : null,
                 useHorizontalScroll && styles.barColumnFixed,
                 selected && styles.barColumnSelected,
                 pressed && styles.barColumnPressed,
@@ -127,8 +160,12 @@ export function RevenueBarChart({
 
         return (
           <View
-            key={point.key}
-            style={[styles.barColumn, useHorizontalScroll && styles.barColumnFixed]}>
+            key={slotKey}
+            style={[
+              styles.barColumn,
+              slotCount ? styles.barColumnSlotted : null,
+              useHorizontalScroll && styles.barColumnFixed,
+            ]}>
             {column}
           </View>
         );
@@ -200,6 +237,14 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 28,
   },
+  barColumnSlotted: {
+    flex: 1,
+  },
+  barValuePlaceholder: {
+    fontSize: 10,
+    marginBottom: 4,
+    opacity: 0,
+  },
   barColumnSelected: {
     backgroundColor: '#F0EBFF',
     borderRadius: 10,
@@ -249,6 +294,13 @@ const styles = StyleSheet.create({
   },
   barLabel: {
     color: '#1A1A2E',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  barLabelMuted: {
+    color: '#9CA3AF',
     fontSize: 11,
     fontWeight: '700',
     marginTop: 6,

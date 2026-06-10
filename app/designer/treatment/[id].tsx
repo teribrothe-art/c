@@ -46,8 +46,12 @@ import {
   parseProductsInput,
   PRODUCT_PRESETS,
   TREATMENT_TYPE_OPTIONS,
-  titlePresetsForType,
 } from '../../../lib/treatment-options';
+import {
+  formatTreatmentTypes,
+  parseTreatmentTypes,
+  titlePresetsForTypes,
+} from '../../../lib/treatment-type-selection';
 import {
   MAX_TREATMENT_NOTE_LENGTH,
   MAX_TREATMENT_TITLE_LENGTH,
@@ -55,6 +59,7 @@ import {
   validateTreatmentTitle,
 } from '../../../lib/validation';
 import { TreatmentOptionChips } from '../../../src/components/treatment-option-chips';
+import { AppBackButton } from '../../../src/components/app-back-button';
 import { LoadingState } from '../../../src/components/loading-state';
 import {
   getPaymentByTreatmentId,
@@ -90,6 +95,7 @@ import {
 } from '../../../lib/treatment-navigation';
 import {
   getTreatmentById,
+  listCustomerTreatmentsForDesigner,
   listTreatmentsForDesignerId,
   Treatment,
   updateTreatment,
@@ -211,6 +217,7 @@ export default function DesignerTreatmentInputScreen() {
   const [activeField, setActiveField] = useState<EditableField | null>(null);
   const [inputValue, setInputValue] = useState('');
   const [choiceValue, setChoiceValue] = useState('');
+  const [choiceValues, setChoiceValues] = useState<string[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<{ before: string | null; after: string | null }>({
     before: null,
     after: null,
@@ -236,6 +243,7 @@ export default function DesignerTreatmentInputScreen() {
   const [isAnalyzingDamage, setIsAnalyzingDamage] = useState(false);
   const [damageUndoStack, setDamageUndoStack] = useState<(number | null)[]>([]);
   const [recordNav, setRecordNav] = useState<ReturnType<typeof getTreatmentNavigation>>(null);
+  const [viewerDesignerId, setViewerDesignerId] = useState('');
   const treatmentIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
@@ -271,16 +279,21 @@ export default function DesignerTreatmentInputScreen() {
           return;
         }
 
-        void listTreatmentsForDesignerId(user.id)
-          .then((designerTreatments) => {
+        setViewerDesignerId(user.id);
+
+        const loadCustomerHistory = nextTreatment.customer_id
+          ? listCustomerTreatmentsForDesigner(user.id, nextTreatment.customer_id)
+          : listTreatmentsForDesignerId(user.id);
+
+        void loadCustomerHistory
+          .then((customerTreatments) => {
             if (!isMounted) {
               return;
             }
 
-            const sameCustomerTreatments = filterTreatmentsForSameCustomer(
-              designerTreatments,
-              nextTreatment,
-            );
+            const sameCustomerTreatments = nextTreatment.customer_id
+              ? customerTreatments
+              : filterTreatmentsForSameCustomer(customerTreatments, nextTreatment);
             setRecordNav(getTreatmentNavigation(sameCustomerTreatments, id));
           })
           .catch(() => undefined);
@@ -343,11 +356,17 @@ export default function DesignerTreatmentInputScreen() {
       isMounted = false;
     };
   }, [id]);
+  const isOwnTreatment = Boolean(
+    treatment?.designer_id && viewerDesignerId && treatment.designer_id === viewerDesignerId,
+  );
+  const canEditTreatment = isOwnTreatment;
+
   const inputTabGroups = useMemo<Record<TreatmentInputTabKey, InputTabGroup>>(() => {
     const technique = getDraftValue(treatment, 'technique');
     const diagnosis = getDraftValue(treatment, 'designer_diagnosis');
     const homeCare = getDraftValue(treatment, 'home_care');
     const products = formatProductsInput(treatment?.products ?? null);
+    const edit = (field: EditableField) => (canEditTreatment ? field : undefined);
 
     return {
       basic: {
@@ -356,25 +375,25 @@ export default function DesignerTreatmentInputScreen() {
             label: '시술 종류',
             value: treatment?.treatment_type ?? '',
             complete: Boolean(treatment?.treatment_type),
-            editable: 'treatment_type',
+            editable: edit('treatment_type'),
           },
           {
             label: '시술명',
             value: treatment?.treatment_title ?? '',
             complete: Boolean(treatment?.treatment_title),
-            editable: 'treatment_title',
+            editable: edit('treatment_title'),
           },
           {
             label: '소요 시간',
             value: treatment?.duration ?? '',
             complete: Boolean(treatment?.duration),
-            editable: 'duration',
+            editable: edit('duration'),
           },
           {
             label: '시술 금액',
             value: treatment?.price ? formatAmount(treatment.price) : '',
             complete: Boolean(treatment?.price),
-            editable: 'price',
+            editable: edit('price'),
           },
         ],
       },
@@ -384,7 +403,7 @@ export default function DesignerTreatmentInputScreen() {
             label: '사용약품',
             value: products,
             complete: Boolean(products),
-            editable: 'products',
+            editable: edit('products'),
             optional: true,
           },
         ],
@@ -395,7 +414,7 @@ export default function DesignerTreatmentInputScreen() {
             label: '기법·세팅',
             value: technique,
             complete: Boolean(technique),
-            editable: 'technique',
+            editable: edit('technique'),
           },
         ],
       },
@@ -405,18 +424,18 @@ export default function DesignerTreatmentInputScreen() {
             label: '모발 상태 평가',
             value: diagnosis,
             complete: Boolean(diagnosis),
-            editable: 'designer_diagnosis',
+            editable: edit('designer_diagnosis'),
           },
           {
             label: '홈케어 가이드',
             value: homeCare,
             complete: Boolean(homeCare),
-            editable: 'home_care',
+            editable: edit('home_care'),
           },
         ],
       },
     };
-  }, [treatment]);
+  }, [canEditTreatment, treatment]);
 
   const allItems = TREATMENT_INPUT_TABS.flatMap((tab) => inputTabGroups[tab.key].items);
   const activeTabItems = inputTabGroups[activeInputTab].items;
@@ -442,19 +461,33 @@ export default function DesignerTreatmentInputScreen() {
     treatment,
     paymentRecord?.status ?? null,
   );
-  const canInviteCustomer = !isCustomerLinked;
+  const canInviteCustomer = canEditTreatment && !isCustomerLinked;
+  const showPreviousDesignerHistoryNotice = Boolean(
+    treatment &&
+      !isOwnTreatment &&
+      treatment.designer_id &&
+      !treatment.designer_diagnosis?.trim() &&
+      !treatment.home_care?.trim(),
+  );
 
   const openEditor = (field: EditableField) => {
     setActiveInputTab(treatmentInputTabForField(field));
     setActiveField(field);
 
     if (CHOICE_FIELDS.includes(field)) {
-      setChoiceValue(getDraftValue(treatment, field));
+      if (field === 'treatment_type') {
+        setChoiceValues(parseTreatmentTypes(getDraftValue(treatment, field)));
+        setChoiceValue('');
+      } else {
+        setChoiceValue(getDraftValue(treatment, field));
+        setChoiceValues([]);
+      }
       setInputValue('');
       return;
     }
 
     setChoiceValue('');
+    setChoiceValues([]);
     setInputValue(getDraftValue(treatment, field));
   };
 
@@ -462,6 +495,7 @@ export default function DesignerTreatmentInputScreen() {
     setActiveField(null);
     setInputValue('');
     setChoiceValue('');
+    setChoiceValues([]);
   };
 
   const handleSaveField = async () => {
@@ -473,7 +507,12 @@ export default function DesignerTreatmentInputScreen() {
     const isChoiceField = CHOICE_FIELDS.includes(activeField);
 
     if (isChoiceField) {
-      if (!choiceValue.trim()) {
+      if (activeField === 'treatment_type') {
+        if (choiceValues.length === 0) {
+          showWarningAlert('시술 종류를 하나 이상 선택해주세요.');
+          return;
+        }
+      } else if (!choiceValue.trim()) {
         showWarningAlert('항목을 선택해주세요.');
         return;
       }
@@ -517,7 +556,12 @@ export default function DesignerTreatmentInputScreen() {
         const parsed = parseProductsInput(trimmedValue);
         patch = { products: parsed.length ? parsed : null };
       } else if (isChoiceField) {
-        patch = { [activeField]: choiceValue.trim() };
+        patch = {
+          [activeField]:
+            activeField === 'treatment_type'
+              ? formatTreatmentTypes(choiceValues)
+              : choiceValue.trim(),
+        };
       } else {
         patch = { [activeField]: trimmedValue };
       }
@@ -931,7 +975,7 @@ export default function DesignerTreatmentInputScreen() {
   const isChoiceEditor = Boolean(activeField && CHOICE_FIELDS.includes(activeField));
   const isSingleLineEditor =
     activeField === 'price' || activeField === 'treatment_title' || activeField === 'products';
-  const titlePresets = titlePresetsForType(treatment?.treatment_type ?? '');
+  const titlePresets = titlePresetsForTypes(parseTreatmentTypes(treatment?.treatment_type));
 
   return (
     <View style={styles.container}>
@@ -942,9 +986,7 @@ export default function DesignerTreatmentInputScreen() {
         ]}
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.closeButton}>
-            <Text style={styles.closeText}>×</Text>
-          </Pressable>
+          <AppBackButton onPress={() => router.back()} size={34} style={styles.closeButton} />
           <Text style={styles.headerTitle}>시술 입력 · {treatment?.customer_name || '고객'}</Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -964,6 +1006,24 @@ export default function DesignerTreatmentInputScreen() {
                 onNavigate={(targetId) => router.replace(`/designer/treatment/${targetId}`)}
                 positionLabel={`${recordNav.index + 1} / ${recordNav.total}`}
               />
+            ) : null}
+
+            {!isOwnTreatment ? (
+              <View style={styles.historyNoticeCard}>
+                <Text style={styles.historyNoticeTitle}>다른 디자이너 시술 기록</Text>
+                <Text style={styles.historyNoticeText}>
+                  {treatment.designer_name ?? '이전 디자이너'}님의 시술입니다. 고객 이력은 연결되어
+                  보이지만, 진단·홈케어·약품 등은 보호됩니다.
+                </Text>
+              </View>
+            ) : null}
+
+            {showPreviousDesignerHistoryNotice ? (
+              <View style={styles.historyNoticeCardMuted}>
+                <Text style={styles.historyNoticeText}>
+                  이전 디자이너의 진단·홈케어는 담당 변경으로 보호되어 표시되지 않습니다.
+                </Text>
+              </View>
             ) : null}
 
             <View
@@ -996,29 +1056,31 @@ export default function DesignerTreatmentInputScreen() {
                 {isSettled
                   ? `✓ 정산 완료 (${formatDate(treatment.settled_at?.slice(0, 10) || treatment.treatment_date)})`
                   : isPaymentPaid
-                    ? `✓ 결제 완료. ${formatAmount(paymentRecord?.designer_payout ?? 0)} 정산 가능`
+                    ? `✓ 결제 완료. ${formatAmount(paymentRecord?.amount ?? treatment.price ?? 0)} 정산 가능`
                     : '고객 결제 대기 중'}
               </Text>
             </View>
 
 
-            <View style={styles.progressBlock}>
-              <View style={styles.progressTopRow}>
-                <Text style={styles.progressText}>
-                  완료 {completedCount}/{totalProgressItems} 항목
-                </Text>
-                <Text style={styles.remainingText}>
-                  {settlementInputComplete
-                    ? isPaymentPaid
-                      ? '정산 가능'
-                      : '결제 후 정산'
-                    : `정산까지 ${['technique', 'designer_diagnosis', 'home_care'].filter((field) => !treatment?.[field as 'technique' | 'designer_diagnosis' | 'home_care']?.trim()).length}개`}
-                </Text>
+            {canEditTreatment ? (
+              <View style={styles.progressBlock}>
+                <View style={styles.progressTopRow}>
+                  <Text style={styles.progressText}>
+                    완료 {completedCount}/{totalProgressItems} 항목
+                  </Text>
+                  <Text style={styles.remainingText}>
+                    {settlementInputComplete
+                      ? isPaymentPaid
+                        ? '정산 가능'
+                        : '결제 후 정산'
+                      : `정산까지 ${['technique', 'designer_diagnosis', 'home_care'].filter((field) => !treatment?.[field as 'technique' | 'designer_diagnosis' | 'home_care']?.trim()).length}개`}
+                  </Text>
+                </View>
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
+                </View>
               </View>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
-              </View>
-            </View>
+            ) : null}
 
             <View style={styles.photoSection}>
               <Text style={styles.photoSectionTitle}>시술 사진</Text>
@@ -1026,7 +1088,7 @@ export default function DesignerTreatmentInputScreen() {
                 uploadStatus={photoUploadStatus.before}
                 label="Before (전)"
                 previewUrl={photoPreviews.before}
-                onAdd={() => requestPickPhoto('before')}
+                onAdd={() => canEditTreatment && requestPickPhoto('before')}
                 onPreview={() =>
                   photoPreviews.before &&
                   setPhotoPreview({
@@ -1035,14 +1097,14 @@ export default function DesignerTreatmentInputScreen() {
                     label: 'Before (전)',
                   })
                 }
-                onEdit={() => requestPickPhoto('before')}
-                onRemove={() => handleRemovePhoto('before')}
+                onEdit={() => canEditTreatment && requestPickPhoto('before')}
+                onRemove={() => canEditTreatment && handleRemovePhoto('before')}
               />
               <TreatmentPhotoSlot
                 uploadStatus={photoUploadStatus.after}
                 label="After (후)"
                 previewUrl={photoPreviews.after}
-                onAdd={() => requestPickPhoto('after')}
+                onAdd={() => canEditTreatment && requestPickPhoto('after')}
                 onPreview={() =>
                   photoPreviews.after &&
                   setPhotoPreview({
@@ -1051,8 +1113,8 @@ export default function DesignerTreatmentInputScreen() {
                     label: 'After (후)',
                   })
                 }
-                onEdit={() => requestPickPhoto('after')}
-                onRemove={() => handleRemovePhoto('after')}
+                onEdit={() => canEditTreatment && requestPickPhoto('after')}
+                onRemove={() => canEditTreatment && handleRemovePhoto('after')}
               />
             </View>
 
@@ -1061,7 +1123,7 @@ export default function DesignerTreatmentInputScreen() {
               <View style={styles.cardList}>
                 {activeTabItems.map((item) => (
                   <FieldCard
-                    key={item.label}
+                    key={item.editable ?? item.label}
                     item={item}
                     onPress={item.editable ? () => openEditor(item.editable!) : undefined}
                   />
@@ -1069,102 +1131,118 @@ export default function DesignerTreatmentInputScreen() {
               </View>
             </View>
 
-            <View style={styles.damageCard}>
-              <Text style={styles.damageTitle}>손상도 기록</Text>
-              <Text style={styles.damageHint}>
-                {isAnalyzingDamage
-                  ? 'AI가 시술 내용을 분석하고 있어요. 잠시만 기다려 주세요.'
-                  : '직접 1~10을 선택하거나, 시술 내용을 바탕으로 AI가 자동 분석할 수 있어요.'}
-              </Text>
-              <DamageLevelPicker
-                disabled={isSaving || isAnalyzingDamage}
-                value={treatment.damage_level}
-                onSelect={(level) => void handleSelectDamageLevel(level)}
-              />
-              <View style={styles.damageActionRow}>
-                <Pressable
-                  disabled={damageUndoStack.length === 0 || isAnalyzingDamage || isSaving}
-                  onPress={() => void handleUndoDamageLevel()}
-                  style={({ pressed }) => [
-                    styles.damageUndoButton,
-                    (damageUndoStack.length === 0 || isAnalyzingDamage || isSaving) &&
-                      styles.damageAiButtonDisabled,
-                    pressed && styles.buttonPressed,
-                  ]}>
-                  <Text style={styles.damageUndoButtonText}>
-                    {damageUndoStack.length > 0
-                      ? `되돌리기 (${formatDamageLevelLabel(
-                          damageUndoStack[damageUndoStack.length - 1],
-                        )})`
-                      : '되돌리기'}
-                  </Text>
-                </Pressable>
+            {canEditTreatment ? (
+              <View style={styles.damageCard}>
+                <Text style={styles.damageTitle}>손상도 기록</Text>
+                <Text style={styles.damageHint}>
+                  {isAnalyzingDamage
+                    ? 'AI가 시술 내용을 분석하고 있어요. 잠시만 기다려 주세요.'
+                    : '직접 1~10을 선택하거나, 시술 내용을 바탕으로 AI가 자동 분석할 수 있어요.'}
+                </Text>
+                <DamageLevelPicker
+                  disabled={isSaving || isAnalyzingDamage}
+                  value={treatment.damage_level}
+                  onSelect={(level) => void handleSelectDamageLevel(level)}
+                />
+                <View style={styles.damageActionRow}>
+                  <Pressable
+                    disabled={damageUndoStack.length === 0 || isAnalyzingDamage || isSaving}
+                    onPress={() => void handleUndoDamageLevel()}
+                    style={({ pressed }) => [
+                      styles.damageUndoButton,
+                      (damageUndoStack.length === 0 || isAnalyzingDamage || isSaving) &&
+                        styles.damageAiButtonDisabled,
+                      pressed && styles.buttonPressed,
+                    ]}>
+                    <Text style={styles.damageUndoButtonText}>
+                      {damageUndoStack.length > 0
+                        ? `되돌리기 (${formatDamageLevelLabel(
+                            damageUndoStack[damageUndoStack.length - 1],
+                          )})`
+                        : '되돌리기'}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    disabled={
+                      !canInferTreatmentDamageLevel(treatment) ||
+                      isAnalyzingDamage ||
+                      isSaving
+                    }
+                    onPress={() => void handleAiAnalyzeDamage()}
+                    style={({ pressed }) => [
+                      styles.damageAiButton,
+                      (!canInferTreatmentDamageLevel(treatment) ||
+                        isAnalyzingDamage ||
+                        isSaving) &&
+                        styles.damageAiButtonDisabled,
+                      pressed && styles.buttonPressed,
+                    ]}>
+                    <Text style={styles.damageAiButtonText}>
+                      {isAnalyzingDamage ? 'AI 분석 중…' : 'AI 자동 분석'}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : treatment.damage_level != null ? (
+              <View style={styles.damageCard}>
+                <Text style={styles.damageTitle}>손상도 기록</Text>
+                <Text style={styles.damageHint}>
+                  {formatDamageLevelLabel(treatment.damage_level)}
+                </Text>
+              </View>
+            ) : null}
+
+            {canEditTreatment ? (
+              <View style={styles.aiInsightCard}>
+                <Text style={styles.aiInsightTitle}>AI 인사이트</Text>
+                <Text style={styles.aiInsightHint}>
+                  {isAiAppUtilizationEnabled()
+                    ? 'Claude AI가 시술 데이터를 바탕으로 고객용 인사이트를 작성해요.'
+                    : 'AI 연동 전에도 규칙 기반 인사이트를 자동 생성할 수 있어요.'}
+                </Text>
+                <Text style={styles.aiInsightBody}>
+                  {treatment.ai_insight?.trim() ||
+                    '생성하면 고객 시술 기록·내 모발 분석에 표시됩니다.'}
+                </Text>
                 <Pressable
                   disabled={
-                    !canInferTreatmentDamageLevel(treatment) ||
-                    isAnalyzingDamage ||
+                    !canGenerateTreatmentAiInsight(treatment) ||
+                    isGeneratingInsight ||
                     isSaving
                   }
-                  onPress={() => void handleAiAnalyzeDamage()}
+                  onPress={() => void handleGenerateAiInsight()}
                   style={({ pressed }) => [
-                    styles.damageAiButton,
-                    (!canInferTreatmentDamageLevel(treatment) ||
-                      isAnalyzingDamage ||
+                    styles.aiInsightButton,
+                    (!canGenerateTreatmentAiInsight(treatment) ||
+                      isGeneratingInsight ||
                       isSaving) &&
-                      styles.damageAiButtonDisabled,
+                      styles.aiInsightButtonDisabled,
                     pressed && styles.buttonPressed,
                   ]}>
-                  <Text style={styles.damageAiButtonText}>
-                    {isAnalyzingDamage ? 'AI 분석 중…' : 'AI 자동 분석'}
+                  <Text style={styles.aiInsightButtonText}>
+                    {isGeneratingInsight
+                      ? 'AI 생성 중...'
+                      : treatment.ai_insight?.trim()
+                        ? 'AI 인사이트 다시 생성'
+                        : 'AI 인사이트 생성'}
                   </Text>
                 </Pressable>
               </View>
-            </View>
+            ) : treatment.ai_insight?.trim() ? (
+              <View style={styles.aiInsightCard}>
+                <Text style={styles.aiInsightTitle}>AI 인사이트</Text>
+                <Text style={styles.aiInsightBody}>{treatment.ai_insight}</Text>
+              </View>
+            ) : null}
 
-            <View style={styles.aiInsightCard}>
-              <Text style={styles.aiInsightTitle}>AI 인사이트</Text>
-              <Text style={styles.aiInsightHint}>
-                {isAiAppUtilizationEnabled()
-                  ? 'Claude AI가 시술 데이터를 바탕으로 고객용 인사이트를 작성해요.'
-                  : 'AI 연동 전에도 규칙 기반 인사이트를 자동 생성할 수 있어요.'}
-              </Text>
-              <Text style={styles.aiInsightBody}>
-                {treatment.ai_insight?.trim() ||
-                  '생성하면 고객 시술 기록·내 모발 분석에 표시됩니다.'}
-              </Text>
-              <Pressable
-                disabled={
-                  !canGenerateTreatmentAiInsight(treatment) ||
-                  isGeneratingInsight ||
-                  isSaving
-                }
-                onPress={() => void handleGenerateAiInsight()}
-                style={({ pressed }) => [
-                  styles.aiInsightButton,
-                  (!canGenerateTreatmentAiInsight(treatment) ||
-                    isGeneratingInsight ||
-                    isSaving) &&
-                    styles.aiInsightButtonDisabled,
-                  pressed && styles.buttonPressed,
-                ]}>
-                <Text style={styles.aiInsightButtonText}>
-                  {isGeneratingInsight
-                    ? 'AI 생성 중...'
-                    : treatment.ai_insight?.trim()
-                      ? 'AI 인사이트 다시 생성'
-                      : 'AI 인사이트 생성'}
-                </Text>
-              </Pressable>
-            </View>
-
-            {canRequestPayment ? (
+            {canEditTreatment && canRequestPayment ? (
               <Pressable
                 disabled={isSaving}
                 onPress={handleRequestPayment}
                 style={({ pressed }) => [styles.paymentRequestButton, pressed && styles.buttonPressed]}>
                 <Text style={styles.paymentRequestButtonText}>결제 요청 보내기</Text>
               </Pressable>
-            ) : paymentStatus === 'pending' && !isCustomerLinked ? (
+            ) : canEditTreatment && paymentStatus === 'pending' && !isCustomerLinked ? (
               <View style={styles.waitingPaymentBox}>
                 <Text style={styles.waitingPaymentText}>
                   고객 연결 후 결제 요청이 가능합니다 (가입 고객 불러오기 또는 신규 초대)
@@ -1203,22 +1281,24 @@ export default function DesignerTreatmentInputScreen() {
               </Text>
             ) : null}
 
-            <Pressable
-              disabled={!canSettle || isSaving}
-              onPress={handleRequestSettlement}
-              style={[styles.settlementButton, canSettle ? styles.settlementButtonActive : styles.settlementButtonDisabled]}>
-              <Text
-                style={[
-                  styles.settlementButtonText,
-                  canSettle && styles.settlementButtonTextActive,
-                ]}>
-                {isSettled
-                  ? '정산 완료'
-                  : canSettle
-                    ? '정산 요청'
-                    : settlementBlockReason ?? `필수 항목 ${requiredCount}개 입력 후 정산 가능`}
-              </Text>
-            </Pressable>
+            {canEditTreatment ? (
+              <Pressable
+                disabled={!canSettle || isSaving}
+                onPress={handleRequestSettlement}
+                style={[styles.settlementButton, canSettle ? styles.settlementButtonActive : styles.settlementButtonDisabled]}>
+                <Text
+                  style={[
+                    styles.settlementButtonText,
+                    canSettle && styles.settlementButtonTextActive,
+                  ]}>
+                  {isSettled
+                    ? '정산 완료'
+                    : canSettle
+                      ? '정산 요청'
+                      : settlementBlockReason ?? `필수 항목 ${requiredCount}개 입력 후 정산 가능`}
+                </Text>
+              </Pressable>
+            ) : null}
           </>
         )}
       </ScrollView>
@@ -1228,15 +1308,23 @@ export default function DesignerTreatmentInputScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{activeFieldLabel}</Text>
             {isChoiceEditor ? (
-              <TreatmentOptionChips
-                options={
-                  activeField === 'treatment_type'
-                    ? TREATMENT_TYPE_OPTIONS
-                    : [...DURATION_OPTIONS]
-                }
-                value={choiceValue}
-                onChange={setChoiceValue}
-              />
+              activeField === 'treatment_type' ? (
+                <>
+                  <Text style={styles.multiHint}>여러 종류를 함께 선택할 수 있어요.</Text>
+                  <TreatmentOptionChips
+                    multiple
+                    options={TREATMENT_TYPE_OPTIONS}
+                    values={choiceValues}
+                    onChange={setChoiceValues}
+                  />
+                </>
+              ) : (
+                <TreatmentOptionChips
+                  options={[...DURATION_OPTIONS]}
+                  value={choiceValue}
+                  onChange={setChoiceValue}
+                />
+              )
             ) : activeField === 'price' ? (
               <WonAmountInput
                 placeholder="금액 입력"
@@ -1362,6 +1450,32 @@ export default function DesignerTreatmentInputScreen() {
 }
 
 const styles = StyleSheet.create({
+  historyNoticeCard: {
+    backgroundColor: '#FFF8F0',
+    borderColor: '#FFD9B8',
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 6,
+    marginBottom: 12,
+    padding: 14,
+  },
+  historyNoticeCardMuted: {
+    backgroundColor: '#F5F5F8',
+    borderRadius: 14,
+    marginBottom: 12,
+    padding: 14,
+  },
+  historyNoticeTitle: {
+    color: '#1A1A2E',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  historyNoticeText: {
+    color: '#6B6B7B',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 19,
+  },
   linkStatusCard: {
     borderRadius: 14,
     marginBottom: 12,
@@ -1829,6 +1943,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '900',
     marginBottom: 14,
+  },
+  multiHint: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 10,
   },
   modalInput: {
     minHeight: 140,

@@ -13,6 +13,7 @@ type CreatePayload = {
   treatmentType: string;
   treatmentTitle: string;
   bookingTimeLabel: string;
+  duration?: string;
 };
 
 export async function createCustomerBookingTreatment(input: CreatePayload): Promise<Treatment> {
@@ -29,7 +30,7 @@ export async function createCustomerBookingTreatment(input: CreatePayload): Prom
     products: null as string[] | null,
     technique: null as string | null,
     damage_level: null as number | null,
-    duration: DEFAULT_TREATMENT_DURATION,
+    duration: input.duration?.trim() || DEFAULT_TREATMENT_DURATION,
     designer_diagnosis: null as string | null,
     home_care: null as string | null,
     ai_insight: null as string | null,

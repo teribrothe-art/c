@@ -38,10 +38,11 @@ export default function CustomerHomeScreen() {
   const [isWeatherLoading, setIsWeatherLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const promoCarouselHeight = useMemo(
-    () => Math.max(240, Dimensions.get('window').height * 0.32),
-    [],
-  );
+  const promoCarouselHeight = useMemo(() => {
+    const base = Math.max(240, Dimensions.get('window').height * 0.32);
+
+    return Math.max(88, Math.round(base / 3));
+  }, []);
 
   const loadHomeData = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;

@@ -1,4 +1,12 @@
-import { demoGetItem, demoMultiRemove, demoMultiSet, demoSetItem } from './demo-async-storage';
+import { Platform } from 'react-native';
+
+import {
+  demoGetItem,
+  demoMultiRemove,
+  demoMultiSet,
+  demoSetItem,
+  prefetchDemoWorkspaceStorage,
+} from './demo-async-storage';
 import { invalidateGeneralSignupCustomersCache } from './demo-general-signup-customers';
 import { lookupDemoCatalogUser } from './demo-user-catalog';
 import { isSupabaseConfigured, supabase } from './supabase';
@@ -39,6 +47,53 @@ const DEMO_SESSION_USER_KEY = 'hair-diary-demo-session-user';
 
 let demoSessionCache: AuthUser | null = null;
 let demoUsersCache: DemoUser[] | null = null;
+let authReadyPromise: Promise<void> | null = null;
+
+function hydrateDemoSessionCacheFromWebStorage() {
+  if (!isDemoAuthMode || demoSessionCache || Platform.OS !== 'web') {
+    return;
+  }
+
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return;
+  }
+
+  try {
+    const rawSessionUser = window.localStorage.getItem(DEMO_SESSION_USER_KEY);
+
+    if (!rawSessionUser) {
+      return;
+    }
+
+    const parsed = JSON.parse(rawSessionUser) as AuthUser;
+
+    if (parsed?.id && parsed.email) {
+      demoSessionCache = parsed;
+    }
+  } catch {
+    // ignore corrupt session payload
+  }
+}
+
+hydrateDemoSessionCacheFromWebStorage();
+
+/** HMR·새로고침 직후 localStorage 세션을 먼저 복원 */
+export function ensureAuthReady(): Promise<void> {
+  if (authReadyPromise) {
+    return authReadyPromise;
+  }
+
+  authReadyPromise = (async () => {
+    hydrateDemoSessionCacheFromWebStorage();
+
+    if (isDemoAuthMode) {
+      await prefetchDemoWorkspaceStorage();
+      await getDemoCurrentUser();
+    }
+  })();
+
+  return authReadyPromise;
+}
 
 /** 웹·데모에서 바로 로그인 테스트용 (시술 더미 데이터와 ID 일치) */
 const SEEDED_DEMO_USERS: DemoUser[] = [
@@ -415,6 +470,8 @@ export async function signInWithEmail({ email, password }: LoginInput) {
 }
 
 export async function getCurrentUser() {
+  await ensureAuthReady();
+
   if (!isDemoAuthMode && supabase) {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
@@ -465,7 +522,12 @@ export async function signOut() {
 
   demoSessionCache = null;
   demoUsersCache = null;
+  authReadyPromise = null;
   await demoMultiRemove([DEMO_SESSION_KEY, DEMO_SESSION_USER_KEY]);
+
+  if (__DEV__ && typeof sessionStorage !== 'undefined') {
+    sessionStorage.removeItem('hair-diary-dev-last-route');
+  }
 }
 
 export function subscribeToAuthState(listener: AuthStateListener) {

@@ -9,13 +9,16 @@ import {
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppBackButton } from '../../src/components/app-back-button';
 import { TreatmentPhotoCarousel } from '../../src/components/treatment-photo-carousel';
 import { TreatmentRecordNav } from '../../src/components/treatment-record-nav';
 import { getErrorMessage } from '../../lib/errors';
 import { getCustomerPaymentBadge, type CustomerPaymentBadge } from '../../lib/payment-status';
 import { normalizePaymentStatus } from '../../lib/payment-status';
 import { getPaymentByTreatmentId } from '../../lib/payments';
+import { getActiveDesignerIdsForCustomer } from '../../lib/registered-customers';
 import { getTreatmentNavigation } from '../../lib/treatment-navigation';
+import { canCustomerViewDesignerPrivateNotes } from '../../lib/treatment-privacy';
 import { getTreatmentById, getTreatments, Treatment } from '../../lib/treatments';
 import { LoadingState } from '../../src/components/loading-state';
 import { BottomTabBar } from '../../src/components/bottom-tab-bar';
@@ -67,6 +70,7 @@ export default function TreatmentDetailScreen() {
   const [paymentBadge, setPaymentBadge] = useState<CustomerPaymentBadge>({ label: '결제 대기', variant: 'pending' });
   const [receiptPaymentId, setReceiptPaymentId] = useState<string | null>(null);
   const [recordNav, setRecordNav] = useState<ReturnType<typeof getTreatmentNavigation>>(null);
+  const [designerNotesVisible, setDesignerNotesVisible] = useState(true);
 
   const loadTreatmentDetail = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -98,6 +102,9 @@ export default function TreatmentDetailScreen() {
           setTreatment(null);
           return;
         }
+
+        const activeDesignerIds = await getActiveDesignerIdsForCustomer(user.id);
+        setDesignerNotesVisible(canCustomerViewDesignerPrivateNotes(nextTreatment, activeDesignerIds));
 
         setTreatment(nextTreatment);
         setRecordNav(getTreatmentNavigation(treatments, id));
@@ -140,9 +147,7 @@ export default function TreatmentDetailScreen() {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Pressable onPress={() => router.back()} style={styles.headerButton}>
-          <Text style={styles.headerIcon}>‹</Text>
-        </Pressable>
+        <AppBackButton onPress={() => router.back()} size={34} style={styles.headerButton} />
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>시술 기록</Text>
           <View style={[
@@ -230,11 +235,23 @@ export default function TreatmentDetailScreen() {
             </SectionCard>
 
             <SectionCard title="디자이너 진단" variant="purple">
-              <Text style={styles.bodyText}>{treatment.designer_diagnosis || '진단 내용이 없습니다.'}</Text>
-              <View style={styles.homeCareBox}>
-                <Text style={styles.homeCareLabel}>홈케어</Text>
-                <Text style={styles.bodyText}>{treatment.home_care || '홈케어 정보가 없습니다.'}</Text>
-              </View>
+              {designerNotesVisible ? (
+                <>
+                  <Text style={styles.bodyText}>
+                    {treatment.designer_diagnosis || '진단 내용이 없습니다.'}
+                  </Text>
+                  <View style={styles.homeCareBox}>
+                    <Text style={styles.homeCareLabel}>홈케어</Text>
+                    <Text style={styles.bodyText}>
+                      {treatment.home_care || '홈케어 정보가 없습니다.'}
+                    </Text>
+                  </View>
+                </>
+              ) : (
+                <Text style={styles.bodyText}>
+                  담당 디자이너가 변경되어 이전 디자이너의 진단·홈케어는 보호됩니다.
+                </Text>
+              )}
             </SectionCard>
 
             <SectionCard title="AI 인사이트" variant="mint">

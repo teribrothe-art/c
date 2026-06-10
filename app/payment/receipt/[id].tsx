@@ -11,6 +11,7 @@ import { getPaymentByTreatmentId, PaymentRecord } from '../../../lib/payment-rec
 import { supabase } from '../../../lib/supabase';
 import { isDemoAuthMode } from '../../../lib/auth';
 import { getTreatmentById, Treatment } from '../../../lib/treatments';
+import { AppBackButton } from '../../../src/components/app-back-button';
 import { LoadingState } from '../../../src/components/loading-state';
 import { BottomTabBar } from '../../../src/components/bottom-tab-bar';
 import { TAB_BAR_BOTTOM_INSET } from '../../../src/components/role-bottom-tab-bar';
@@ -140,9 +141,7 @@ export default function PaymentReceiptScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
-            <Text style={styles.back}>‹</Text>
-          </Pressable>
+          <AppBackButton onPress={() => router.back()} size={34} />
           <Text style={styles.headerTitle}>영수증</Text>
           <Pressable onPress={() => setUseWebReceipt(false)}>
             <Text style={styles.switch}>앱 영수증</Text>
@@ -156,9 +155,7 @@ export default function PaymentReceiptScreen() {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={() => router.back()}>
-          <Text style={styles.back}>‹</Text>
-        </Pressable>
+        <AppBackButton onPress={() => router.back()} size={34} />
         <Text style={styles.headerTitle}>영수증</Text>
         {payment.receipt_url ? (
           <Pressable onPress={() => setUseWebReceipt(true)}>

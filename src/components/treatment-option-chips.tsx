@@ -4,11 +4,21 @@ import { colors } from '../../lib/theme';
 
 type ChipOption = string | { icon?: string; label: string };
 
-type TreatmentOptionChipsProps = {
+type SingleSelectProps = {
+  multiple?: false;
   options: ChipOption[];
   value: string;
   onChange: (value: string) => void;
 };
+
+type MultiSelectProps = {
+  multiple: true;
+  options: ChipOption[];
+  values: string[];
+  onChange: (values: string[]) => void;
+};
+
+export type TreatmentOptionChipsProps = SingleSelectProps | MultiSelectProps;
 
 function getLabel(option: ChipOption) {
   return typeof option === 'string' ? option : option.label;
@@ -18,17 +28,30 @@ function getIcon(option: ChipOption) {
   return typeof option === 'string' ? undefined : option.icon;
 }
 
-export function TreatmentOptionChips({ options, value, onChange }: TreatmentOptionChipsProps) {
+export function TreatmentOptionChips(props: TreatmentOptionChipsProps) {
   return (
     <View style={styles.wrap}>
-      {options.map((option) => {
+      {props.options.map((option) => {
         const label = getLabel(option);
-        const selected = value === label;
+        const selected = props.multiple
+          ? props.values.includes(label)
+          : props.value === label;
 
         return (
           <Pressable
             key={label}
-            onPress={() => onChange(label)}
+            onPress={() => {
+              if (props.multiple) {
+                props.onChange(
+                  selected
+                    ? props.values.filter((item) => item !== label)
+                    : [...props.values, label],
+                );
+                return;
+              }
+
+              props.onChange(label);
+            }}
             style={({ pressed }) => [
               styles.chip,
               selected && styles.chipSelected,

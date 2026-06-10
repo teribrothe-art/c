@@ -196,6 +196,11 @@ export default function ProfileScreen() {
       return;
     }
 
+    if (label === '예약 메뉴 설정') {
+      router.push('/designer/booking-menu');
+      return;
+    }
+
     showWarningAlert('곧 제공될 예정입니다.', label);
   };
 
@@ -277,17 +282,32 @@ export default function ProfileScreen() {
                 <Text style={styles.paymentsLinkLabel}>시술별 결제·영수증</Text>
                 <Text style={styles.paymentsLinkArrow}>›</Text>
               </Pressable>
-            ) : null}
+            ) : (
+              <Pressable
+                style={({ pressed }) => [styles.paymentsLink, pressed && styles.paymentsLinkPressed]}
+                onPress={() => router.push('/designer/booking-menu')}>
+                <Text style={styles.paymentsLinkIcon}>📋</Text>
+                <Text style={styles.paymentsLinkLabel}>예약 메뉴 설정</Text>
+                <Text style={styles.paymentsLinkArrow}>›</Text>
+              </Pressable>
+            )}
 
             <View style={styles.card}>
-              {settingItems.map((item, index) => (
+              {(isDesigner
+                ? [
+                    { icon: '✏️', label: '프로필 수정' },
+                    { icon: '📋', label: '예약 메뉴 설정' },
+                    ...settingItems.slice(1),
+                  ]
+                : settingItems
+              ).map((item, index, rows) => (
                 <View key={item.label}>
                   <SettingsRow
                     icon={item.icon}
                     label={item.label}
                     onPress={() => handleSettingPress(item.label)}
                   />
-                  {index < settingItems.length - 1 ? <View style={styles.settingDivider} /> : null}
+                  {index < rows.length - 1 ? <View style={styles.settingDivider} /> : null}
                 </View>
               ))}
             </View>

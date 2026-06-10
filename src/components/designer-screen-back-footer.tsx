@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { navigateBackOrReplace } from '../../lib/navigation';
+import { IronlongLogoMark } from './ironlong-logo';
 
 /** 디자이너 탭 화면 하단 탭 바 바로 위 뒤로가기 */
 export function DesignerScreenBackFooter({
@@ -20,7 +21,7 @@ export function DesignerScreenBackFooter({
         accessibilityLabel="뒤로가기"
         onPress={() => navigateBackOrReplace(fallback)}
         style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
-        <Text style={styles.chevron}>‹</Text>
+        <IronlongLogoMark size={28} />
         <Text style={styles.label}>뒤로가기</Text>
       </Pressable>
     </View>
@@ -55,13 +56,6 @@ const styles = StyleSheet.create({
   buttonPressed: {
     backgroundColor: '#F5F5F8',
     opacity: 0.92,
-  },
-  chevron: {
-    color: '#1A1A2E',
-    fontSize: 22,
-    fontWeight: '700',
-    lineHeight: 24,
-    marginTop: -2,
   },
   label: {
     color: '#1A1A2E',

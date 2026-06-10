@@ -174,6 +174,11 @@ function requireTreatmentParties(treatment: Treatment) {
   };
 }
 
+/** 디자이너 화면 매출·정산 표시용 — 고객이 실제 결제한 금액 */
+export function customerPaymentAmountOf(payment: PaymentRecord): number {
+  return payment.amount;
+}
+
 export function calculatePaymentFees(amount: number, feeRate = PLATFORM_FEE_RATE) {
   const config = {
     ...DEFAULT_REVENUE_SPLIT_CONFIG,

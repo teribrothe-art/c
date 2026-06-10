@@ -337,21 +337,9 @@ async function writeDemoRelationships(items: DesignerCustomerRelationship[]) {
 }
 
 async function applyInvitationUsedSideEffects(invitation: CustomerInvitation, customerId: string) {
-  const relationships = await readDemoRelationships();
+  const { ensureDesignerCustomerRelationship } = await import('./registered-customers');
 
-  if (!relationships.some((item) => item.designer_id === invitation.designer_id && item.customer_id === customerId)) {
-    relationships.unshift({
-      id: `demo-rel-${Date.now()}`,
-      designer_id: invitation.designer_id,
-      customer_id: customerId,
-      first_treatment_date: null,
-      total_treatments: 0,
-      total_amount: 0,
-      status: 'active',
-      created_at: new Date().toISOString(),
-    });
-    await writeDemoRelationships(relationships);
-  }
+  await ensureDesignerCustomerRelationship(invitation.designer_id, customerId);
 
   if (invitation.treatment_id) {
     await updateTreatment(invitation.treatment_id, { customer_id: customerId });

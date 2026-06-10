@@ -20,6 +20,7 @@ import { prepareImageForUpload } from '../../lib/prepare-upload-image';
 import { getProfileAvatarUri, updateProfile } from '../../lib/profile-update';
 import { getProfileScreenData } from '../../lib/profile';
 import { colors } from '../../lib/theme';
+import { AppBackButton } from '../../src/components/app-back-button';
 import { LoadingState } from '../../src/components/loading-state';
 
 export default function ProfileEditScreen() {
@@ -85,9 +86,7 @@ export default function ProfileEditScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backText}>‹</Text>
-        </Pressable>
+        <AppBackButton onPress={() => router.back()} size={34} style={styles.backButton} />
         <Text style={styles.headerTitle}>프로필 수정</Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -144,8 +143,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     paddingHorizontal: 16,
   },
-  backButton: { alignItems: 'center', height: 44, justifyContent: 'center', width: 44 },
-  backText: { color: colors.text, fontSize: 40, lineHeight: 40 },
+  backButton: { height: 44, justifyContent: 'center', width: 44 },
   headerTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
   headerSpacer: { width: 44 },
   body: { gap: 16, padding: 20 },

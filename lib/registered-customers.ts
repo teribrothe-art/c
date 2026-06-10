@@ -41,7 +41,12 @@ const DEMO_RELATIONSHIPS_KEY = 'hair-diary-designer-customer-relationships';
 type DemoRelationship = {
   designer_id: string;
   customer_id: string;
+  status?: 'active' | 'inactive';
 };
+
+function isActiveDemoRelationship(item: DemoRelationship) {
+  return item.status !== 'inactive';
+}
 
 async function readDemoRelationships(): Promise<DemoRelationship[]> {
   const raw = await demoGetItem(DEMO_RELATIONSHIPS_KEY);
@@ -52,14 +57,134 @@ async function writeDemoRelationships(items: DemoRelationship[]) {
   await demoSetItem(DEMO_RELATIONSHIPS_KEY, JSON.stringify(items));
 }
 
-export async function ensureDesignerCustomerRelationship(designerId: string, customerId: string) {
+async function deactivateOtherDemoDesignerRelationships(customerId: string, activeDesignerId: string) {
+  const items = await readDemoRelationships();
+  let changed = false;
+
+  for (const item of items) {
+    if (
+      item.customer_id === customerId &&
+      item.designer_id !== activeDesignerId &&
+      isActiveDemoRelationship(item)
+    ) {
+      item.status = 'inactive';
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    await writeDemoRelationships(items);
+  }
+}
+
+async function deactivateOtherDesignerRelationships(customerId: string, activeDesignerId: string) {
+  if (isDemoAuthMode || !supabase) {
+    await deactivateOtherDemoDesignerRelationships(customerId, activeDesignerId);
+    return;
+  }
+
+  const { error } = await supabase
+    .from('designer_customer_relationships')
+    .update({ status: 'inactive' })
+    .eq('customer_id', customerId)
+    .neq('designer_id', activeDesignerId)
+    .eq('status', 'active');
+
+  if (error) {
+    throw toAppError(error);
+  }
+}
+
+/** 고객의 현재 담당(활성) 디자이너인지 */
+export async function isDesignerLinkedToCustomer(
+  designerId: string,
+  customerId: string,
+): Promise<boolean> {
+  const activeDesignerIds = await getActiveDesignerIdsForCustomer(customerId);
+  return activeDesignerIds.has(designerId);
+}
+
+/** 고객과 현재 active 상태인 디자이너 ID 목록 */
+export async function getActiveDesignerIdsForCustomer(customerId: string): Promise<Set<string>> {
   if (isDemoAuthMode || !supabase) {
     const items = await readDemoRelationships();
+    const activeFromRelationships = items
+      .filter((item) => item.customer_id === customerId && isActiveDemoRelationship(item))
+      .map((item) => item.designer_id);
 
-    if (!items.some((item) => item.designer_id === designerId && item.customer_id === customerId)) {
-      items.push({ designer_id: designerId, customer_id: customerId });
-      await writeDemoRelationships(items);
+    if (activeFromRelationships.length > 0) {
+      return new Set(activeFromRelationships);
     }
+
+    const treatmentsRaw = await demoGetItem('hair-diary-demo-treatments');
+    const treatments = treatmentsRaw
+      ? (JSON.parse(treatmentsRaw) as {
+          customer_id?: string | null;
+          designer_id?: string | null;
+          treatment_date?: string;
+        }[])
+      : [];
+    const latestDesignerId = treatments
+      .filter((item) => item.customer_id === customerId && item.designer_id)
+      .sort((a, b) => (b.treatment_date ?? '').localeCompare(a.treatment_date ?? ''))[0]
+      ?.designer_id;
+
+    return latestDesignerId ? new Set([latestDesignerId]) : new Set();
+  }
+
+  const { data, error } = await supabase
+    .from('designer_customer_relationships')
+    .select('designer_id')
+    .eq('customer_id', customerId)
+    .eq('status', 'active');
+
+  if (error) {
+    throw toAppError(error);
+  }
+
+  const activeFromRelationships = (data ?? []).map((row) => row.designer_id as string);
+
+  if (activeFromRelationships.length > 0) {
+    return new Set(activeFromRelationships);
+  }
+
+  const { data: treatmentRows, error: treatmentError } = await supabase
+    .from('treatments')
+    .select('designer_id, treatment_date')
+    .eq('customer_id', customerId)
+    .not('designer_id', 'is', null)
+    .order('treatment_date', { ascending: false })
+    .limit(1);
+
+  if (treatmentError) {
+    throw toAppError(treatmentError);
+  }
+
+  const latestDesignerId = treatmentRows?.[0]?.designer_id as string | undefined;
+
+  return latestDesignerId ? new Set([latestDesignerId]) : new Set();
+}
+
+export async function ensureDesignerCustomerRelationship(designerId: string, customerId: string) {
+  await deactivateOtherDesignerRelationships(customerId, designerId);
+
+  if (isDemoAuthMode || !supabase) {
+    const items = await readDemoRelationships();
+    const existing = items.find(
+      (item) => item.designer_id === designerId && item.customer_id === customerId,
+    );
+
+    if (existing) {
+      if (existing.status !== 'active') {
+        existing.status = 'active';
+        await writeDemoRelationships(items);
+      }
+
+      return;
+    }
+
+    items.push({ designer_id: designerId, customer_id: customerId, status: 'active' });
+    await writeDemoRelationships(items);
 
     return;
   }
@@ -174,7 +299,9 @@ async function fetchDemoRegisteredCustomers(
 
   const relationships = await readDemoRelationships();
   const linkedIds = new Set(
-    relationships.filter((item) => item.designer_id === designerId).map((item) => item.customer_id),
+    relationships
+      .filter((item) => item.designer_id === designerId && isActiveDemoRelationship(item))
+      .map((item) => item.customer_id),
   );
 
   for (const customerId of linkedIds) {

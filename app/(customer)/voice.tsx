@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { Fragment, useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -20,6 +20,7 @@ import { processTextConsultation } from '../../lib/ai-voice';
 import { getAiChatStatusLabel, isAiChatEnabled } from '../../lib/ai-edge';
 import { getConsultationUsageSummary } from '../../lib/ai-usage';
 import { colors } from '../../lib/theme';
+import { AppBackButton } from '../../src/components/app-back-button';
 import { BottomTabBar } from '../../src/components/bottom-tab-bar';
 import { EmptyState } from '../../src/components/empty-state';
 
@@ -40,6 +41,16 @@ function formatTime(iso: string) {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function conversationRowKey(item: AiConversation, index: number) {
+  const id = item.id?.trim();
+
+  if (id) {
+    return id;
+  }
+
+  return `conversation-${index}-${item.created_at}`;
 }
 
 function ChatBubble({ role, text }: { role: 'user' | 'ai'; text: string }) {
@@ -68,7 +79,7 @@ export default function CustomerVoiceScreen() {
 
     Promise.all([listAiConversations(), getConsultationUsageSummary()])
       .then(([items, usage]) => {
-        setConversations(items.reverse());
+        setConversations([...items].reverse());
 
         if (usage.premium || usage.todayLimit >= 999) {
           setUsageHint('');
@@ -91,6 +102,15 @@ export default function CustomerVoiceScreen() {
     }, [loadHistory]),
   );
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace('/customer-home');
+  };
+
   const handleSend = async () => {
     const trimmed = message.trim();
 
@@ -103,7 +123,13 @@ export default function CustomerVoiceScreen() {
       setMessage('');
 
       const saved = await processTextConsultation(trimmed);
-      setConversations((prev) => [...prev, saved]);
+      setConversations((prev) => {
+        if (prev.some((item) => item.id === saved.id)) {
+          return prev;
+        }
+
+        return [...prev, saved];
+      });
       const usage = await getConsultationUsageSummary();
 
       if (!usage.premium && usage.todayLimit < 999) {
@@ -125,7 +151,9 @@ export default function CustomerVoiceScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <AppBackButton onPress={handleBack} size={34} style={styles.backButton} />
         <Text style={styles.title}>AI 상담</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
       <View style={styles.heroSection}>
@@ -201,13 +229,13 @@ export default function CustomerVoiceScreen() {
             subtitle="시술 이력을 바탕으로 맞춤 케어 조언을 드려요"
           />
         ) : (
-          conversations.flatMap((item) => [
-            <ChatBubble key={`${item.id}-u`} role="user" text={item.user_message} />,
-            <ChatBubble key={`${item.id}-a`} role="ai" text={item.ai_response} />,
-            <Text key={`${item.id}-t`} style={styles.time}>
-              {formatTime(item.created_at)}
-            </Text>,
-          ])
+          conversations.map((item, index) => (
+            <Fragment key={conversationRowKey(item, index)}>
+              <ChatBubble role="user" text={item.user_message} />
+              <ChatBubble role="ai" text={item.ai_response} />
+              <Text style={styles.time}>{formatTime(item.created_at)}</Text>
+            </Fragment>
+          ))
         )}
       </ScrollView>
 
@@ -220,8 +248,26 @@ export default function CustomerVoiceScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: 16, paddingBottom: 4 },
-  title: { color: colors.text, fontSize: 22, fontWeight: '900' },
+  header: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingBottom: 4,
+    paddingHorizontal: 16,
+  },
+  backButton: {
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  title: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 22,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  headerSpacer: { width: 44 },
   heroSection: { alignItems: 'center', paddingVertical: 12 },
   decoCircle: {
     alignItems: 'center',

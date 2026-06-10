@@ -1,6 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, router } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -194,14 +194,35 @@ export default function DesignerRevenueScreen() {
     [scrollToSection],
   );
 
+  const handleCloseSettlementView = useCallback(() => {
+    setSettlementListMode('month');
+    setSelectedDayDate(null);
+    setShowAllMonthSettlements(false);
+  }, []);
+
+  const isSettlementDetailOpen = Boolean(
+    showAllMonthSettlements || selectedDayDate || settlementListMode === 'pending',
+  );
+
   const handleShowAllDates = useCallback(() => {
+    if (showAllMonthSettlements && settlementListMode === 'month' && !selectedDayDate) {
+      handleCloseSettlementView();
+      return;
+    }
+
     setSettlementListMode('month');
     setSelectedDayDate(null);
     setShowAllMonthSettlements(true);
     requestAnimationFrame(() => {
       scrollToSection(settlementSectionY.current);
     });
-  }, [scrollToSection]);
+  }, [
+    handleCloseSettlementView,
+    scrollToSection,
+    selectedDayDate,
+    settlementListMode,
+    showAllMonthSettlements,
+  ]);
 
   const showPendingSettlements = useCallback(() => {
     setSettlementListMode('pending');
@@ -367,6 +388,7 @@ export default function DesignerRevenueScreen() {
                 monthKey={analytics.selectedMonthKey}
                 monthLabel={analytics.selectedMonth.label}
                 selectedDate={selectedDayDate}
+                weeklyWeeks={analytics.weeklyWeeks}
                 onSelectDay={handleSelectDayFromChart}
               />
 
@@ -390,7 +412,17 @@ export default function DesignerRevenueScreen() {
               onLayout={(event) => {
                 settlementSectionY.current = event.nativeEvent.layout.y;
               }}>
-              <Text style={styles.cardTitle}>{settlementSectionTitle}</Text>
+              <View style={styles.cardTitleRow}>
+                <Text style={styles.cardTitle}>{settlementSectionTitle}</Text>
+                {isSettlementDetailOpen ? (
+                  <Pressable
+                    hitSlop={8}
+                    onPress={handleCloseSettlementView}
+                    style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
+                    <Text style={styles.closeLink}>전체 닫기</Text>
+                  </Pressable>
+                ) : null}
+              </View>
               {visibleSettlements.length === 0 ? (
                 <Text style={styles.emptyText}>{settlementHint}</Text>
               ) : (
@@ -441,7 +473,18 @@ const styles = StyleSheet.create({
     padding: 16,
     elevation: 3,
   },
-  cardTitle: { color: '#1A1A2E', fontSize: 16, fontWeight: '800', marginBottom: 12 },
+  cardTitleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  cardTitle: { color: '#1A1A2E', flex: 1, fontSize: 16, fontWeight: '800' },
+  closeLink: {
+    color: PURPLE,
+    fontSize: 13,
+    fontWeight: '800',
+  },
   emptyText: { color: '#6B6B7B', fontSize: 14, fontWeight: '600' },
   stateBox: {
     alignItems: 'center',

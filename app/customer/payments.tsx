@@ -9,6 +9,7 @@ import {
 } from '../../lib/customer-payment-entries';
 import { formatAmount } from '../../lib/currency-input';
 import { getErrorMessage } from '../../lib/errors';
+import { AppBackButton } from '../../src/components/app-back-button';
 import { BottomTabBar } from '../../src/components/bottom-tab-bar';
 import { CustomerPaymentDetailPanel } from '../../src/components/customer-payment-detail-panel';
 import { EmptyState } from '../../src/components/empty-state';
@@ -83,9 +84,7 @@ export default function CustomerPaymentsScreen() {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Pressable onPress={() => router.back()} style={styles.back}>
-          <Text style={styles.backText}>‹</Text>
-        </Pressable>
+        <AppBackButton onPress={() => router.back()} size={34} style={styles.back} />
         <View style={styles.headerCenter}>
           <Text style={styles.title}>시술별 결제·영수증</Text>
           {pendingCount > 0 ? (
@@ -176,7 +175,6 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   back: { height: 44, justifyContent: 'center', width: 44 },
-  backText: { color: '#1A1A2E', fontSize: 36 },
   headerCenter: {
     alignItems: 'center',
     flex: 1,

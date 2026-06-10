@@ -1,13 +1,17 @@
 import { getCurrentUser, isDemoAuthMode } from './auth';
 import { toAppError } from './errors';
-import { calculatePaymentFees, getPaymentByTreatmentId, listPaymentsForDesignerId, PaymentRecord } from './payment-record';
+import {
+  customerPaymentAmountOf,
+  getPaymentByTreatmentId,
+  listPaymentsForDesignerId,
+  PaymentRecord,
+} from './payment-record';
 import { canViewOrgDesignerData } from './org-access';
 import { getCurrentMonthKey, isValidMonthKey } from './designer-revenue-month-nav';
 import {
   buildMonthWeekdayTotals,
   buildWeeklyRevenueWeeks,
   formatDateWithWeekday,
-  getWeekStartMonday,
   resolveDefaultWeekKey,
   toLocalDateString,
   type MonthWeekdayTotal,
@@ -125,7 +129,7 @@ async function loadDesignerPayments(designerId: string): Promise<PaymentRecord[]
 }
 
 function payoutOf(payment: PaymentRecord) {
-  return payment.designer_payout ?? calculatePaymentFees(payment.amount).designerPayout;
+  return customerPaymentAmountOf(payment);
 }
 
 function buildMonthlyBuckets(completed: PaymentRecord[]): MonthlyRevenueBucket[] {

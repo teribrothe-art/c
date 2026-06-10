@@ -17,11 +17,14 @@ import { getErrorMessage } from '../../lib/errors';
 import { colors } from '../../lib/theme';
 import {
   DEFAULT_TREATMENT_DURATION,
-  defaultTreatmentTitle,
   DURATION_OPTIONS,
   TREATMENT_TYPE_OPTIONS,
-  titlePresetsForType,
 } from '../../lib/treatment-options';
+import {
+  defaultTreatmentTitleFromTypes,
+  formatTreatmentTypes,
+  titlePresetsForTypes,
+} from '../../lib/treatment-type-selection';
 import { parseWonAmount } from '../../lib/currency-input';
 import { createDesignerTreatment } from '../../lib/treatments';
 import {
@@ -37,7 +40,7 @@ import { WonAmountInput } from '../../src/components/won-amount-input';
 export default function DesignerInputScreen() {
   const insets = useSafeAreaInsets();
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedType, setSelectedType] = useState('');
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [priceText, setPriceText] = useState('');
   const [duration, setDuration] = useState(DEFAULT_TREATMENT_DURATION);
@@ -48,15 +51,17 @@ export default function DesignerInputScreen() {
   const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
 
   const openCreateModal = (type: string) => {
-    setSelectedType(type);
+    setSelectedTypes([type]);
     setDuration(DEFAULT_TREATMENT_DURATION);
-    setTreatmentTitle(defaultTreatmentTitle(type));
+    setTreatmentTitle(defaultTreatmentTitleFromTypes([type]));
     setPriceText('');
     setCustomerName('');
     setSelectedCustomerId(null);
     setCustomerSuggestions([]);
     setModalVisible(true);
   };
+
+  const selectedTypeLabel = formatTreatmentTypes(selectedTypes);
 
   useEffect(() => {
     if (!modalVisible) {
@@ -100,6 +105,11 @@ export default function DesignerInputScreen() {
   const handleCreate = async () => {
     const price = parseWonAmount(priceText);
 
+    if (selectedTypes.length === 0) {
+      showErrorAlert('시술 종류를 하나 이상 선택해주세요.');
+      return;
+    }
+
     if (!customerName.trim()) {
       showErrorAlert('고객 이름을 입력해주세요.');
       return;
@@ -115,8 +125,8 @@ export default function DesignerInputScreen() {
       const treatment = await createDesignerTreatment({
         customerName,
         customerId: selectedCustomerId,
-        treatmentType: selectedType,
-        treatmentTitle: treatmentTitle.trim() || defaultTreatmentTitle(selectedType),
+        treatmentType: selectedTypeLabel,
+        treatmentTitle: treatmentTitle.trim() || defaultTreatmentTitleFromTypes(selectedTypes),
         duration,
         price,
       });
@@ -174,7 +184,9 @@ export default function DesignerInputScreen() {
       <Modal animationType="slide" transparent visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{selectedType} 시술 추가</Text>
+            <Text style={styles.modalTitle}>
+              {selectedTypeLabel || '시술'} 추가
+            </Text>
 
             <Text style={styles.label}>고객 이름 *</Text>
             <TextInput
@@ -225,30 +237,36 @@ export default function DesignerInputScreen() {
             ) : null}
 
             <Text style={styles.label}>시술 종류</Text>
+            <Text style={styles.multiHint}>여러 종류를 함께 선택할 수 있어요.</Text>
             <TreatmentOptionChips
+              multiple
               options={TREATMENT_TYPE_OPTIONS}
-              value={selectedType}
-              onChange={(type) => {
-                setSelectedType(type);
-                setTreatmentTitle((prev) =>
-                  !prev.trim() || prev === defaultTreatmentTitle(selectedType)
-                    ? defaultTreatmentTitle(type)
-                    : prev,
-                );
+              values={selectedTypes}
+              onChange={(types) => {
+                setSelectedTypes(types);
+                setTreatmentTitle((prev) => {
+                  const previousDefault = defaultTreatmentTitleFromTypes(selectedTypes);
+
+                  if (!prev.trim() || prev === previousDefault) {
+                    return defaultTreatmentTitleFromTypes(types);
+                  }
+
+                  return prev;
+                });
               }}
             />
 
             <Text style={styles.label}>시술명</Text>
             <TextInput
-              placeholder={defaultTreatmentTitle(selectedType)}
+              placeholder={defaultTreatmentTitleFromTypes(selectedTypes)}
               placeholderTextColor="#9CA3AF"
               style={styles.input}
               value={treatmentTitle}
               onChangeText={setTreatmentTitle}
             />
-            {titlePresetsForType(selectedType).length ? (
+            {titlePresetsForTypes(selectedTypes).length ? (
               <TreatmentOptionChips
-                options={titlePresetsForType(selectedType)}
+                options={titlePresetsForTypes(selectedTypes)}
                 value={treatmentTitle}
                 onChange={setTreatmentTitle}
               />
@@ -401,6 +419,12 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 13,
     fontWeight: '700',
+  },
+  multiHint: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   fieldLabel: {
     color: colors.text,

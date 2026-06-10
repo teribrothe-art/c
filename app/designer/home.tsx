@@ -16,6 +16,7 @@ import {
   buildDesignerHomeRecentItems,
   countTodayTreatments,
 } from '../../lib/designer-home-feed';
+import { countTodayReservations, getDesignerReservationItems } from '../../lib/designer-booking';
 import {
   peekDesignerClientListCache,
   peekDesignerPaymentDashboardCache,
@@ -36,6 +37,7 @@ export default function DesignerHomeScreen() {
   const insets = useSafeAreaInsets();
   const [dashboard, setDashboard] = useState<DesignerPaymentDashboard | null>(null);
   const [clientItems, setClientItems] = useState<DesignerClientListItem[]>([]);
+  const [todayReservationCount, setTodayReservationCount] = useState(0);
   const [designerName, setDesignerName] = useState('디자이너');
   const [storeLabel, setStoreLabel] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,13 +74,15 @@ export default function DesignerHomeScreen() {
         return;
       }
 
-      const [paymentDashboard, items] = await Promise.all([
+      const [paymentDashboard, items, reservations] = await Promise.all([
         fetchDesignerPaymentDashboard(),
         getDesignerClientListItems(),
+        getDesignerReservationItems(),
       ]);
 
       setDashboard(paymentDashboard);
       setClientItems(items);
+      setTodayReservationCount(countTodayReservations(reservations));
       setDesignerName(user.email.split('@')[0] || '디자이너');
       setStoreLabel(formatDesignerStoreLabel(user.id));
       setErrorMessage('');
@@ -118,6 +122,12 @@ export default function DesignerHomeScreen() {
         href: '/designer/clients' as const,
       },
       {
+        key: 'today-reservations',
+        label: '오늘 예약',
+        value: `${todayReservationCount}건`,
+        href: '/designer/reservations' as const,
+      },
+      {
         key: 'customers',
         label: '보유 고객',
         value: `${uniqueCustomerCount}명`,
@@ -130,7 +140,7 @@ export default function DesignerHomeScreen() {
         href: '/designer/revenue' as const,
       },
     ];
-  }, [dashboard, uniqueCustomerCount]);
+  }, [dashboard, todayReservationCount, uniqueCustomerCount]);
 
   const todayTreatmentCount = useMemo(() => countTodayTreatments(clientItems), [clientItems]);
 
@@ -188,6 +198,7 @@ export default function DesignerHomeScreen() {
               pendingPayoutCount={dashboard?.pendingPayoutCount ?? 0}
               recentItems={recentItems}
               recentSettlements={dashboard?.recentSettlements ?? []}
+              todayReservationCount={todayReservationCount}
               todayTreatmentCount={todayTreatmentCount}
             />
           </>

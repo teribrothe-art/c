@@ -7,6 +7,7 @@ import { colors } from '../../lib/theme';
 
 type DesignerHomeSectionsProps = {
   todayTreatmentCount: number;
+  todayReservationCount: number;
   actionItems: DesignerHomeActionItem[];
   recentItems: DesignerHomeRecentItem[];
   recentSettlements: SettlementListItem[];
@@ -36,6 +37,7 @@ function SectionHeader({
 
 export function DesignerHomeSections({
   todayTreatmentCount,
+  todayReservationCount,
   actionItems,
   recentItems,
   recentSettlements,
@@ -43,6 +45,15 @@ export function DesignerHomeSections({
 }: DesignerHomeSectionsProps) {
   return (
     <View style={styles.wrapper}>
+      {todayReservationCount > 0 ? (
+        <View style={styles.reservationBanner}>
+          <Text style={styles.reservationBannerText}>오늘 고객 예약 {todayReservationCount}건</Text>
+          <Pressable onPress={() => router.push('/designer/reservations')}>
+            <Text style={styles.reservationBannerLink}>예약 관리</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       {todayTreatmentCount > 0 ? (
         <View style={styles.todayBanner}>
           <Text style={styles.todayBannerText}>오늘 시술 {todayTreatmentCount}건</Text>
@@ -131,7 +142,7 @@ export function DesignerHomeSections({
                     </Text>
                   </View>
                   <Text style={styles.payoutText}>
-                    +{item.payout.toLocaleString('ko-KR')}원
+                    +{item.amount.toLocaleString('ko-KR')}원
                   </Text>
                 </Pressable>
               ))}
@@ -165,6 +176,27 @@ const styles = StyleSheet.create({
   },
   todayBannerLink: {
     color: colors.coral,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  reservationBanner: {
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FED7AA',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  reservationBannerText: {
+    color: '#1A1A2E',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  reservationBannerLink: {
+    color: '#EA580C',
     fontSize: 13,
     fontWeight: '800',
   },

@@ -199,7 +199,7 @@ export default function SignupScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>회원가입</Text>
-        <Text style={styles.subtitle}>AI 헤어 다이어리를 시작해보세요.</Text>
+        <Text style={styles.subtitle}>아이롱 AI 살롱을 시작해보세요.</Text>
         <View style={styles.form}>
           <View>
             <TextInput

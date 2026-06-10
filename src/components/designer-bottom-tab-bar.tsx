@@ -9,6 +9,12 @@ const tabs: { href: Href; label: string; match?: (pathname: string) => boolean }
     match: (pathname) => pathname === '/designer/home',
   },
   {
+    href: '/designer/reservations' as Href,
+    label: '예약',
+    match: (pathname) =>
+      pathname === '/designer/reservations' || pathname.startsWith('/designer/reservations/'),
+  },
+  {
     href: '/designer/clients' as Href,
     label: '고객',
     match: (pathname) =>
@@ -35,7 +41,9 @@ const tabs: { href: Href; label: string; match?: (pathname: string) => boolean }
       pathname === '/profile' ||
       pathname.startsWith('/profile/') ||
       pathname === '/designer/my' ||
-      pathname.startsWith('/designer/my/'),
+      pathname.startsWith('/designer/my/') ||
+      pathname === '/designer/booking-menu' ||
+      pathname.startsWith('/designer/booking-menu/'),
   },
 ];
 

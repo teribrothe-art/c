@@ -33,6 +33,7 @@ import {
 } from '../../lib/toss';
 import { colors, disabledButtonStyle } from '../../lib/theme';
 import { getTreatmentById, Treatment } from '../../lib/treatments';
+import { AppBackButton } from '../../src/components/app-back-button';
 import { LoadingState } from '../../src/components/loading-state';
 import { TossPaymentWebView } from '../../src/components/toss-payment-webview';
 import { BottomTabBar } from '../../src/components/bottom-tab-bar';
@@ -272,9 +273,7 @@ export default function CustomerPaymentScreen() {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={() => router.back()} style={styles.headerBack}>
-          <Text style={styles.headerBackText}>‹</Text>
-        </Pressable>
+        <AppBackButton onPress={() => router.back()} size={34} style={styles.headerBack} />
         <Text style={styles.headerTitle}>결제</Text>
         <View style={styles.headerSpacer} />
       </View>

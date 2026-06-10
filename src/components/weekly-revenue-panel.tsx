@@ -2,54 +2,72 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { DailyRevenuePoint } from '../../lib/designer-revenue-analytics';
-import { formatDateWithWeekday } from '../../lib/designer-revenue-weekly';
+import {
+  formatDateWithWeekday,
+  resolveDefaultWeekKey,
+  type WeekdayRevenueCell,
+  type WeeklyRevenueWeek,
+} from '../../lib/designer-revenue-weekly';
 import { formatAmount } from '../../lib/currency-input';
-import { RevenueBarChart } from './revenue-bar-chart';
+import { RevenueBarChart, type RevenueBarChartPoint } from './revenue-bar-chart';
 
 const MINT = '#00C2A8';
 const PURPLE = '#7B5EE6';
-const PAGE_SIZE = 6;
+const WEEKDAY_SLOT_COUNT = 7;
 
 type WeeklyRevenuePanelProps = {
   monthLabel: string;
   monthKey: string;
   dailyTotals: DailyRevenuePoint[];
+  weeklyWeeks: WeeklyRevenueWeek[];
   selectedDate: string | null;
   onSelectDay: (day: DailyRevenuePoint) => void;
 };
+
+function weekDayToChartPoint(day: WeekdayRevenueCell): RevenueBarChartPoint {
+  const [, month, dateNum] = day.date.split('-');
+  const dateLabel = `${Number(month)}.${Number(dateNum)}`;
+  const hasAmount = day.inSelectedMonth && day.totalAmount > 0;
+
+  return {
+    key: hasAmount ? day.date : `empty-${day.date}`,
+    label: hasAmount ? dateLabel : day.weekdayLabel,
+    value: day.inSelectedMonth ? day.totalAmount : 0,
+    subLabel: day.weekdayLabel,
+  };
+}
 
 export function WeeklyRevenuePanel({
   monthLabel,
   monthKey,
   dailyTotals,
+  weeklyWeeks,
   selectedDate,
   onSelectDay,
 }: WeeklyRevenuePanelProps) {
   const [page, setPage] = useState(0);
 
-  const chartPoints = useMemo(
-    () =>
-      dailyTotals
-        .filter((day) => day.totalAmount > 0)
-        .map((day) => ({
-          key: day.date,
-          label: day.label,
-          value: day.totalAmount,
-          subLabel: day.settlementCount > 0 ? `${day.settlementCount}건` : undefined,
-        })),
-    [dailyTotals],
+  const weeksInMonth = useMemo(
+    () => weeklyWeeks.filter((week) => week.days.some((day) => day.inSelectedMonth)),
+    [weeklyWeeks],
   );
 
   useEffect(() => {
-    setPage(0);
-  }, [monthKey]);
+    const defaultWeekKey = resolveDefaultWeekKey(weeksInMonth, monthKey);
+    const defaultIndex = weeksInMonth.findIndex((week) => week.weekKey === defaultWeekKey);
+    setPage(defaultIndex >= 0 ? defaultIndex : 0);
+  }, [monthKey, weeksInMonth]);
 
-  const pageCount = Math.max(1, Math.ceil(chartPoints.length / PAGE_SIZE));
+  const pageCount = Math.max(1, weeksInMonth.length);
   const safePage = Math.min(page, pageCount - 1);
-  const visiblePoints = useMemo(
-    () => chartPoints.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
-    [chartPoints, safePage],
+  const visibleWeek = weeksInMonth[safePage] ?? weeksInMonth[0];
+
+  const chartPoints = useMemo(
+    () => (visibleWeek ? visibleWeek.days.map(weekDayToChartPoint) : []),
+    [visibleWeek],
   );
+
+  const hasAnyData = dailyTotals.some((day) => day.totalAmount > 0);
 
   const canGoPrev = safePage > 0;
   const canGoNext = safePage < pageCount - 1;
@@ -57,6 +75,10 @@ export function WeeklyRevenuePanel({
   const selectedDay = dailyTotals.find((day) => day.date === selectedDate) ?? null;
 
   const handlePressChartDay = (dateKey: string) => {
+    if (dateKey.startsWith('empty-')) {
+      return;
+    }
+
     const day = dailyTotals.find((item) => item.date === dateKey);
 
     if (day) {
@@ -72,7 +94,7 @@ export function WeeklyRevenuePanel({
         {pageCount > 1 ? (
           <View style={styles.pager}>
             <Pressable
-              accessibilityLabel={`이전 ${PAGE_SIZE}일`}
+              accessibilityLabel="이전 주"
               disabled={!canGoPrev}
               onPress={() => setPage((current) => Math.max(0, current - 1))}
               style={[styles.navButton, !canGoPrev && styles.navButtonDisabled]}>
@@ -82,7 +104,7 @@ export function WeeklyRevenuePanel({
               {safePage + 1} / {pageCount}
             </Text>
             <Pressable
-              accessibilityLabel={`다음 ${PAGE_SIZE}일`}
+              accessibilityLabel="다음 주"
               disabled={!canGoNext}
               onPress={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
               style={[styles.navButton, !canGoNext && styles.navButtonDisabled]}>
@@ -93,6 +115,7 @@ export function WeeklyRevenuePanel({
       </View>
 
       <Text style={styles.monthCaption}>{monthLabel} 기준</Text>
+      {visibleWeek?.label ? <Text style={styles.weekCaption}>{visibleWeek.label}</Text> : null}
 
       <RevenueBarChart
         barColor={MINT}
@@ -100,8 +123,9 @@ export function WeeklyRevenuePanel({
         labelPosition="insideBar"
         maxBarHeight={100}
         onPressPoint={handlePressChartDay}
-        points={visiblePoints}
+        points={hasAnyData ? chartPoints : []}
         selectedKey={selectedDate}
+        slotCount={WEEKDAY_SLOT_COUNT}
         title=""
         emptyMessage="이번 달 정산 일별 데이터가 없어요"
       />
@@ -170,6 +194,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     marginTop: -8,
+  },
+  weekCaption: {
+    color: '#6B6B7B',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: -10,
   },
   detailBox: {
     backgroundColor: '#F0FBF9',

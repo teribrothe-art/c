@@ -31,6 +31,22 @@ export function getTreatmentPhotoColumn(kind: TreatmentPhotoKind) {
   return kind === 'before' ? 'before_photo_url' : 'after_photo_url';
 }
 
+function isTreatmentPhotoStoragePath(path: string) {
+  return path.includes('/') && !path.includes('://');
+}
+
+async function ensurePersistableTreatmentPhotoUri(localUri: string): Promise<string> {
+  if (
+    localUri.startsWith('data:') ||
+    localUri.startsWith('https://') ||
+    localUri.startsWith('http://')
+  ) {
+    return localUri;
+  }
+
+  return prepareImageForUpload(localUri);
+}
+
 export async function getTreatmentPhotoSignedUrl(
   storagePath: string | null | undefined,
 ): Promise<string | null> {
@@ -38,11 +54,12 @@ export async function getTreatmentPhotoSignedUrl(
     return null;
   }
 
-  if (isDisplayableImageUri(storagePath)) {
+  // blob: URL은 세션 한정이라 저장된 시술 사진으로는 사용할 수 없음
+  if (isDisplayableImageUri(storagePath) && !storagePath.startsWith('blob:')) {
     return storagePath;
   }
 
-  if (isDemoAuthMode || !supabase) {
+  if (!supabase || !isTreatmentPhotoStoragePath(storagePath)) {
     return null;
   }
 
@@ -51,6 +68,10 @@ export async function getTreatmentPhotoSignedUrl(
     .createSignedUrl(storagePath, SIGNED_URL_EXPIRY_SECONDS);
 
   if (error) {
+    if (isDemoAuthMode) {
+      return null;
+    }
+
     throw toAppError(error);
   }
 
@@ -137,7 +158,8 @@ export async function uploadTreatmentPhoto(
   const column = getTreatmentPhotoColumn(kind);
 
   if (isDemoAuthMode || !supabase) {
-    return updateTreatment(treatmentId, { [column]: localUri });
+    const persistUri = await ensurePersistableTreatmentPhotoUri(localUri);
+    return updateTreatment(treatmentId, { [column]: persistUri });
   }
 
   const storagePath = getTreatmentPhotoStoragePath(user.id, treatmentId, kind);

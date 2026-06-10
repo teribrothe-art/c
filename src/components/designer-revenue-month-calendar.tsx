@@ -8,6 +8,10 @@ import {
   countTreatmentsInMonth,
 } from '../../lib/designer-client-month-calendar';
 import { formatDateWithWeekday } from '../../lib/designer-revenue-weekly';
+import {
+  getCalendarWeekdayHeaderColor,
+  getTreatmentWeekdayColor,
+} from '../../lib/designer-customer-grid';
 import { formatAmount } from '../../lib/currency-input';
 import { colors } from '../../lib/theme';
 import { RevenuePeriodNavigator } from './revenue-period-navigator';
@@ -94,7 +98,7 @@ export function DesignerRevenueMonthCalendar({
         {CALENDAR_WEEKDAY_HEADERS.map((label, index) => (
           <Text
             key={label}
-            style={[styles.weekday, (index === 0 || index === 6) && styles.weekdayWeekend]}>
+            style={[styles.weekday, { color: getCalendarWeekdayHeaderColor(index) }]}>
             {label}
           </Text>
         ))}
@@ -107,7 +111,6 @@ export function DesignerRevenueMonthCalendar({
           }
 
           const weekday = new Date(cell.dateKey + 'T00:00:00').getDay();
-          const isWeekend = weekday === 0 || weekday === 6;
 
           return (
             <Pressable
@@ -134,7 +137,8 @@ export function DesignerRevenueMonthCalendar({
               <Text
                 style={[
                   styles.dayNumber,
-                  isWeekend && styles.dayNumberWeekend,
+                  !cell.isSelected &&
+                    cell.selectable && { color: getTreatmentWeekdayColor(weekday) },
                   cell.isSelected && styles.dayNumberSelected,
                   !cell.selectable && styles.dayNumberDisabled,
                 ]}>
@@ -162,7 +166,7 @@ export function DesignerRevenueMonthCalendar({
             styles.allButtonText,
             showAllDates && selectedDate === null && styles.allButtonTextSelected,
           ]}>
-          전체 날짜
+          {showAllDates && selectedDate === null ? '전체 닫기' : '전체 날짜'}
         </Text>
       </Pressable>
     </View>
@@ -216,9 +220,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'center',
   },
-  weekdayWeekend: {
-    color: '#FF5A5F',
-  },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -254,9 +255,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     lineHeight: 18,
-  },
-  dayNumberWeekend: {
-    color: '#FF5A5F',
   },
   dayNumberSelected: {
     color: '#7B5EE6',

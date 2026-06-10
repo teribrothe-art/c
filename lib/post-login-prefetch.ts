@@ -36,7 +36,11 @@ async function warmupDesignerWorkspace(designerId: string) {
     seeds.ensureAccumulatedProfileBuiltByDesignerId(designerId);
   }
 
-  await Promise.all([fetchDesignerPaymentDashboard(), getDesignerClientListItems()]);
+  await Promise.all([
+    fetchDesignerPaymentDashboard(),
+    getDesignerClientListItems(),
+    import('./designer-booking').then((module) => module.getDesignerReservationItems()),
+  ]);
 }
 
 async function warmupCustomerWorkspace(_customerId: string) {

@@ -16,11 +16,18 @@ import {
   listBookableStores,
   listBookingDates,
   loadBookableDesignerProfile,
-  TREATMENT_TYPE_OPTIONS,
   type BookableDesignerProfile,
   type BookingTimeSlot,
   type DesignerMatchResult,
 } from '../../lib/customer-booking';
+import {
+  formatBookingMenuLabel,
+  getDesignerBookingMenu,
+  listEnabledBookingCategories,
+  listEnabledBookingMenuItems,
+  resolveBookingMenuSelection,
+  type DesignerBookingMenuConfig,
+} from '../../lib/designer-booking-menu';
 import {
   matchDesignersForCustomer,
   matchNearbyDesignersForStore,
@@ -55,10 +62,33 @@ export default function CustomerBookingScreen() {
   const [aiMatches, setAiMatches] = useState<DesignerMatchResult[]>([]);
   const [aiSummary, setAiSummary] = useState('');
   const [selectedDesigner, setSelectedDesigner] = useState<BookableDesignerProfile | null>(null);
+  const [designerMenu, setDesignerMenu] = useState<DesignerBookingMenuConfig | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedMenuItemId, setSelectedMenuItemId] = useState('');
   const [selectedDateKey, setSelectedDateKey] = useState(bookingDates[0]?.key ?? '');
   const [selectedSlot, setSelectedSlot] = useState<BookingTimeSlot | null>(null);
-  const [selectedTreatmentType, setSelectedTreatmentType] = useState(TREATMENT_TYPE_OPTIONS[0]?.label ?? '컷');
   const [completedTreatmentId, setCompletedTreatmentId] = useState<string | null>(null);
+
+  const enabledCategories = useMemo(
+    () => (designerMenu ? listEnabledBookingCategories(designerMenu) : []),
+    [designerMenu],
+  );
+
+  const menuItems = useMemo(() => {
+    if (!designerMenu || !selectedCategory) {
+      return [];
+    }
+
+    return listEnabledBookingMenuItems(designerMenu, selectedCategory);
+  }, [designerMenu, selectedCategory]);
+
+  const selectedMenu = useMemo(() => {
+    if (!designerMenu || !selectedCategory || !selectedMenuItemId) {
+      return null;
+    }
+
+    return resolveBookingMenuSelection(designerMenu, selectedCategory, selectedMenuItemId);
+  }, [designerMenu, selectedCategory, selectedMenuItemId]);
 
   const slots = useMemo(() => {
     if (!selectedDesigner || !selectedDateKey) {
@@ -125,8 +155,21 @@ export default function CustomerBookingScreen() {
     }
 
     try {
-      const profile = await loadBookableDesignerProfile(rosterEntry);
+      const [profile, menu] = await Promise.all([
+        loadBookableDesignerProfile(rosterEntry),
+        getDesignerBookingMenu(designerId),
+      ]);
+      const categories = listEnabledBookingCategories(menu);
+      const firstCategory = categories[0];
+
       setSelectedDesigner(profile);
+      setDesignerMenu(menu);
+      setSelectedCategory(firstCategory?.category ?? '');
+      setSelectedMenuItemId(
+        firstCategory
+          ? listEnabledBookingMenuItems(menu, firstCategory.category)[0]?.id ?? ''
+          : '',
+      );
       setSelectedSlot(null);
       setStep('designer');
     } catch (error) {
@@ -135,7 +178,7 @@ export default function CustomerBookingScreen() {
   }, []);
 
   const handleConfirmBooking = useCallback(async () => {
-    if (!selectedDesigner || !selectedSlot || !selectedDateKey) {
+    if (!selectedDesigner || !selectedSlot || !selectedDateKey || !selectedMenu) {
       return;
     }
 
@@ -147,7 +190,9 @@ export default function CustomerBookingScreen() {
         designerName: selectedDesigner.name,
         dateKey: selectedDateKey,
         slot: selectedSlot,
-        treatmentType: selectedTreatmentType,
+        treatmentType: selectedMenu.category,
+        treatmentTitle: selectedMenu.itemName,
+        duration: selectedMenu.duration,
       });
 
       setCompletedTreatmentId(treatment.id);
@@ -158,14 +203,32 @@ export default function CustomerBookingScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [selectedDateKey, selectedDesigner, selectedSlot, selectedTreatmentType]);
+  }, [selectedDateKey, selectedDesigner, selectedMenu, selectedSlot]);
 
   const resetFlow = useCallback(() => {
     setStep('browse');
     setSelectedDesigner(null);
+    setDesignerMenu(null);
+    setSelectedCategory('');
+    setSelectedMenuItemId('');
     setSelectedSlot(null);
     setCompletedTreatmentId(null);
   }, []);
+
+  const handleSelectCategory = useCallback(
+    (category: string) => {
+      setSelectedCategory(category);
+
+      if (!designerMenu) {
+        setSelectedMenuItemId('');
+        return;
+      }
+
+      const firstItem = listEnabledBookingMenuItems(designerMenu, category)[0];
+      setSelectedMenuItemId(firstItem?.id ?? '');
+    },
+    [designerMenu],
+  );
 
   const renderDesignerCard = (
     designer: DesignerMatchResult | BookableDesignerProfile,
@@ -251,7 +314,8 @@ export default function CustomerBookingScreen() {
             <Text style={styles.doneTitle}>예약이 완료됐어요</Text>
             <Text style={styles.doneText}>
               {selectedDesigner?.name} 디자이너 · {selectedDateKey.replaceAll('-', '.')}{' '}
-              {selectedSlot?.label} · {selectedTreatmentType}
+              {selectedSlot?.label}
+              {selectedMenu ? ` · ${formatBookingMenuLabel(selectedMenu)}` : ''}
             </Text>
             <Pressable
               onPress={() =>
@@ -271,12 +335,42 @@ export default function CustomerBookingScreen() {
             <Text style={styles.sectionTitle}>{selectedDesigner.name} · 예약 시간</Text>
             <Text style={styles.sectionMeta}>{selectedDesigner.storeName}</Text>
 
-            <Text style={styles.fieldLabel}>시술 종류</Text>
-            <TreatmentOptionChips
-              options={TREATMENT_TYPE_OPTIONS}
-              value={selectedTreatmentType}
-              onChange={setSelectedTreatmentType}
-            />
+            <Text style={styles.fieldLabel}>시술 카테고리</Text>
+            {enabledCategories.length === 0 ? (
+              <EmptyState
+                title="예약 가능한 메뉴가 없어요"
+                subtitle="디자이너가 예약 메뉴를 설정하면 선택할 수 있어요."
+              />
+            ) : (
+              <TreatmentOptionChips
+                options={enabledCategories.map((category) => ({
+                  icon: category.icon,
+                  label: category.category,
+                }))}
+                value={selectedCategory}
+                onChange={handleSelectCategory}
+              />
+            )}
+
+            {menuItems.length > 0 ? (
+              <>
+                <Text style={styles.fieldLabel}>세부 메뉴</Text>
+                <TreatmentOptionChips
+                  options={menuItems.map((item) => item.name)}
+                  value={menuItems.find((item) => item.id === selectedMenuItemId)?.name ?? ''}
+                  onChange={(name) => {
+                    const match = menuItems.find((item) => item.name === name);
+                    setSelectedMenuItemId(match?.id ?? '');
+                  }}
+                />
+              </>
+            ) : null}
+
+            {selectedMenu ? (
+              <Text style={styles.menuSummary}>
+                선택 메뉴: {formatBookingMenuLabel(selectedMenu)} · {selectedMenu.duration}
+              </Text>
+            ) : null}
 
             <Text style={styles.fieldLabel}>날짜</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll}>
@@ -325,11 +419,11 @@ export default function CustomerBookingScreen() {
             )}
 
             <Pressable
-              disabled={!selectedSlot || isSubmitting}
+              disabled={!selectedSlot || !selectedMenu || isSubmitting}
               onPress={() => void handleConfirmBooking()}
               style={[
                 styles.primaryButton,
-                (!selectedSlot || isSubmitting) && styles.primaryButtonDisabled,
+                (!selectedSlot || !selectedMenu || isSubmitting) && styles.primaryButtonDisabled,
               ]}>
               {isSubmitting ? (
                 <ActivityIndicator color="#FFFFFF" />
@@ -353,8 +447,8 @@ export default function CustomerBookingScreen() {
               {selectedDesigner.recentTitles.length > 0 ? (
                 <View style={styles.historyBlock}>
                   <Text style={styles.historyTitle}>최근 시술 이력</Text>
-                  {selectedDesigner.recentTitles.map((title) => (
-                    <Text key={title} style={styles.historyItem}>
+                  {selectedDesigner.recentTitles.map((title, index) => (
+                    <Text key={`recent-title-${index}`} style={styles.historyItem}>
                       · {title}
                     </Text>
                   ))}
@@ -644,6 +738,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     marginTop: 4,
+  },
+  menuSummary: {
+    color: colors.purple,
+    fontSize: 13,
+    fontWeight: '700',
   },
   dateScroll: {
     flexGrow: 0,

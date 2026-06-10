@@ -32,6 +32,18 @@ export function getTreatmentWeekdayColor(weekdayIndex: number) {
   return '#1A1A2E';
 }
 
+export function getCalendarWeekdayHeaderColor(weekdayIndex: number) {
+  if (weekdayIndex === 0) {
+    return '#FF5A5F';
+  }
+
+  if (weekdayIndex === 6) {
+    return '#3B82F6';
+  }
+
+  return '#6B6B7B';
+}
+
 export function formatTreatmentDateSectionLabel(date: string, count: number) {
   const weekday = getTreatmentWeekdayLabel(date);
 
@@ -146,7 +158,7 @@ export function mapSettlementsToGridItems(items: SettlementListItem[]): Customer
     name: item.customerName,
     subtitle: item.treatmentTitle,
     meta: formatTreatmentDisplayDate(item.date),
-    badge: formatSettlementBadgeAmount(item.payout),
+    badge: formatSettlementBadgeAmount(item.amount),
   }));
 }
 

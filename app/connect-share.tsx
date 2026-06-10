@@ -17,7 +17,9 @@ import {
 } from '../lib/expo-connect-share';
 import { showErrorAlert, showSuccessAlert } from '../lib/alerts';
 import { colors } from '../lib/theme';
+import { AppBackButton } from '../src/components/app-back-button';
 import { ConnectQrPanel } from '../src/components/connect-qr-panel';
+import { IronlongLogoWordmark } from '../src/components/ironlong-logo';
 
 export default function ConnectShareScreen() {
   const insets = useSafeAreaInsets();
@@ -57,13 +59,9 @@ export default function ConnectShareScreen() {
         { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 32 },
       ]}
       showsVerticalScrollIndicator={false}>
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => router.back()}
-        style={({ pressed }) => [styles.backRow, pressed && styles.pressed]}>
-        <Text style={styles.backText}>‹ 뒤로</Text>
-      </Pressable>
+      <AppBackButton label="뒤로" onPress={() => router.back()} size={32} style={styles.backRow} />
 
+      <IronlongLogoWordmark compact showTagline={false} />
       <Text style={styles.title}>QR 접속</Text>
       <Text style={styles.subtitle}>Expo Go에서 QR을 스캔하거나 주소를 복사·공유하세요.</Text>
 

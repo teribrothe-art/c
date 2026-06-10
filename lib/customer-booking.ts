@@ -8,7 +8,8 @@ import {
 } from './org-store-affiliation';
 import { ensureDesignerCustomerRelationship } from './registered-customers';
 import { invalidateDesignerWorkspaceCache } from './designer-workspace-cache';
-import { defaultTreatmentTitle, TREATMENT_TYPE_OPTIONS } from './treatment-options';
+import { addNotification } from './notifications';
+import { TREATMENT_TYPE_OPTIONS } from './treatment-options';
 import {
   listTreatmentsForDesignerId,
   type Treatment,
@@ -127,10 +128,21 @@ function summarizeDesignerTreatments(treatments: Treatment[]) {
     .slice(0, 3)
     .map(([type]) => type);
 
-  const recentTitles = treatments
-    .slice(0, 5)
-    .map((treatment) => treatment.treatment_title)
-    .filter(Boolean);
+  const recentTitles: string[] = [];
+
+  for (const treatment of treatments.slice(0, 8)) {
+    const title = treatment.treatment_title?.trim();
+
+    if (!title || recentTitles.includes(title)) {
+      continue;
+    }
+
+    recentTitles.push(title);
+
+    if (recentTitles.length >= 5) {
+      break;
+    }
+  }
 
   return {
     specialtyTypes,
@@ -182,7 +194,8 @@ export type CreateCustomerBookingInput = {
   dateKey: string;
   slot: BookingTimeSlot;
   treatmentType: string;
-  treatmentTitle?: string;
+  treatmentTitle: string;
+  duration?: string;
 };
 
 export async function createCustomerBooking(input: CreateCustomerBookingInput): Promise<Treatment> {
@@ -193,12 +206,16 @@ export async function createCustomerBooking(input: CreateCustomerBookingInput): 
   }
 
   const treatmentType = input.treatmentType.trim();
+  const treatmentTitle = input.treatmentTitle.trim();
 
   if (!treatmentType) {
     throw new Error('시술 종류를 선택해주세요.');
   }
 
-  const treatmentTitle = input.treatmentTitle?.trim() || defaultTreatmentTitle(treatmentType);
+  if (!treatmentTitle) {
+    throw new Error('예약 메뉴를 선택해주세요.');
+  }
+
   const customerName = user.email.split('@')[0] || '고객';
 
   await ensureDesignerCustomerRelationship(input.designerId, user.id);
@@ -214,6 +231,16 @@ export async function createCustomerBooking(input: CreateCustomerBookingInput): 
     treatmentType,
     treatmentTitle,
     bookingTimeLabel: input.slot.label,
+    duration: input.duration,
+  });
+
+  await addNotification({
+    user_id: input.designerId,
+    type: 'treatment_recorded',
+    title: '고객 예약',
+    message: `${customerName}님 · ${input.dateKey.replaceAll('-', '.')} ${input.slot.label} · ${treatmentTitle}`,
+    treatment_id: treatment.id,
+    href: '/designer/reservations',
   });
 
   invalidateDesignerWorkspaceCache();

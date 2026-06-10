@@ -115,7 +115,7 @@ export function LoginHopeQuotesAnimation() {
     <View style={styles.block}>
       {lines.map((line, index) => (
         <Animated.Text
-          key={`${quoteIndex}-${line}`}
+          key={`${quoteIndex}-${index}`}
           style={[
             styles.line,
             index === 0 ? styles.lineFirst : styles.lineSecond,

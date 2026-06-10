@@ -50,7 +50,7 @@ export function WeatherHairCareCard({ advice, isLoading, onAiConsult }: WeatherH
     return (
       <View style={styles.loadingCard}>
         <ActivityIndicator color="#7B5EE6" />
-        <Text style={styles.loadingText}>오늘 날씨·모발 영향 분석 중…</Text>
+        <Text style={styles.loadingText}>AI 스타일 팁 분석 중…</Text>
       </View>
     );
   }
@@ -75,15 +75,15 @@ export function WeatherHairCareCard({ advice, isLoading, onAiConsult }: WeatherH
         <Pressable
           accessibilityHint={
             expanded
-              ? '탭하면 날씨·모발 AI 상세 내용이 접힙니다'
-              : '탭하면 날씨·모발 AI 상세 내용이 펼쳐집니다'
+              ? '탭하면 AI 스타일 팁 상세 내용이 접힙니다'
+              : '탭하면 AI 스타일 팁 상세 내용이 펼쳐집니다'
           }
           accessibilityRole="button"
           accessibilityState={{ expanded }}
           onPress={handleToggle}
           style={({ pressed }) => [styles.headerPressable, pressed && styles.cardPressed]}>
           <View style={styles.headerRow}>
-            <Text style={styles.badge}>🌤️ 날씨·모발 AI</Text>
+            <Text style={styles.badge}>✨ AI 스타일 팁</Text>
             <View style={styles.headerTrailing}>
               <View style={[styles.riskDot, { backgroundColor: accent }]} />
               <Text style={styles.expandHint}>{expanded ? '접기 ⌃' : '펼치기 ›'}</Text>

@@ -1,5 +1,5 @@
-import { Link } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { Link, router } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 
 import { showLoginFailureAlert } from '../lib/alerts';
-import { isDemoAuthMode } from '../lib/auth';
+import { ensureAuthReady, getCurrentUser, isDemoAuthMode } from '../lib/auth';
+import { resolveSessionRestoreRoute } from '../lib/auth-session-routes';
 import { getErrorMessage } from '../lib/errors';
 import { signInAndNavigate } from '../lib/quick-login-flow';
 import { colors, disabledButtonStyle, loginLayout } from '../lib/theme';
@@ -33,6 +34,41 @@ export default function LoginScreen() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<LoginView>('login');
+  const [isRestoringSession, setIsRestoringSession] = useState(isDemoAuthMode);
+
+  useEffect(() => {
+    if (!isDemoAuthMode) {
+      setIsRestoringSession(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    void ensureAuthReady()
+      .then(() => getCurrentUser())
+      .then((user) => {
+        if (cancelled) {
+          return;
+        }
+
+        if (user) {
+          const nextRoute = resolveSessionRestoreRoute(user, '/');
+          router.replace(nextRoute ?? '/customer-home');
+          return;
+        }
+
+        setIsRestoringSession(false);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setIsRestoringSession(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const isSubmitDisabled = isLoading;
   const showQrEntry = isDemoAuthMode;
@@ -72,6 +108,10 @@ export default function LoginScreen() {
     }),
     [emailError, passwordError],
   );
+
+  if (isRestoringSession) {
+    return null;
+  }
 
   return (
     <KeyboardAvoidingView

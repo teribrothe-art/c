@@ -1,7 +1,7 @@
-import { toLocalDateString } from './designer-revenue-weekly';
+import { toLocalDateString, WEEKDAY_LABELS } from './designer-revenue-weekly';
 import { parseDateKey, toDateKey } from './designer-client-date-filter';
 
-export const CALENDAR_WEEKDAY_HEADERS = ['일', '월', '화', '수', '목', '금', '토'] as const;
+export const CALENDAR_WEEKDAY_HEADERS = WEEKDAY_LABELS;
 
 export type MonthCalendarDayCell = {
   dateKey: string | null;
