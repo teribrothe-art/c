@@ -7,13 +7,15 @@ import {
   demoSetItem,
   prefetchDemoWorkspaceStorage,
 } from './demo-async-storage';
+import { isDemoAuthMode } from './demo-auth-mode';
 import { invalidateGeneralSignupCustomersCache } from './demo-general-signup-customers';
 import { lookupDemoCatalogUser } from './demo-user-catalog';
-import { isSupabaseConfigured, supabase } from './supabase';
+import { supabase } from './supabase';
 import type { UserRole } from './user-role';
 
 export type { UserRole } from './user-role';
 export { DEMO_LOGIN_HINT } from './demo-login-hint';
+export { isDemoAuthMode } from './demo-auth-mode';
 
 export type AuthUser = {
   id: string;
@@ -75,8 +77,6 @@ function hydrateDemoSessionCacheFromWebStorage() {
   }
 }
 
-hydrateDemoSessionCacheFromWebStorage();
-
 /** HMR·새로고침 직후 localStorage 세션을 먼저 복원 */
 export function ensureAuthReady(): Promise<void> {
   if (authReadyPromise) {
@@ -133,8 +133,6 @@ const SEEDED_DEMO_USERS: DemoUser[] = [
     role: 'designer',
   },
 ];
-
-export const isDemoAuthMode = !isSupabaseConfigured || !supabase;
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
